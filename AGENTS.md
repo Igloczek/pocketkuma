@@ -1,69 +1,83 @@
 # AGENTS.md
 
-This repository is `uptime-buna`, a fork of Uptime Kuma focused on reducing runtime memory and dependency weight by migrating carefully selected runtime paths from Node.js to Bun.
+## Repository Identity
 
-## Project goal
+`uptime-buna` is a personal fork of Uptime Kuma. It is not an official Uptime Kuma project and is not intended to operate as a public open-source community project.
 
-- Run the backend and supporting runtime scripts on Bun.
-- Prefer native Bun APIs where they remove dependencies, reduce memory, or simplify runtime code.
-- Avoid a full rewrite of Uptime Kuma.
-- Preserve existing user-facing behavior unless a task explicitly says otherwise.
-- Measure memory and startup changes before claiming an optimization.
+The repository is published "as is": no formal support process, no issue triage process, no release promise, and no community governance files.
 
-## Task source
+## Current Stack
 
-Migration work is tracked in `/tasks`.
+- Backend: Node.js, CommonJS, Express, Socket.IO.
+- Frontend: Vue 3, Vite, Bootstrap-based UI.
+- Database layer: SQLite by default through Redbean/Knex/`@louislam/sqlite3`; MariaDB support is inherited from upstream.
+- Package manager today: npm with `package-lock.json`.
+- Runtime today: `node server/server.js`.
+- Docker today: inherited Node-based Dockerfiles.
 
-Start with:
+## Target Direction
 
-- `tasks/README.md`
-- `tasks/00-baseline-and-guardrails.md`
+- Move runtime execution from Node.js to Bun.
+- Use native Bun APIs where they reduce memory, dependencies, or runtime complexity.
+- Keep the application recognizable; do not rewrite the product from scratch.
+- Prefer SQLite and a lightweight runtime as the default direction.
 
-Do not invent broad migration work outside those files unless the user asks for it.
-
-## Agent working rules
-
-- Keep changes small and scoped to the requested task.
-- Read the existing code before editing.
-- Prefer compatibility boundaries before replacing large subsystems.
-- Do not remove features silently.
-- Do not contact GitHub, create pull requests, push branches, or post comments unless the user explicitly asks.
-- Do not write PR descriptions or review replies on behalf of the user.
-- If a change affects memory, dependencies, startup, Docker, database, networking, or monitor scheduling, include a before/after measurement or explain why measurement was not possible.
-- Preserve npm/Node paths until the relevant task says they can be removed.
-- Do not run destructive git commands unless the user explicitly requests them.
-
-## Validation expectations
-
-Use the narrowest validation that proves the change:
-
-- Documentation-only change: inspect rendered/linked markdown and check git status.
-- Package/runtime change: run install/build/start smoke checks for the touched runtime.
-- Monitor behavior change: run or add focused backend tests for the affected monitor type.
-- Frontend behavior change: run build and focused E2E or manual browser verification.
-- Docker change: build the affected target and record image size when relevant.
-
-If validation cannot be run locally, state that clearly in the final response.
-
-## Bun migration priorities
-
-Prefer these native Bun APIs when they fit the task and preserve behavior:
+Preferred Bun targets when the relevant task calls for them:
 
 - `bun install` and `bun.lock`
 - `Bun.serve`
-- Bun native WebSocket support
+- native Bun WebSocket support
 - `bun:sqlite`
 - `Bun.SQL`
 - Bun environment handling
 - `Bun.password`
 - `Bun.spawn` and Bun Shell
 
-Use Node compatibility as a stepping stone, not as the final migration result.
+## Repository Decisions
 
-## Code style
+- Migration work is tracked in `tasks/`.
+- Each `tasks/BUN-*.md` file is one task and one implementation unit.
+- Do not combine multiple task files into one implementation unless explicitly requested.
+- Keep existing npm/Node paths until a task explicitly changes the default runtime.
+- Do not restore upstream community files such as `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, issue templates, PR templates, stale workflows, release workflows, or sponsor/funding files.
+- Dependency update automation uses Renovate via `renovate.json`; do not restore Dependabot.
+- Do not add GitHub Actions or other GitHub automation unless explicitly requested.
 
-- Follow the existing project style.
-- Keep CommonJS where the surrounding backend code is still CommonJS.
-- Avoid broad formatting churn.
-- Add comments only where they clarify non-obvious behavior or migration decisions.
-- Keep docs factual and task-oriented.
+## Verification
+
+Use the command set that matches the changed area.
+
+Current inherited Node/npm checks:
+
+```bash
+npm ci
+npm run lint
+npm run build
+npm run test-backend
+npm run test-e2e
+```
+
+Current backend smoke start:
+
+```bash
+node server/server.js --port=3001 --data-dir=./data/smoke
+```
+
+Bun checks should be used only after the relevant Bun scripts or lockfile exist:
+
+```bash
+bun install --frozen-lockfile
+bun run bun:build
+bun run bun:test-backend
+bun run bun:start-server -- --port=3002 --data-dir=./data/bun-smoke
+```
+
+Runtime, memory, dependency, database, Docker, networking, and monitor-scheduling changes must include before/after measurements. Store benchmark outputs under `docs/perf/` when the task specifies a report.
+
+Docker changes should record image size with:
+
+```bash
+docker image inspect <image-name> --format '{{.Size}}'
+```
+
+Documentation-only changes do not require app tests; verify links, filenames, and `git status`.
