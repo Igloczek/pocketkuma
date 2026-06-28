@@ -1,0 +1,4 @@
+interface:
+  display_name: "Orchestrator"
+  short_description: "Coordinate task work through new threads"
+  default_prompt: "Use $orchestrator to split this task into new light-reasoning Codex threads, monitor them, and verify the final result."
