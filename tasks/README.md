@@ -32,37 +32,37 @@ notes:
 1. [BUN-000](BUN-000-memory-benchmark.md) - repeatable memory benchmark.
 2. [BUN-001](BUN-001-performance-budgets.md) - performance budgets.
 3. [BUN-002](BUN-002-agent-policy.md) - local agent working policy.
-4. [BUN-010](BUN-010-bun-lockfile.md) - controlled `bun.lock`.
-5. [BUN-011](BUN-011-bun-scripts.md) - parallel Bun scripts.
-6. [BUN-012](BUN-012-runtime-detection.md) - runtime detection.
-7. [BUN-013](BUN-013-env-and-args.md) - `.env` and CLI arguments.
-8. [BUN-020](BUN-020-memory-report.md) - runtime memory report.
-9. [BUN-021](BUN-021-monitor-timer-lifecycle.md) - monitor timer lifecycle.
-10. [BUN-022](BUN-022-heartbeat-history-load.md) - heartbeat history load cost.
-11. [BUN-030](BUN-030-http-adapter.md) - internal HTTP adapter.
-12. [BUN-031](BUN-031-notification-fetch.md) - simple notification providers through `fetch`.
-13. [BUN-032](BUN-032-http-monitor-fetch.md) - HTTP/keyword/json-query monitors through `fetch`.
-14. [BUN-033](BUN-033-http-transport-decisions.md) - decisions for proxy, mTLS, NTLM, and cookies.
-15. [BUN-034](BUN-034-remove-axios.md) - remove axios.
-16. [BUN-040](BUN-040-routing-bootstrap.md) - separate routing from Express bootstrap.
-17. [BUN-041](BUN-041-bun-serve-static.md) - static files and simple endpoints through `Bun.serve`.
-18. [BUN-042](BUN-042-websocket-evaluation.md) - evaluate Socket.IO migration.
-19. [BUN-043](BUN-043-native-websocket.md) - native Bun WebSocket.
-20. [BUN-050](BUN-050-db-cost-baseline.md) - Redbean/Knex/SQLite cost baseline.
-21. [BUN-051](BUN-051-db-repositories.md) - database repository boundaries.
-22. [BUN-052](BUN-052-bun-sqlite-hot-paths.md) - SQLite hot paths through `bun:sqlite`.
-23. [BUN-053](BUN-053-sqlite-db-architecture.md) - Redbean/Knex architecture decision.
-24. [BUN-054](BUN-054-embedded-mariadb.md) - embedded MariaDB decision.
-25. [BUN-060](BUN-060-bun-password.md) - password hashing through `Bun.password`.
-26. [BUN-061](BUN-061-bun-spawn.md) - process execution through `Bun.spawn` or Bun Shell.
-27. [BUN-062](BUN-062-ping-with-bun-spawn.md) - ping without `@louislam/ping`.
-28. [BUN-063](BUN-063-date-cron-review.md) - date and cron library review.
-29. [BUN-070](BUN-070-monitor-type-classification.md) - monitor type classification.
-30. [BUN-071](BUN-071-monitor-type-lazy-loading.md) - lazy loading monitor types.
-31. [BUN-072](BUN-072-dependency-groups.md) - lightweight/full dependency groups.
-32. [BUN-080](BUN-080-bun-docker-target.md) - Bun-based Docker target.
-33. [BUN-081](BUN-081-lightweight-docker-image.md) - lightweight Docker image.
-34. [BUN-082](BUN-082-local-bun-validation.md) - local Bun validation.
-35. [BUN-090](BUN-090-bun-default-runtime.md) - Bun as default runtime.
-36. [BUN-091](BUN-091-remove-unused-runtime-dependencies.md) - remove unused runtime dependencies.
-37. [BUN-092](BUN-092-final-migration-report.md) - final migration report.
+4. [BUN-003](BUN-003-bun-lockfile.md) - controlled `bun.lock`.
+5. [BUN-004](BUN-004-bun-scripts.md) - parallel Bun scripts.
+6. [BUN-005](BUN-005-runtime-detection.md) - runtime detection.
+7. [BUN-006](BUN-006-env-and-args.md) - `.env` and CLI arguments.
+8. [BUN-007](BUN-007-memory-report.md) - runtime memory report.
+9. [BUN-008](BUN-008-monitor-timer-lifecycle.md) - monitor timer lifecycle.
+10. [BUN-009](BUN-009-heartbeat-history-load.md) - heartbeat history load cost.
+11. [BUN-010](BUN-010-http-adapter.md) - internal HTTP adapter.
+12. [BUN-011](BUN-011-notification-fetch.md) - simple notification providers through `fetch`.
+13. [BUN-012](BUN-012-http-monitor-fetch.md) - HTTP/keyword/json-query monitors through `fetch`.
+14. [BUN-013](BUN-013-http-transport-decisions.md) - decisions for proxy, mTLS, NTLM, and cookies.
+15. [BUN-014](BUN-014-remove-axios.md) - remove axios.
+16. [BUN-015](BUN-015-routing-bootstrap.md) - separate routing from Express bootstrap.
+17. [BUN-016](BUN-016-bun-serve-static.md) - static files and simple endpoints through `Bun.serve`.
+18. [BUN-017](BUN-017-websocket-evaluation.md) - evaluate Socket.IO migration.
+19. [BUN-018](BUN-018-native-websocket.md) - native Bun WebSocket.
+20. [BUN-019](BUN-019-db-cost-baseline.md) - Redbean/Knex/SQLite cost baseline.
+21. [BUN-020](BUN-020-db-repositories.md) - database repository boundaries.
+22. [BUN-021](BUN-021-bun-sqlite-hot-paths.md) - SQLite hot paths through `bun:sqlite`.
+23. [BUN-022](BUN-022-sqlite-db-architecture.md) - Redbean/Knex architecture decision.
+24. [BUN-023](BUN-023-embedded-mariadb.md) - embedded MariaDB decision.
+25. [BUN-024](BUN-024-bun-password.md) - password hashing through `Bun.password`.
+26. [BUN-025](BUN-025-bun-spawn.md) - process execution through `Bun.spawn` or Bun Shell.
+27. [BUN-026](BUN-026-ping-with-bun-spawn.md) - ping without `@louislam/ping`.
+28. [BUN-027](BUN-027-date-cron-review.md) - date and cron library review.
+29. [BUN-028](BUN-028-monitor-type-classification.md) - monitor type classification.
+30. [BUN-029](BUN-029-monitor-type-lazy-loading.md) - lazy loading monitor types.
+31. [BUN-030](BUN-030-dependency-groups.md) - lightweight/full dependency groups.
+32. [BUN-031](BUN-031-bun-docker-target.md) - Bun-based Docker target.
+33. [BUN-032](BUN-032-lightweight-docker-image.md) - lightweight Docker image.
+34. [BUN-033](BUN-033-local-bun-validation.md) - local Bun validation.
+35. [BUN-034](BUN-034-bun-default-runtime.md) - Bun as default runtime.
+36. [BUN-035](BUN-035-remove-unused-runtime-dependencies.md) - remove unused runtime dependencies.
+37. [BUN-036](BUN-036-final-migration-report.md) - final migration report.
