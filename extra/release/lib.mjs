@@ -1,4 +1,3 @@
-import "dotenv/config";
 import * as childProcess from "child_process";
 import semver from "semver";
 import { getPrompt } from "../generate-changelog.mjs";
@@ -33,7 +32,7 @@ export function getRepoNames() {
         // Split by comma
         return process.env.RELEASE_REPO_NAMES.split(",").map((name) => name.trim());
     }
-    return ["louislam/uptime-kuma", "ghcr.io/louislam/uptime-kuma"];
+    return ["igloczek/uptime-buna", "ghcr.io/igloczek/uptime-buna"];
 }
 
 /**
@@ -42,9 +41,9 @@ export function getRepoNames() {
  */
 export function buildDist() {
     if (!dryRun) {
-        childProcess.execSync("npm run build", { stdio: "inherit" });
+        childProcess.execSync("bun run build", { stdio: "inherit" });
     } else {
-        console.info("[DRY RUN] npm run build");
+        console.info("[DRY RUN] bun run build");
     }
 }
 
@@ -63,7 +62,7 @@ export function buildImage(
     tags,
     target,
     buildArgs = "",
-    dockerfile = "docker/dockerfile",
+    dockerfile = "Dockerfile",
     platform = "linux/amd64,linux/arm64,linux/arm/v7"
 ) {
     let args = ["buildx", "build", "-f", dockerfile, "--platform", platform];
@@ -100,7 +99,7 @@ export function buildImage(
  */
 export async function checkTagExists(repoNames, version) {
     // Skip if the tag is not on Docker Hub
-    // louislam/uptime-kuma
+    // igloczek/uptime-buna
     let dockerHubRepoNames = repoNames.filter((name) => {
         return name.split("/").length === 2;
     });
@@ -172,65 +171,6 @@ export function pressAnyKey() {
             resolve();
         })
     );
-}
-
-/**
- * Append version identifier
- * @param {string} version Version
- * @param {string} identifier Identifier
- * @returns {string} Version with identifier
- */
-export function ver(version, identifier) {
-    const obj = semver.parse(version);
-
-    if (obj.prerelease.length === 0) {
-        obj.prerelease = [identifier];
-    } else {
-        obj.prerelease[0] = [obj.prerelease[0], identifier].join("-");
-    }
-    return obj.format();
-}
-
-/**
- * Upload artifacts to GitHub
- * docker buildx build -f docker/dockerfile --platform linux/amd64 -t louislam/uptime-kuma:upload-artifact --build-arg VERSION --build-arg GITHUB_TOKEN --target upload-artifact . --progress plain
- * @param {string} version Version
- * @param {string} githubToken GitHub token
- * @returns {void}
- * @deprecated
- */
-export function uploadArtifacts(version, githubToken) {
-    let args = [
-        "buildx",
-        "build",
-        "-f",
-        "docker/dockerfile",
-        "--platform",
-        "linux/amd64",
-        "-t",
-        "louislam/uptime-kuma:upload-artifact",
-        "--build-arg",
-        `VERSION=${version}`,
-        "--build-arg",
-        "GITHUB_TOKEN",
-        "--target",
-        "upload-artifact",
-        ".",
-        "--progress",
-        "plain",
-    ];
-
-    if (!dryRun) {
-        childProcess.spawnSync("docker", args, {
-            stdio: "inherit",
-            env: {
-                ...process.env,
-                GITHUB_TOKEN: githubToken,
-            },
-        });
-    } else {
-        console.log(`[DRY RUN] docker ${args.join(" ")}`);
-    }
 }
 
 /**
@@ -314,8 +254,8 @@ export async function createReleasePR(version, previousVersion, dryRun, branchNa
 
     // Build the artifact link - use direct run link if available, otherwise link to workflow file
     const artifactLink = githubRunId
-        ? `https://github.com/louislam/uptime-kuma/actions/runs/${githubRunId}/workflow`
-        : `https://github.com/louislam/uptime-kuma/actions/workflows/beta-release.yml`;
+        ? `https://github.com/igloczek/uptime-buna/actions/runs/${githubRunId}/workflow`
+        : `https://github.com/igloczek/uptime-buna/actions/workflows/beta-release.yml`;
 
     const body = `## Release ${version}
 
@@ -339,7 +279,7 @@ ${prompt}
 Run the following command to generate the changelog with the categorized map from LLM:
 
 \`\`\`bash
-npm run generate-changelog ${previousVersion} generate 'JSON_MAPPING_BY_LLM_HERE'
+bun run generate-changelog ${previousVersion} generate 'JSON_MAPPING_BY_LLM_HERE'
 \`\`\`
 
 ### Release Artifacts

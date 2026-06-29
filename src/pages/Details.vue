@@ -189,7 +189,6 @@
                             <optgroup :label="$t('pushOthers')">
                                 <option value="bash-curl">Bash (curl)</option>
                                 <option value="powershell">PowerShell</option>
-                                <option value="docker">Docker</option>
                             </optgroup>
                         </select>
 
