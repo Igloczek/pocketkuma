@@ -65,7 +65,7 @@ export default defineConfig({
 
     // Run your local dev server before starting the tests.
     webServer: {
-        command: `bun scripts/test/remove-playwright-test-data.js && NODE_ENV=development bun src/server/server.ts --port=${port} --data-dir=./data/playwright-test`,
+        command: `bun scripts/test/remove-playwright-test-data.ts && NODE_ENV=development bun src/server/server.ts --port=${port} --data-dir=./data/playwright-test`,
         url,
         reuseExistingServer: false,
         cwd: "../",

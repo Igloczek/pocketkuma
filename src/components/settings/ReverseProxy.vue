@@ -166,7 +166,7 @@ export default {
         Confirm,
     },
     data() {
-        // See /src/mixins/socket.js
+        // See /src/mixins/socket.ts
         return this.$root.cloudflared;
     },
     computed: {

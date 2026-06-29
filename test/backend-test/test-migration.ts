@@ -43,6 +43,7 @@ describe("Database Migration", () => {
             // Run all migrations like production code does
             await R.knex.migrate.latest({
                 directory: path.join(__dirname, "../../src/db/knex_migrations"),
+                loadExtensions: [".ts"],
             });
 
             // Test passes if migrations complete successfully without errors

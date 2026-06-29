@@ -5,10 +5,39 @@ import visualizer from "rollup-plugin-visualizer";
 import viteCompression from "vite-plugin-compression";
 import packageJson from "../package.json";
 
+const path = require("path");
 const postCssScss = require("postcss-scss");
 const postcssRTLCSS = require("postcss-rtlcss");
 
 const viteCompressionFilter = /\.(js|mjs|json|css|html|svg)$/i;
+const serviceWorkerEntry = path.resolve(__dirname, "../src/serviceWorker.ts");
+
+function serviceWorkerDevRoute() {
+    return {
+        name: "uptime-buna-service-worker",
+        configureServer(server) {
+            server.middlewares.use(async (request, response, next) => {
+                const pathname = new URL(request.url || "/", "http://localhost").pathname;
+                if (pathname !== "/serviceWorker.js") {
+                    next();
+                    return;
+                }
+
+                try {
+                    const result = await server.transformRequest("/serviceWorker.ts");
+                    if (!result) {
+                        next();
+                        return;
+                    }
+                    response.setHeader("Content-Type", "text/javascript; charset=utf-8");
+                    response.end(result.code);
+                } catch (error) {
+                    next(error);
+                }
+            });
+        },
+    };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -23,6 +52,7 @@ export default defineConfig({
     },
     plugins: [
         vue(),
+        serviceWorkerDevRoute(),
         visualizer({
             filename: "../tmp/dist-stats.html",
         }),
@@ -49,7 +79,14 @@ export default defineConfig({
             include: [/.js$/],
         },
         rollupOptions: {
+            input: {
+                app: path.resolve(__dirname, "../src/index.html"),
+                serviceWorker: serviceWorkerEntry,
+            },
             output: {
+                entryFileNames(chunkInfo) {
+                    return chunkInfo.name === "serviceWorker" ? "serviceWorker.js" : "assets/[name]-[hash].js";
+                },
                 manualChunks(id, { getModuleInfo, getModuleIds }) {},
             },
         },

@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use strict";
 // Original file https://raw.githubusercontent.com/elasticio/node-ntlm-client/master/lib/flags.js
 module.exports.NTLMFLAG_NEGOTIATE_UNICODE = 1 << 0;
@@ -74,4 +75,3 @@ module.exports.NTLMFLAG_NEGOTIATE_KEY_EXCHANGE = 1 << 30;
 /* Indicates that the client will provide an encrypted master key in
    the "Session Key" field of the Type 3 message. */
 module.exports.NTLMFLAG_NEGOTIATE_56 = 1 << 31;
-//# sourceMappingURL=flags.js.map

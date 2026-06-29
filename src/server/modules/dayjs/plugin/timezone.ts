@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Copy from node_modules/dayjs/plugin/timezone.js
  * Try to fix https://github.com/louislam/uptime-kuma/issues/2318

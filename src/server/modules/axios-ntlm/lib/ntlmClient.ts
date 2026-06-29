@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use strict";
 var __createBinding =
     (this && this.__createBinding) ||
@@ -266,4 +267,3 @@ function NtlmClient(credentials, AxiosConfig) {
     return client;
 }
 exports.NtlmClient = NtlmClient;
-//# sourceMappingURL=ntlmClient.js.map

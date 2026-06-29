@@ -1,7 +1,12 @@
 <template>
     <div v-if="loadedTheme" class="container mt-3">
         <!-- Sidebar for edit mode -->
-        <div v-if="enableEditMode" class="sidebar" data-testid="edit-sidebar">
+        <div
+            v-if="enableEditMode"
+            class="sidebar"
+            data-testid="edit-sidebar"
+            :data-editable-config-ready="editableConfigReady ? 'true' : 'false'"
+        >
             <div class="sidebar-body">
                 <div class="my-3">
                     <label for="slug" class="form-label">{{ $t("Slug") }}</label>
@@ -701,6 +706,7 @@ export default {
             loadedData: false,
             baseURL: "",
             clickedEditButton: false,
+            editableConfigReady: false,
             maintenanceList: [],
             lastUpdateTime: dayjs(),
             updateCountdown: null,
@@ -903,18 +909,8 @@ export default {
          * @returns {void}
          */
         "$root.loggedIn"(loggedIn) {
-            if (loggedIn) {
-                this.$root.getSocket().emit("getStatusPage", this.slug, (res) => {
-                    if (res.ok) {
-                        this.config = res.config;
-
-                        if (!this.config.customCSS) {
-                            this.config.customCSS = "body {\n" + "  \n" + "}\n";
-                        }
-                    } else {
-                        this.$root.toastError(res.msg);
-                    }
-                });
+            if (loggedIn && this.enableEditMode && !this.editableConfigReady) {
+                this.loadEditableConfig();
             }
         },
 
@@ -1131,15 +1127,72 @@ export default {
          * Enable editing mode
          * @returns {void}
          */
-        edit() {
+        async edit() {
             if (this.hasToken) {
+                this.editableConfigReady = false;
                 this.$root.initSocketIO(true);
-                this.enableEditMode = true;
                 this.clickedEditButton = true;
 
                 // Try to fix #1658
                 this.loadedData = true;
+
+                try {
+                    await this.loadEditableConfig();
+                    this.enableEditMode = true;
+                } catch (error) {
+                    this.$root.toastError(error.message);
+                }
             }
+        },
+
+        /**
+         * Wait until the status-page socket is authenticated.
+         * @returns {Promise<void>}
+         */
+        waitForSocketLogin() {
+            if (this.$root.loggedIn) {
+                return Promise.resolve();
+            }
+
+            return new Promise((resolve, reject) => {
+                const started = Date.now();
+                const check = () => {
+                    if (this.$root.loggedIn) {
+                        resolve();
+                    } else if (Date.now() - started > 5000) {
+                        reject(new Error("Timed out while loading status page editor."));
+                    } else {
+                        setTimeout(check, 50);
+                    }
+                };
+
+                check();
+            });
+        },
+
+        /**
+         * Load the private status page config before exposing edit controls.
+         * @returns {Promise<void>}
+         */
+        async loadEditableConfig() {
+            await this.waitForSocketLogin();
+
+            return new Promise((resolve, reject) => {
+                this.$root.getSocket().emit("getStatusPage", this.slug, (res) => {
+                    if (res.ok) {
+                        this.config = res.config;
+
+                        if (!this.config.customCSS) {
+                            this.config.customCSS = "body {\n" + "  \n" + "}\n";
+                        }
+
+                        this.editableConfigReady = true;
+                        resolve();
+                    } else {
+                        reject(new Error(res.msg));
+                    }
+                });
+            });
         },
 
         /**
@@ -1168,7 +1221,12 @@ export default {
 
                         setTimeout(() => {
                             this.loading = false;
-                            location.href = "/status/" + this.config.slug;
+                            const targetPath = "/status/" + this.config.slug;
+                            if (location.pathname === targetPath && !location.search) {
+                                location.reload();
+                            } else {
+                                location.href = targetPath;
+                            }
                         }, time);
                     } else {
                         this.loading = false;

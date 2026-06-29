@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use strict";
 // Original source at https://github.com/elasticio/node-ntlm-client/blob/master/lib/hash.js
 var crypto = require("crypto");
@@ -124,4 +125,3 @@ module.exports = {
     createNTLMv2Response: createNTLMv2Response,
     createPseudoRandomValue: createPseudoRandomValue,
 };
-//# sourceMappingURL=hash.js.map

@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use strict";
 // Original file https://raw.githubusercontent.com/elasticio/node-ntlm-client/master/lib/ntlm.js
 var os = require("os"),
@@ -230,4 +231,3 @@ module.exports = {
     decodeType2Message: decodeType2Message,
     createType3Message: createType3Message,
 };
-//# sourceMappingURL=ntlm.js.map
