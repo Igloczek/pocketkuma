@@ -1,0 +1,108 @@
+// @ts-nocheck
+const crypto = require("crypto");
+const { isBunRuntime } = require("./runtime");
+
+/**
+ * Hash a password
+ * @param {string} password Password to hash
+ * @returns {Promise<string>} Hash
+ */
+exports.generate = async function (password) {
+    if (isBunRuntime()) {
+        return await Bun.password.hash(password, {
+            algorithm: "argon2id",
+        });
+    }
+
+    return generateScrypt(password);
+};
+
+/**
+ * Verify a password against a hash
+ * @param {string} password Password to verify
+ * @param {string} hash Hash to verify against
+ * @returns {boolean} Does the password match the hash?
+ */
+exports.verify = async function (password, hash) {
+    if (isSHA1(hash)) {
+        return verifyLegacySHA1(password, hash);
+    }
+
+    if (isBunRuntime()) {
+        try {
+            return await Bun.password.verify(password, hash);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    return verifyScrypt(password, hash);
+};
+
+function verifyLegacySHA1(password, hash) {
+    const parts = makeLegacySHA1BackwardCompatible(hash).split("$");
+    if (parts.length !== 4) {
+        return false;
+    }
+
+    const [algorithm, salt, iterations, digest] = parts;
+    let candidate = password;
+    for (let i = 0; i < Number(iterations); i++) {
+        candidate = crypto.createHmac(algorithm, salt).update(candidate).digest("hex");
+    }
+    if (candidate.length !== digest.length) {
+        return false;
+    }
+
+    return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(digest));
+}
+
+function makeLegacySHA1BackwardCompatible(hash) {
+    const parts = hash.split("$");
+    if (parts.length === 3) {
+        parts.splice(2, 0, "1");
+        return parts.join("$");
+    }
+    return hash;
+}
+
+function generateScrypt(password) {
+    const salt = crypto.randomBytes(16).toString("hex");
+    const key = crypto.scryptSync(password, salt, 64).toString("hex");
+    return `scrypt$${salt}$${key}`;
+}
+
+function verifyScrypt(password, hash) {
+    if (typeof hash !== "string" || !hash.startsWith("scrypt$")) {
+        return false;
+    }
+
+    const [, salt, key] = hash.split("$");
+    const candidate = crypto.scryptSync(password, salt, 64).toString("hex");
+    if (candidate.length !== key.length) {
+        return false;
+    }
+    return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(key));
+}
+
+/**
+ * Is the hash a SHA1 hash
+ * @param {string} hash Hash to check
+ * @returns {boolean} Is SHA1 hash?
+ */
+function isSHA1(hash) {
+    return typeof hash === "string" && hash.startsWith("sha1");
+}
+
+/**
+ * Does the hash need to be rehashed?
+ * @param {string} hash Hash to check
+ * @returns {boolean} Needs to be rehashed?
+ */
+exports.needRehash = function (hash) {
+    return isBunRuntime() ? !isBunPasswordHash(hash) : isSHA1(hash);
+};
+
+function isBunPasswordHash(hash) {
+    return typeof hash === "string" && hash.startsWith("$argon2id$");
+}

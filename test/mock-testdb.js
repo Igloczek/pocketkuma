@@ -1,5 +1,5 @@
 const { sync: rimrafSync } = require("rimraf");
-const Database = require("../server/database");
+const Database = require("../src/server/database");
 
 class TestDB {
     dataDir;

@@ -2,11 +2,7 @@
 /*!
 // Common Util for frontend and backend
 //
-// DOT NOT MODIFY util.js!
-// Need to run "npm run tsc" to compile if there are any changes.
-//
-// Backend uses the compiled file util.js
-// Frontend uses util.ts
+// Backend and frontend both load this TypeScript source directly under Bun/Vite.
 */
 
 import dayjsFrontend from "dayjs";
@@ -17,7 +13,7 @@ import * as timezone from "dayjs/plugin/timezone";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import * as utc from "dayjs/plugin/utc";
 
-import * as jsonata from "jsonata";
+import jsonata from "jsonata";
 
 export const isDev = process.env.NODE_ENV === "development";
 export const isNode = typeof process !== "undefined" && process?.versions?.node;
@@ -419,7 +415,7 @@ declare global {
  */
 export function polyfill() {
     if (!String.prototype.replaceAll) {
-        String.prototype.replaceAll = function (str: string, newStr: string) {
+        (String.prototype as any).replaceAll = function (str: string, newStr: string) {
             // If a regex pattern
             if (Object.prototype.toString.call(str).toLowerCase() === "[object regexp]") {
                 return this.replace(str, newStr);

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { PluginFunc, ConfigType } from "dayjs/esm";
 
 declare const plugin: PluginFunc;

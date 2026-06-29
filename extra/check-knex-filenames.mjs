@@ -1,5 +1,5 @@
 import fs from "fs";
-const dir = "./db/knex_migrations";
+const dir = "./src/db/knex_migrations";
 
 // Get the file list (ending with .js) from the directory
 const files = fs.readdirSync(dir).filter((file) => file !== "README.md");
