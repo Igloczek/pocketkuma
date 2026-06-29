@@ -3,6 +3,7 @@ module.exports = {
         {
             name: "uptime-kuma",
             script: "./src/server/server.ts",
+            interpreter: "bun",
         },
     ],
 };
