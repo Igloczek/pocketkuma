@@ -2,7 +2,7 @@
 
 Date: 2026-06-29
 
-This snapshot backs the runtime numbers published in the README. It is not an upstream Uptime Kuma benchmark; it records the current Uptime Buna default path on this machine.
+This snapshot is historical reference evidence under `docs/perf/`. It is not an upstream Uptime Kuma benchmark; it records the current Uptime Buna default path on this machine.
 
 ## Startup RSS
 

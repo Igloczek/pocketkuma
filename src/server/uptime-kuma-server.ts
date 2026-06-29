@@ -20,6 +20,8 @@ import { runCommandChecked } from "./process-helper.ts";
 import { createMonitorTypeList, getMonitorType } from "./monitor-runtime-registry.ts";
 import Monitor from "./model/monitor.ts";
 import packageJson from "../../package.json" with { type: "json" };
+import { isCompiledBinary } from "./app-paths.ts";
+import { getEmbeddedAssetRef } from "./generated/embedded-assets.ts";
 
 class UptimeKumaServer {
     /**
@@ -89,11 +91,19 @@ class UptimeKumaServer {
         this.io = new BunRealtimeAdapter(this);
 
         try {
-            this.indexHTML = fs.readFileSync("./dist/index.html").toString();
+            if (isCompiledBinary()) {
+                const embeddedIndex = getEmbeddedAssetRef("index.html");
+                if (!embeddedIndex) {
+                    throw new Error("Embedded index.html is missing from the compiled binary.");
+                }
+                this.indexHTML = fs.readFileSync(embeddedIndex, "utf8");
+            } else {
+                this.indexHTML = fs.readFileSync("./dist/index.html", "utf8");
+            }
         } catch (e) {
             // "dist/index.html" is not necessary for development
             if (process.env.NODE_ENV !== "development") {
-                log.error("server", "Error: Cannot find 'dist/index.html', did you install correctly?");
+                log.error("server", "Error: Cannot find frontend assets. Build the binary with `bun run build`.");
                 process.exit(1);
             }
         }
