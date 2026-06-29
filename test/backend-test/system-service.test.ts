@@ -4,8 +4,7 @@
  * Check if the test should be skipped.
  * @returns {boolean} True if the test should be skipped
  */
-import { describe, test, beforeEach, afterEach } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { SystemServiceMonitorType } from "../../src/server/monitor-types/system-service.ts";
 import { DOWN, UP } from "../../src/util.ts";
 import process from "process";
@@ -29,7 +28,7 @@ function shouldSkip() {
     }
 }
 
-describe("SystemServiceMonitorType", { skip: shouldSkip() }, () => {
+describe.skipIf(shouldSkip())("SystemServiceMonitorType", () => {
     let monitorType;
     let heartbeat;
     let originalPlatform;
@@ -60,8 +59,8 @@ describe("SystemServiceMonitorType", { skip: shouldSkip() }, () => {
 
         await monitorType.check(monitor, heartbeat);
 
-        assert.strictEqual(heartbeat.status, UP);
-        assert.ok(heartbeat.msg.includes("is running"));
+        expect(heartbeat.status).toBe(UP);
+        expect(heartbeat.msg.includes("is running")).toBeTruthy();
     });
 
     test("check() returns DOWN for a stopped service", async () => {
@@ -70,10 +69,10 @@ describe("SystemServiceMonitorType", { skip: shouldSkip() }, () => {
         };
 
         // Query a non-existent service to force an error/down state.
-        // We pass the promise directly to assert.rejects, avoiding unnecessary async wrappers.
-        await assert.rejects(monitorType.check(monitor, heartbeat));
+        // Pass the promise directly to expect().rejects without an unnecessary async wrapper.
+        await expect(monitorType.check(monitor, heartbeat)).rejects.toThrow();
 
-        assert.strictEqual(heartbeat.status, DOWN);
+        expect(heartbeat.status).toBe(DOWN);
     });
 
     test("check() fails gracefully with invalid characters", async () => {
@@ -88,9 +87,9 @@ describe("SystemServiceMonitorType", { skip: shouldSkip() }, () => {
         };
 
         // Expected validation error
-        await assert.rejects(monitorType.check(monitor, heartbeat));
+        await expect(monitorType.check(monitor, heartbeat)).rejects.toThrow();
 
-        assert.strictEqual(heartbeat.status, DOWN);
+        expect(heartbeat.status).toBe(DOWN);
     });
 
     test("check() throws on unsupported platforms", async () => {
@@ -104,6 +103,6 @@ describe("SystemServiceMonitorType", { skip: shouldSkip() }, () => {
             system_service_name: "test-service",
         };
 
-        await assert.rejects(monitorType.check(monitor, heartbeat), /not supported/);
+        await expect(monitorType.check(monitor, heartbeat)).rejects.toThrow(/not supported/);
     });
 });

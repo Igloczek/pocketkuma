@@ -1,16 +1,12 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect } from "bun:test";
 import { RabbitMQContainer } from "@testcontainers/rabbitmq";
 import { RabbitMqMonitorType } from "../../../src/server/monitor-types/rabbitmq.ts";
 import { UP, PENDING } from "../../../src/util.ts";
 
-describe(
+describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
     "RabbitMQ Single Node",
-    {
-        skip: !!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"),
-    },
     () => {
         test("check() sets status to UP when RabbitMQ server is reachable", async () => {
             // The default timeout of 30 seconds might not be enough for the container to start
@@ -31,9 +27,9 @@ describe(
             };
 
             try {
-                await rabbitMQMonitor.check(monitor, heartbeat, {});
-                assert.strictEqual(heartbeat.status, UP);
-                assert.strictEqual(heartbeat.msg, "Node is reachable and there are no alerts in the cluster");
+                await rabbitMQMonitor.check(monitor, heartbeat);
+                expect(heartbeat.status).toBe(UP);
+                expect(heartbeat.msg).toBe("Node is reachable and there are no alerts in the cluster");
             } finally {
                 rabbitMQContainer.stop();
             }
@@ -56,7 +52,7 @@ describe(
             // regex match any string
             const regex = /.+/;
 
-            await assert.rejects(rabbitMQMonitor.check(monitor, heartbeat, {}), regex);
+            await expect(rabbitMQMonitor.check(monitor, heartbeat)).rejects.toThrow(regex);
         });
 
         test("checkSingleNode() succeeds when node is healthy", async () => {
@@ -89,7 +85,9 @@ describe(
             };
 
             // Should reject with any error (connection refused, timeout, etc.)
-            await assert.rejects(rabbitMQMonitor.checkSingleNode(monitor, "http://localhost:15672", "1/1"), Error);
+            await expect(rabbitMQMonitor.checkSingleNode(monitor, "http://localhost:15672", "1/1")).rejects.toThrow(
+                Error
+            );
         });
     }
 );
@@ -116,10 +114,10 @@ describe("RabbitMQ Multi-Node (Mocked)", () => {
             // Success - don't throw
         };
 
-        await rabbitMQMonitor.check(monitor, heartbeat, {});
-        assert.strictEqual(heartbeat.status, UP);
-        assert.strictEqual(heartbeat.msg, "One of the 2 nodes is reachable and there are no alerts in the cluster");
-        assert.strictEqual(callCount, 1, "Should only check first node");
+        await rabbitMQMonitor.check(monitor, heartbeat);
+        expect(heartbeat.status).toBe(UP);
+        expect(heartbeat.msg).toBe("One of the 2 nodes is reachable and there are no alerts in the cluster");
+        expect(callCount).toBe(1); // Should only check first node;
     });
 
     test("check() succeeds when second node is healthy after first fails", async () => {
@@ -146,10 +144,10 @@ describe("RabbitMQ Multi-Node (Mocked)", () => {
             // Second call succeeds - don't throw
         };
 
-        await rabbitMQMonitor.check(monitor, heartbeat, {});
-        assert.strictEqual(heartbeat.status, UP);
-        assert.strictEqual(heartbeat.msg, "One of the 2 nodes is reachable and there are no alerts in the cluster");
-        assert.strictEqual(callCount, 2, "Should check both nodes");
+        await rabbitMQMonitor.check(monitor, heartbeat);
+        expect(heartbeat.status).toBe(UP);
+        expect(heartbeat.msg).toBe("One of the 2 nodes is reachable and there are no alerts in the cluster");
+        expect(callCount).toBe(2); // Should check both nodes;
     });
 
     test("check() fails with consolidated error when all nodes are down", async () => {
@@ -173,14 +171,17 @@ describe("RabbitMQ Multi-Node (Mocked)", () => {
             throw new Error(`Connection failed to node ${callCount}`);
         };
 
-        await assert.rejects(rabbitMQMonitor.check(monitor, heartbeat, {}), (error) => {
-            assert.match(error.message, /All 3 nodes failed/);
-            assert.match(error.message, /Node 1:/);
-            assert.match(error.message, /Node 2:/);
-            assert.match(error.message, /Node 3:/);
-            return true;
-        });
-        assert.strictEqual(callCount, 3, "Should check all three nodes");
+        try {
+            await rabbitMQMonitor.check(monitor, heartbeat);
+            expect.unreachable();
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            expect(msg).toMatch(/All 3 nodes failed/);
+            expect(msg).toMatch(/Node 1:/);
+            expect(msg).toMatch(/Node 2:/);
+            expect(msg).toMatch(/Node 3:/);
+        }
+        expect(callCount).toBe(3); // Should check all three nodes;
     });
 
     test("check() fails when no nodes are configured", async () => {
@@ -197,7 +198,7 @@ describe("RabbitMQ Multi-Node (Mocked)", () => {
             status: PENDING,
         };
 
-        await assert.rejects(rabbitMQMonitor.check(monitor, heartbeat, {}), /No RabbitMQ nodes configured/);
+        await expect(rabbitMQMonitor.check(monitor, heartbeat)).rejects.toThrow(/No RabbitMQ nodes configured/);
     });
 
     test("check() tries all nodes before failing", async () => {
@@ -225,12 +226,12 @@ describe("RabbitMQ Multi-Node (Mocked)", () => {
             throw new Error(`Failed: ${url}`);
         };
 
-        await assert.rejects(rabbitMQMonitor.check(monitor, heartbeat, {}), /All 4 nodes failed/);
+        await expect(rabbitMQMonitor.check(monitor, heartbeat)).rejects.toThrow(/All 4 nodes failed/);
 
-        assert.strictEqual(checkedNodes.length, 4, "Should check all 4 nodes");
-        assert.strictEqual(checkedNodes[0], "http://node1:15672");
-        assert.strictEqual(checkedNodes[1], "http://node2:15672");
-        assert.strictEqual(checkedNodes[2], "http://node3:15672");
-        assert.strictEqual(checkedNodes[3], "http://node4:15672");
+        expect(checkedNodes.length).toBe(4); // Should check all 4 nodes;
+        expect(checkedNodes[0]).toEqual("http://node1:15672");
+        expect(checkedNodes[1]).toEqual("http://node2:15672");
+        expect(checkedNodes[2]).toEqual("http://node3:15672");
+        expect(checkedNodes[3]).toEqual("http://node4:15672");
     });
 });

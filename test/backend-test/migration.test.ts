@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
+import { describe, test } from "bun:test";
 import fs from "fs";
 import path from "path";
 import Sqlite3Dialect from "knex/lib/dialects/sqlite3/index.js";

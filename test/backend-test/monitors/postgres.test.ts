@@ -1,16 +1,12 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect } from "bun:test";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { PostgresMonitorType } from "../../../src/server/monitor-types/postgres.ts";
 import { UP, PENDING } from "../../../src/util.ts";
 
-describe(
+describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
     "Postgres Single Node",
-    {
-        skip: !!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"),
-    },
     () => {
         test("check() sets status to UP when Postgres server is reachable", async () => {
             // The default timeout of 30 seconds might not be enough for the container to start
@@ -28,8 +24,8 @@ describe(
             };
 
             try {
-                await postgresMonitor.check(monitor, heartbeat, {});
-                assert.strictEqual(heartbeat.status, UP);
+                await postgresMonitor.check(monitor, heartbeat);
+                expect(heartbeat.status).toBe(UP);
             } finally {
                 postgresContainer.stop();
             }
@@ -49,7 +45,7 @@ describe(
             // regex match any string
             const regex = /.+/;
 
-            await assert.rejects(postgresMonitor.check(monitor, heartbeat, {}), regex);
+            await expect(postgresMonitor.check(monitor, heartbeat)).rejects.toThrow(regex);
         });
     }
 );

@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test, beforeEach, afterEach } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import Monitor from "../../src/server/model/monitor.ts";
 
 describe("monitor scheduler timer control", () => {
@@ -40,9 +39,9 @@ describe("monitor scheduler timer control", () => {
         monitor.scheduleHeartbeat(() => {}, 1000);
         monitor.scheduleHeartbeat(() => {}, 1000);
 
-        assert.deepStrictEqual(clearedTimers, [1, 2]);
-        assert.deepStrictEqual([...activeTimers], [3]);
-        assert.strictEqual(monitor.heartbeatInterval, 3);
+        expect(clearedTimers).toEqual([1, 2]);
+        expect([...activeTimers]).toEqual([3]);
+        expect(monitor.heartbeatInterval).toBe(3);
     });
 
     test("pause and stop clear future checks", async () => {
@@ -51,9 +50,9 @@ describe("monitor scheduler timer control", () => {
         monitor.scheduleHeartbeat(() => {}, 1000);
         await monitor.stop();
 
-        assert.deepStrictEqual(clearedTimers, [1]);
-        assert.deepStrictEqual([...activeTimers], []);
-        assert.strictEqual(monitor.heartbeatInterval, null);
-        assert.strictEqual(monitor.isStop, true);
+        expect(clearedTimers).toEqual([1]);
+        expect([...activeTimers]).toEqual([]);
+        expect(monitor.heartbeatInterval).toBe(null);
+        expect(monitor.isStop).toBe(true);
     });
 });

@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test, mock } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect, spyOn } from "bun:test";
 import StatusPage from "../../src/server/model/status_page.ts";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -18,32 +17,32 @@ describe("StatusPage", () => {
     describe("getStatusDescription()", () => {
         test("returns 'No Services' when status is -1", () => {
             const description = StatusPage.getStatusDescription(-1);
-            assert.strictEqual(description, "No Services");
+            expect(description).toBe("No Services");
         });
 
         test("returns 'All Systems Operational' when all services are up", () => {
             const description = StatusPage.getStatusDescription(STATUS_PAGE_ALL_UP);
-            assert.strictEqual(description, "All Systems Operational");
+            expect(description).toBe("All Systems Operational");
         });
 
         test("returns 'Partially Degraded Service' when some services are down", () => {
             const description = StatusPage.getStatusDescription(STATUS_PAGE_PARTIAL_DOWN);
-            assert.strictEqual(description, "Partially Degraded Service");
+            expect(description).toBe("Partially Degraded Service");
         });
 
         test("returns 'Degraded Service' when all services are down", () => {
             const description = StatusPage.getStatusDescription(STATUS_PAGE_ALL_DOWN);
-            assert.strictEqual(description, "Degraded Service");
+            expect(description).toBe("Degraded Service");
         });
 
         test("returns 'Under maintenance' when status page is in maintenance", () => {
             const description = StatusPage.getStatusDescription(STATUS_PAGE_MAINTENANCE);
-            assert.strictEqual(description, "Under maintenance");
+            expect(description).toBe("Under maintenance");
         });
 
         test("returns '?' for unknown status values", () => {
             const description = StatusPage.getStatusDescription(999);
-            assert.strictEqual(description, "?");
+            expect(description).toBe("?");
         });
     });
 
@@ -72,7 +71,7 @@ describe("StatusPage", () => {
                 },
             ];
 
-            mock.method(StatusPage, "getRSSPageData", async () => ({
+            const getRSSPageDataSpy = spyOn(StatusPage, "getRSSPageData").mockImplementation(async () => ({
                 incidents: mockIncidents,
                 heartbeats: mockHeartbeats,
                 statusDescription: "All Systems Operational",
@@ -81,9 +80,9 @@ describe("StatusPage", () => {
             try {
                 const rss = await StatusPage.renderRSS(mockStatusPage, MOCK_FEED_URL);
 
-                assert.ok(rss.includes("<pubDate>Sat, 24 Jan 2026 13:16:25 GMT</pubDate>"));
+                expect(rss.includes("<pubDate>Sat, 24 Jan 2026 13:16:25 GMT</pubDate>")).toBeTruthy();
             } finally {
-                mock.restoreAll();
+                getRSSPageDataSpy.mockRestore();
             }
         });
     });

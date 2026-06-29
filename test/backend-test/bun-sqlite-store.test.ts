@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test, beforeEach, afterEach } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -31,16 +30,16 @@ describe("Bun SQLite Redbean compatibility store", () => {
         const incidentColumns = await store.getCol("SELECT name FROM pragma_table_info('incident')");
         const statusPageColumns = await store.getCol("SELECT name FROM pragma_table_info('status_page')");
 
-        assert.strictEqual(monitorColumns.includes("dns_last_result"), true);
-        assert.strictEqual(incidentColumns.includes("pin"), true);
-        assert.strictEqual(incidentColumns.includes("active"), true);
-        assert.strictEqual(statusPageColumns.includes("autoRefreshInterval"), true);
-        assert.strictEqual(statusPageColumns.includes("analytics_id"), true);
-        assert.strictEqual(statusPageColumns.includes("analytics_script_url"), true);
-        assert.strictEqual(statusPageColumns.includes("analytics_type"), true);
-        assert.strictEqual(statusPageColumns.includes("rss_title"), true);
-        assert.strictEqual(statusPageColumns.includes("show_certificate_expiry"), true);
-        assert.strictEqual(statusPageColumns.includes("show_only_last_heartbeat"), true);
+        expect(monitorColumns.includes("dns_last_result")).toBe(true);
+        expect(incidentColumns.includes("pin")).toBe(true);
+        expect(incidentColumns.includes("active")).toBe(true);
+        expect(statusPageColumns.includes("autoRefreshInterval")).toBe(true);
+        expect(statusPageColumns.includes("analytics_id")).toBe(true);
+        expect(statusPageColumns.includes("analytics_script_url")).toBe(true);
+        expect(statusPageColumns.includes("analytics_type")).toBe(true);
+        expect(statusPageColumns.includes("rss_title")).toBe(true);
+        expect(statusPageColumns.includes("show_certificate_expiry")).toBe(true);
+        expect(statusPageColumns.includes("show_only_last_heartbeat")).toBe(true);
 
         await store.exec(
             "INSERT INTO status_page (id, slug, title, icon, theme, autoRefreshInterval, analytics_id, analytics_script_url, analytics_type, rss_title, show_certificate_expiry, show_only_last_heartbeat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -57,13 +56,13 @@ describe("Bun SQLite Redbean compatibility store", () => {
             "pin = 1 AND active = 1 AND status_page_id = ? ORDER BY created_date DESC",
             [1]
         );
-        assert.strictEqual(incidents.length, 1);
+        expect(incidents.length).toBe(1);
 
         const statusPage = await store.findOne("status_page", " slug = ? ", ["test"]);
-        assert.strictEqual(statusPage.analyticsId, "G-123");
-        assert.strictEqual(statusPage.analyticsScriptUrl, "https://analytics.example/script.js");
-        assert.strictEqual(statusPage.analyticsType, "google");
-        assert.strictEqual(statusPage.rssTitle, "RSS");
+        expect(statusPage.analyticsId).toBe("G-123");
+        expect(statusPage.analyticsScriptUrl).toBe("https://analytics.example/script.js");
+        expect(statusPage.analyticsType).toBe("google");
+        expect(statusPage.rssTitle).toBe("RSS");
     });
 
     test("transaction handle supports status-page domain mapping operations", async () => {
@@ -89,7 +88,7 @@ describe("Bun SQLite Redbean compatibility store", () => {
         }
 
         const domain = await store.getCell("SELECT domain FROM status_page_cname WHERE status_page_id = ?", [1]);
-        assert.strictEqual(domain, "status.example.com");
+        expect(domain).toBe("status.example.com");
     });
 
     test("serializes freshly dispensed heartbeat beans for live socket events", async () => {
@@ -103,7 +102,7 @@ describe("Bun SQLite Redbean compatibility store", () => {
         heartbeat.duration = 50;
         heartbeat.retries = 0;
 
-        assert.deepStrictEqual(heartbeat.toJSON(), {
+        expect(heartbeat.toJSON()).toEqual({
             monitorID: 7,
             status: 1,
             time: "2026-01-01 00:00:00.000",
@@ -147,7 +146,7 @@ describe("Bun SQLite Redbean compatibility store", () => {
         );
 
         const group = await store.findOne("group", " status_page_id = ? ", [1]);
-        assert.strictEqual(typeof group.toPublicJSON, "function");
+        expect(typeof group.toPublicJSON).toBe("function");
 
         const monitorRows = await store.getAll(
             `
@@ -161,10 +160,10 @@ describe("Bun SQLite Redbean compatibility store", () => {
         );
 
         const [monitor] = store.convertToBeans("monitor", monitorRows);
-        assert.strictEqual(typeof monitor.getIgnoreTls, "function");
-        assert.strictEqual(monitor.getIgnoreTls(), false);
-        assert.strictEqual(monitor.sendUrl, true);
-        assert.strictEqual(monitor.customUrl, "https://example.com");
+        expect(typeof monitor.getIgnoreTls).toBe("function");
+        expect(monitor.getIgnoreTls()).toBe(false);
+        expect(monitor.sendUrl).toBe(true);
+        expect(monitor.customUrl).toBe("https://example.com");
     });
 
     test("stores monitor camelCase fields in canonical snake_case columns", async () => {
@@ -205,41 +204,41 @@ describe("Bun SQLite Redbean compatibility store", () => {
         const id = await store.store(bean);
         const columns = await store.getCol("SELECT name FROM pragma_table_info('monitor')");
 
-        assert.strictEqual(columns.includes("ignoreTls"), false);
-        assert.strictEqual(columns.includes("expiryNotification"), false);
-        assert.strictEqual(columns.includes("domainExpiryNotification"), false);
-        assert.strictEqual(columns.includes("proxyId"), false);
-        assert.strictEqual(columns.includes("pushToken"), false);
-        assert.strictEqual(columns.includes("responseMaxLength"), false);
-        assert.strictEqual(columns.includes("retryInterval"), false);
-        assert.strictEqual(columns.includes("saveResponse"), false);
-        assert.strictEqual(columns.includes("wsSubprotocol"), false);
-        assert.strictEqual(columns.includes("ipFamily"), false);
+        expect(columns.includes("ignoreTls")).toBe(false);
+        expect(columns.includes("expiryNotification")).toBe(false);
+        expect(columns.includes("domainExpiryNotification")).toBe(false);
+        expect(columns.includes("proxyId")).toBe(false);
+        expect(columns.includes("pushToken")).toBe(false);
+        expect(columns.includes("responseMaxLength")).toBe(false);
+        expect(columns.includes("retryInterval")).toBe(false);
+        expect(columns.includes("saveResponse")).toBe(false);
+        expect(columns.includes("wsSubprotocol")).toBe(false);
+        expect(columns.includes("ipFamily")).toBe(false);
 
         const row = await store.getRow(
             "SELECT ignore_tls, expiry_notification, domain_expiry_notification, retry_interval, save_response, save_error_response, response_max_length, push_token, ws_subprotocol, ip_family FROM monitor WHERE id = ?",
             [id]
         );
-        assert.strictEqual(Number(row.ignore_tls), 0);
-        assert.strictEqual(Number(row.expiry_notification), 0);
-        assert.strictEqual(Number(row.domain_expiry_notification), 0);
-        assert.strictEqual(Number(row.retry_interval), 20);
-        assert.strictEqual(Number(row.save_response), 0);
-        assert.strictEqual(Number(row.save_error_response), 1);
-        assert.strictEqual(Number(row.response_max_length), 1024);
-        assert.strictEqual(row.push_token, "push-token");
-        assert.strictEqual(row.ws_subprotocol, "chat");
-        assert.strictEqual(row.ip_family, "ipv4");
+        expect(Number(row.ignore_tls)).toBe(0);
+        expect(Number(row.expiry_notification)).toBe(0);
+        expect(Number(row.domain_expiry_notification)).toBe(0);
+        expect(Number(row.retry_interval)).toBe(20);
+        expect(Number(row.save_response)).toBe(0);
+        expect(Number(row.save_error_response)).toBe(1);
+        expect(Number(row.response_max_length)).toBe(1024);
+        expect(row.push_token).toBe("push-token");
+        expect(row.ws_subprotocol).toBe("chat");
+        expect(row.ip_family).toBe("ipv4");
 
         const loaded = await store.load("monitor", id);
-        assert.strictEqual(loaded.getIgnoreTls(), false);
-        assert.strictEqual(loaded.isEnabledExpiryNotification(), false);
-        assert.strictEqual(loaded.domainExpiryNotification, false);
-        assert.strictEqual(loaded.retryInterval, 20);
-        assert.strictEqual(loaded.responseMaxLength, 1024);
-        assert.strictEqual(loaded.pushToken, "push-token");
-        assert.strictEqual(loaded.wsSubprotocol, "chat");
-        assert.strictEqual(loaded.ipFamily, "ipv4");
+        expect(loaded.getIgnoreTls()).toBe(false);
+        expect(loaded.isEnabledExpiryNotification()).toBe(false);
+        expect(loaded.domainExpiryNotification).toBe(false);
+        expect(loaded.retryInterval).toBe(20);
+        expect(loaded.responseMaxLength).toBe(1024);
+        expect(loaded.pushToken).toBe("push-token");
+        expect(loaded.wsSubprotocol).toBe("chat");
+        expect(loaded.ipFamily).toBe("ipv4");
     });
 
     test("prefers canonical monitor columns over legacy stray camelCase columns", async () => {
@@ -251,8 +250,8 @@ describe("Bun SQLite Redbean compatibility store", () => {
 
         const loaded = await store.findOne("monitor", " name = ? ", ["Legacy mapping"]);
 
-        assert.strictEqual(loaded.ignore_tls, false);
-        assert.strictEqual(loaded.ignoreTls, false);
-        assert.strictEqual(loaded.getIgnoreTls(), false);
+        expect(loaded.ignore_tls).toBe(false);
+        expect(loaded.ignoreTls).toBe(false);
+        expect(loaded.getIgnoreTls()).toBe(false);
     });
 });

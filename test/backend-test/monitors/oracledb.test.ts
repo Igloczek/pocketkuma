@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { after, before, describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { OracleDbContainer } from "@testcontainers/oraclefree";
 import { OracleDbMonitorType } from "../../../src/server/monitor-types/oracledb.ts";
 import { UP, PENDING } from "../../../src/util.ts";
@@ -51,24 +50,21 @@ async function createAndStartOracleContainer() {
     };
 }
 
-describe(
+describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
     "Oracle Database Monitor",
-    {
-        skip: !!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"),
-    },
     () => {
         /** @type {import("@testcontainers/oraclefree").StartedOracleDbContainer | undefined} */
         let container;
         /** @type {string | undefined} */
         let connectString;
 
-        before(async () => {
+        beforeAll(async () => {
             const oracle = await createAndStartOracleContainer();
             container = oracle.container;
             connectString = oracle.connectString;
         });
 
-        after(async () => {
+        afterAll(async () => {
             if (container) {
                 await container.stop();
             }
@@ -82,7 +78,7 @@ describe(
             const heartbeat = createHeartbeat();
 
             await oracleMonitor.check(monitor, heartbeat, {});
-            assert.strictEqual(heartbeat.status, UP, `Expected status ${UP} but got ${heartbeat.status}`);
+            expect(heartbeat.status).toBe(UP);
         });
 
         test("check() rejects when Oracle server is not reachable", async () => {
@@ -92,14 +88,10 @@ describe(
             });
             const heartbeat = createHeartbeat();
 
-            await assert.rejects(oracleMonitor.check(monitor, heartbeat, {}), (err) => {
-                assert.ok(
-                    err.message.includes("Database connection/query failed"),
-                    `Expected error message to include "Database connection/query failed" but got: ${err.message}`
-                );
-                return true;
-            });
-            assert.notStrictEqual(heartbeat.status, UP, `Expected status should not be ${UP}`);
+            await expect(oracleMonitor.check(monitor, heartbeat, {})).rejects.toThrow(
+                "Database connection/query failed"
+            );
+            expect(heartbeat.status).not.toBe(UP);
         });
 
         test("check() sets status to UP when custom query returns single value", async () => {
@@ -111,7 +103,7 @@ describe(
             const heartbeat = createHeartbeat();
 
             await oracleMonitor.check(monitor, heartbeat, {});
-            assert.strictEqual(heartbeat.status, UP, `Expected status ${UP} but got ${heartbeat.status}`);
+            expect(heartbeat.status).toBe(UP);
         });
 
         test("check() sets status to UP when custom query result meets condition", async () => {
@@ -132,7 +124,7 @@ describe(
             const heartbeat = createHeartbeat();
 
             await oracleMonitor.check(monitor, heartbeat, {});
-            assert.strictEqual(heartbeat.status, UP, `Expected status ${UP} but got ${heartbeat.status}`);
+            expect(heartbeat.status).toBe(UP);
         });
 
         test("check() rejects when custom query result does not meet condition", async () => {
@@ -152,11 +144,10 @@ describe(
             });
             const heartbeat = createHeartbeat();
 
-            await assert.rejects(
-                oracleMonitor.check(monitor, heartbeat, {}),
+            await expect(oracleMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
                 new Error("Query result did not meet the specified conditions (99)")
             );
-            assert.strictEqual(heartbeat.status, PENDING, `Expected status should not be ${heartbeat.status}`);
+            expect(heartbeat.status).toBe(PENDING);
         });
 
         test("check() rejects when query returns no results with conditions", async () => {
@@ -176,11 +167,10 @@ describe(
             });
             const heartbeat = createHeartbeat();
 
-            await assert.rejects(
-                oracleMonitor.check(monitor, heartbeat, {}),
+            await expect(oracleMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
                 new Error("Database connection/query failed: Query returned no results")
             );
-            assert.strictEqual(heartbeat.status, PENDING, `Expected status should not be ${heartbeat.status}`);
+            expect(heartbeat.status).toBe(PENDING);
         });
 
         test("check() rejects when query returns multiple rows with conditions", async () => {
@@ -200,11 +190,10 @@ describe(
             });
             const heartbeat = createHeartbeat();
 
-            await assert.rejects(
-                oracleMonitor.check(monitor, heartbeat, {}),
+            await expect(oracleMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
                 new Error("Database connection/query failed: Multiple values were found, expected only one value")
             );
-            assert.strictEqual(heartbeat.status, PENDING, `Expected status should not be ${heartbeat.status}`);
+            expect(heartbeat.status).toBe(PENDING);
         });
 
         test("check() rejects when query returns multiple columns with conditions", async () => {
@@ -224,11 +213,10 @@ describe(
             });
             const heartbeat = createHeartbeat();
 
-            await assert.rejects(
-                oracleMonitor.check(monitor, heartbeat, {}),
+            await expect(oracleMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
                 new Error("Database connection/query failed: Multiple columns were found, expected only one value")
             );
-            assert.strictEqual(heartbeat.status, PENDING, `Expected status should not be ${heartbeat.status}`);
+            expect(heartbeat.status).toBe(PENDING);
         });
     }
 );

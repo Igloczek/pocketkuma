@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect } from "bun:test";
 import { TCPMonitorType } from "../../../src/server/monitor-types/tcp.ts";
 import { UP, PENDING } from "../../../src/util.ts";
 import net from "net";
@@ -74,7 +73,7 @@ describe("TCP Monitor", () => {
 
             await tcpMonitor.check(monitor, heartbeat, {});
 
-            assert.strictEqual(heartbeat.status, UP);
+            expect(heartbeat.status).toBe(UP);
         } finally {
             server.close();
         }
@@ -94,7 +93,7 @@ describe("TCP Monitor", () => {
             status: PENDING,
         };
 
-        await assert.rejects(tcpMonitor.check(monitor, heartbeat, {}), new Error("Connection failed"));
+        await expect(tcpMonitor.check(monitor, heartbeat, {})).rejects.toEqual(new Error("Connection failed"));
     });
 
     test("check() rejects when TLS certificate is expired or invalid", async () => {
@@ -118,7 +117,7 @@ describe("TCP Monitor", () => {
         // Regex: contains with "TLS Connection failed:" or "Certificate is invalid"
         const regex = /TLS Connection failed:|Certificate is invalid/;
 
-        await assert.rejects(tcpMonitor.check(monitor, heartbeat, {}), regex);
+        await expect(tcpMonitor.check(monitor, heartbeat, {})).rejects.toThrow(regex);
     });
 
     test("check() sets status to UP when TLS certificate is valid (SSL)", async () => {
@@ -142,7 +141,7 @@ describe("TCP Monitor", () => {
         await retryExternalService(async () => {
             await tcpMonitor.check(monitor, heartbeat, {});
         }, heartbeat);
-        assert.strictEqual(heartbeat.status, UP);
+        expect(heartbeat.status).toBe(UP);
     });
 
     test("check() sets status to UP when TLS certificate is valid (STARTTLS)", async () => {
@@ -166,7 +165,7 @@ describe("TCP Monitor", () => {
         await retryExternalService(async () => {
             await tcpMonitor.check(monitor, heartbeat, {});
         }, heartbeat);
-        assert.strictEqual(heartbeat.status, UP);
+        expect(heartbeat.status).toBe(UP);
     });
 
     test("check() rejects when TLS certificate hostname does not match (STARTTLS)", async () => {
@@ -189,7 +188,7 @@ describe("TCP Monitor", () => {
 
         const regex = /does not match certificate/;
 
-        await assert.rejects(tcpMonitor.check(monitor, heartbeat, {}), regex);
+        await expect(tcpMonitor.check(monitor, heartbeat, {})).rejects.toThrow(regex);
     });
     test("check() sets status to UP for XMPP server with valid certificate (STARTTLS)", async () => {
         const tcpMonitor = new TCPMonitorType();
@@ -212,7 +211,7 @@ describe("TCP Monitor", () => {
         await retryExternalService(async () => {
             await tcpMonitor.check(monitor, heartbeat, {});
         }, heartbeat);
-        assert.strictEqual(heartbeat.status, UP);
+        expect(heartbeat.status).toBe(UP);
     });
 
     // TLS Alert checking tests
@@ -235,8 +234,7 @@ describe("TCP Monitor", () => {
 
         // Retry with backoff for external service reliability, expecting rejection
         await retryExternalService(async () => {
-            await assert.rejects(
-                tcpMonitor.check(monitor, heartbeat, {}),
+            await expect(tcpMonitor.check(monitor, heartbeat, {})).rejects.toThrow(
                 /Expected TLS alert 'certificate_required' but connection succeeded/
             );
         }, heartbeat);
@@ -244,18 +242,18 @@ describe("TCP Monitor", () => {
 
     test("parseTlsAlertNumber() extracts alert number from error message", async () => {
         // Test various error message formats
-        assert.strictEqual(parseTlsAlertNumber("alert number 116"), 116);
-        assert.strictEqual(parseTlsAlertNumber("SSL alert number 42"), 42);
-        assert.strictEqual(parseTlsAlertNumber("TLS alert number 48"), 48);
-        assert.strictEqual(parseTlsAlertNumber("no alert here"), null);
-        assert.strictEqual(parseTlsAlertNumber(""), null);
+        expect(parseTlsAlertNumber("alert number 116")).toBe(116);
+        expect(parseTlsAlertNumber("SSL alert number 42")).toBe(42);
+        expect(parseTlsAlertNumber("TLS alert number 48")).toBe(48);
+        expect(parseTlsAlertNumber("no alert here")).toBe(null);
+        expect(parseTlsAlertNumber("")).toBe(null);
     });
 
     test("getTlsAlertName() returns correct alert name for known codes", async () => {
-        assert.strictEqual(getTlsAlertName(116), "certificate_required");
-        assert.strictEqual(getTlsAlertName(42), "bad_certificate");
-        assert.strictEqual(getTlsAlertName(48), "unknown_ca");
-        assert.strictEqual(getTlsAlertName(40), "handshake_failure");
-        assert.strictEqual(getTlsAlertName(999), "unknown_alert_999");
+        expect(getTlsAlertName(116)).toBe("certificate_required");
+        expect(getTlsAlertName(42)).toBe("bad_certificate");
+        expect(getTlsAlertName(48)).toBe("unknown_ca");
+        expect(getTlsAlertName(40)).toBe("handshake_failure");
+        expect(getTlsAlertName(999)).toBe("unknown_alert_999");
     });
 });

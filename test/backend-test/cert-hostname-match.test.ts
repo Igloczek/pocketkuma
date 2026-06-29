@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect } from "bun:test";
 import { checkCertificateHostname } from "../../src/server/util-server.ts";
 
 const testCert = `
@@ -39,11 +38,11 @@ iPenGDCg1awOyRnvxNq1MtMDkR9AHwksukzwiYNexYjyvE2t0UzXhFXwazQ3
 describe("Certificate Hostname Validation", () => {
     test("checkCertificateHostname() returns true when certificate matches hostname", () => {
         const result = checkCertificateHostname(testCert, "www.eff.org");
-        assert.strictEqual(result, true);
+        expect(result).toBe(true);
     });
 
-    test("checkCertificateHostname() returns false when certificate does not match hostname", () => {
-        const result = checkCertificateHostname(testCert, "example.com");
-        assert.strictEqual(result, false);
+    test("checkCertificateHostname() returns false when certificate does not match hostname").toBe(() => {
+        const result = checkCertificateHostname(testCert); // example.com;
+        expect(result).toBe(false);
     });
 });

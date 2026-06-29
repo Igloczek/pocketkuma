@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test, before, after } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import http from "node:http";
 import httpClient from "../../src/server/http-client.ts";
 import Monitor from "../../src/server/model/monitor.ts";
@@ -11,7 +10,7 @@ describe("fetch HTTP client", () => {
     let server;
     let baseUrl;
 
-    before(async () => {
+    beforeAll(async () => {
         server = http.createServer((req, res) => {
             if (req.url === "/ok") {
                 res.writeHead(200, { "Content-Type": "application/json" });
@@ -53,7 +52,7 @@ describe("fetch HTTP client", () => {
         baseUrl = `http://127.0.0.1:${server.address().port}`;
     });
 
-    after(async () => {
+    afterAll(async () => {
         await new Promise((resolve) => server.close(resolve));
     });
 
@@ -63,18 +62,17 @@ describe("fetch HTTP client", () => {
             validateStatus: (status) => status === 200,
         });
 
-        assert.strictEqual(res.status, 200);
-        assert.deepStrictEqual(res.data, { ok: true });
+        expect(res.status).toBe(200);
+        expect(res.data).toEqual({ ok: true });
     });
 
     test("aborts requests on timeout", async () => {
-        await assert.rejects(
+        await expect(
             httpClient.request({
                 url: `${baseUrl}/slow`,
                 timeout: 25,
-            }),
-            /timeout/
-        );
+            })
+        ).rejects.toThrow(/timeout/);
     });
 
     test("follows redirects up to maxRedirects", async () => {
@@ -83,42 +81,39 @@ describe("fetch HTTP client", () => {
             maxRedirects: 1,
         });
 
-        assert.strictEqual(res.status, 200);
-        assert.deepStrictEqual(res.data, { ok: true });
+        expect(res.status).toBe(200);
+        expect(res.data).toEqual({ ok: true });
     });
 
     test("fails when maxRedirects is exceeded", async () => {
-        await assert.rejects(
+        await expect(
             httpClient.request({
                 url: `${baseUrl}/redirect`,
                 maxRedirects: 0,
-            }),
-            (error) => error.code === "ERR_FR_TOO_MANY_REDIRECTS"
-        );
+            })
+        ).rejects.toMatchObject({ code: "ERR_FR_TOO_MANY_REDIRECTS" });
     });
 
     test("exposes HTTP error response body", async () => {
-        await assert.rejects(
-            httpClient.request({
+        try {
+            await httpClient.request({
                 url: `${baseUrl}/error`,
                 validateStatus: (status) => status < 500,
-            }),
-            (error) => {
-                assert.strictEqual(error.response.status, 503);
-                assert.deepStrictEqual(error.response.data, { error: "unavailable" });
-                return true;
-            }
-        );
+            });
+            expect.unreachable();
+        } catch (error) {
+            expect(error.response.status).toBe(503);
+            expect(error.response.data).toEqual({ error: "unavailable" });
+        }
     });
 
     test("rejects unsupported Axios transport options explicitly", async () => {
-        await assert.rejects(
+        await expect(
             httpClient.request({
                 url: `${baseUrl}/ok`,
                 httpsAgent: {},
-            }),
-            (error) => error.code === "ERR_UNSUPPORTED_HTTP_OPTION"
-        );
+            })
+        ).rejects.toMatchObject({ code: "ERR_UNSUPPORTED_HTTP_OPTION" });
     });
 
     test("monitor keyword path can read response text through fetch wrapper", async () => {
@@ -131,15 +126,14 @@ describe("fetch HTTP client", () => {
             validateStatus: (status) => status === 200,
         });
 
-        assert.strictEqual(res.data.includes("expected-keyword"), true);
+        expect(res.data.includes("expected-keyword")).toBe(true);
     });
 
     test("monitor rejects unsupported fetch transport settings explicitly", async () => {
         const monitor = Object.create(Monitor.prototype);
         monitor.auth_method = "mtls";
 
-        await assert.rejects(
-            monitor.assertFetchHttpTransportSupported(),
+        await expect(monitor.assertFetchHttpTransportSupported()).rejects.toThrow(
             /mTLS monitor authentication is not supported/
         );
     });
@@ -151,6 +145,6 @@ describe("fetch HTTP client", () => {
 
         await monitor.saveResponseData(bean, "abcdef");
 
-        assert.strictEqual(await Heartbeat.decodeResponseValue(bean.response), "abcde... (truncated)");
+        expect(await Heartbeat.decodeResponseValue(bean.response)).toBe("abcde... (truncated)");
     });
 });

@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect } from "bun:test";
 import grpc from "@grpc/grpc-js";
 import protoLoader from "@grpc/proto-loader";
 import { GrpcKeywordMonitorType } from "../../../src/server/monitor-types/grpc.ts";
@@ -77,11 +76,8 @@ async function createTestGrpcServer(port, methodHandlers) {
     });
 }
 
-describe(
+describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
     "GrpcKeywordMonitorType",
-    {
-        skip: !!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"),
-    },
     () => {
         test("check() sets status to UP when keyword is found in response", async () => {
             const port = 50051;
@@ -110,10 +106,10 @@ describe(
             };
 
             try {
-                await grpcMonitor.check(monitor, heartbeat, {});
-                assert.strictEqual(heartbeat.status, UP);
-                assert.ok(heartbeat.msg.includes("SUCCESS"));
-                assert.ok(heartbeat.msg.includes("is"));
+                await grpcMonitor.check(monitor, heartbeat);
+                expect(heartbeat.status).toBe(UP);
+                expect(heartbeat.msg.includes("SUCCESS")).toBeTruthy();
+                expect(heartbeat.msg.includes("is")).toBeTruthy();
             } finally {
                 server.forceShutdown();
             }
@@ -146,11 +142,14 @@ describe(
             };
 
             try {
-                await assert.rejects(grpcMonitor.check(monitor, heartbeat, {}), (err) => {
-                    assert.ok(err.message.includes("MISSING"));
-                    assert.ok(err.message.includes("not"));
-                    return true;
-                });
+                try {
+                    await grpcMonitor.check(monitor, heartbeat);
+                    expect.unreachable();
+                } catch (err) {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    expect(msg.includes("MISSING")).toBe(true);
+                    expect(msg.includes("not")).toBe(true);
+                }
             } finally {
                 server.forceShutdown();
             }
@@ -183,11 +182,14 @@ describe(
             };
 
             try {
-                await assert.rejects(grpcMonitor.check(monitor, heartbeat, {}), (err) => {
-                    assert.ok(err.message.includes("ERROR"));
-                    assert.ok(err.message.includes("present"));
-                    return true;
-                });
+                try {
+                    await grpcMonitor.check(monitor, heartbeat);
+                    expect.unreachable();
+                } catch (err) {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    expect(msg.includes("ERROR")).toBe(true);
+                    expect(msg.includes("present")).toBe(true);
+                }
             } finally {
                 server.forceShutdown();
             }
@@ -220,10 +222,10 @@ describe(
             };
 
             try {
-                await grpcMonitor.check(monitor, heartbeat, {});
-                assert.strictEqual(heartbeat.status, UP);
-                assert.ok(heartbeat.msg.includes("ERROR"));
-                assert.ok(heartbeat.msg.includes("not"));
+                await grpcMonitor.check(monitor, heartbeat);
+                expect(heartbeat.status).toBe(UP);
+                expect(heartbeat.msg.includes("ERROR")).toBeTruthy();
+                expect(heartbeat.msg.includes("not")).toBeTruthy();
             } finally {
                 server.forceShutdown();
             }
@@ -248,10 +250,7 @@ describe(
                 status: PENDING,
             };
 
-            await assert.rejects(grpcMonitor.check(monitor, heartbeat, {}), (err) => {
-                // Should fail with connection error
-                return true;
-            });
+            await expect(grpcMonitor.check(monitor, heartbeat)).rejects.toThrow();
         });
 
         test("check() truncates long response messages in error output", async () => {
@@ -283,11 +282,13 @@ describe(
             };
 
             try {
-                await assert.rejects(grpcMonitor.check(monitor, heartbeat, {}), (err) => {
-                    // Should truncate message to 50 characters with "..."
-                    assert.ok(err.message.includes("..."));
-                    return true;
-                });
+                try {
+                    await grpcMonitor.check(monitor, heartbeat);
+                    expect.unreachable();
+                } catch (err) {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    expect(msg.includes("...")).toBe(true);
+                }
             } finally {
                 server.forceShutdown();
             }

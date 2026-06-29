@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test, mock } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect, spyOn } from "bun:test";
 import { GameDigMonitorType } from "../../../src/server/monitor-types/gamedig.ts";
 import { UP, PENDING } from "../../../src/util.ts";
 import { GameDig } from "gamedig";
@@ -10,7 +9,7 @@ describe("GameDig Monitor", () => {
     test("check() sets status to UP when Gamedig.query returns valid server response", async () => {
         const gamedigMonitor = new GameDigMonitorType();
 
-        mock.method(GameDig, "query", async () => {
+        const querySpy = spyOn(GameDig, "query").mockImplementation(async () => {
             return {
                 name: "Test Minecraft Server",
                 ping: 42,
@@ -33,11 +32,11 @@ describe("GameDig Monitor", () => {
         try {
             await gamedigMonitor.check(monitor, heartbeat, {});
 
-            assert.strictEqual(heartbeat.status, UP);
-            assert.strictEqual(heartbeat.msg, "Test Minecraft Server");
-            assert.strictEqual(heartbeat.ping, 42);
+            expect(heartbeat.status).toBe(UP);
+            expect(heartbeat.msg).toBe("Test Minecraft Server");
+            expect(heartbeat.ping).toBe(42);
         } finally {
-            mock.restoreAll();
+            querySpy.mockRestore();
         }
     });
 
@@ -46,7 +45,7 @@ describe("GameDig Monitor", () => {
 
         let capturedOptions = null;
 
-        mock.method(GameDig, "query", async (options) => {
+        const querySpy = spyOn(GameDig, "query").mockImplementation(async (options) => {
             capturedOptions = options;
             return {
                 name: "Test Server",
@@ -69,12 +68,12 @@ describe("GameDig Monitor", () => {
         try {
             await gamedigMonitor.check(monitor, heartbeat, {});
 
-            assert.strictEqual(capturedOptions.host, "localhost");
-            assert.strictEqual(heartbeat.status, UP);
-            assert.strictEqual(heartbeat.msg, "Test Server");
-            assert.strictEqual(heartbeat.ping, 50);
+            expect(capturedOptions.host).toBe("localhost");
+            expect(heartbeat.status).toBe(UP);
+            expect(heartbeat.msg).toBe("Test Server");
+            expect(heartbeat.ping).toBe(50);
         } finally {
-            mock.restoreAll();
+            querySpy.mockRestore();
         }
     });
 
@@ -83,7 +82,7 @@ describe("GameDig Monitor", () => {
 
         let capturedOptions = null;
 
-        mock.method(GameDig, "query", async (options) => {
+        const querySpy = spyOn(GameDig, "query").mockImplementation(async (options) => {
             capturedOptions = options;
             return {
                 name: "Test Server",
@@ -106,10 +105,10 @@ describe("GameDig Monitor", () => {
         try {
             await gamedigMonitor.check(monitor, heartbeat, {});
 
-            assert.strictEqual(capturedOptions.host, "192.168.1.100");
-            assert.strictEqual(heartbeat.status, UP);
+            expect(capturedOptions.host).toBe("192.168.1.100");
+            expect(heartbeat.status).toBe(UP);
         } finally {
-            mock.restoreAll();
+            querySpy.mockRestore();
         }
     });
 
@@ -118,7 +117,7 @@ describe("GameDig Monitor", () => {
 
         let capturedOptions = null;
 
-        mock.method(GameDig, "query", async (options) => {
+        const querySpy = spyOn(GameDig, "query").mockImplementation(async (options) => {
             capturedOptions = options;
             return {
                 name: "Test Server",
@@ -141,10 +140,10 @@ describe("GameDig Monitor", () => {
         try {
             await gamedigMonitor.check(monitor, heartbeat, {});
 
-            assert.strictEqual(capturedOptions.host, "::1");
-            assert.strictEqual(heartbeat.status, UP);
+            expect(capturedOptions.host).toBe("::1");
+            expect(heartbeat.status).toBe(UP);
         } finally {
-            mock.restoreAll();
+            querySpy.mockRestore();
         }
     });
 
@@ -153,7 +152,7 @@ describe("GameDig Monitor", () => {
 
         let capturedOptions = null;
 
-        mock.method(GameDig, "query", async (options) => {
+        const querySpy = spyOn(GameDig, "query").mockImplementation(async (options) => {
             capturedOptions = options;
             return {
                 name: "Test Server",
@@ -176,12 +175,12 @@ describe("GameDig Monitor", () => {
         try {
             await gamedigMonitor.check(monitor, heartbeat, {});
 
-            assert.strictEqual(capturedOptions.type, "valve");
-            assert.strictEqual(capturedOptions.host, "192.168.1.100");
-            assert.strictEqual(capturedOptions.port, 27015);
-            assert.strictEqual(capturedOptions.givenPortOnly, true);
+            expect(capturedOptions.type).toBe("valve");
+            expect(capturedOptions.host).toBe("192.168.1.100");
+            expect(capturedOptions.port).toBe(27015);
+            expect(capturedOptions.givenPortOnly).toBe(true);
         } finally {
-            mock.restoreAll();
+            querySpy.mockRestore();
         }
     });
 
@@ -190,7 +189,7 @@ describe("GameDig Monitor", () => {
 
         let capturedOptions = null;
 
-        mock.method(GameDig, "query", async (options) => {
+        const querySpy = spyOn(GameDig, "query").mockImplementation(async (options) => {
             capturedOptions = options;
             return {
                 name: "Test Server",
@@ -213,10 +212,10 @@ describe("GameDig Monitor", () => {
         try {
             await gamedigMonitor.check(monitor, heartbeat, {});
 
-            assert.strictEqual(capturedOptions.givenPortOnly, true);
-            assert.strictEqual(typeof capturedOptions.givenPortOnly, "boolean");
+            expect(capturedOptions.givenPortOnly).toBe(true);
+            expect(typeof capturedOptions.givenPortOnly).toBe("boolean");
         } finally {
-            mock.restoreAll();
+            querySpy.mockRestore();
         }
     });
 
@@ -235,6 +234,6 @@ describe("GameDig Monitor", () => {
             status: PENDING,
         };
 
-        await assert.rejects(gamedigMonitor.check(monitor, heartbeat, {}), /Error/);
+        await expect(gamedigMonitor.check(monitor, heartbeat, {})).rejects.toThrow();
     });
 });

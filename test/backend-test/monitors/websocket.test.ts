@@ -5,8 +5,7 @@
  * @returns {Promise<{server: net.Server, port: number}>} Promise that resolves to the created server and its port
  */
 import { WebSocketServer } from "ws";
-import { describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect } from "bun:test";
 import { WebSocketMonitorType } from "../../../src/server/monitor-types/websocket-upgrade.ts";
 import { UP, PENDING } from "../../../src/util.ts";
 import net from "node:net";
@@ -58,220 +57,239 @@ function createWebSocketServer(options = {}) {
     });
 }
 
-describe("WebSocket Monitor", {}, () => {
-    test("check() rejects with unexpected server response when connecting to non-WebSocket server", {}, async (t) => {
+describe("WebSocket Monitor", () => {
+    test("check() rejects with unexpected server response when connecting to non-WebSocket server", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: srv, port } = await httpServer();
-        t.after(() => srv.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: false,
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: false,
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
-
-        await assert.rejects(
-            websocketMonitor.check(monitor, heartbeat, {}),
-            new Error("Unexpected server response: 200")
-        );
+            await expect(websocketMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+                new Error("Unexpected server response: 200")
+            );
+        } finally {
+            srv.close();
+        }
     });
 
-    test("check() sets status to UP when connecting to WebSocket server", async (t) => {
+    test("check() sets status to UP when connecting to WebSocket server", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await createWebSocketServer();
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: false,
+                accepted_statuscodes_json: JSON.stringify(["1000"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: false,
-            accepted_statuscodes_json: JSON.stringify(["1000"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
+            const expected = {
+                msg: "1000 - OK",
+                status: UP,
+            };
 
-        const expected = {
-            msg: "1000 - OK",
-            status: UP,
-        };
-
-        await websocketMonitor.check(monitor, heartbeat, {});
-        assert.deepStrictEqual(heartbeat, expected);
+            await websocketMonitor.check(monitor, heartbeat, {});
+            expect(heartbeat).toEqual(expected);
+        } finally {
+            wss.close();
+        }
     });
 
-    test("check() sets status to UP when connecting to insecure WebSocket server", async (t) => {
+    test("check() sets status to UP when connecting to insecure WebSocket server", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await createWebSocketServer();
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: false,
+                accepted_statuscodes_json: JSON.stringify(["1000"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: false,
-            accepted_statuscodes_json: JSON.stringify(["1000"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
+            const expected = {
+                msg: "1000 - OK",
+                status: UP,
+            };
 
-        const expected = {
-            msg: "1000 - OK",
-            status: UP,
-        };
-
-        await websocketMonitor.check(monitor, heartbeat, {});
-        assert.deepStrictEqual(heartbeat, expected);
+            await websocketMonitor.check(monitor, heartbeat, {});
+            expect(heartbeat).toEqual(expected);
+        } finally {
+            wss.close();
+        }
     });
 
-    test("check() rejects when status code does not match expected value", async (t) => {
+    test("check() rejects when status code does not match expected value", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await createWebSocketServer();
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: false,
+                accepted_statuscodes_json: JSON.stringify(["1001"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: false,
-            accepted_statuscodes_json: JSON.stringify(["1001"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
-
-        await assert.rejects(websocketMonitor.check(monitor, heartbeat, {}), new Error("Unexpected status code: 1000"));
+            await expect(websocketMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+                new Error("Unexpected status code: 1000")
+            );
+        } finally {
+            wss.close();
+        }
     });
 
-    test("check() rejects when expected status code is empty", async (t) => {
+    test("check() rejects when expected status code is empty", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await createWebSocketServer();
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: false,
+                accepted_statuscodes_json: JSON.stringify([""]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: false,
-            accepted_statuscodes_json: JSON.stringify([""]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
-
-        await assert.rejects(websocketMonitor.check(monitor, heartbeat, {}), new Error("Unexpected status code: 1000"));
+            await expect(websocketMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+                new Error("Unexpected status code: 1000")
+            );
+        } finally {
+            wss.close();
+        }
     });
 
-    test("check() rejects when Sec-WebSocket-Accept header is invalid", async (t) => {
+    test("check() rejects when Sec-WebSocket-Accept header is invalid", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await nonCompliantWS();
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: false,
+                accepted_statuscodes_json: JSON.stringify(["1000"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: false,
-            accepted_statuscodes_json: JSON.stringify(["1000"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
-
-        await assert.rejects(
-            websocketMonitor.check(monitor, heartbeat, {}),
-            new Error("Invalid Sec-WebSocket-Accept header")
-        );
+            await expect(websocketMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+                new Error("Invalid Sec-WebSocket-Accept header")
+            );
+        } finally {
+            wss.close();
+        }
     });
 
-    test("check() sets status to UP when ignoring invalid Sec-WebSocket-Accept header", async (t) => {
+    test("check() sets status to UP when ignoring invalid Sec-WebSocket-Accept header", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await nonCompliantWS();
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: true,
+                accepted_statuscodes_json: JSON.stringify(["1000"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: true,
-            accepted_statuscodes_json: JSON.stringify(["1000"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
+            const expected = {
+                msg: "1000 - OK",
+                status: UP,
+            };
 
-        const expected = {
-            msg: "1000 - OK",
-            status: UP,
-        };
-
-        await websocketMonitor.check(monitor, heartbeat, {});
-        assert.deepStrictEqual(heartbeat, expected);
+            await websocketMonitor.check(monitor, heartbeat, {});
+            expect(heartbeat).toEqual(expected);
+        } finally {
+            wss.close();
+        }
     });
 
-    test("check() sets status to UP for compliant WebSocket server when ignoring Sec-WebSocket-Accept", async (t) => {
+    test("check() sets status to UP for compliant WebSocket server when ignoring Sec-WebSocket-Accept", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await createWebSocketServer();
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: true,
+                accepted_statuscodes_json: JSON.stringify(["1000"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: true,
-            accepted_statuscodes_json: JSON.stringify(["1000"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
+            const expected = {
+                msg: "1000 - OK",
+                status: UP,
+            };
 
-        const expected = {
-            msg: "1000 - OK",
-            status: UP,
-        };
-
-        await websocketMonitor.check(monitor, heartbeat, {});
-        assert.deepStrictEqual(heartbeat, expected);
+            await websocketMonitor.check(monitor, heartbeat, {});
+            expect(heartbeat).toEqual(expected);
+        } finally {
+            wss.close();
+        }
     });
 
-    test("check() rejects non-WebSocket server even when ignoring Sec-WebSocket-Accept", async (t) => {
+    test("check() rejects non-WebSocket server even when ignoring Sec-WebSocket-Accept", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: srv, port } = await httpServer();
-        t.after(() => srv.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: true,
+                accepted_statuscodes_json: JSON.stringify(["1000"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: true,
-            accepted_statuscodes_json: JSON.stringify(["1000"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
-
-        await assert.rejects(
-            websocketMonitor.check(monitor, heartbeat, {}),
-            new Error("Unexpected server response: 200")
-        );
+            await expect(websocketMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+                new Error("Unexpected server response: 200")
+            );
+        } finally {
+            srv.close();
+        }
     });
 
-    test("check() rejects when server does not support requested subprotocol", async (t) => {
+    test("check() rejects when server does not support requested subprotocol", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await createWebSocketServer({
             handleProtocols: (protocols) => {
@@ -279,108 +297,117 @@ describe("WebSocket Monitor", {}, () => {
                 return null;
             },
         });
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: false,
+                wsSubprotocol: "ocpp1.6",
+                accepted_statuscodes_json: JSON.stringify(["1000"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: false,
-            wsSubprotocol: "ocpp1.6",
-            accepted_statuscodes_json: JSON.stringify(["1000"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
-
-        await assert.rejects(websocketMonitor.check(monitor, heartbeat, {}), new Error("Server sent no subprotocol"));
+            await expect(websocketMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+                new Error("Server sent no subprotocol")
+            );
+        } finally {
+            wss.close();
+        }
     });
 
-    test("check() rejects when multiple subprotocols contain invalid characters", async (t) => {
+    test("check() rejects when multiple subprotocols contain invalid characters", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await createWebSocketServer();
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: false,
+                wsSubprotocol: "  # &  ,ocpp2.0   []  ,     ocpp1.6 ,  ,,     ;      ",
+                accepted_statuscodes_json: JSON.stringify(["1000"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: false,
-            wsSubprotocol: "  # &  ,ocpp2.0   []  ,     ocpp1.6 ,  ,,     ;      ",
-            accepted_statuscodes_json: JSON.stringify(["1000"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
-
-        await assert.rejects(
-            websocketMonitor.check(monitor, heartbeat, {}),
-            new SyntaxError("An invalid or duplicated subprotocol was specified")
-        );
+            await expect(websocketMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+                new SyntaxError("An invalid or duplicated subprotocol was specified")
+            );
+        } finally {
+            wss.close();
+        }
     });
 
-    test("check() sets status to UP when subprotocol with multiple spaces is accepted", async (t) => {
+    test("check() sets status to UP when subprotocol with multiple spaces is accepted", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await createWebSocketServer({
             handleProtocols: (protocols) => {
                 return Array.from(protocols).includes("test") ? "test" : null;
             },
         });
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: false,
+                wsSubprotocol: "invalid                        ,              test  ",
+                accepted_statuscodes_json: JSON.stringify(["1000"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: false,
-            wsSubprotocol: "invalid                        ,              test  ",
-            accepted_statuscodes_json: JSON.stringify(["1000"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
+            const expected = {
+                msg: "1000 - OK",
+                status: UP,
+            };
 
-        const expected = {
-            msg: "1000 - OK",
-            status: UP,
-        };
-
-        await websocketMonitor.check(monitor, heartbeat, {});
-        assert.deepStrictEqual(heartbeat, expected);
+            await websocketMonitor.check(monitor, heartbeat, {});
+            expect(heartbeat).toEqual(expected);
+        } finally {
+            wss.close();
+        }
     });
 
-    test("check() sets status to UP when server supports requested subprotocol", async (t) => {
+    test("check() sets status to UP when server supports requested subprotocol", async () => {
         const websocketMonitor = new WebSocketMonitorType();
         const { server: wss, port } = await createWebSocketServer({
             handleProtocols: (protocols) => {
                 return Array.from(protocols).includes("test") ? "test" : null;
             },
         });
-        t.after(() => wss.close());
+        try {
+            const monitor = {
+                url: `ws://localhost:${port}`,
+                wsIgnoreSecWebsocketAcceptHeader: false,
+                wsSubprotocol: "invalid,test",
+                accepted_statuscodes_json: JSON.stringify(["1000"]),
+                timeout: 30,
+            };
 
-        const monitor = {
-            url: `ws://localhost:${port}`,
-            wsIgnoreSecWebsocketAcceptHeader: false,
-            wsSubprotocol: "invalid,test",
-            accepted_statuscodes_json: JSON.stringify(["1000"]),
-            timeout: 30,
-        };
+            const heartbeat = {
+                msg: "",
+                status: PENDING,
+            };
 
-        const heartbeat = {
-            msg: "",
-            status: PENDING,
-        };
+            const expected = {
+                msg: "1000 - OK",
+                status: UP,
+            };
 
-        const expected = {
-            msg: "1000 - OK",
-            status: UP,
-        };
-
-        await websocketMonitor.check(monitor, heartbeat, {});
-        assert.deepStrictEqual(heartbeat, expected);
+            await websocketMonitor.check(monitor, heartbeat, {});
+            expect(heartbeat).toEqual(expected);
+        } finally {
+            wss.close();
+        }
     });
 
     test("buildWsOptions() includes custom headers", async () => {
@@ -392,7 +419,7 @@ describe("WebSocket Monitor", {}, () => {
             }),
         });
 
-        assert.deepStrictEqual(options.headers, {
+        expect(options.headers).toEqual({
             "X-Test": "test-value",
         });
     });
@@ -404,7 +431,7 @@ describe("WebSocket Monitor", {}, () => {
             headers: "{ invalid-json",
         });
 
-        assert.deepStrictEqual(options.headers, {});
+        expect(options.headers).toEqual({});
     });
 
     test("buildWsOptions() authentication header overrides custom Authorization header", async () => {
@@ -420,7 +447,7 @@ describe("WebSocket Monitor", {}, () => {
             basic_auth_pass: "pass",
         });
 
-        assert.deepStrictEqual(options.headers, {
+        expect(options.headers).toEqual({
             Authorization: "Basic dXNlcjpwYXNz",
             "X-Test": "test-value",
         });
