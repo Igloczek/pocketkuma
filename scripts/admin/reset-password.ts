@@ -1,5 +1,5 @@
 import Database from "@/server/database";
-import { R } from "redbean-node";
+import { R } from "@/server/redbean-compat";
 import readline from "readline";
 import { passwordStrength } from "@/util/password-strength";
 import { initJWTSecret } from "@/server/util-server";

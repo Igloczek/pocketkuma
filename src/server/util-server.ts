@@ -22,6 +22,7 @@ import oidc from "openid-client";
 import tls from "tls";
 import { exists } from "fs";
 import { networkInterfaces } from "os";
+import { domainToASCII } from "node:url";
 import nodeRadiusUtils from "node-radius-utils";
 
 const {
@@ -173,6 +174,10 @@ export function pingAsync(
         // ignore
     }
 
+    if (!ipv6 && !destAddr.includes(":")) {
+        destAddr = domainToASCII(destAddr);
+    }
+
     return pingByProcess(destAddr, ipv6, count, sourceAddr, numeric, size, deadline, timeout);
 }
 
@@ -184,7 +189,8 @@ async function pingByProcess(destAddr, ipv6, count, sourceAddr, numeric, size, d
     const output = result.stderr || result.stdout;
 
     if (result.code !== 0) {
-        throw new Error(isWindows ? convertToUTF8(output) : output);
+        const message = isWindows ? convertToUTF8(output) : output;
+        throw new Error(message || `ping ${destAddr} failed with exit code ${result.code}`);
     }
 
     const time = parsePingTime(result.stdout);
@@ -205,7 +211,7 @@ function buildPingArgs(destAddr, ipv6, count, sourceAddr, numeric, size, deadlin
     }
 
     const args = [];
-    if (ipv6) {
+    if (ipv6 && process.platform !== "darwin" && process.platform !== "freebsd" && process.platform !== "openbsd") {
         args.push("-6");
     }
     if (numeric) {

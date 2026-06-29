@@ -5,7 +5,7 @@ import postcssRTLCSS from "postcss-rtlcss";
 
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
-import visualizer from "rollup-plugin-visualizer";
+import { visualizer } from "rollup-plugin-visualizer";
 import viteCompression from "vite-plugin-compression";
 import packageJson from "../package.json" with { type: "json" };
 

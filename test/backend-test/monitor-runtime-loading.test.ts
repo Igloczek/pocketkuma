@@ -13,6 +13,7 @@ describe("monitor runtime lazy loading", () => {
     });
 
     test("notification init registers providers without importing provider modules", () => {
+        notificationRegistry.resetLoadedNotificationProvidersForTests();
         Notification.init();
 
         expect(notificationRegistry.getLoadedNotificationProviders()).toEqual([]);

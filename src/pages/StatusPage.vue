@@ -1076,29 +1076,29 @@ export default {
                 fetchDevApi("/api/status-page/heartbeat/" + this.slug)
                     .then((res) => res.json())
                     .then((data) => {
-                    const { heartbeatList, uptimeList } = data;
+                        const { heartbeatList, uptimeList } = data;
 
-                    this.$root.heartbeatList = heartbeatList;
-                    this.$root.uptimeList = uptimeList;
+                        this.$root.heartbeatList = heartbeatList;
+                        this.$root.uptimeList = uptimeList;
 
-                    const heartbeatIds = Object.keys(heartbeatList);
-                    const downMonitors = heartbeatIds.reduce((downMonitorsAmount, currentId) => {
-                        const monitorHeartbeats = heartbeatList[currentId];
-                        const lastHeartbeat = monitorHeartbeats.at(-1);
+                        const heartbeatIds = Object.keys(heartbeatList);
+                        const downMonitors = heartbeatIds.reduce((downMonitorsAmount, currentId) => {
+                            const monitorHeartbeats = heartbeatList[currentId];
+                            const lastHeartbeat = monitorHeartbeats.at(-1);
 
-                        if (lastHeartbeat) {
-                            return lastHeartbeat.status === 0 ? downMonitorsAmount + 1 : downMonitorsAmount;
-                        } else {
-                            return downMonitorsAmount;
-                        }
-                    }, 0);
+                            if (lastHeartbeat) {
+                                return lastHeartbeat.status === 0 ? downMonitorsAmount + 1 : downMonitorsAmount;
+                            } else {
+                                return downMonitorsAmount;
+                            }
+                        }, 0);
 
-                    favicon.badge(downMonitors);
+                        favicon.badge(downMonitors);
 
-                    this.loadedData = true;
-                    this.lastUpdateTime = dayjs();
-                    this.updateUpdateTimer();
-                });
+                        this.loadedData = true;
+                        this.lastUpdateTime = dayjs();
+                        this.updateUpdateTimer();
+                    });
             }
         },
 

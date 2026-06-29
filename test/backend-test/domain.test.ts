@@ -3,7 +3,7 @@ import { describe, test, expect, beforeAll, afterAll, spyOn } from "bun:test";
 import DomainExpiry from "@/server/model/domain_expiry";
 import mockWebhook from "./notification-providers/mock-webhook";
 import TestDB from "../mock-testdb";
-import { R } from "redbean-node";
+import { R } from "@/server/redbean-compat";
 import { Notification } from "@/server/notification";
 import { Settings } from "@/server/settings";
 import { setSetting } from "@/server/util-server";
@@ -35,7 +35,7 @@ describe("Domain Expiry", () => {
 
     test("getExpiryDate() returns correct expiry date for .wiki domain with no A record", async () => {
         const d = DomainExpiry.createByName("google.wiki");
-        expect(await d.getExpiryDate()).toBe(new Date("2026-11-26T23:59:59.000Z"));
+        expect(await d.getExpiryDate()).toEqual(new Date("2026-11-26T23:59:59.000Z"));
     });
 
     describe("checkSupport()", () => {
@@ -45,7 +45,7 @@ describe("Domain Expiry", () => {
                 domain: "google.com",
                 tld: "com",
             };
-            expect(supportInfo).toBe(expected);
+            expect(supportInfo).toEqual(expected);
         });
 
         describe("Target Validation", () => {
@@ -172,7 +172,7 @@ describe("Domain Expiry", () => {
     test("findByDomainNameOrCreate() retrieves expiration date for .com domain from RDAP", async () => {
         const domain = await DomainExpiry.findByDomainNameOrCreate("google.com");
         const expiryFromRdap = await domain.getExpiryDate(); // from RDAP
-        expect(expiryFromRdap).toBe(new Date("2028-09-14T04:00:00.000Z"));
+        expect(expiryFromRdap).toEqual(new Date("2028-09-14T04:00:00.000Z"));
     });
 
     test("checkExpiry() caches expiration date in database", async () => {

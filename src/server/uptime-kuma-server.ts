@@ -416,7 +416,7 @@ class UptimeKumaServer {
      * @returns {Promise<void>}
      */
     async stop() {
-        if (!R.knex) {
+        if (!R.db) {
             return;
         }
 

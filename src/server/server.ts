@@ -68,7 +68,7 @@ import { maintenanceSocketHandler } from "@/server/socket-handlers/maintenance-s
 import { apiKeySocketHandler } from "@/server/socket-handlers/api-key-socket-handler";
 import { generalSocketHandler } from "@/server/socket-handlers/general-socket-handler";
 import { Settings } from "@/server/settings";
-import apicache from "@/server/modules/apicache";
+import apicache from "@/server/apicache";
 import { SetupDatabase } from "@/server/setup-database";
 import { chartSocketHandler } from "@/server/socket-handlers/chart-socket-handler";
 
@@ -508,7 +508,7 @@ let needSetup = false;
                     throw new TranslatableError("passwordTooWeak");
                 }
 
-                if ((await R.knex("user").count("id as count").first()).count !== 0) {
+                if ((await R.count("user")) !== 0) {
                     throw new Error(
                         "Uptime Kuma has been initialized. If you want to run setup again, please delete the database."
                     );
@@ -1667,7 +1667,7 @@ async function initDatabase(testMode = false) {
     log.info("server", "Connected to the database");
 
     // Patch the database
-    await Database.patch(port, hostname);
+    await Database.patch();
 
     let jwtSecretBean = await R.findOne("setting", " `key` = ? ", ["jwtSecret"]);
 
@@ -1680,7 +1680,7 @@ async function initDatabase(testMode = false) {
     }
 
     // If there is no record in user table, it is a new Uptime Kuma instance, need to setup
-    if ((await R.knex("user").count("id as count").first()).count === 0) {
+    if ((await R.count("user")) === 0) {
         log.info("server", "No user, need setup");
         needSetup = true;
     }
@@ -1780,7 +1780,7 @@ async function shutdownFunction(signal) {
         await monitor.stop();
     }
     await sleep(2000);
-    if (R.knex) {
+    if (R.db) {
         await Database.close();
     }
 

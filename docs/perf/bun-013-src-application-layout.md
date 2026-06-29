@@ -22,8 +22,12 @@ Date: 2026-06-29
 ## Remaining JS Exceptions
 
 - `src/server/modules/**` remains vendored JavaScript.
-- `src/server/utils/knex/**` remains a vendored Knex dialect shim.
-- `src/db/knex_migrations/*.ts` contains the retained Knex migration assets.
+
+## Database Schema Layout
+
+- `src/db/schema/current.sql` is the canonical SQLite DDL for fresh installs.
+- `src/db/schema/upgrades/` contains versioned one-time upgrades for upstream Uptime Kuma 2.x databases.
+- `src/db/kuma.db` is generated from `current.sql` via `bun run build:kuma-db`.
 
 ## Validation
 

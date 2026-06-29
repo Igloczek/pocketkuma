@@ -172,6 +172,9 @@ class TCPMonitorType extends MonitorType {
             const doResolve = () => {
                 dialogTimeout && clearTimeout(dialogTimeout);
                 bannerTimeout && clearTimeout(bannerTimeout);
+                socket_.removeAllListeners("data");
+                socket_.removeAllListeners("error");
+                socket_.setTimeout(0);
                 resolve({ socket: socket_ });
             };
 
@@ -197,6 +200,9 @@ class TCPMonitorType extends MonitorType {
                         break;
                     case response.startsWith("* OK") || response.match(/CAPABILITY.+STARTTLS/):
                         socket_.write("a001 STARTTLS\r\n");
+                        break;
+                    case /220\s+2\.0\.0\s+ready/i.test(response) || response_.includes("ready to start tls"):
+                        doResolve();
                         break;
                     case response.startsWith("220") || response.includes("ESMTP"):
                         socket_.write(`EHLO ${monitor.hostname}\r\n`);
@@ -235,12 +241,16 @@ class TCPMonitorType extends MonitorType {
     async checkTlsCertificate(monitor, reuseSocket) {
         let socket = null;
         try {
-            const options = {
-                host: monitor.hostname,
-                port: monitor.port,
-                servername: monitor.hostname,
-                ...reuseSocket,
-            };
+            const options = reuseSocket?.socket
+                ? {
+                      socket: reuseSocket.socket,
+                      servername: monitor.hostname,
+                  }
+                : {
+                      host: monitor.hostname,
+                      port: monitor.port,
+                      servername: monitor.hostname,
+                  };
 
             const tlsInfoObject = await new Promise((resolve, reject) => {
                 socket = tls.connect(options);

@@ -24,9 +24,7 @@ function isUrl(str) {
         return false;
     }
 
-    return (
-        LOCALHOST_DOMAIN_RE.test(everythingAfterProtocol) || NON_LOCALHOST_DOMAIN_RE.test(everythingAfterProtocol)
-    );
+    return LOCALHOST_DOMAIN_RE.test(everythingAfterProtocol) || NON_LOCALHOST_DOMAIN_RE.test(everythingAfterProtocol);
 }
 
 export { isUrl };

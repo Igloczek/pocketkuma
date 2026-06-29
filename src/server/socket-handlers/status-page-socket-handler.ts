@@ -12,7 +12,7 @@ import dayjs from "dayjs";
 import { log } from "@/util";
 import ImageDataURI from "@/server/image-data-uri";
 import Database from "@/server/database";
-import apicache from "@/server/modules/apicache";
+import apicache from "@/server/apicache";
 import StatusPage from "@/server/model/status_page";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";
 import { Settings } from "@/server/settings";

@@ -56,7 +56,9 @@ function createWebSocketServer(options = {}) {
                 const url = new URL(req.url);
                 if (options.handleProtocols) {
                     const requestedProtocols = req.headers.get("sec-websocket-protocol");
-                    const protocols = requestedProtocols ? requestedProtocols.split(",").map((item) => item.trim()) : [];
+                    const protocols = requestedProtocols
+                        ? requestedProtocols.split(",").map((item) => item.trim())
+                        : [];
                     const selectedProtocol = options.handleProtocols(new Set(protocols));
                     if (!selectedProtocol) {
                         return new Response("Server sent no subprotocol", { status: 400 });
@@ -338,9 +340,7 @@ describe("WebSocket Monitor", () => {
                 status: PENDING,
             };
 
-            await expect(websocketMonitor.check(monitor, heartbeat, {})).rejects.toThrow(
-                /Expected 101 status code/
-            );
+            await expect(websocketMonitor.check(monitor, heartbeat, {})).rejects.toThrow(/Expected 101 status code/);
         } finally {
             wss.stop();
         }

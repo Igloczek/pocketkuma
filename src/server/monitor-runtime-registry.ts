@@ -10,7 +10,8 @@ const REMOVED_MONITOR_TYPES = [];
 
 const optionalMonitorDefinitions = {
     "real-browser": {
-        load: async () => new (await import("@/server/monitor-types/real-browser-monitor-type")).RealBrowserMonitorType(),
+        load: async () =>
+            new (await import("@/server/monitor-types/real-browser-monitor-type")).RealBrowserMonitorType(),
     },
     "tailscale-ping": {
         load: async () => new (await import("@/server/monitor-types/tailscale-ping")).TailscalePing(),

@@ -7,6 +7,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Database as BunDatabase } from "bun:sqlite";
 import dayjs from "dayjs";
+import { filterStoreRow } from "@/db/schema/column-metadata";
+import { addColumnIfMissing as addSchemaColumnIfMissing, runPendingUpgrades } from "@/server/db-migrations";
 
 // Bun-only hybrid: lazy require() avoids top-level model imports that would create
 // circular dependencies with redbean-compat. Node CJS/ESM resolution does not support
@@ -154,90 +156,6 @@ const monitorPropertyColumns = {
     wsSubprotocol: "ws_subprotocol",
 };
 
-const monitorColumnTypes = {
-    auth_domain: "TEXT",
-    auth_method: "TEXT",
-    auth_workstation: "TEXT",
-    bearer_token: "TEXT",
-    cache_bust: "BOOLEAN DEFAULT 0",
-    database_connection_string: "TEXT",
-    database_query: "TEXT",
-    dns_last_result: "TEXT",
-    dns_resolve_server: "TEXT",
-    dns_resolve_type: "TEXT",
-    domain_expiry_notification: "BOOLEAN DEFAULT 1",
-    expected_tls_alert: "TEXT",
-    expected_value: "TEXT",
-    expiry_notification: "BOOLEAN DEFAULT 1",
-    gamedig_given_port_only: "BOOLEAN DEFAULT 1",
-    gamedig_token: "TEXT",
-    grpc_body: "TEXT",
-    grpc_enable_tls: "BOOLEAN DEFAULT 0",
-    grpc_metadata: "TEXT",
-    grpc_method: "TEXT",
-    grpc_protobuf: "TEXT",
-    grpc_service_name: "TEXT",
-    grpc_url: "TEXT",
-    http_body_encoding: "TEXT",
-    ignore_tls: "BOOLEAN DEFAULT 0",
-    invert_keyword: "BOOLEAN DEFAULT 0",
-    ip_family: "TEXT",
-    json_path: "TEXT",
-    json_path_operator: "TEXT",
-    kafka_producer_allow_auto_topic_creation: "BOOLEAN DEFAULT 0",
-    kafka_producer_brokers: "TEXT",
-    kafka_producer_message: "TEXT",
-    kafka_producer_sasl_options: "TEXT",
-    kafka_producer_ssl: "BOOLEAN DEFAULT 0",
-    kafka_producer_topic: "TEXT",
-    manual_status: "TEXT",
-    mqtt_check_type: "TEXT",
-    mqtt_password: "TEXT",
-    mqtt_success_message: "TEXT",
-    mqtt_topic: "TEXT",
-    mqtt_username: "TEXT",
-    mqtt_websocket_path: "TEXT",
-    oauth_audience: "TEXT",
-    oauth_auth_method: "TEXT",
-    oauth_client_id: "TEXT",
-    oauth_client_secret: "TEXT",
-    oauth_scopes: "TEXT",
-    oauth_token_url: "TEXT",
-    packet_size: "INTEGER",
-    ping_count: "INTEGER DEFAULT 1",
-    ping_numeric: "BOOLEAN DEFAULT 1",
-    ping_per_request_timeout: "INTEGER DEFAULT 2",
-    proxy_id: "INTEGER",
-    push_token: "TEXT",
-    rabbitmq_nodes: "TEXT",
-    rabbitmq_password: "TEXT",
-    rabbitmq_username: "TEXT",
-    radius_called_station_id: "TEXT",
-    radius_calling_station_id: "TEXT",
-    radius_password: "TEXT",
-    radius_secret: "TEXT",
-    radius_username: "TEXT",
-    resend_interval: "INTEGER DEFAULT 0",
-    response_max_length: "INTEGER",
-    retry_interval: "INTEGER DEFAULT 20",
-    retry_only_on_status_code_failure: "BOOLEAN DEFAULT 0",
-    remote_browser: "INTEGER",
-    save_error_response: "BOOLEAN DEFAULT 1",
-    save_response: "BOOLEAN DEFAULT 0",
-    screenshot_delay: "INTEGER DEFAULT 0",
-    smtp_security: "TEXT",
-    snmp_oid: "TEXT",
-    snmp_version: "TEXT",
-    snmp_v3_username: "TEXT",
-    system_service_name: "TEXT",
-    tls_ca: "TEXT",
-    tls_cert: "TEXT",
-    tls_key: "TEXT",
-    upside_down: "BOOLEAN DEFAULT 0",
-    ws_ignore_sec_websocket_accept_header: "BOOLEAN DEFAULT 0",
-    ws_subprotocol: "TEXT",
-};
-
 const monitorBooleanColumns = new Set([
     "cache_bust",
     "domain_expiry_notification",
@@ -376,27 +294,6 @@ class BunSQLiteRedbean {
     sqlitePath = null;
     dbConfig = { type: "sqlite" };
 
-    get knex() {
-        const self = this;
-        const fn = function (table) {
-            return {
-                count(column) {
-                    return {
-                        async first() {
-                            const alias = column.includes(" as ") ? column.split(/\s+as\s+/i).pop() : "count";
-                            const row = await self.getRow(`SELECT COUNT(*) AS ${alias} FROM ${table}`);
-                            return row || { [alias]: 0 };
-                        },
-                    };
-                },
-            };
-        };
-        fn.migrate = {
-            latest: async () => [],
-        };
-        return fn;
-    }
-
     async connect({ sqlitePath, templatePath, testMode = false }) {
         this.sqlitePath = sqlitePath;
         this.dbConfig = { type: "sqlite" };
@@ -411,118 +308,11 @@ class BunSQLiteRedbean {
         this.db.run("PRAGMA auto_vacuum = INCREMENTAL");
         this.db.run("PRAGMA busy_timeout = 5000");
         this.db.run("PRAGMA synchronous = NORMAL");
-        this.ensureBootstrapSchema();
+        await runPendingUpgrades(this);
     }
 
-    ensureBootstrapSchema() {
-        this.addColumnIfMissing("user", "twofa_secret");
-        this.addColumnIfMissing("user", "twofa_status", "INTEGER NOT NULL DEFAULT 0");
-        this.addColumnIfMissing("user", "twofa_last_token", "TEXT");
-        this.addColumnIfMissing("monitor", "accepted_statuscodes_json", "TEXT");
-        this.addColumnIfMissing("monitor", "maxredirects", "INTEGER DEFAULT 10");
-        this.addColumnIfMissing("monitor", "timeout", "INTEGER DEFAULT 48");
-        this.addColumnIfMissing("monitor", "retry_interval", "INTEGER DEFAULT 20");
-        this.addColumnIfMissing("monitor", "resend_interval", "INTEGER DEFAULT 0");
-        this.addColumnIfMissing("monitor", "method", "TEXT DEFAULT 'GET'");
-        this.addColumnIfMissing("monitor", "body", "TEXT");
-        this.addColumnIfMissing("monitor", "headers", "TEXT");
-        this.addColumnIfMissing("monitor", "auth_method", "TEXT");
-        this.addColumnIfMissing("monitor", "basic_auth_user", "TEXT");
-        this.addColumnIfMissing("monitor", "basic_auth_pass", "TEXT");
-        this.addColumnIfMissing("monitor", "description", "TEXT");
-        this.addColumnIfMissing("monitor", "packet_size", "INTEGER");
-        this.addColumnIfMissing("monitor", "parent", "INTEGER");
-        this.addColumnIfMissing("monitor", "invert_keyword", "BOOLEAN DEFAULT 0");
-        this.addColumnIfMissing("monitor", "json_path", "TEXT");
-        this.addColumnIfMissing("monitor", "expected_value", "TEXT");
-        this.addColumnIfMissing("monitor", "database_connection_string", "TEXT");
-        this.addColumnIfMissing("monitor", "database_query", "TEXT");
-        this.addColumnIfMissing("monitor", "docker_container", "TEXT");
-        this.addColumnIfMissing("monitor", "docker_host", "INTEGER");
-        this.addColumnIfMissing("monitor", "proxy_id", "INTEGER");
-        this.addColumnIfMissing("monitor", "expiry_notification", "BOOLEAN DEFAULT 1");
-        this.addColumnIfMissing("monitor", "ignore_tls", "BOOLEAN DEFAULT 0");
-        this.addColumnIfMissing("monitor", "upside_down", "BOOLEAN DEFAULT 0");
-        this.addColumnIfMissing("monitor", "push_token", "TEXT");
-        for (const [column, type] of Object.entries(monitorColumnTypes)) {
-            this.addColumnIfMissing("monitor", column, type);
-        }
-
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS maintenance (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, description TEXT, user_id INTEGER, active BOOLEAN DEFAULT 1, strategy TEXT, start_date DATETIME, end_date DATETIME)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS status_page (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, title TEXT, description TEXT, icon TEXT, theme TEXT, published BOOLEAN DEFAULT 1, show_tags BOOLEAN DEFAULT 0, domain_name_list TEXT, custom_css TEXT, footer_text TEXT, show_powered_by BOOLEAN DEFAULT 1, google_analytics_tag_id TEXT, created_date DATETIME, modified_date DATETIME)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS status_page_cname (id INTEGER PRIMARY KEY AUTOINCREMENT, status_page_id INTEGER, domain TEXT UNIQUE)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS incident (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, style TEXT, status TEXT, status_page_id INTEGER, created_date DATETIME, last_updated_date DATETIME)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS `group` (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, weight INTEGER DEFAULT 1000, public BOOLEAN DEFAULT 0, status_page_id INTEGER)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS monitor_group (id INTEGER PRIMARY KEY AUTOINCREMENT, monitor_id INTEGER, group_id INTEGER, weight INTEGER DEFAULT 1000, send_url BOOLEAN DEFAULT 0, custom_url TEXT)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS tag (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, color TEXT, user_id INTEGER)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS monitor_tag (id INTEGER PRIMARY KEY AUTOINCREMENT, tag_id INTEGER, monitor_id INTEGER, value TEXT)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS notification_sent_history (id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, monitor_id INTEGER, days INTEGER)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS monitor_tls_info (id INTEGER PRIMARY KEY AUTOINCREMENT, monitor_id INTEGER UNIQUE, info_json TEXT)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS api_key (id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT, name TEXT, user_id INTEGER, active BOOLEAN DEFAULT 1, expires DATETIME)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS proxy (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, protocol TEXT, host TEXT, port INTEGER, auth BOOLEAN, username TEXT, password TEXT, active BOOLEAN DEFAULT 1, default_proxy BOOLEAN DEFAULT 0)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS docker_host (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, docker_daemon TEXT, docker_type TEXT, name TEXT)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS remote_browser (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, name TEXT, url TEXT)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS stat_minutely (id INTEGER PRIMARY KEY AUTOINCREMENT, monitor_id INTEGER, timestamp DATETIME, ping REAL, up INTEGER, down INTEGER, maintenance INTEGER)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS stat_hourly (id INTEGER PRIMARY KEY AUTOINCREMENT, monitor_id INTEGER, timestamp DATETIME, ping REAL, up INTEGER, down INTEGER, maintenance INTEGER)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS stat_daily (id INTEGER PRIMARY KEY AUTOINCREMENT, monitor_id INTEGER, timestamp DATETIME, ping REAL, up INTEGER, down INTEGER, maintenance INTEGER)"
-        );
-        this.db.run(
-            "CREATE TABLE IF NOT EXISTS domain_expiry (id INTEGER PRIMARY KEY AUTOINCREMENT, last_check DATETIME, domain TEXT UNIQUE NOT NULL, expiry DATETIME, last_expiry_notification_sent INTEGER DEFAULT NULL)"
-        );
-
-        this.addColumnIfMissing("incident", "pin", "BOOLEAN DEFAULT 1");
-        this.addColumnIfMissing("incident", "active", "BOOLEAN DEFAULT 1");
-
-        this.addColumnIfMissing("status_page", "autoRefreshInterval", "INTEGER DEFAULT 300");
-        this.addColumnIfMissing("status_page", "analytics_id", "TEXT");
-        this.addColumnIfMissing("status_page", "analytics_script_url", "TEXT");
-        this.addColumnIfMissing("status_page", "analytics_type", "TEXT");
-        this.addColumnIfMissing("status_page", "rss_title", "TEXT");
-        this.addColumnIfMissing("status_page", "show_certificate_expiry", "BOOLEAN DEFAULT 0");
-        this.addColumnIfMissing("status_page", "show_only_last_heartbeat", "BOOLEAN DEFAULT 0");
-    }
-
-    addColumnIfMissing(table, column, type = "TEXT") {
-        const exists = this.db
-            .query(`PRAGMA table_info("${table}")`)
-            .all()
-            .some((row) => row.name === column);
-        if (!exists) {
-            this.db.run(`ALTER TABLE "${table}" ADD COLUMN "${column}" ${type}`);
-        }
+    addColumnIfMissing(table, column, type) {
+        addSchemaColumnIfMissing(this.db, table, column, type);
     }
 
     async close() {
@@ -544,6 +334,10 @@ class BunSQLiteRedbean {
         return beanForTable(table);
     }
 
+    convertToBean(table, row = {}) {
+        return beanForTable(table, row);
+    }
+
     convertToBeans(table, rows = []) {
         return rows.map((row) => beanForTable(table, row));
     }
@@ -561,6 +355,7 @@ class BunSQLiteRedbean {
             }
         }
         row = normalizeRowForStore(table, row);
+        row = filterStoreRow(table, row);
 
         const columns = Object.keys(row);
         if (bean.id) {
