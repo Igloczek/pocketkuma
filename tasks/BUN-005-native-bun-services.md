@@ -23,7 +23,7 @@ Replace small Node-era runtime helpers with Bun-native APIs where that removes d
 ```bash
 bun run bun:test:backend
 bun run bun:start -- --port=3005 --data-dir=./data/bun-services-smoke
-rg -n "bcrypt|child_process|execa|cross-env|password" server extra package.json
+rg -n "bcrypt|child_process|execa|cross-env|password" src scripts package.json
 ```
 
 ## Acceptance Criteria

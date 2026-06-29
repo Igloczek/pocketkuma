@@ -1,12 +1,12 @@
 console.log("== Uptime Kuma Reset Password Tool ==");
 
-const Database = require("../src/server/database");
+const Database = require("../../src/server/database");
 const { R } = require("redbean-node");
 const readline = require("readline");
 const { passwordStrength } = require("check-password-strength");
-const { initJWTSecret } = require("../src/server/util-server");
-const User = require("../src/server/model/user");
-const { args } = require("../src/server/args");
+const { initJWTSecret } = require("../../src/server/util-server");
+const User = require("../../src/server/model/user");
+const { args } = require("../../src/server/args");
 
 const rl = readline.createInterface({
     input: process.stdin,

@@ -10,7 +10,7 @@ const server = dns2.createServer({
     udp: true,
 });
 
-server.on("request", (request, send, rinfo) => {
+server.on("request", (request, send, _rinfo) => {
     for (let question of request.questions) {
         console.log(question.name, type(question.type), question.class);
 

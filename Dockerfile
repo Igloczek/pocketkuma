@@ -27,13 +27,11 @@ ENV NODE_ENV=production
 COPY package.json bun.lock bunfig.toml ./
 RUN bun install --frozen-lockfile --production
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/extra/healthcheck.ts ./extra/healthcheck.ts
-COPY --from=build /app/extra/push-examples ./extra/push-examples
-COPY --from=build /app/extra/rdap-dns.json ./extra/rdap-dns.json
+COPY --from=build /app/scripts/runtime/healthcheck.ts ./scripts/runtime/healthcheck.ts
 COPY --from=build /app/src ./src
 RUN mkdir ./data
 
 EXPOSE 3001
-HEALTHCHECK --interval=60s --timeout=30s --start-period=180s --retries=5 CMD bun extra/healthcheck.ts
+HEALTHCHECK --interval=60s --timeout=30s --start-period=180s --retries=5 CMD bun scripts/runtime/healthcheck.ts
 ENTRYPOINT ["bun"]
 CMD ["src/server/server.ts"]

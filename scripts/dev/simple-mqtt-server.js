@@ -1,4 +1,4 @@
-const { log } = require("../src/util");
+const { log } = require("../../src/util");
 
 const mqttUsername = "louis1";
 const mqttPassword = "!@#$LLam";
@@ -36,7 +36,7 @@ server1.aedes.authenticate = function (client, username, password, callback) {
     }
 };
 
-server1.aedes.on("subscribe", (subscriptions, client) => {
+server1.aedes.on("subscribe", (subscriptions, _client) => {
     console.log(subscriptions);
 
     for (let s of subscriptions) {

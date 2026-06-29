@@ -6,6 +6,8 @@ const { checkLogin } = require("../util-server");
 const fsAsync = require("fs").promises;
 const path = require("path");
 
+const pushExamplesDir = path.join(__dirname, "../assets/push-examples");
+
 /**
  * Get a game list via GameDig
  * @returns {object} list of games supported by GameDig
@@ -113,7 +115,7 @@ module.exports.generalSocketHandler = (socket, server) => {
         }
 
         try {
-            let dir = path.join("./extra/push-examples", language);
+            let dir = path.join(pushExamplesDir, language);
             let files = await fsAsync.readdir(dir);
 
             for (let file of files) {

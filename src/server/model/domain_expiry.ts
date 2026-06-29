@@ -98,7 +98,7 @@ async function getOfflineRdapDnsData() {
         }
     } catch (e) {
         // If not downloaded previously, use the hardcoded data
-        data = require("../../../extra/rdap-dns.json");
+        data = require("../assets/rdap-dns.json");
     }
     return data;
 }

@@ -1,9 +1,5 @@
 // @ts-nocheck
-const fs = require("fs");
-const path = require("path");
 const serverUrl = require("../../config/playwright.config.ts").url;
-
-const dbPath = "./../../data/playwright-test/kuma.db";
 
 /**
  * @param {TestInfo} testInfo Test info
@@ -27,18 +23,10 @@ export async function login(page) {
     await page.getByPlaceholder("Username").click();
     await page.getByPlaceholder("Username").fill("admin");
     await page.getByPlaceholder("Username").press("Tab");
-    await page.getByPlaceholder("Password").fill("admin123");
+    await page.getByPlaceholder("Password", { exact: true }).fill("admin123");
     await page.getByLabel("Remember me").check();
     await page.getByRole("button", { name: "Log in" }).click();
     await page.isVisible("text=Add New Monitor");
-}
-
-/**
- * Determines if the SQLite database has been created. This indicates setup has completed.
- * @returns {boolean} True if exists
- */
-export function getSqliteDatabaseExists() {
-    return fs.existsSync(path.resolve(__dirname, dbPath));
 }
 
 /**

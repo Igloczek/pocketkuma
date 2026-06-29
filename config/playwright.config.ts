@@ -3,6 +3,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = 30001;
 export const url = `http://localhost:${port}`;
+const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+const desktopChrome = {
+    ...devices["Desktop Chrome"],
+    ...(chromiumExecutablePath ? { launchOptions: { executablePath: chromiumExecutablePath } } : {}),
+};
 
 export default defineConfig({
     // Look for test files in the "tests" directory, relative to this configuration file.
@@ -44,11 +49,11 @@ export default defineConfig({
         {
             name: "run-once setup",
             testMatch: /setup-process\.once\.ts/,
-            use: { ...devices["Desktop Chrome"] },
+            use: desktopChrome,
         },
         {
             name: "specs",
-            use: { ...devices["Desktop Chrome"] },
+            use: desktopChrome,
             dependencies: ["run-once setup"],
         },
         /*
@@ -60,7 +65,7 @@ export default defineConfig({
 
     // Run your local dev server before starting the tests.
     webServer: {
-        command: `bun extra/remove-playwright-test-data.js && NODE_ENV=development bun src/server/server.ts --port=${port} --data-dir=./data/playwright-test`,
+        command: `bun scripts/test/remove-playwright-test-data.js && NODE_ENV=development bun src/server/server.ts --port=${port} --data-dir=./data/playwright-test`,
         url,
         reuseExistingServer: false,
         cwd: "../",

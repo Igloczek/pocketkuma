@@ -26,7 +26,7 @@ bun install --frozen-lockfile
 bun run build
 bun run test:backend
 bun run start -- --port=3007 --data-dir=./data/bun-final-smoke
-rg -n "node src/server/server.ts|express|socket.io|@louislam/sqlite3|redbean|knex|axios|bcrypt|dotenv|args-parser" package.json src extra Dockerfile* README.md
+rg -n "node src/server/server.ts|express|socket.io|@louislam/sqlite3|redbean|knex|axios|bcrypt|dotenv|args-parser" package.json src scripts Dockerfile* README.md
 docker image inspect <image-name> --format '{{.Size}}'
 ```
 

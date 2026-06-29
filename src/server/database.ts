@@ -585,7 +585,7 @@ class Database {
      *
      * Normally, it should be in transaction, but UptimeCalculator wasn't designed to be in transaction before that.
      * I don't want to heavily modify the UptimeCalculator, so it is not in transaction.
-     * Run `bun run reset-migrate-aggregate-table-state` to reset, in case the migration is interrupted.
+     * Run `bun run reset-migrate-aggregate-table-state` to reset if the migration is interrupted.
      * @param {number} port Start the migration server on this port if provided
      * @param {string} hostname Start the migration server on this hostname if provided
      * @returns {Promise<void>}
