@@ -17,7 +17,7 @@ This directory tracks the minimum implementation path for turning this fork into
 - No standalone performance-budget or baseline-measurement tasks.
 - No public community-process files or upstream governance restoration.
 - No broad product rewrite.
-- No MariaDB preservation work unless a task explicitly keeps it and proves it does not block the SQLite/Bun default.
+- Do not restore MariaDB/MySQL as an application database backend; uptime-buna is SQLite-only.
 
 ## Working Rules
 
@@ -37,3 +37,8 @@ This directory tracks the minimum implementation path for turning this fork into
 6. [BUN-006](BUN-006-fetch-http-clients.md) - outbound HTTP through native `fetch`.
 7. [BUN-007](BUN-007-monitor-runtime-slimming.md) - monitor scheduler and lazy runtime loading.
 8. [BUN-008](BUN-008-bun-default-and-prune.md) - Bun default runtime, Docker image, and dependency pruning.
+9. [BUN-009](BUN-009-oxlint-oxfmt-tooling.md) - Oxlint and Oxfmt tooling.
+10. [BUN-011](BUN-011-typescript-source.md) - TypeScript source migration.
+11. [BUN-012](BUN-012-root-docker-files.md) - root Docker files.
+12. [BUN-013](BUN-013-src-application-layout.md) - source layout under `src`.
+13. [BUN-014](BUN-014-final-bun-cleanup.md) - final Bun cleanup, including `.npmrc`.

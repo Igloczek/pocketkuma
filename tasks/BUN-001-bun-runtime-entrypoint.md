@@ -8,9 +8,9 @@ Make Bun the install and startup path without yet changing the HTTP server, WebS
 
 - Generate and commit `bun.lock`.
 - Add temporary Bun-first scripts:
-  - `bun:start`;
-  - `bun:build`;
-  - `bun:test:backend`.
+    - `bun:start`;
+    - `bun:build`;
+    - `bun:test:backend`.
 - Add a Bun runtime helper that reports runtime name, version, platform, and arch.
 - Replace simple Node-only argument parsing with a local parser that works under Bun.
 - Load environment configuration in a way that does not require `dotenv` on the Bun path.

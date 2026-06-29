@@ -22,10 +22,10 @@ Replace Socket.IO with a native WebSocket protocol that runs on Bun's WebSocket 
 ## Validation
 
 ```bash
-bun run bun:build
-bun run bun:start -- --port=3003 --data-dir=./data/bun-ws-smoke
-npm run test-backend
-rg -n "socket\\.io|socket.io|io\\(" server src package.json
+bun run build
+bun run start -- --port=3003 --data-dir=./data/bun-ws-smoke
+bun run test:backend
+rg -n "socket\\.io|socket.io|io\\(" src package.json
 ```
 
 Use an E2E or browser smoke check to confirm login, dashboard status updates, and monitor detail updates.

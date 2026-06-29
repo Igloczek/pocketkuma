@@ -8,19 +8,19 @@ The repository is published "as is": no formal support process, no issue triage 
 
 ## Current Stack
 
-- Backend: Node.js, CommonJS, Express, Socket.IO.
+- Backend: Bun runtime, CommonJS modules, Express compatibility routes, and Bun-native HTTP/WebSocket paths.
 - Frontend: Vue 3, Vite, Bootstrap-based UI.
-- Database layer: SQLite by default through Redbean/Knex/`@louislam/sqlite3`; MariaDB support is inherited from upstream.
-- Package manager today: npm with `package-lock.json`.
-- Runtime today: `node server/server.js`.
-- Docker today: inherited Node-based Dockerfiles.
+- Database layer: SQLite only through the Bun-native compatibility store; MariaDB/MySQL are not supported as application databases.
+- Package manager today: Bun with `bun.lock`.
+- Runtime today: `bun src/server/server.ts`.
+- Docker today: root `Dockerfile` builds one local Bun runtime image; `compose.yaml` is runtime-only convenience, not a development workflow.
 
 ## Target Direction
 
-- Move runtime execution from Node.js to Bun.
+- Keep runtime execution on Bun.
 - Use native Bun APIs where they reduce memory, dependencies, or runtime complexity.
 - Keep the application recognizable; do not rewrite the product from scratch.
-- Prefer SQLite and a lightweight runtime as the default direction.
+- Prefer SQLite and a lightweight runtime. Do not add app-database backends only for upstream parity.
 
 Preferred Bun targets when the relevant task calls for them:
 
@@ -38,7 +38,7 @@ Preferred Bun targets when the relevant task calls for them:
 - Migration work is tracked in `tasks/`.
 - Each `tasks/BUN-*.md` file is one task and one implementation unit.
 - Do not combine multiple task files into one implementation unless explicitly requested.
-- Keep existing npm/Node paths until a task explicitly changes the default runtime.
+- Do not add npm or Node fallback paths for default runtime, package-manager, or verification workflows.
 - Do not restore upstream community files such as `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, issue templates, PR templates, stale workflows, release workflows, or sponsor/funding files.
 - Dependency update automation uses Renovate via `renovate.json`; do not restore Dependabot.
 - Do not add GitHub Actions or other GitHub automation unless explicitly requested.
@@ -47,29 +47,20 @@ Preferred Bun targets when the relevant task calls for them:
 
 Use the command set that matches the changed area.
 
-Current inherited Node/npm checks:
+Current Bun checks:
 
 ```bash
-npm ci
-npm run lint
-npm run build
-npm run test-backend
-npm run test-e2e
+bun install --frozen-lockfile
+bun run lint
+bun run build
+bun run test:backend
+bun run test-e2e
 ```
 
 Current backend smoke start:
 
 ```bash
-node server/server.js --port=3001 --data-dir=./data/smoke
-```
-
-Bun checks should be used only after the relevant Bun scripts or lockfile exist:
-
-```bash
-bun install --frozen-lockfile
-bun run bun:build
-bun run bun:test-backend
-bun run bun:start-server -- --port=3002 --data-dir=./data/bun-smoke
+bun src/server/server.ts --port=3001 --data-dir=./data/smoke
 ```
 
 Runtime, memory, dependency, database, Docker, networking, and monitor-scheduling changes must include before/after measurements. Store benchmark outputs under `docs/perf/` when the task specifies a report.
