@@ -57,13 +57,13 @@ Result:
 
 ```text
 Bun runtime = 1.3.14
-uptime-buna:local = 285186987 bytes
+uptime-buna:local = 285188310 bytes
 ```
 
 Delta:
 
 ```text
--152867076 bytes
+-152865753 bytes
 ```
 
 ## Local Browser Smoke

@@ -6,12 +6,14 @@ Date: 2026-06-29
 
 - Moved backend runtime source from root `server/` to `src/server/`.
 - Moved database source/assets from root `db/` to `src/db/`.
-- Removed root `server/` and root `db/` directories.
+- Moved the Vite HTML entrypoint from root `index.html` to `src/index.html`.
+- Removed root `server/`, root `db/`, and root `index.html`.
 - Kept generated/runtime directories such as `data/` and `dist/` at root.
 
 ## Updated Entrypoints
 
 - Package start scripts now run `bun src/server/server.ts`.
+- Vite now uses `src` as its project root and emits the production build to root `dist/`.
 - Docker release image now copies `src/` and runs `CMD ["src/server/server.ts"]`.
 - Playwright web server now starts `src/server/server.ts`.
 - The later Docker cleanup removed the dev Compose workflow; local development now uses `bun run dev`.
@@ -40,6 +42,7 @@ Results:
 - `bun run tsc`: passed.
 - `bun run lint`: passed with inherited warnings and Stylelint deprecation warnings.
 - `bun run build`: passed.
+- Root entrypoint cleanup verified: `CNAME` and root `index.html` are absent, and `src/index.html` exists.
 - `bun run test:backend`: passed, 17 tests.
 - Browser smoke passed: setup page rendered, user `src-smoke` was created, monitor `src-layout-smoke` was created for `http://127.0.0.1:3007`, and first heartbeat returned `200 - OK`.
 - Smoke server shut down gracefully and `data/src-layout-smoke` was removed.

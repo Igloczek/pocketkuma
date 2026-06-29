@@ -12,6 +12,8 @@ const viteCompressionFilter = /\.(js|mjs|json|css|html|svg)$/i;
 
 // https://vitejs.dev/config/
 export default defineConfig({
+    root: "src",
+    publicDir: "../public",
     server: {
         port: 3000,
     },
@@ -22,7 +24,7 @@ export default defineConfig({
     plugins: [
         vue(),
         visualizer({
-            filename: "tmp/dist-stats.html",
+            filename: "../tmp/dist-stats.html",
         }),
         viteCompression({
             algorithm: "gzip",
@@ -41,6 +43,8 @@ export default defineConfig({
         },
     },
     build: {
+        outDir: "../dist",
+        emptyOutDir: true,
         commonjsOptions: {
             include: [/.js$/],
         },
