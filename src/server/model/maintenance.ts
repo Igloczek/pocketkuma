@@ -6,7 +6,7 @@ import { R } from "@/server/redbean-compat";
 import dayjs from "dayjs";
 import Cron from "croner";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";
-import apicache from "@/server/modules/apicache";
+import apicache from "@/server/apicache";
 
 class Maintenance extends BeanModel {
     /**

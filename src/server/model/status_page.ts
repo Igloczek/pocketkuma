@@ -23,6 +23,14 @@ import {
 } from "@/util";
 
 class StatusPage extends BeanModel {
+    get autoRefreshInterval() {
+        return this.auto_refresh_interval;
+    }
+
+    set autoRefreshInterval(value) {
+        this.auto_refresh_interval = value;
+    }
+
     get analyticsId() {
         return this.analytics_id;
     }

@@ -52,7 +52,6 @@
 <script>
 import HiddenInput from "@/components/HiddenInput.vue";
 
-
 export default {
     components: {
         HiddenInput,

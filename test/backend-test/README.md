@@ -59,14 +59,15 @@ bun run test:backend:all      # full suite (includes integration / Docker tests)
 
 ### CI gate (`test:backend`)
 
-The gate runs six fast, hermetic unit tests (no Docker/network):
+The gate runs fast, hermetic unit tests (no Docker/network):
 
 - `bun-sqlite-store.test.ts` — SQLite store bootstrap and queries
 - `http-client.test.ts` — fetch wrapper behavior
 - `monitor-runtime-loading.test.ts` — lazy monitor/notification loading
 - `monitor-scheduler.test.ts` — scheduler timer control
 - `check-translations.test.ts` — translation key and placeholder safety
-- `migration.test.ts` — SQLite knex migrations on a temp DB
+- `schema.test.ts` — generated `kuma.db` schema contract
+- `upgrade.test.ts` — upstream Kuma 2.x one-time upgrade path
 
 Add a file here only when it is fast, deterministic, and does not require external services.
 

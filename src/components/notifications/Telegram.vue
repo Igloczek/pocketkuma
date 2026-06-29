@@ -135,7 +135,6 @@
 import HiddenInput from "@/components/HiddenInput.vue";
 import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
 
-
 export default {
     components: {
         HiddenInput,

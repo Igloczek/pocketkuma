@@ -37,7 +37,7 @@ describe("Server Utilities: pingAsync", () => {
     });
 
     test("should handle standard ASCII domains correctly", async () => {
-        const domain = "invalid-domain.test";
+        const domain = "uptime-buna-unresolvable.invalid";
 
         try {
             await pingAsync(domain, false, 1, "", true, 56, 1, 1);

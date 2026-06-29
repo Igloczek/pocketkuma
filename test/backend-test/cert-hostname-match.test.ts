@@ -41,8 +41,8 @@ describe("Certificate Hostname Validation", () => {
         expect(result).toBe(true);
     });
 
-    test("checkCertificateHostname() returns false when certificate does not match hostname").toBe(() => {
-        const result = checkCertificateHostname(testCert); // example.com;
+    test("checkCertificateHostname() returns false when certificate does not match hostname", () => {
+        const result = checkCertificateHostname(testCert, "example.com");
         expect(result).toBe(false);
     });
 });

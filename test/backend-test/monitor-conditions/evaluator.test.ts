@@ -1,11 +1,7 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
-import {
-    ConditionExpressionGroup,
-    ConditionExpression,
-    LOGICAL,
-} from "@/server/monitor-conditions/expression";
+import { ConditionExpressionGroup, ConditionExpression, LOGICAL } from "@/server/monitor-conditions/expression";
 import { evaluateExpressionGroup, evaluateExpression } from "@/server/monitor-conditions/evaluator";
 
 describe("Expression Evaluator", () => {

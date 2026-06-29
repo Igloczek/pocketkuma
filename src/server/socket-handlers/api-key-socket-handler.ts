@@ -10,7 +10,7 @@ import { log } from "@/util";
 import { R } from "@/server/redbean-compat";
 import { randomId } from "@/util/random-id";
 import passwordHash from "@/server/password-hash";
-import apicache from "@/server/modules/apicache";
+import apicache from "@/server/apicache";
 import APIKey from "@/server/model/api_key";
 import { Settings } from "@/server/settings";
 import { sendAPIKeyList } from "@/server/client";

@@ -3,7 +3,7 @@
 import { checkLogin } from "@/server/util-server";
 import { log } from "@/util";
 import { R } from "@/server/redbean-compat";
-import apicache from "@/server/modules/apicache";
+import apicache from "@/server/apicache";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";
 import Maintenance from "@/server/model/maintenance";
 

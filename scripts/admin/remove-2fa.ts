@@ -1,5 +1,5 @@
 import Database from "@/server/database";
-import { R } from "redbean-node";
+import { R } from "@/server/redbean-compat";
 import readline from "readline";
 import TwoFA from "@/server/2fa";
 import { args } from "@/server/args";

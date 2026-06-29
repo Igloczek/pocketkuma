@@ -4,12 +4,7 @@ import { describe, test, expect, spyOn } from "bun:test";
 import StatusPage from "@/server/model/status_page";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import {
-    STATUS_PAGE_ALL_UP,
-    STATUS_PAGE_ALL_DOWN,
-    STATUS_PAGE_PARTIAL_DOWN,
-    STATUS_PAGE_MAINTENANCE,
-} from "@/util";
+import { STATUS_PAGE_ALL_UP, STATUS_PAGE_ALL_DOWN, STATUS_PAGE_PARTIAL_DOWN, STATUS_PAGE_MAINTENANCE } from "@/util";
 
 dayjs.extend(utc);
 

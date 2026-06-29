@@ -33,7 +33,7 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(monitorColumns.includes("dns_last_result")).toBe(true);
         expect(incidentColumns.includes("pin")).toBe(true);
         expect(incidentColumns.includes("active")).toBe(true);
-        expect(statusPageColumns.includes("autoRefreshInterval")).toBe(true);
+        expect(statusPageColumns.includes("auto_refresh_interval")).toBe(true);
         expect(statusPageColumns.includes("analytics_id")).toBe(true);
         expect(statusPageColumns.includes("analytics_script_url")).toBe(true);
         expect(statusPageColumns.includes("analytics_type")).toBe(true);
@@ -42,7 +42,7 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(statusPageColumns.includes("show_only_last_heartbeat")).toBe(true);
 
         await store.exec(
-            "INSERT INTO status_page (id, slug, title, icon, theme, autoRefreshInterval, analytics_id, analytics_script_url, analytics_type, rss_title, show_certificate_expiry, show_only_last_heartbeat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO status_page (id, slug, title, icon, theme, auto_refresh_interval, analytics_id, analytics_script_url, analytics_type, rss_title, show_certificate_expiry, show_only_last_heartbeat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [1, "test", "Test", "", "auto", 30, "G-123", "https://analytics.example/script.js", "google", "RSS", 1, 1]
         );
         await store.exec(

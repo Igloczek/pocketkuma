@@ -8,6 +8,9 @@ const outfile = outfileArg ? path.resolve(projectRoot, outfileArg) : path.join(p
 
 process.chdir(projectRoot);
 
+console.log("Generating kuma.db template...");
+await $`bun scripts/build/generate-kuma-db.ts`;
+
 console.log("Building frontend...");
 await $`bun run build:frontend`;
 

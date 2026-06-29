@@ -139,10 +139,20 @@ function getLoadedNotificationProviders() {
     return Object.keys(loadedProviders);
 }
 
+function resetLoadedNotificationProvidersForTests() {
+    for (const key of Object.keys(loadedProviders)) {
+        delete loadedProviders[key];
+    }
+    for (const key of Object.keys(loadingProviders)) {
+        delete loadingProviders[key];
+    }
+}
+
 export {
     OPTIONAL_NOTIFICATION_PROVIDERS,
     REMOVED_NOTIFICATION_PROVIDERS,
     createProviderList,
     getLoadedNotificationProviders,
     getNotificationProvider,
+    resetLoadedNotificationProvidersForTests,
 };

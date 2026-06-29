@@ -53,7 +53,7 @@ import zlib from "node:zlib";
 import { promisify } from "node:util";
 import DomainExpiry from "@/server/model/domain_expiry";
 import packageJson from "@/package-meta";
-import apicache from "@/server/modules/apicache";
+import apicache from "@/server/apicache";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const version = packageJson.version;
