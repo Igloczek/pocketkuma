@@ -1,7 +1,13 @@
 {
     "extends": "./tsconfig.json",
-    "compilerOptions": {
-        "esModuleInterop": false
-    },
-    "files": ["./src/util.ts"]
+    "include": [
+        "config/**/*.ts",
+        "src/**/*.ts",
+        "test/backend-test/**/*.ts",
+        "test/e2e/**/*.ts"
+    ],
+    "exclude": [
+        "src/server/modules/**/*.js",
+        "src/server/utils/knex/**/*.js"
+    ]
 }

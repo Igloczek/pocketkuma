@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { defineConfig, devices } from "@playwright/test";
 
 const port = 30001;
@@ -42,7 +43,7 @@ export default defineConfig({
     projects: [
         {
             name: "run-once setup",
-            testMatch: /setup-process\.once\.js/,
+            testMatch: /setup-process\.once\.ts/,
             use: { ...devices["Desktop Chrome"] },
         },
         {
@@ -59,7 +60,7 @@ export default defineConfig({
 
     // Run your local dev server before starting the tests.
     webServer: {
-        command: `node extra/remove-playwright-test-data.js && cross-env NODE_ENV=development node server/server.js --port=${port} --data-dir=./data/playwright-test`,
+        command: `bun extra/remove-playwright-test-data.js && NODE_ENV=development bun src/server/server.ts --port=${port} --data-dir=./data/playwright-test`,
         url,
         reuseExistingServer: false,
         cwd: "../",

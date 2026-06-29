@@ -1,7 +1,6 @@
 {
     "extends": [
-        "stylelint-config-standard",
-        "stylelint-config-prettier"
+        "stylelint-config-standard"
     ],
     "customSyntax": "postcss-html",
     "rules": {
@@ -9,9 +8,11 @@
         "declaration-empty-line-before": null,
         "alpha-value-notation": "number",
         "color-function-notation": "legacy",
+        "declaration-block-trailing-semicolon": null,
         "shorthand-property-no-redundant-values": null,
         "color-hex-length": null,
         "declaration-block-no-redundant-longhand-properties": null,
+        "indentation": null,
         "at-rule-no-unknown": null
     }
 }

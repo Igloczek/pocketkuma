@@ -1,0 +1,3 @@
+[install]
+# Keep the release-age guard expressed in Bun's seconds-based setting.
+minimumReleaseAge = 1209600
