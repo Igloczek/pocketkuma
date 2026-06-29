@@ -1,4 +1,4 @@
-# uptime-buna Bun migration tasks
+# Uptime Buna Bun migration tasks
 
 This directory tracks the minimum implementation path for turning this fork into a Bun-first, memory-conscious Uptime Kuma fork. The goal is not to benchmark the old Node runtime. The goal is to remove the old runtime shape and run the app on Bun with Bun-native APIs where they materially reduce dependencies, resident memory, or startup complexity.
 
@@ -17,7 +17,7 @@ This directory tracks the minimum implementation path for turning this fork into
 - No standalone performance-budget or baseline-measurement tasks.
 - No public community-process files or upstream governance restoration.
 - No broad product rewrite.
-- Do not restore MariaDB/MySQL as an application database backend; uptime-buna is SQLite-only.
+- Do not restore MariaDB/MySQL as an application database backend; Uptime Buna is SQLite-only.
 
 ## Working Rules
 

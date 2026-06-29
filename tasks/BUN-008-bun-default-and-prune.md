@@ -10,7 +10,7 @@ Make Bun the default production runtime and remove the Node-era compatibility la
 - Update Dockerfiles to use Bun and remove Node base images.
 - Remove unused runtime dependencies and lockfile entries.
 - Remove temporary Express, Socket.IO, Redbean/Knex/sqlite3, Axios, bcrypt, dotenv, and process-helper compatibility paths after previous tasks make them unused.
-- Keep only documentation that reflects the personal Bun fork.
+- Keep only documentation that reflects the performance-focused Bun fork.
 - Add a final local smoke checklist for install, build, start, login, monitor creation, status updates, and SQLite persistence.
 
 ## Out of Scope

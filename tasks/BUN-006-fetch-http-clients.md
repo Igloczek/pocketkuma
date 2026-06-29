@@ -10,7 +10,7 @@ Remove Axios-style runtime weight by moving outbound HTTP paths to native `fetch
 - Migrate core HTTP, keyword, JSON-query, and API monitor requests.
 - Migrate simple notification providers that only need standard HTTP.
 - Preserve timeout, redirect, headers, body, status-code validation, and response-size behavior.
-- Explicitly remove or document advanced inherited features that are not worth carrying in this personal fork, such as NTLM or unusual proxy/mTLS combinations.
+- Explicitly remove or document advanced inherited features that are not worth carrying in this Bun-first fork, such as NTLM or unusual proxy/mTLS combinations.
 - Remove `axios` once no runtime path uses it.
 
 ## Out of Scope

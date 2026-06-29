@@ -2,7 +2,7 @@
 
 ## Repository Identity
 
-`uptime-buna` is a personal fork of Uptime Kuma. It is not an official Uptime Kuma project and is not intended to operate as a public open-source community project.
+Uptime Buna is a performance-focused fork of Uptime Kuma. It is not an official Uptime Kuma project and is not intended to operate as a public open-source community project.
 
 The repository is published "as is": no formal support process, no issue triage process, no release promise, and no community governance files.
 

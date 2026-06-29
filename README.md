@@ -1,81 +1,56 @@
-# uptime-buna
+# Uptime Buna
 
-`uptime-buna` is a personal, opinionated fork of [Uptime Kuma](https://github.com/louislam/uptime-kuma).
+Uptime Buna is a performance-focused fork of [Uptime Kuma](https://github.com/louislam/uptime-kuma) for self-hosted monitoring installs where lower memory usage, fewer dependencies, and a simpler runtime matter more than supporting every upstream deployment option.
 
-It is not official Uptime Kuma, not affiliated with Uptime Kuma, and not trying to be a drop-in replacement for every upstream deployment style. If you need upstream behavior, broad database choices, or maximum configurability, use Uptime Kuma.
+## Focus
 
-## What Is Different
+Uptime Buna is intentionally narrower than Uptime Kuma:
 
-`uptime-buna` keeps the recognizable Uptime Kuma product shape while moving the defaults toward a smaller self-hosted deployment:
+- Bun is the runtime, package manager, and default execution path.
+- SQLite through `bun:sqlite` is the only application database.
+- Realtime updates use Bun-native WebSockets.
+- Runtime dependencies are cut when the related fallback path is removed.
+- Configuration options are removed when they only exist for broad upstream parity.
+- Docker builds one local runtime image instead of carrying an upstream-style image matrix.
+- Setup is documented as one supported path, not a menu of equivalent choices.
 
-- Bun is the runtime and package manager.
-- SQLite is the only application database.
-- The default server path uses Bun-native HTTP/WebSocket and SQLite integration.
-- Docker is one runtime image, not a matrix of slim/rootless/nightly/test images.
-- Docker Compose is not part of the development workflow.
-- Community project process files and upstream support/governance machinery are intentionally not restored.
+## Uptime Kuma vs Uptime Buna
 
-The goal is a lighter uptime monitor with better defaults for small personal deployments. It should be easier to run and reason about, even if that means fewer knobs.
+| Area | Uptime Kuma | Uptime Buna |
+| --- | --- | --- |
+| Runtime | Node.js for the default non-Docker path. | Bun for install, build, tests, and runtime. |
+| Package manager | npm-based setup in upstream docs. | `bun install` with `bun.lock`. |
+| Dependency surface | Broad compatibility paths and supporting packages. | Dependencies are cut when the related fallback path is removed. |
+| Application database | SQLite plus broader MariaDB/MySQL compatibility code. | SQLite only for application data. MySQL/MariaDB checks may still exist as monitor types. |
+| HTTP server | Inherited Node/Express shape. | `Bun.serve` on the supported runtime path, with temporary Express compatibility for inherited routes. |
+| Realtime updates | Socket.IO/WebSocket stack inherited from upstream. | Native Bun WebSocket protocol. |
+| Docker | Compose/direct Docker docs plus release/rootless/nightly/test targets. | One local Bun runtime image from the root `Dockerfile`. |
+| Configuration | Broad upstream compatibility. | Fewer runtime choices, lower memory cost, better defaults. |
 
-## Tradeoffs
+## Runtime Snapshot
 
-Advantages:
+Measured on 2026-06-29. Evidence is in [docs/perf/readme-runtime-snapshot.md](docs/perf/readme-runtime-snapshot.md) and [docs/perf/bun-015-sqlite-only-docker-simplification.md](docs/perf/bun-015-sqlite-only-docker-simplification.md).
 
-- Smaller operational surface: one runtime, one lockfile, one application database, one Docker image.
-- SQLite by default and by design: no external database service is required.
-- Bun-first execution: fewer Node compatibility paths in the hot runtime.
-- Less inherited release and community automation noise.
+| Metric | Current value |
+| --- | --- |
+| Bun runtime | `1.3.14` |
+| Server path | `Bun.serve HTTP` |
+| Application database | `sqlite` through `bun:sqlite` |
+| Clean startup RSS | `193.1 MiB` on macOS with a fresh data directory, no monitors, and `/setup` responding |
+| Local Docker image | `277,529,464` bytes (`264.7 MiB`) for `uptime-buna:local` |
+| Image-size change | `-160,524,599` bytes (`-153.1 MiB`, `-36.6%`) compared with the earlier Bun cleanup image |
 
-Disadvantages:
-
-- No MariaDB/MySQL/PostgreSQL application database backend.
-- No embedded MariaDB image.
-- No development Docker Compose workflow.
-- Fewer deployment variants and fewer compatibility promises than upstream.
-- Migration from an upstream non-SQLite deployment is not handled here.
-
-That tradeoff is intentional. If SQLite-only and fewer configuration options are too restrictive for your deployment, upstream Uptime Kuma is the better fit.
-
-## Local Development
+## Run
 
 ```bash
 bun install --frozen-lockfile
-bun run dev
+bun run build
+bun src/server/server.ts --port=3001 --data-dir=./data
 ```
 
-Backend only:
+Open `http://localhost:3001`.
 
-```bash
-bun run start
-```
-
-The backend listens on port `3001` by default. The frontend dev server uses port `3000`.
-
-## Docker
-
-Build the single local runtime image:
-
-```bash
-bun run build-docker
-```
-
-Run it directly:
-
-```bash
-docker run --rm -p 3001:3001 -v ./data:/app/data uptime-buna:local
-```
-
-The root `compose.yaml` is only a small runtime convenience for people who prefer Compose to start the built image:
-
-```bash
-docker compose up --build
-```
-
-Use `UPTIME_BUNA_PORT` or `UPTIME_BUNA_DATA_DIR` to override the default `3001` port and `./data` volume in Compose.
-
-## Data
-
-Application data lives in SQLite under the configured data directory. A fresh install writes:
+Application data lives in the configured data directory. A fresh install writes:
 
 ```json
 {
@@ -84,15 +59,3 @@ Application data lives in SQLite under the configured data directory. A fresh in
 ```
 
 Non-SQLite application database configs are rejected.
-
-## Status
-
-Work in progress. This repository still contains inherited Uptime Kuma code while the migration continues.
-
-There is no formal support, roadmap, contribution process, issue triage, release promise, or community governance process.
-
-## License and Attribution
-
-This project is based on Uptime Kuma, originally created by Louis Lam and contributors.
-
-The inherited code is under the MIT license. See [`LICENSE`](LICENSE).

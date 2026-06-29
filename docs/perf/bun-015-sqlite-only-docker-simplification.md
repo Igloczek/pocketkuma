@@ -8,7 +8,7 @@ Date: 2026-06-29
 - The first-run database setup no longer offers MariaDB, embedded MariaDB, or any other application database backend.
 - Docker now has one main runtime image built from the root `Dockerfile`.
 - The root `compose.yaml` is runtime convenience only; development runs directly with Bun.
-- The README now describes the fork as an opinionated, lighter Uptime Kuma derivative with fewer deployment knobs.
+- The README now describes Uptime Buna as a performance-focused Uptime Kuma derivative with fewer dependencies, fewer deployment knobs, and a smaller runtime surface.
 
 ## Removed Runtime Surface
 
