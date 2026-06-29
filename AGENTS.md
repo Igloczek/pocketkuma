@@ -37,9 +37,6 @@ Preferred Bun targets when the relevant task calls for them:
 
 ## Repository Decisions
 
-- Migration work is tracked in `tasks/`.
-- Each `tasks/BUN-*.md` file is one task and one implementation unit.
-- Do not combine multiple task files into one implementation unless explicitly requested.
 - Do not add npm or Node fallback paths for default runtime, package-manager, or verification workflows.
 - Do not restore upstream community files such as `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, issue templates, PR templates, stale workflows, release workflows, or sponsor/funding files.
 - Dependency update automation uses Renovate via `renovate.json`; do not restore Dependabot.
