@@ -35,6 +35,7 @@ class BeanModel {
 }
 
 const modelMap = {
+    group: () => require("./model/group"),
     heartbeat: () => require("./model/heartbeat"),
     incident: () => require("./model/incident"),
     monitor: () => require("./model/monitor"),
@@ -133,6 +134,7 @@ const monitorColumnTypes = {
     cache_bust: "BOOLEAN DEFAULT 0",
     database_connection_string: "TEXT",
     database_query: "TEXT",
+    dns_last_result: "TEXT",
     dns_resolve_server: "TEXT",
     dns_resolve_type: "TEXT",
     domain_expiry_notification: "BOOLEAN DEFAULT 1",
@@ -267,6 +269,15 @@ function normalizeMonitorRow(row) {
         result[column] = value;
         result[property] = value;
     }
+
+    if (result.send_url !== undefined && result.send_url !== null) {
+        result.sendUrl = normalizeBoolean(result.send_url);
+    }
+
+    if (result.custom_url !== undefined && result.custom_url !== null) {
+        result.customUrl = result.custom_url;
+    }
+
     return result;
 }
 
@@ -416,10 +427,16 @@ class BunSQLiteRedbean {
             "CREATE TABLE IF NOT EXISTS status_page (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT UNIQUE, title TEXT, description TEXT, icon TEXT, theme TEXT, published BOOLEAN DEFAULT 1, show_tags BOOLEAN DEFAULT 0, domain_name_list TEXT, custom_css TEXT, footer_text TEXT, show_powered_by BOOLEAN DEFAULT 1, google_analytics_tag_id TEXT, created_date DATETIME, modified_date DATETIME)"
         );
         this.db.run(
+            "CREATE TABLE IF NOT EXISTS status_page_cname (id INTEGER PRIMARY KEY AUTOINCREMENT, status_page_id INTEGER, domain TEXT UNIQUE)"
+        );
+        this.db.run(
             "CREATE TABLE IF NOT EXISTS incident (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, content TEXT, style TEXT, status TEXT, status_page_id INTEGER, created_date DATETIME, last_updated_date DATETIME)"
         );
         this.db.run(
             "CREATE TABLE IF NOT EXISTS `group` (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, weight INTEGER DEFAULT 1000, public BOOLEAN DEFAULT 0, status_page_id INTEGER)"
+        );
+        this.db.run(
+            "CREATE TABLE IF NOT EXISTS monitor_group (id INTEGER PRIMARY KEY AUTOINCREMENT, monitor_id INTEGER, group_id INTEGER, weight INTEGER DEFAULT 1000, send_url BOOLEAN DEFAULT 0, custom_url TEXT)"
         );
         this.db.run(
             "CREATE TABLE IF NOT EXISTS tag (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, color TEXT, user_id INTEGER)"
@@ -454,6 +471,17 @@ class BunSQLiteRedbean {
         this.db.run(
             "CREATE TABLE IF NOT EXISTS stat_daily (id INTEGER PRIMARY KEY AUTOINCREMENT, monitor_id INTEGER, timestamp DATETIME, ping REAL, up INTEGER, down INTEGER, maintenance INTEGER)"
         );
+
+        this.addColumnIfMissing("incident", "pin", "BOOLEAN DEFAULT 1");
+        this.addColumnIfMissing("incident", "active", "BOOLEAN DEFAULT 1");
+
+        this.addColumnIfMissing("status_page", "autoRefreshInterval", "INTEGER DEFAULT 300");
+        this.addColumnIfMissing("status_page", "analytics_id", "TEXT");
+        this.addColumnIfMissing("status_page", "analytics_script_url", "TEXT");
+        this.addColumnIfMissing("status_page", "analytics_type", "TEXT");
+        this.addColumnIfMissing("status_page", "rss_title", "TEXT");
+        this.addColumnIfMissing("status_page", "show_certificate_expiry", "BOOLEAN DEFAULT 0");
+        this.addColumnIfMissing("status_page", "show_only_last_heartbeat", "BOOLEAN DEFAULT 0");
     }
 
     addColumnIfMissing(table, column, type = "TEXT") {
@@ -483,6 +511,10 @@ class BunSQLiteRedbean {
 
     dispense(table) {
         return beanForTable(table);
+    }
+
+    convertToBeans(table, rows = []) {
+        return rows.map((row) => beanForTable(table, row));
     }
 
     async store(bean) {
@@ -633,6 +665,9 @@ class BunSQLiteRedbean {
     async begin() {
         this.db.run("BEGIN");
         return {
+            exec: (...args) => this.exec(...args),
+            dispense: (...args) => this.dispense(...args),
+            store: (...args) => this.store(...args),
             commit: async () => this.db.run("COMMIT"),
             rollback: async () => this.db.run("ROLLBACK"),
         };

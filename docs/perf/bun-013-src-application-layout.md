@@ -23,7 +23,7 @@ Date: 2026-06-29
 
 - `src/server/modules/**` remains vendored JavaScript.
 - `src/server/utils/knex/**` remains a vendored Knex dialect shim.
-- `src/db/knex_migrations/*.js` remains JavaScript because these files are Knex migration assets.
+- `src/db/knex_migrations/*.ts` contains the retained Knex migration assets.
 
 ## Validation
 

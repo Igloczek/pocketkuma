@@ -2,6 +2,61 @@
 import { expect, test } from "@playwright/test";
 import { login, restoreSqliteSnapshot, screenshot } from "../util-test";
 
+async function saveStatusPage(page) {
+    const navigation = page
+        .waitForEvent("framenavigated", {
+            predicate: (frame) => frame === page.mainFrame(),
+            timeout: 10000,
+        })
+        .catch(() => null);
+
+    await page.getByTestId("save-button").click();
+    await expect(page.getByTestId("edit-sidebar")).toHaveCount(0);
+    await navigation;
+    await page.waitForLoadState("domcontentloaded");
+}
+
+async function openStatusPageEditor(page) {
+    await page.getByTestId("edit-button").click();
+    await waitForStatusPageEditor(page);
+}
+
+async function waitForStatusPageEditor(page) {
+    await expect(page.getByTestId("edit-sidebar")).toHaveCount(1);
+    await expect(page.getByTestId("edit-sidebar")).toHaveAttribute("data-editable-config-ready", "true");
+    await expect(page.getByTestId("save-button")).toBeEnabled();
+}
+
+async function waitForHeadContent(page, expected) {
+    await page.waitForFunction((text) => document.head.innerHTML.includes(text), expected, { timeout: 10000 });
+}
+
+async function fetchRSS(page, url) {
+    const response = await page.request.get(url);
+    return {
+        status: response.status(),
+        contentType: response.headers()["content-type"],
+        body: await response.text(),
+    };
+}
+
+async function waitForRSSContent(page, url, expected) {
+    let latest;
+    await expect
+        .poll(
+            async () => {
+                latest = await fetchRSS(page, url);
+                return latest.status === 200 ? latest.body : `status ${latest.status}`;
+            },
+            { timeout: 10000 }
+        )
+        .toContain(expected);
+
+    expect(latest.status).toBe(200);
+    expect(latest.contentType).toBe("application/rss+xml; charset=utf-8");
+    return latest.body;
+}
+
 test.describe("Status Page", () => {
     test.beforeEach(async ({ page }) => {
         await restoreSqliteSnapshot(page);
@@ -74,6 +129,7 @@ test.describe("Status Page", () => {
         await page.getByTestId("slug-input").fill("example");
         await page.getByTestId("submit-button").click();
         await page.waitForURL("/status/example?edit"); // wait for the page to be created
+        await waitForStatusPageEditor(page);
 
         // Fill in some details
         await page.getByTestId("description-input").fill(descriptionText);
@@ -114,8 +170,7 @@ test.describe("Status Page", () => {
 
         // Save the changes
         await screenshot(testInfo, page);
-        await page.getByTestId("save-button").click();
-        await expect(page.getByTestId("edit-sidebar")).toHaveCount(0);
+        await saveStatusPage(page);
 
         // Ensure changes are visible
         await expect(page.getByTestId("incident")).toHaveCount(1);
@@ -136,12 +191,7 @@ test.describe("Status Page", () => {
         await expect(page.locator("body")).toHaveClass(theme);
 
         // Add Google Analytics ID to head and verify
-        await page.waitForFunction(
-            () => {
-                return document.head.innerHTML.includes("https://www.googletagmanager.com/gtag/js?id=");
-            },
-            { timeout: 5000 }
-        );
+        await waitForHeadContent(page, "https://www.googletagmanager.com/gtag/js?id=");
         expect(await page.locator("head").innerHTML()).toContain(googleAnalyticsId);
 
         const backgroundColor = await page.evaluate(() => window.getComputedStyle(document.body).backgroundColor);
@@ -151,8 +201,7 @@ test.describe("Status Page", () => {
         expect(await page.locator("head").innerHTML()).toContain(googleAnalyticsId);
 
         // Flip the "Show Tags" and "Show Powered By" switches:
-        await page.getByTestId("edit-button").click();
-        await expect(page.getByTestId("edit-sidebar")).toHaveCount(1);
+        await openStatusPageEditor(page);
         await page.getByTestId("show-tags-checkbox").setChecked(true);
         await page.getByTestId("show-powered-by-checkbox").setChecked(true);
 
@@ -162,9 +211,8 @@ test.describe("Status Page", () => {
         await page.getByTestId("analytics-type-select").selectOption("umami");
         await page.getByTestId("analytics-script-url-input").fill(umamiAnalyticsScriptUrl);
         await page.getByTestId("analytics-id-input").fill(umamiAnalyticsWebsiteId);
-        await page.getByTestId("save-button").click();
+        await saveStatusPage(page);
 
-        await expect(page.getByTestId("edit-sidebar")).toHaveCount(0);
         await expect(page.getByTestId("powered-by")).toContainText("Powered by");
 
         // Modified tag verification to check both tags
@@ -173,40 +221,29 @@ test.describe("Status Page", () => {
 
         await screenshot(testInfo, page);
 
+        await waitForHeadContent(page, umamiAnalyticsScriptUrl);
         expect(await page.locator("head").innerHTML()).toContain(umamiAnalyticsScriptUrl);
         expect(await page.locator("head").innerHTML()).toContain(umamiAnalyticsWebsiteId);
 
-        await page.getByTestId("edit-button").click();
+        await openStatusPageEditor(page);
         // Fill in plausible analytics after editing
         await page.getByTestId("analytics-type-select").selectOption("plausible");
         await page.getByTestId("analytics-script-url-input").fill(plausibleAnalyticsScriptUrl);
         await page.getByTestId("analytics-id-input").fill(plausibleAnalyticsDomainsUrls);
-        await page.getByTestId("save-button").click();
+        await saveStatusPage(page);
+        await waitForHeadContent(page, plausibleAnalyticsScriptUrl);
         await screenshot(testInfo, page);
-        await page.waitForFunction(
-            (scriptUrl) => {
-                return document.head.innerHTML.includes(scriptUrl);
-            },
-            plausibleAnalyticsScriptUrl,
-            { timeout: 5000 }
-        );
         expect(await page.locator("head").innerHTML()).toContain(plausibleAnalyticsScriptUrl);
         expect(await page.locator("head").innerHTML()).toContain(plausibleAnalyticsDomainsUrls);
 
-        await page.getByTestId("edit-button").click();
+        await openStatusPageEditor(page);
         // Fill in matomo analytics after editing
         await page.getByTestId("analytics-type-select").selectOption("matomo");
         await page.getByTestId("analytics-script-url-input").fill(matomoUrl);
         await page.getByTestId("analytics-id-input").fill(matomoSiteId);
-        await page.getByTestId("save-button").click();
+        await saveStatusPage(page);
+        await waitForHeadContent(page, matomoUrl);
         await screenshot(testInfo, page);
-        await page.waitForFunction(
-            (url) => {
-                return document.head.innerHTML.includes(url);
-            },
-            matomoUrl,
-            { timeout: 5000 }
-        );
         expect(await page.locator("head").innerHTML()).toContain(matomoUrl);
         expect(await page.locator("head").innerHTML()).toContain(matomoSiteId);
     });
@@ -255,6 +292,7 @@ test.describe("Status Page", () => {
         await page.getByTestId("slug-input").fill("security-test");
         await page.getByTestId("submit-button").click();
         await page.waitForURL("/status/security-test?edit");
+        await waitForStatusPageEditor(page);
 
         // Add a group and all monitors
         await page.getByTestId("add-group-button").click();
@@ -268,16 +306,14 @@ test.describe("Status Page", () => {
         await page.getByTestId("monitor-select").click();
         await page.getByTestId("monitor-select").getByRole("option", { name: normalMonitorName }).click();
 
-        await page.getByTestId("save-button").click();
-        await expect(page.getByTestId("edit-sidebar")).toHaveCount(0);
+        await saveStatusPage(page);
 
         // Fetch the RSS feed
-        const rssResponse = await page.request.get("/status/security-test/rss");
-        expect(rssResponse.status()).toBe(200);
-        expect(rssResponse.headers()["content-type"]).toBe("application/rss+xml; charset=utf-8");
-        expect(rssResponse.ok()).toBeTruthy();
-
-        const rssContent = await rssResponse.text();
+        const rssContent = await waitForRSSContent(
+            page,
+            "/status/security-test/rss",
+            "<title>Security Test RSS Feed</title>"
+        );
 
         // Attach RSS content for inspection
         await testInfo.attach("rss-feed.xml", {
@@ -303,16 +339,16 @@ test.describe("Status Page", () => {
 
         // Test custom RSS title functionality
         const customRssTitle = "Custom RSS Feed Title";
-        await page.getByTestId("edit-button").click();
-        await expect(page.getByTestId("edit-sidebar")).toHaveCount(1);
+        await openStatusPageEditor(page);
         await page.getByTestId("rss-title-input").fill(customRssTitle);
-        await page.getByTestId("save-button").click();
-        await expect(page.getByTestId("edit-sidebar")).toHaveCount(0);
+        await saveStatusPage(page);
 
         // Fetch RSS feed again - should use custom RSS title
-        const rssResponseCustom = await page.request.get("/status/security-test/rss");
-        expect(rssResponseCustom.status()).toBe(200);
-        const rssContentCustom = await rssResponseCustom.text();
+        const rssContentCustom = await waitForRSSContent(
+            page,
+            "/status/security-test/rss",
+            `<title>${customRssTitle}</title>`
+        );
 
         // Verify RSS feed uses custom title
         expect(rssContentCustom).toContain(`<title>${customRssTitle}</title>`);

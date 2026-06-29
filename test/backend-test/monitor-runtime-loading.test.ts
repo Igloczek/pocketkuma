@@ -15,7 +15,7 @@ describe("monitor runtime lazy loading", () => {
                     port: "tcp",
                     sqlserver: "mssql",
                 }[type] || type;
-            const filename = path.join("server", "monitor-types", `${modulePath}.js`);
+            const filename = path.join("server", "monitor-types", `${modulePath}.ts`);
             return Object.keys(require.cache).some((cached) => cached.endsWith(filename));
         });
 

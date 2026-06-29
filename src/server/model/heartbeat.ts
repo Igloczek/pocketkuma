@@ -32,15 +32,15 @@ class Heartbeat extends BeanModel {
      */
     toJSON() {
         return {
-            monitorID: this._monitorId,
-            status: this._status,
-            time: this._time,
-            msg: this._msg,
-            ping: this._ping,
-            important: this._important,
-            duration: this._duration,
-            retries: this._retries,
-            response: this._response,
+            monitorID: this._monitorId ?? this.monitor_id,
+            status: this._status ?? this.status,
+            time: this._time ?? this.time,
+            msg: this._msg ?? this.msg,
+            ping: this._ping ?? this.ping,
+            important: this._important ?? this.important,
+            duration: this._duration ?? this.duration,
+            retries: this._retries ?? this.retries,
+            response: this._response ?? this.response,
         };
     }
 
@@ -51,15 +51,17 @@ class Heartbeat extends BeanModel {
      */
     async toJSONAsync(opts) {
         return {
-            monitorID: this._monitorId,
-            status: this._status,
-            time: this._time,
-            msg: this._msg,
-            ping: this._ping,
-            important: this._important,
-            duration: this._duration,
-            retries: this._retries,
-            response: opts?.decodeResponse ? await Heartbeat.decodeResponseValue(this._response) : undefined,
+            monitorID: this._monitorId ?? this.monitor_id,
+            status: this._status ?? this.status,
+            time: this._time ?? this.time,
+            msg: this._msg ?? this.msg,
+            ping: this._ping ?? this.ping,
+            important: this._important ?? this.important,
+            duration: this._duration ?? this.duration,
+            retries: this._retries ?? this.retries,
+            response: opts?.decodeResponse
+                ? await Heartbeat.decodeResponseValue(this._response ?? this.response)
+                : undefined,
         };
     }
 

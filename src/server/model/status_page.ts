@@ -23,6 +23,38 @@ const {
 } = require("../../util");
 
 class StatusPage extends BeanModel {
+    get analyticsId() {
+        return this.analytics_id;
+    }
+
+    set analyticsId(value) {
+        this.analytics_id = value;
+    }
+
+    get analyticsScriptUrl() {
+        return this.analytics_script_url;
+    }
+
+    set analyticsScriptUrl(value) {
+        this.analytics_script_url = value;
+    }
+
+    get analyticsType() {
+        return this.analytics_type;
+    }
+
+    set analyticsType(value) {
+        this.analytics_type = value;
+    }
+
+    get rssTitle() {
+        return this.rss_title;
+    }
+
+    set rssTitle(value) {
+        this.rss_title = value;
+    }
+
     /**
      * Like this: { "test-uptime.kuma.pet": "default" }
      * @type {{}}

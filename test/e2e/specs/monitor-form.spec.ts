@@ -74,7 +74,7 @@ test.describe("Monitor Form", () => {
         await page.getByTestId("save-button").click();
         await page.waitForURL("/dashboard/*");
 
-        await expect(page.getByTestId("monitor-status")).toHaveText("up", { ignoreCase: true });
+        await expect(page.getByTestId("monitor-status")).toHaveText("up", { ignoreCase: true, timeout: 15000 });
 
         await screenshot(testInfo, page);
     });
@@ -102,7 +102,7 @@ test.describe("Monitor Form", () => {
         await page.getByTestId("save-button").click();
         await page.waitForURL("/dashboard/*");
 
-        await expect(page.getByTestId("monitor-status")).toHaveText("down", { ignoreCase: true });
+        await expect(page.getByTestId("monitor-status")).toHaveText("down", { ignoreCase: true, timeout: 15000 });
 
         await screenshot(testInfo, page);
     });

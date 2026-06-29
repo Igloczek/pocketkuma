@@ -5,7 +5,7 @@ https://knexjs.org/guide/migrations.html#knexfile-in-other-languages
 ## Basic rules
 
 - All tables must have a primary key named `id`
-- Filename format: `YYYY-MM-DD-HHMM-patch-name.js`
+- Filename format: `YYYY-MM-DD-HHMM-patch-name.ts`
 - Prefer SQLite-compatible migrations. uptime-buna supports SQLite as the application database.
 
 ## Template
@@ -20,7 +20,7 @@ exports.down = function (knex) {};
 
 ## Example
 
-Filename: 2023-06-30-1348-create-user-and-product.js
+Filename: 2023-06-30-1348-create-user-and-product.ts
 
 ```js
 exports.up = function (knex) {

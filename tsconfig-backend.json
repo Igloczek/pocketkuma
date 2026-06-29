@@ -6,8 +6,5 @@
         "test/backend-test/**/*.ts",
         "test/e2e/**/*.ts"
     ],
-    "exclude": [
-        "src/server/modules/**/*.js",
-        "src/server/utils/knex/**/*.js"
-    ]
+    "exclude": []
 }
