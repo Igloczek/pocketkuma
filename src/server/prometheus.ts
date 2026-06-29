@@ -98,6 +98,17 @@ class Prometheus {
     }
 
     /**
+     * Render the current Prometheus registry for a Bun HTTP response.
+     * @returns {Promise<{ body: string, contentType: string }>} Metrics body and content type
+     */
+    static async metrics() {
+        return {
+            body: await PrometheusClient.register.metrics(),
+            contentType: PrometheusClient.register.contentType,
+        };
+    }
+
+    /**
      * Sanitize a string to ensure it can be used as a Prometheus label or value.
      * See https://github.com/louislam/uptime-kuma/pull/4704#issuecomment-2366524692
      * @param {string} text The text to sanitize

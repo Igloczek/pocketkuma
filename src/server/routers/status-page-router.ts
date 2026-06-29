@@ -1,79 +1,71 @@
 // @ts-nocheck
-let express = require("express");
-const apicache = require("../modules/apicache");
-const { UptimeKumaServer } = require("../uptime-kuma-server");
+"use strict";
+
 const StatusPage = require("../model/status_page");
-const { allowDevAllOrigin, sendHttpError } = require("../util-server");
 const { R } = require("../redbean-compat");
 const { badgeConstants } = require("../../util");
 const { makeBadge } = require("badge-maker");
 const { UptimeCalculator } = require("../uptime-calculator");
+const {
+    cachedResponse,
+    decodePathParam,
+    htmlResponse,
+    httpErrorResponse,
+    jsonResponse,
+    queryObject,
+    textResponse,
+} = require("../bun-response");
 
-let router = express.Router();
+async function statusPageHTMLResponse(server, slug, disableFrameSameOrigin) {
+    const result = await StatusPage.renderHTMLBySlug(server.indexHTML, slug);
+    return htmlResponse(result.body, {
+        status: result.status,
+        disableFrameSameOrigin,
+    });
+}
 
-let cache = apicache.middleware;
-const server = UptimeKumaServer.getInstance();
+async function statusPageRSSResponse(slug, request, disableFrameSameOrigin) {
+    const result = await StatusPage.renderRSSBySlug(slug, request);
+    return textResponse(result.body, {
+        status: result.status,
+        type: result.contentType,
+        disableFrameSameOrigin,
+    });
+}
 
-router.get("/status/:slug", cache("5 minutes"), async (request, response) => {
-    let slug = request.params.slug;
-    slug = slug.toLowerCase();
-    await StatusPage.handleStatusPageResponse(response, server.indexHTML, slug);
-});
-
-router.get("/status/:slug/rss", cache("5 minutes"), async (request, response) => {
-    let slug = request.params.slug;
-    slug = slug.toLowerCase();
-    await StatusPage.handleStatusPageRSSResponse(response, slug, request);
-});
-
-router.get("/status", cache("5 minutes"), async (request, response) => {
-    let slug = "default";
-    await StatusPage.handleStatusPageResponse(response, server.indexHTML, slug);
-});
-
-router.get("/status-page", cache("5 minutes"), async (request, response) => {
-    let slug = "default";
-    await StatusPage.handleStatusPageResponse(response, server.indexHTML, slug);
-});
-
-// Status page config, incident, monitor list
-router.get("/api/status-page/:slug", cache("5 minutes"), async (request, response) => {
-    allowDevAllOrigin(response);
-    let slug = request.params.slug;
-    slug = slug.toLowerCase();
+async function statusPageConfigResponse(slug, disableFrameSameOrigin) {
+    slug = StatusPage.normalizeSlug(slug);
 
     try {
-        // Get Status Page
-        let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
-
+        const statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
         if (!statusPage) {
-            sendHttpError(response, "Status Page Not Found");
-            return null;
+            return httpErrorResponse("Status Page Not Found", {
+                devCors: true,
+                disableFrameSameOrigin,
+            });
         }
 
-        let statusPageData = await StatusPage.getStatusPageData(statusPage);
-
-        // Response
-        response.json(statusPageData);
+        return jsonResponse(await StatusPage.getStatusPageData(statusPage), {
+            devCors: true,
+            disableFrameSameOrigin,
+        });
     } catch (error) {
-        sendHttpError(response, error.message);
+        return httpErrorResponse(error.message, {
+            devCors: true,
+            disableFrameSameOrigin,
+        });
     }
-});
+}
 
-// Status Page Polling Data
-// Can fetch only if published
-router.get("/api/status-page/heartbeat/:slug", cache("1 minutes"), async (request, response) => {
-    allowDevAllOrigin(response);
-
+async function statusPageHeartbeatResponse(slug, disableFrameSameOrigin) {
     try {
         let heartbeatList = {};
         let uptimeList = {};
 
-        let slug = request.params.slug;
-        slug = slug.toLowerCase();
-        let statusPageID = await StatusPage.slugToID(slug);
+        slug = StatusPage.normalizeSlug(slug);
+        const statusPageID = await StatusPage.slugToID(slug);
 
-        let monitorIDList = await R.getCol(
+        const monitorIDList = await R.getCol(
             `
             SELECT monitor_group.monitor_id FROM monitor_group, \`group\`
             WHERE monitor_group.group_id = \`group\`.id
@@ -83,7 +75,7 @@ router.get("/api/status-page/heartbeat/:slug", cache("1 minutes"), async (reques
             [statusPageID]
         );
 
-        for (let monitorID of monitorIDList) {
+        for (const monitorID of monitorIDList) {
             let list = await R.getAll(
                 `
                     SELECT * FROM heartbeat
@@ -101,77 +93,96 @@ router.get("/api/status-page/heartbeat/:slug", cache("1 minutes"), async (reques
             uptimeList[`${monitorID}_24`] = uptimeCalculator.get24Hour().uptime;
         }
 
-        response.json({
-            heartbeatList,
-            uptimeList,
-        });
+        return jsonResponse(
+            {
+                heartbeatList,
+                uptimeList,
+            },
+            {
+                devCors: true,
+                disableFrameSameOrigin,
+            }
+        );
     } catch (error) {
-        sendHttpError(response, error.message);
+        return httpErrorResponse(error.message, {
+            devCors: true,
+            disableFrameSameOrigin,
+        });
     }
-});
+}
 
-// Status page's manifest.json
-router.get("/api/status-page/:slug/manifest.json", cache("1440 minutes"), async (request, response) => {
-    allowDevAllOrigin(response);
-    let slug = request.params.slug;
-    slug = slug.toLowerCase();
+async function statusPageManifestResponse(slug, disableFrameSameOrigin) {
+    slug = StatusPage.normalizeSlug(slug);
 
     try {
-        // Get Status Page
-        let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
-
+        const statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
         if (!statusPage) {
-            sendHttpError(response, "Not Found");
-            return;
+            return httpErrorResponse("Not Found", {
+                devCors: true,
+                disableFrameSameOrigin,
+            });
         }
 
-        // Response
-        response.json({
-            name: statusPage.title,
-            start_url: "/status/" + statusPage.slug,
-            display: "standalone",
-            icons: [
-                {
-                    src: statusPage.icon,
-                    sizes: "128x128",
-                    type: "image/png",
-                },
-            ],
-        });
+        return jsonResponse(
+            {
+                name: statusPage.title,
+                start_url: "/status/" + statusPage.slug,
+                display: "standalone",
+                icons: [
+                    {
+                        src: statusPage.icon,
+                        sizes: "128x128",
+                        type: "image/png",
+                    },
+                ],
+            },
+            {
+                devCors: true,
+                disableFrameSameOrigin,
+            }
+        );
     } catch (error) {
-        sendHttpError(response, error.message);
+        return httpErrorResponse(error.message, {
+            devCors: true,
+            disableFrameSameOrigin,
+        });
     }
-});
+}
 
-router.get("/api/status-page/:slug/incident-history", cache("5 minutes"), async (request, response) => {
-    allowDevAllOrigin(response);
-
+async function incidentHistoryResponse(url, slug, disableFrameSameOrigin) {
     try {
-        let slug = request.params.slug;
-        slug = slug.toLowerCase();
-        let statusPageID = await StatusPage.slugToID(slug);
+        slug = StatusPage.normalizeSlug(slug);
+        const statusPageID = await StatusPage.slugToID(slug);
 
         if (!statusPageID) {
-            sendHttpError(response, "Status Page Not Found");
-            return;
+            return httpErrorResponse("Status Page Not Found", {
+                devCors: true,
+                disableFrameSameOrigin,
+            });
         }
 
-        const cursor = request.query.cursor || null;
+        const cursor = url.searchParams.get("cursor") || null;
         const result = await StatusPage.getIncidentHistory(statusPageID, cursor, true);
-        response.json({
-            ok: true,
-            ...result,
-        });
+        return jsonResponse(
+            {
+                ok: true,
+                ...result,
+            },
+            {
+                devCors: true,
+                disableFrameSameOrigin,
+            }
+        );
     } catch (error) {
-        sendHttpError(response, error.message);
+        return httpErrorResponse(error.message, {
+            devCors: true,
+            disableFrameSameOrigin,
+        });
     }
-});
+}
 
-// overall status-page status badge
-router.get("/api/status-page/:slug/badge", cache("5 minutes"), async (request, response) => {
-    allowDevAllOrigin(response);
-    let slug = request.params.slug;
-    slug = slug.toLowerCase();
+async function statusPageBadgeResponse(url, slug, disableFrameSameOrigin) {
+    slug = StatusPage.normalizeSlug(slug);
     const statusPageID = await StatusPage.slugToID(slug);
     const {
         label,
@@ -180,10 +191,10 @@ router.get("/api/status-page/:slug/badge", cache("5 minutes"), async (request, r
         partialColor = "#F6BE00",
         maintenanceColor = "#808080",
         style = badgeConstants.defaultStyle,
-    } = request.query;
+    } = queryObject(url.searchParams);
 
     try {
-        let monitorIDList = await R.getCol(
+        const monitorIDList = await R.getCol(
             `
             SELECT monitor_group.monitor_id FROM monitor_group, \`group\`
             WHERE monitor_group.group_id = \`group\`.id
@@ -197,9 +208,8 @@ router.get("/api/status-page/:slug/badge", cache("5 minutes"), async (request, r
         let hasDown = false;
         let hasMaintenance = false;
 
-        for (let monitorID of monitorIDList) {
-            // retrieve the latest heartbeat
-            let beat = await R.getAll(
+        for (const monitorID of monitorIDList) {
+            const beat = await R.getAll(
                 `
                     SELECT * FROM heartbeat
                     WHERE monitor_id = ?
@@ -209,15 +219,14 @@ router.get("/api/status-page/:slug/badge", cache("5 minutes"), async (request, r
                 [monitorID]
             );
 
-            // to be sure, when corresponding monitor not found
             if (beat.length === 0) {
                 continue;
             }
-            // handle status of beat
+
             if (beat[0].status === 3) {
                 hasMaintenance = true;
             } else if (beat[0].status === 2) {
-                // ignored
+                // Pending does not affect the overall badge.
             } else if (beat[0].status === 1) {
                 hasUp = true;
             } else {
@@ -228,38 +237,113 @@ router.get("/api/status-page/:slug/badge", cache("5 minutes"), async (request, r
         const badgeValues = { style };
 
         if (!hasUp && !hasDown && !hasMaintenance) {
-            // return a "N/A" badge in naColor (grey), if monitor is not public / not available / non exsitant
-
             badgeValues.message = "N/A";
             badgeValues.color = badgeConstants.naColor;
+        } else if (hasMaintenance) {
+            badgeValues.label = label ? label : "";
+            badgeValues.color = maintenanceColor;
+            badgeValues.message = "Maintenance";
+        } else if (hasUp && !hasDown) {
+            badgeValues.label = label ? label : "";
+            badgeValues.color = upColor;
+            badgeValues.message = "Up";
+        } else if (hasUp && hasDown) {
+            badgeValues.label = label ? label : "";
+            badgeValues.color = partialColor;
+            badgeValues.message = "Degraded";
         } else {
-            if (hasMaintenance) {
-                badgeValues.label = label ? label : "";
-                badgeValues.color = maintenanceColor;
-                badgeValues.message = "Maintenance";
-            } else if (hasUp && !hasDown) {
-                badgeValues.label = label ? label : "";
-                badgeValues.color = upColor;
-                badgeValues.message = "Up";
-            } else if (hasUp && hasDown) {
-                badgeValues.label = label ? label : "";
-                badgeValues.color = partialColor;
-                badgeValues.message = "Degraded";
-            } else {
-                badgeValues.label = label ? label : "";
-                badgeValues.color = downColor;
-                badgeValues.message = "Down";
-            }
+            badgeValues.label = label ? label : "";
+            badgeValues.color = downColor;
+            badgeValues.message = "Down";
         }
 
-        // build the svg based on given values
-        const svg = makeBadge(badgeValues);
-
-        response.type("image/svg+xml");
-        response.send(svg);
+        return textResponse(makeBadge(badgeValues), {
+            type: "image/svg+xml",
+            devCors: true,
+            disableFrameSameOrigin,
+        });
     } catch (error) {
-        sendHttpError(response, error.message);
+        return httpErrorResponse(error.message, {
+            devCors: true,
+            disableFrameSameOrigin,
+        });
     }
-});
+}
 
-module.exports = router;
+async function handleStatusPageRequest(request, { server, disableFrameSameOrigin }) {
+    if (request.method !== "GET" && request.method !== "HEAD") {
+        return null;
+    }
+
+    const url = new URL(request.url);
+    const pathname = url.pathname;
+    const cacheKey = `status-page:${request.method}:${url.pathname}:${url.search}`;
+
+    let match = pathname.match(/^\/status\/([^/]+)\/rss$/);
+    if (match) {
+        const slug = decodePathParam(match[1]);
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            statusPageRSSResponse(slug, request, disableFrameSameOrigin)
+        );
+    }
+
+    match = pathname.match(/^\/status\/([^/]+)$/);
+    if (match) {
+        const slug = decodePathParam(match[1]);
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            statusPageHTMLResponse(server, slug, disableFrameSameOrigin)
+        );
+    }
+
+    if (pathname === "/status" || pathname === "/status-page") {
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            statusPageHTMLResponse(server, "default", disableFrameSameOrigin)
+        );
+    }
+
+    match = pathname.match(/^\/api\/status-page\/heartbeat\/([^/]+)$/);
+    if (match) {
+        const slug = decodePathParam(match[1]);
+        return cachedResponse(cacheKey, "1 minutes", () =>
+            statusPageHeartbeatResponse(slug, disableFrameSameOrigin)
+        );
+    }
+
+    match = pathname.match(/^\/api\/status-page\/([^/]+)\/manifest\.json$/);
+    if (match) {
+        const slug = decodePathParam(match[1]);
+        return cachedResponse(cacheKey, "1440 minutes", () =>
+            statusPageManifestResponse(slug, disableFrameSameOrigin)
+        );
+    }
+
+    match = pathname.match(/^\/api\/status-page\/([^/]+)\/incident-history$/);
+    if (match) {
+        const slug = decodePathParam(match[1]);
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            incidentHistoryResponse(url, slug, disableFrameSameOrigin)
+        );
+    }
+
+    match = pathname.match(/^\/api\/status-page\/([^/]+)\/badge$/);
+    if (match) {
+        const slug = decodePathParam(match[1]);
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            statusPageBadgeResponse(url, slug, disableFrameSameOrigin)
+        );
+    }
+
+    match = pathname.match(/^\/api\/status-page\/([^/]+)$/);
+    if (match) {
+        const slug = decodePathParam(match[1]);
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            statusPageConfigResponse(slug, disableFrameSameOrigin)
+        );
+    }
+
+    return null;
+}
+
+module.exports = {
+    handleStatusPageRequest,
+};

@@ -1,7 +1,4 @@
 // @ts-nocheck
-const express = require("express");
-const bodyParser = require("body-parser");
-
 /**
  * @param {number} port Port number
  * @param {string} url Webhook URL
@@ -10,19 +7,34 @@ const bodyParser = require("body-parser");
  */
 async function mockWebhook(port, url, timeout = 2500) {
     return new Promise((resolve, reject) => {
-        const app = express();
+        const path = `/${url.replace(/^\//, "")}`;
+        let server;
         const tmo = setTimeout(() => {
-            server.close();
+            server?.stop(true);
             reject({ reason: "Timeout" });
         }, timeout);
-        app.use(bodyParser.json()); // Middleware to parse JSON bodies
-        app.post(`/${url}`, (req, res) => {
-            res.status(200).send("OK");
-            server.close();
-            tmo && clearTimeout(tmo);
-            resolve(req.body);
+
+        server = Bun.serve({
+            port,
+            fetch: async (request) => {
+                const requestUrl = new URL(request.url);
+                if (request.method !== "POST" || requestUrl.pathname !== path) {
+                    return new Response("Not Found", { status: 404 });
+                }
+
+                let body = {};
+                try {
+                    body = await request.json();
+                } catch {
+                    body = {};
+                }
+
+                tmo && clearTimeout(tmo);
+                queueMicrotask(() => server.stop(true));
+                resolve(body);
+                return new Response("OK");
+            },
         });
-        const server = app.listen(port);
     });
 }
 

@@ -22,7 +22,7 @@ Uptime Buna is intentionally narrower than Uptime Kuma:
 | Package manager | npm-based setup in upstream docs. | `bun install` with `bun.lock`. |
 | Dependency surface | Broad compatibility paths and supporting packages. | Dependencies are cut when the related fallback path is removed. |
 | Application database | SQLite plus broader MariaDB/MySQL compatibility code. | SQLite only for application data. MySQL/MariaDB checks may still exist as monitor types. |
-| HTTP server | Inherited Node/Express shape. | `Bun.serve` on the supported runtime path, with temporary Express compatibility for inherited routes. |
+| HTTP server | Inherited Node/Express shape. | `Bun.serve` for HTTP routes, static assets, metrics, and WebSocket upgrades. |
 | Realtime updates | Socket.IO/WebSocket stack inherited from upstream. | Native Bun WebSocket protocol. |
 | Docker | Compose/direct Docker docs plus release/rootless/nightly/test targets. | One local Bun runtime image from the root `Dockerfile`. |
 | Configuration | Broad upstream compatibility. | Fewer runtime choices, lower memory cost, better defaults. |

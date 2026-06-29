@@ -1,7 +1,7 @@
 // @ts-nocheck
-const express = require("express");
-const http = require("node:http");
 const { printServerUrls } = require("../util-server");
+
+const encoder = new TextEncoder();
 
 /**
  * SimpleMigrationServer
@@ -10,22 +10,16 @@ const { printServerUrls } = require("../util-server");
  */
 class SimpleMigrationServer {
     /**
-     * Express app instance
-     * @type {?Express}
-     */
-    app;
-
-    /**
      * Server instance
      * @type {?Server}
      */
     server;
 
     /**
-     * Response object
-     * @type {?Response}
+     * Active stream controller
+     * @type {?ReadableStreamDefaultController}
      */
-    response;
+    responseController;
 
     /**
      * Start the server
@@ -34,14 +28,16 @@ class SimpleMigrationServer {
      * @returns {Promise<void>}
      */
     start(port, hostname) {
-        this.app = express();
-        this.server = http.createServer(this.app);
+        this.server = Bun.serve({
+            hostname,
+            port,
+            fetch: (request) => {
+                const url = new URL(request.url);
 
-        this.app.get("/", (req, res) => {
-            res.set("Content-Type", "text/html");
-
-            // Don't use meta tag redirect, it may cause issues in Chrome (#6223)
-            res.end(`
+                if (request.method === "GET" && url.pathname === "/") {
+                    // Don't use meta tag redirect, it may cause issues in Chrome (#6223)
+                    return new Response(
+                        `
                 <html lang="en">
                 <head><title>Uptime Kuma Migration</title></head>
                 <body>
@@ -49,26 +45,51 @@ class SimpleMigrationServer {
                     <a href="/migrate-status" target="_blank">click here to check</a>.
                 </body>
                 </html>
-            `);
+            `,
+                        {
+                            headers: {
+                                "Content-Type": "text/html; charset=utf-8",
+                            },
+                        }
+                    );
+                }
+
+                if (request.method === "GET" && url.pathname === "/migrate-status") {
+                    if (this.responseController) {
+                        this.responseController.enqueue(encoder.encode("Disconnected\n"));
+                        this.responseController.close();
+                    }
+
+                    const stream = new ReadableStream({
+                        start: (controller) => {
+                            controller.enqueue(encoder.encode("Migration is in progress, listening message...\n"));
+                            this.responseController = controller;
+                        },
+                        cancel: () => {
+                            if (this.responseController) {
+                                this.responseController = null;
+                            }
+                        },
+                    });
+
+                    return new Response(stream, {
+                        headers: {
+                            "Content-Type": "text/plain; charset=utf-8",
+                        },
+                    });
+                }
+
+                return new Response("Not Found", {
+                    status: 404,
+                    headers: {
+                        "Content-Type": "text/plain; charset=utf-8",
+                    },
+                });
+            },
         });
 
-        this.app.get("/migrate-status", (req, res) => {
-            res.set("Content-Type", "text/plain");
-            res.write("Migration is in progress, listening message...\n");
-            if (this.response) {
-                this.response.write("Disconnected\n");
-                this.response.end();
-            }
-            this.response = res;
-            // never ending response
-        });
-
-        return new Promise((resolve) => {
-            this.server.listen(port, hostname, () => {
-                printServerUrls("migration", port, hostname);
-                resolve();
-            });
-        });
+        printServerUrls("migration", port, hostname);
+        return Promise.resolve();
     }
 
     /**
@@ -77,7 +98,7 @@ class SimpleMigrationServer {
      * @returns {void}
      */
     update(msg) {
-        this.response?.write(msg + "\n");
+        this.responseController?.enqueue(encoder.encode(msg + "\n"));
     }
 
     /**
@@ -85,9 +106,10 @@ class SimpleMigrationServer {
      * @returns {Promise<void>}
      */
     async stop() {
-        this.response?.write("Finished, please refresh this page.\n");
-        this.response?.end();
-        await this.server?.close();
+        this.responseController?.enqueue(encoder.encode("Finished, please refresh this page.\n"));
+        this.responseController?.close();
+        this.responseController = null;
+        this.server?.stop(true);
     }
 }
 

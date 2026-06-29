@@ -747,7 +747,7 @@ exports.filterAndJoin = (parts, connector = "") => {
 
 /**
  * Send an Error response
- * @param {object} res Express response object
+ * @param {object} res HTTP response object
  * @param {string} msg Message to send
  * @returns {void}
  */

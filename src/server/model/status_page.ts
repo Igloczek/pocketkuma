@@ -29,46 +29,64 @@ class StatusPage extends BeanModel {
      */
     static domainMappingList = {};
 
-    /**
-     * Handle responses to RSS pages
-     * @param {Response} response Response object
-     * @param {string} slug Status page slug
-     * @param {Request} request Request object
-     * @returns {Promise<void>}
-     */
-    static async handleStatusPageRSSResponse(response, slug, request) {
-        let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
-
-        if (statusPage) {
-            const feedUrl = await StatusPage.buildRSSUrl(slug, request);
-            response.type("application/rss+xml");
-            response.send(await StatusPage.renderRSS(statusPage, feedUrl));
-        } else {
-            response.status(404).send(UptimeKumaServer.getInstance().indexHTML);
-        }
-    }
-
-    /**
-     * Handle responses to status page
-     * @param {Response} response Response object
-     * @param {string} indexHTML HTML to render
-     * @param {string} slug Status page slug
-     * @returns {Promise<void>}
-     */
-    static async handleStatusPageResponse(response, indexHTML, slug) {
+    static normalizeSlug(slug) {
+        slug = String(slug || "default").toLowerCase();
         // Handle url with trailing slash (http://localhost:3001/status/)
-        // The slug comes from the route "/status/:slug". If the slug is empty, express converts it to "index.html"
+        // The old route parser produced "index.html" for an empty slug.
         if (slug === "index.html") {
             slug = "default";
         }
 
+        return slug;
+    }
+
+    /**
+     * Render a status page by slug.
+     * @param {string} indexHTML HTML to render
+     * @param {string} slug Status page slug
+     * @returns {Promise<{ status: number, body: string }>} Response payload
+     */
+    static async renderHTMLBySlug(indexHTML, slug) {
+        slug = StatusPage.normalizeSlug(slug);
         let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
 
         if (statusPage) {
-            response.send(await StatusPage.renderHTML(indexHTML, statusPage));
-        } else {
-            response.status(404).send(UptimeKumaServer.getInstance().indexHTML);
+            return {
+                status: 200,
+                body: await StatusPage.renderHTML(indexHTML, statusPage),
+            };
         }
+
+        return {
+            status: 404,
+            body: UptimeKumaServer.getInstance().indexHTML,
+        };
+    }
+
+    /**
+     * Render a status page RSS feed by slug.
+     * @param {string} slug Status page slug
+     * @param {Request} request Request object
+     * @returns {Promise<{ status: number, body: string, contentType: string }>} Response payload
+     */
+    static async renderRSSBySlug(slug, request) {
+        slug = StatusPage.normalizeSlug(slug);
+        let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
+
+        if (statusPage) {
+            const feedUrl = await StatusPage.buildRSSUrl(slug, request);
+            return {
+                status: 200,
+                body: await StatusPage.renderRSS(statusPage, feedUrl),
+                contentType: "application/rss+xml; charset=utf-8",
+            };
+        }
+
+        return {
+            status: 404,
+            body: UptimeKumaServer.getInstance().indexHTML,
+            contentType: "text/html; charset=utf-8",
+        };
     }
 
     /**
@@ -123,23 +141,27 @@ class StatusPage extends BeanModel {
     /**
      * Build RSS feed URL, handling proxy headers
      * @param {string} slug Status page slug
-     * @param {Request} request Express request object
+     * @param {Request} request Request object
      * @returns {Promise<string>} The full URL for the RSS feed
      */
     static async buildRSSUrl(slug, request) {
         if (request) {
             const trustProxy = await setting("trustProxy");
+            const url = new URL(request.url);
+            const headers = request.headers;
 
             // Determine protocol (check X-Forwarded-Proto if behind proxy)
-            let proto = request.protocol;
-            if (trustProxy && request.headers["x-forwarded-proto"]) {
-                proto = request.headers["x-forwarded-proto"].split(",")[0].trim();
+            let proto = url.protocol.replace(/:$/, "");
+            const forwardedProto = headers.get("x-forwarded-proto");
+            if (trustProxy && forwardedProto) {
+                proto = forwardedProto.split(",")[0].trim();
             }
 
             // Determine host (check X-Forwarded-Host if behind proxy)
-            let host = request.get("host");
-            if (trustProxy && request.headers["x-forwarded-host"]) {
-                host = request.headers["x-forwarded-host"];
+            let host = headers.get("host") || url.host;
+            const forwardedHost = headers.get("x-forwarded-host");
+            if (trustProxy && forwardedHost) {
+                host = forwardedHost;
             }
 
             return `${proto}://${host}/status/${slug}`;

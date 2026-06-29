@@ -1,5 +1,4 @@
 // @ts-nocheck
-const express = require("express");
 const fs = require("fs");
 const { R } = require("./redbean-compat");
 const { log } = require("../util");
@@ -38,7 +37,6 @@ class UptimeKumaServer {
     maintenanceList = {};
 
     entryPage = "dashboard";
-    app = undefined;
     httpServer = undefined;
     bunHttpServer = undefined;
     io = undefined;
@@ -82,8 +80,7 @@ class UptimeKumaServer {
         // Set default axios timeout to 5 minutes instead of infinity
         axios.defaults.timeout = 300 * 1000;
 
-        log.info("server", "Creating express and realtime instance");
-        this.app = express();
+        log.info("server", "Creating Bun realtime instance");
         log.info("server", "Server Type: Bun.serve HTTP");
         this.io = new BunRealtimeAdapter(this);
 
@@ -106,9 +103,6 @@ class UptimeKumaServer {
      * @returns {Promise<void>}
      */
     async initAfterDatabaseReady() {
-        // Static
-        this.app.use("/screenshots", express.static(Database.screenshotDir));
-
         process.env.TZ = await this.getTimezone();
         dayjs.tz.setDefault(process.env.TZ);
         log.debug("DEBUG", "Timezone: " + process.env.TZ);

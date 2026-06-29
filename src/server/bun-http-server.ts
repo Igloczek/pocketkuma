@@ -1,54 +1,47 @@
 // @ts-nocheck
 "use strict";
 
+const fs = require("fs");
 const path = require("path");
-const { log } = require("../util");
+const { isDev, log } = require("../util");
 const { setting, printServerUrls } = require("./util-server");
 const config = require("./config");
 const Database = require("./database");
 const StatusPage = require("./model/status_page");
 const { Settings } = require("./settings");
+const { Prometheus } = require("./prometheus");
+const { checkAPIAuthRequest } = require("./auth");
+const { handleApiRequest } = require("./routers/api-router");
+const { handleStatusPageRequest } = require("./routers/status-page-router");
+const {
+    applyCommonHeaders,
+    htmlResponse,
+    jsonResponse,
+    redirectResponse,
+    textResponse,
+} = require("./bun-response");
 
 const MIME_TYPES = {
     ".br": "application/octet-stream",
     ".css": "text/css; charset=utf-8",
+    ".gif": "image/gif",
     ".gz": "application/gzip",
     ".html": "text/html; charset=utf-8",
     ".ico": "image/x-icon",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
     ".js": "text/javascript; charset=utf-8",
     ".json": "application/json; charset=utf-8",
     ".map": "application/json; charset=utf-8",
     ".png": "image/png",
     ".svg": "image/svg+xml",
     ".txt": "text/plain; charset=utf-8",
+    ".wasm": "application/wasm",
     ".webmanifest": "application/manifest+json",
+    ".webp": "image/webp",
     ".woff": "font/woff",
     ".woff2": "font/woff2",
 };
-
-function applyCommonHeaders(headers, disableFrameSameOrigin) {
-    if (!disableFrameSameOrigin) {
-        headers.set("X-Frame-Options", "SAMEORIGIN");
-    }
-}
-
-function redirect(location, disableFrameSameOrigin) {
-    const headers = new Headers({ Location: location });
-    applyCommonHeaders(headers, disableFrameSameOrigin);
-    return new Response(null, {
-        status: 302,
-        headers,
-    });
-}
-
-function json(data, disableFrameSameOrigin, extraHeaders = {}) {
-    const headers = new Headers({
-        "Content-Type": "application/json; charset=utf-8",
-        ...extraHeaders,
-    });
-    applyCommonHeaders(headers, disableFrameSameOrigin);
-    return new Response(JSON.stringify(data), { headers });
-}
 
 function getHostname(request) {
     const url = new URL(request.url);
@@ -78,7 +71,7 @@ function resolveRequestPath(root, requestPath) {
     let decodedPath;
     try {
         decodedPath = decodeURIComponent(requestPath);
-    } catch (_) {
+    } catch {
         return null;
     }
 
@@ -95,13 +88,51 @@ function resolveRequestPath(root, requestPath) {
     return resolvedPath;
 }
 
-async function serveFile(root, urlPathname, disableFrameSameOrigin) {
+function acceptsEncoding(request, encoding) {
+    const acceptEncoding = request.headers.get("accept-encoding") || "";
+    return acceptEncoding
+        .split(",")
+        .map((part) => part.trim().toLowerCase())
+        .some((part) => part === encoding || part.startsWith(encoding + ";"));
+}
+
+async function pickFile(filePath, request, precompressed) {
+    if (precompressed && acceptsEncoding(request, "br")) {
+        const brotliFile = Bun.file(filePath + ".br");
+        if (await brotliFile.exists()) {
+            return {
+                file: brotliFile,
+                contentEncoding: "br",
+            };
+        }
+    }
+
+    if (precompressed && acceptsEncoding(request, "gzip")) {
+        const gzipFile = Bun.file(filePath + ".gz");
+        if (await gzipFile.exists()) {
+            return {
+                file: gzipFile,
+                contentEncoding: "gzip",
+            };
+        }
+    }
+
+    const file = Bun.file(filePath);
+    if (await file.exists()) {
+        return { file };
+    }
+
+    return null;
+}
+
+async function serveFile(root, urlPathname, request, disableFrameSameOrigin, options = {}) {
     const filePath = resolveRequestPath(root, urlPathname);
     if (!filePath) {
         return null;
     }
-    const file = Bun.file(filePath);
-    if (!(await file.exists())) {
+
+    const picked = await pickFile(filePath, request, !!options.precompressed);
+    if (!picked) {
         return null;
     }
 
@@ -110,25 +141,119 @@ async function serveFile(root, urlPathname, disableFrameSameOrigin) {
     if (type) {
         headers.set("Content-Type", type);
     }
+    if (picked.contentEncoding) {
+        headers.set("Content-Encoding", picked.contentEncoding);
+        headers.set("Vary", "Accept-Encoding");
+    }
     applyCommonHeaders(headers, disableFrameSameOrigin);
-    return new Response(file, { headers });
+
+    return new Response(request.method === "HEAD" ? null : picked.file, { headers });
 }
 
-function indexResponse(indexHTML, disableFrameSameOrigin) {
-    const headers = new Headers({ "Content-Type": "text/html; charset=utf-8" });
-    applyCommonHeaders(headers, disableFrameSameOrigin);
-    return new Response(indexHTML, { headers });
+async function rootResponse(request, server, disableFrameSameOrigin) {
+    const hostname = await resolveTrustedHostname(request);
+    log.debug("entry", `Request Domain: ${hostname}`);
+
+    if (hostname in StatusPage.domainMappingList) {
+        const slug = StatusPage.domainMappingList[hostname];
+        const result = await StatusPage.renderHTMLBySlug(server.indexHTML, slug);
+        return htmlResponse(result.body, {
+            status: result.status,
+            disableFrameSameOrigin,
+        });
+    }
+
+    const uptimeKumaEntryPage = server.entryPage;
+    if (uptimeKumaEntryPage && uptimeKumaEntryPage.startsWith("statusPage-")) {
+        return redirectResponse("/status/" + uptimeKumaEntryPage.replace("statusPage-", ""), {
+            disableFrameSameOrigin,
+        });
+    }
+
+    return redirectResponse("/dashboard", {
+        disableFrameSameOrigin,
+    });
 }
 
-/**
- * Temporary Bun HTTP adapter for BUN-002.
- *
- * Native Bun routes below cover the default listener, built static assets,
- * setup metadata, entry-page metadata, uploads/screenshots, and SPA fallback.
- * The remaining Express routers are intentionally left in src/server/server.ts as
- * compatibility-only modules until their route handlers are extracted in later
- * migration tasks.
- */
+async function parseDevBody(request) {
+    const contentType = request.headers.get("content-type") || "";
+    const body = await request.text();
+
+    if (contentType.includes("application/json")) {
+        try {
+            return JSON.parse(body);
+        } catch {
+            return body;
+        }
+    }
+
+    if (contentType.includes("application/x-www-form-urlencoded")) {
+        return Object.fromEntries(new URLSearchParams(body).entries());
+    }
+
+    return body;
+}
+
+async function handleDevRequest(request, disableFrameSameOrigin) {
+    if (!isDev) {
+        return null;
+    }
+
+    const url = new URL(request.url);
+
+    if (
+        request.method === "POST" &&
+        (url.pathname === "/test-webhook" || url.pathname === "/test-x-www-form-urlencoded")
+    ) {
+        log.debug("test", Object.fromEntries(request.headers.entries()));
+        log.debug("test", await parseDevBody(request));
+        return textResponse("OK", { disableFrameSameOrigin });
+    }
+
+    if (request.method === "GET" && url.pathname === "/_e2e/take-sqlite-snapshot") {
+        await Database.close();
+        try {
+            fs.cpSync(Database.sqlitePath, `${Database.sqlitePath}.e2e-snapshot`);
+        } catch {
+            throw new Error("Unable to copy SQLite DB.");
+        }
+        await Database.connect();
+
+        return textResponse("Snapshot taken.", { disableFrameSameOrigin });
+    }
+
+    if (request.method === "GET" && url.pathname === "/_e2e/restore-sqlite-snapshot") {
+        if (!fs.existsSync(`${Database.sqlitePath}.e2e-snapshot`)) {
+            throw new Error("Snapshot doesn't exist.");
+        }
+
+        await Database.close();
+        try {
+            fs.cpSync(`${Database.sqlitePath}.e2e-snapshot`, Database.sqlitePath);
+        } catch {
+            throw new Error("Unable to copy snapshot file.");
+        }
+        await Database.connect();
+
+        return textResponse("Snapshot restored.", { disableFrameSameOrigin });
+    }
+
+    return null;
+}
+
+async function metricsResponse(request, disableFrameSameOrigin) {
+    const authResponse = await checkAPIAuthRequest(request, { disableFrameSameOrigin });
+    if (authResponse) {
+        return authResponse;
+    }
+
+    const metrics = await Prometheus.metrics();
+    return textResponse(metrics.body, {
+        type: metrics.contentType,
+        disableFrameSameOrigin,
+    });
+}
+
 function createBunFetchHandler({ server, disableFrameSameOrigin }) {
     return async function fetch(request, bunServer) {
         const url = new URL(request.url);
@@ -138,79 +263,80 @@ function createBunFetchHandler({ server, disableFrameSameOrigin }) {
             if (upgraded) {
                 return undefined;
             }
-            return new Response("WebSocket upgrade rejected.", { status: 403 });
+            return textResponse("WebSocket upgrade rejected.", {
+                status: 403,
+                disableFrameSameOrigin,
+            });
         }
 
-        if (request.method === "GET" && url.pathname === "/") {
-            const hostname = await resolveTrustedHostname(request);
-            log.debug("entry", `Request Domain: ${hostname}`);
-
-            if (hostname in StatusPage.domainMappingList) {
-                return indexResponse(server.indexHTML, disableFrameSameOrigin);
-            }
-
-            const uptimeKumaEntryPage = server.entryPage;
-            if (uptimeKumaEntryPage && uptimeKumaEntryPage.startsWith("statusPage-")) {
-                return redirect("/status/" + uptimeKumaEntryPage.replace("statusPage-", ""), disableFrameSameOrigin);
-            }
-
-            return redirect("/dashboard", disableFrameSameOrigin);
+        if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/") {
+            return rootResponse(request, server, disableFrameSameOrigin);
         }
 
-        if (request.method === "GET" && url.pathname === "/api/entry-page") {
-            const result = {};
-            const hostname = await resolveTrustedHostname(request);
-            if (hostname in StatusPage.domainMappingList) {
-                result.type = "statusPageMatchedDomain";
-                result.statusPageSlug = StatusPage.domainMappingList[hostname];
-            } else {
-                result.type = "entryPage";
-                result.entryPage = server.entryPage;
-            }
-
-            return json(result, disableFrameSameOrigin);
-        }
-
-        if (request.method === "GET" && url.pathname === "/setup-database-info") {
-            return json(
+        if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/setup-database-info") {
+            return jsonResponse(
                 {
                     runningSetup: false,
                     needSetup: false,
                 },
-                disableFrameSameOrigin
+                {
+                    devCors: true,
+                    disableFrameSameOrigin,
+                }
             );
         }
 
-        if (request.method === "GET" && url.pathname === "/robots.txt") {
+        const devResponse = await handleDevRequest(request, disableFrameSameOrigin);
+        if (devResponse) {
+            return devResponse;
+        }
+
+        if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/robots.txt") {
             let body = "User-agent: *\nDisallow:";
             if (!(await setting("searchEngineIndex"))) {
                 body += " /";
             }
-            const headers = new Headers({ "Content-Type": "text/plain; charset=utf-8" });
-            applyCommonHeaders(headers, disableFrameSameOrigin);
-            return new Response(body, { headers });
+            return textResponse(body, { disableFrameSameOrigin });
         }
 
-        if (request.method === "GET" && url.pathname === "/.well-known/change-password") {
-            return redirect(
-                "https://github.com/louislam/uptime-kuma/wiki/Reset-Password-via-CLI",
-                disableFrameSameOrigin
-            );
+        if (
+            (request.method === "GET" || request.method === "HEAD") &&
+            url.pathname === "/.well-known/change-password"
+        ) {
+            return redirectResponse("https://github.com/louislam/uptime-kuma/wiki/Reset-Password-via-CLI", {
+                disableFrameSameOrigin,
+            });
         }
 
-        if (request.method === "GET" && url.pathname.startsWith("/upload/")) {
+        if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/metrics") {
+            return metricsResponse(request, disableFrameSameOrigin);
+        }
+
+        const apiResponse = await handleApiRequest(request, { server, disableFrameSameOrigin });
+        if (apiResponse) {
+            return apiResponse;
+        }
+
+        const statusPageResponse = await handleStatusPageRequest(request, { server, disableFrameSameOrigin });
+        if (statusPageResponse) {
+            return statusPageResponse;
+        }
+
+        if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/upload/")) {
             const response = await serveFile(
                 Database.uploadDir,
                 url.pathname.replace(/^\/upload\//, ""),
+                request,
                 disableFrameSameOrigin
             );
-            return response || new Response("File not found.", { status: 404 });
+            return response || textResponse("File not found.", { status: 404, disableFrameSameOrigin });
         }
 
-        if (request.method === "GET" && url.pathname.startsWith("/screenshots/")) {
+        if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/screenshots/")) {
             const response = await serveFile(
                 Database.screenshotDir,
                 url.pathname.replace(/^\/screenshots\//, ""),
+                request,
                 disableFrameSameOrigin
             );
             if (response) {
@@ -218,15 +344,17 @@ function createBunFetchHandler({ server, disableFrameSameOrigin }) {
             }
         }
 
-        if (request.method === "GET") {
+        if (request.method === "GET" || request.method === "HEAD") {
             const staticPath = url.pathname === "/" ? "index.html" : url.pathname.replace(/^\//, "");
-            const staticResponse = await serveFile("dist", staticPath, disableFrameSameOrigin);
+            const staticResponse = await serveFile("dist", staticPath, request, disableFrameSameOrigin, {
+                precompressed: true,
+            });
             if (staticResponse) {
                 return staticResponse;
             }
         }
 
-        return indexResponse(server.indexHTML, disableFrameSameOrigin);
+        return htmlResponse(server.indexHTML, { disableFrameSameOrigin });
     };
 }
 

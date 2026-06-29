@@ -24,7 +24,7 @@ const runtimeInfo = getRuntimeInfo();
 console.log(`Your ${runtimeInfo.name} version: ${runtimeInfo.version}`);
 
 const { args } = require("./args");
-const { sleep, log, getRandomInt, genSecret, isDev } = require("../util");
+const { sleep, log, getRandomInt, genSecret } = require("../util");
 const config = require("./config");
 
 process.title = "uptime-kuma";
@@ -56,15 +56,10 @@ log.info("server", "Uptime Kuma Version:", checkVersion.version);
 
 log.info("server", "Loading modules");
 
-log.debug("server", "Importing express");
-const express = require("express");
-const expressStaticGzip = require("express-static-gzip");
 log.debug("server", "Importing database bean facade");
 const { R } = require("./redbean-compat");
 log.debug("server", "Importing jsonwebtoken");
 const jwt = require("jsonwebtoken");
-log.debug("server", "Importing prometheus-api-metrics");
-const prometheusAPIMetrics = require("prometheus-api-metrics");
 const { passwordStrength } = require("check-password-strength");
 const TranslatableError = require("./translatable-error");
 
@@ -76,7 +71,6 @@ const { UptimeKumaServer } = require("./uptime-kuma-server");
 const { listenWithBunServe } = require("./bun-http-server");
 const server = UptimeKumaServer.getInstance();
 const io = (module.exports.io = server.io);
-const app = server.app;
 
 log.debug("server", "Importing Monitor");
 const Monitor = require("./model/monitor");
@@ -92,7 +86,6 @@ const {
     doubleCheckPassword,
     shake256,
     SHAKE256_LENGTH,
-    allowDevAllOrigin,
 } = require("./util-server");
 
 log.debug("server", "Importing Notification");
@@ -108,7 +101,6 @@ log.debug("server", "Importing Background Jobs");
 const { initBackgroundJobs, stopBackgroundJobs } = require("./jobs");
 const { loginRateLimiter, twoFaRateLimiter } = require("./rate-limiter");
 
-const { apiAuth } = require("./auth");
 const { login } = require("./auth");
 const passwordHash = require("./password-hash");
 
@@ -170,17 +162,6 @@ const apicache = require("./modules/apicache");
 const { SetupDatabase } = require("./setup-database");
 const { chartSocketHandler } = require("./socket-handlers/chart-socket-handler");
 
-app.use(express.json());
-
-// Global Middleware
-app.use(function (req, res, next) {
-    if (!disableFrameSameOrigin) {
-        res.setHeader("X-Frame-Options", "SAMEORIGIN");
-    }
-    res.removeHeader("X-Powered-By");
-    next();
-});
-
 /**
  * Show Setup Page
  * @type {boolean}
@@ -214,136 +195,7 @@ let needSetup = false;
     log.debug("server", "Initializing Prometheus");
     await Prometheus.init();
 
-    log.debug("server", "Adding route");
-
-    // ***************************
-    // Normal Router here
-    // ***************************
-
-    // Entry Page
-    app.get("/", async (request, response) => {
-        let hostname = request.hostname;
-        if (await setting("trustProxy")) {
-            const proxy = request.headers["x-forwarded-host"];
-            if (proxy) {
-                hostname = proxy;
-            }
-        }
-
-        log.debug("entry", `Request Domain: ${hostname}`);
-
-        const uptimeKumaEntryPage = server.entryPage;
-        if (hostname in StatusPage.domainMappingList) {
-            log.debug("entry", "This is a status page domain");
-
-            let slug = StatusPage.domainMappingList[hostname];
-            await StatusPage.handleStatusPageResponse(response, server.indexHTML, slug);
-        } else if (uptimeKumaEntryPage && uptimeKumaEntryPage.startsWith("statusPage-")) {
-            response.redirect("/status/" + uptimeKumaEntryPage.replace("statusPage-", ""));
-        } else {
-            response.redirect("/dashboard");
-        }
-    });
-
-    app.get("/setup-database-info", (request, response) => {
-        allowDevAllOrigin(response);
-        response.json({
-            runningSetup: false,
-            needSetup: false,
-        });
-    });
-
-    if (isDev) {
-        app.use(express.urlencoded({ extended: true }));
-        app.post("/test-webhook", async (request, response) => {
-            log.debug("test", request.headers);
-            log.debug("test", request.body);
-            response.send("OK");
-        });
-
-        app.post("/test-x-www-form-urlencoded", async (request, response) => {
-            log.debug("test", request.headers);
-            log.debug("test", request.body);
-            response.send("OK");
-        });
-
-        const fs = require("fs");
-
-        app.get("/_e2e/take-sqlite-snapshot", async (request, response) => {
-            await Database.close();
-            try {
-                fs.cpSync(Database.sqlitePath, `${Database.sqlitePath}.e2e-snapshot`);
-            } catch (err) {
-                throw new Error("Unable to copy SQLite DB.");
-            }
-            await Database.connect();
-
-            response.send("Snapshot taken.");
-        });
-
-        app.get("/_e2e/restore-sqlite-snapshot", async (request, response) => {
-            if (!fs.existsSync(`${Database.sqlitePath}.e2e-snapshot`)) {
-                throw new Error("Snapshot doesn't exist.");
-            }
-
-            await Database.close();
-            try {
-                fs.cpSync(`${Database.sqlitePath}.e2e-snapshot`, Database.sqlitePath);
-            } catch (err) {
-                throw new Error("Unable to copy snapshot file.");
-            }
-            await Database.connect();
-
-            response.send("Snapshot restored.");
-        });
-    }
-
-    // Robots.txt
-    app.get("/robots.txt", async (_request, response) => {
-        let txt = "User-agent: *\nDisallow:";
-        if (!(await setting("searchEngineIndex"))) {
-            txt += " /";
-        }
-        response.setHeader("Content-Type", "text/plain");
-        response.send(txt);
-    });
-
-    // Basic Auth Router here
-
-    // Prometheus API metrics  /metrics
-    // With Basic Auth using the first user's username/password
-    app.get("/metrics", apiAuth, prometheusAPIMetrics());
-
-    app.use(
-        "/",
-        expressStaticGzip("dist", {
-            enableBrotli: true,
-        })
-    );
-
-    // ./data/upload
-    app.use("/upload", express.static(Database.uploadDir));
-
-    app.get("/.well-known/change-password", async (_, response) => {
-        response.redirect("https://github.com/louislam/uptime-kuma/wiki/Reset-Password-via-CLI");
-    });
-
-    // API Router
-    const apiRouter = require("./routers/api-router");
-    app.use(apiRouter);
-
-    // Status Page Router
-    const statusPageRouter = require("./routers/status-page-router");
-    app.use(statusPageRouter);
-
-    // Universal Route Handler, must be at the end of all express routes.
-    app.get("*", async (_request, response) => {
-        if (_request.originalUrl.startsWith("/upload/")) {
-            response.status(404).send("File not found.");
-        } else {
-            response.send(server.indexHTML);
-        }
-    });
+    log.debug("server", "Adding Bun.serve route handler");
 
     log.debug("server", "Adding socket handler");
     io.on("connection", async (socket) => {
