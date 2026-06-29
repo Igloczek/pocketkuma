@@ -1,10 +1,10 @@
-exports.up = function (knex) {
+export const up = function (knex) {
     return knex.schema.alterTable("monitor", function (table) {
         table.string("oauth_audience").nullable().defaultTo(null);
     });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema.alterTable("monitor", function (table) {
         table.string("oauth_audience").alter();
     });

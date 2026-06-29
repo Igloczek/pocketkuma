@@ -1,8 +1,9 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP } = require("../../util");
-const { MongoClient } = require("mongodb");
-const jsonata = require("jsonata");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP } from "../../util.ts";
+import { MongoClient } from "mongodb";
+import jsonata from "jsonata";
 
 class MongodbMonitorType extends MonitorType {
     name = "mongodb";
@@ -63,6 +64,4 @@ class MongodbMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    MongodbMonitorType,
-};
+export { MongodbMonitorType };

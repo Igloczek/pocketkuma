@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class SerwerSMS extends NotificationProvider {
     name = "serwersms";
@@ -51,4 +52,4 @@ class SerwerSMS extends NotificationProvider {
     }
 }
 
-module.exports = SerwerSMS;
+export default SerwerSMS;

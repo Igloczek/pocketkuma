@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP } = require("../../util");
-const nodemailer = require("nodemailer");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP } from "../../util.ts";
+import nodemailer from "nodemailer";
 
 class SMTPMonitorType extends MonitorType {
     name = "smtp";
@@ -31,6 +32,4 @@ class SMTPMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    SMTPMonitorType,
-};
+export { SMTPMonitorType };

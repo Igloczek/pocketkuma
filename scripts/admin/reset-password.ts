@@ -1,12 +1,12 @@
-console.log("== Uptime Kuma Reset Password Tool ==");
+import Database from "../../src/server/database.ts";
+import { R } from "redbean-node";
+import readline from "readline";
+import { passwordStrength } from "check-password-strength";
+import { initJWTSecret } from "../../src/server/util-server.ts";
+import User from "../../src/server/model/user.ts";
+import { args } from "../../src/server/args.ts";
 
-const Database = require("../../src/server/database");
-const { R } = require("redbean-node");
-const readline = require("readline");
-const { passwordStrength } = require("check-password-strength");
-const { initJWTSecret } = require("../../src/server/util-server");
-const User = require("../../src/server/model/user");
-const { args } = require("../../src/server/args");
+console.log("== Uptime Kuma Reset Password Tool ==");
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -101,6 +101,4 @@ if (!process.env.TEST_BACKEND) {
     main();
 }
 
-module.exports = {
-    main,
-};
+export { main };

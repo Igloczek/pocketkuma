@@ -1,4 +1,4 @@
-exports.up = function (knex) {
+export const up = function (knex) {
     // Add new columns
     return knex.schema.alterTable("monitor", function (table) {
         table.string("subtype", 10).nullable();
@@ -7,7 +7,7 @@ exports.up = function (knex) {
     });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     // Drop columns
     return knex.schema.alterTable("monitor", function (table) {
         table.dropColumn("subtype");

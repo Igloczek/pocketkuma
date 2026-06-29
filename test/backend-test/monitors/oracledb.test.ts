@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { after, before, describe, test } = require("node:test");
-const assert = require("node:assert");
-const { OracleDbContainer } = require("@testcontainers/oraclefree");
-const { OracleDbMonitorType } = require("../../../src/server/monitor-types/oracledb");
-const { UP, PENDING } = require("../../../src/util");
+
+import { after, before, describe, test } from "node:test";
+import assert from "node:assert";
+import { OracleDbContainer } from "@testcontainers/oraclefree";
+import { OracleDbMonitorType } from "../../../src/server/monitor-types/oracledb.ts";
+import { UP, PENDING } from "../../../src/util.ts";
 
 const ORACLE_IMAGE = "gvenzl/oracle-free:23-slim-faststart";
 const APP_USER = "uptimekuma";

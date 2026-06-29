@@ -1,11 +1,17 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const fs = require("fs");
-const path = require("path");
+
+import { describe, test } from "node:test";
+import fs from "fs";
+import path from "path";
+import Sqlite3Dialect from "knex/lib/dialects/sqlite3/index.js";
+import sqlite3 from "@louislam/sqlite3";
+import knex from "knex";
+import redbean from "redbean-node";
+import { createTables } from "../../src/db/knex_init_db.ts";
 
 describe("Database Migration", () => {
     test("SQLite migrations run successfully from fresh database", async () => {
-        const testDbPath = path.join(__dirname, "../../data/test-migration.db");
+        const testDbPath = path.join(import.meta.dirname, "../../data/test-migration.db");
         const testDbDir = path.dirname(testDbPath);
 
         // Ensure data directory exists
@@ -19,12 +25,10 @@ describe("Database Migration", () => {
         }
 
         // Use the same SQLite driver as the project
-        const Dialect = require("knex/lib/dialects/sqlite3/index.js");
-        Dialect.prototype._driver = () => require("@louislam/sqlite3");
+        Sqlite3Dialect.prototype._driver = () => sqlite3;
 
-        const knex = require("knex");
         const db = knex({
-            client: Dialect,
+            client: Sqlite3Dialect,
             connection: {
                 filename: testDbPath,
             },
@@ -32,17 +36,16 @@ describe("Database Migration", () => {
         });
 
         // Setup R (redbean) with knex instance like production code does
-        const { R } = require("redbean-node");
+        const { R } = redbean;
         R.setup(db);
 
         try {
             // Use production code to initialize SQLite tables (like first run)
-            const { createTables } = require("../../src/db/knex_init_db.ts");
             await createTables();
 
             // Run all migrations like production code does
             await R.knex.migrate.latest({
-                directory: path.join(__dirname, "../../src/db/knex_migrations"),
+                directory: path.join(import.meta.dirname, "../../src/db/knex_migrations"),
                 loadExtensions: [".ts"],
             });
 

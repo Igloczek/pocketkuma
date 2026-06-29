@@ -1,7 +1,9 @@
 // @ts-nocheck
 "use strict";
 // Original source at https://github.com/elasticio/node-ntlm-client/blob/master/lib/hash.js
-var crypto = require("crypto");
+
+import crypto from "crypto";
+
 function createLMResponse(challenge, lmhash) {
     var buf = new Buffer.alloc(24),
         pwBuffer = new Buffer.alloc(21).fill(0);
@@ -116,12 +118,22 @@ function createPseudoRandomValue(length) {
     }
     return str;
 }
-module.exports = {
-    createLMHash: createLMHash,
-    createNTLMHash: createNTLMHash,
-    createLMResponse: createLMResponse,
-    createNTLMResponse: createNTLMResponse,
-    createLMv2Response: createLMv2Response,
-    createNTLMv2Response: createNTLMv2Response,
-    createPseudoRandomValue: createPseudoRandomValue,
+export {
+    createLMHash,
+    createNTLMHash,
+    createLMResponse,
+    createNTLMResponse,
+    createLMv2Response,
+    createNTLMv2Response,
+    createPseudoRandomValue,
+};
+
+export default {
+    createLMHash,
+    createNTLMHash,
+    createLMResponse,
+    createNTLMResponse,
+    createLMv2Response,
+    createNTLMv2Response,
+    createPseudoRandomValue,
 };

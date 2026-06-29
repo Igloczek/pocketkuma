@@ -2,21 +2,23 @@
 /*
  * For Client Socket
  */
-const { TimeLogger } = require("../util");
-const { R } = require("./redbean-compat");
-const { UptimeKumaServer } = require("./uptime-kuma-server");
-const server = UptimeKumaServer.getInstance();
-const io = server.io;
-const { setting } = require("./util-server");
-const checkVersion = require("./check-version");
-const Database = require("./database");
-const { getRuntimeInfo } = require("./runtime");
 
 /**
  * Send list of notification providers to client
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<Bean[]>} List of notifications
  */
+import { TimeLogger } from "../util.ts";
+import { R } from "./redbean-compat.ts";
+import { UptimeKumaServer } from "./uptime-kuma-server.ts";
+import { setting } from "./util-server.ts";
+
+const server = UptimeKumaServer.getInstance();
+const io = server.io;
+import * as checkVersion from "./check-version.ts";
+import Database from "./database.ts";
+import { getRuntimeInfo } from "./runtime.ts";
+
 async function sendNotificationList(socket) {
     const timeLogger = new TimeLogger();
 
@@ -234,7 +236,7 @@ async function sendMonitorTypeList(socket) {
     io.to(socket.userID).emit("monitorTypeList", Object.fromEntries(result));
 }
 
-module.exports = {
+export {
     sendNotificationList,
     sendImportantHeartbeatList,
     sendHeartbeatList,

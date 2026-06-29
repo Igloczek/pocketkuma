@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Threema extends NotificationProvider {
     name = "threema";
@@ -76,4 +77,4 @@ class Threema extends NotificationProvider {
     }
 }
 
-module.exports = Threema;
+export default Threema;

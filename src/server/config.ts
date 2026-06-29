@@ -1,12 +1,11 @@
 // @ts-nocheck
-const isFreeBSD = /^freebsd/.test(process.platform);
-
-// Interop with browser
-const { args } = require("./args");
+import { args } from "./args.ts";
 
 // If host is omitted, the server will accept connections on the unspecified IPv6 address (::) when IPv6 is available and the unspecified IPv4 address (0.0.0.0) otherwise.
 // Dual-stack support for (::)
 // Also read HOST if not FreeBSD, as HOST is a system environment variable in FreeBSD
+const isFreeBSD = /^freebsd/.test(process.platform);
+
 let hostEnv = isFreeBSD ? null : process.env.HOST;
 const hostname = args.host || process.env.UPTIME_KUMA_HOST || hostEnv;
 
@@ -38,14 +37,6 @@ const localWebSocketURL = getLocalWebSocketURL();
 
 const demoMode = args["demo"] || false;
 
-module.exports = {
-    args,
-    hostname,
-    port,
-    sslKey,
-    sslCert,
-    sslKeyPassphrase,
-    isSSL,
-    localWebSocketURL,
-    demoMode,
-};
+export { args, hostname, port, sslKey, sslCert, sslKeyPassphrase, isSSL, localWebSocketURL, demoMode };
+
+export default { args, hostname, port, sslKey, sslCert, sslKeyPassphrase, isSSL, localWebSocketURL, demoMode };

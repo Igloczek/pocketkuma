@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP } = require("../../util");
-const { runCommand } = require("../process-helper");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP } from "../../util.ts";
+import { runCommand } from "../process-helper.ts";
 
 class SIPMonitorType extends MonitorType {
     name = "sip-options";
@@ -62,6 +63,4 @@ class SIPMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    SIPMonitorType,
-};
+export { SIPMonitorType };

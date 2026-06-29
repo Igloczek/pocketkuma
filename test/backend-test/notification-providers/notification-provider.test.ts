@@ -1,8 +1,8 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
 
-const NotificationProvider = require("../../../src/server/notification-providers/notification-provider");
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import NotificationProvider from "../../../src/server/notification-providers/notification-provider.ts";
 
 describe("NotificationProvider.throwGeneralAxiosError()", () => {
     const provider = new NotificationProvider();

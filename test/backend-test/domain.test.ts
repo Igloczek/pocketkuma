@@ -1,17 +1,19 @@
 // @ts-nocheck
+import { describe, test, mock, before, after } from "node:test";
+import assert from "node:assert";
+import DomainExpiry from "../../src/server/model/domain_expiry.ts";
+import mockWebhook from "./notification-providers/mock-webhook.ts";
+import TestDB from "../mock-testdb.ts";
+import { R } from "redbean-node";
+import { Notification } from "../../src/server/notification.ts";
+import { Settings } from "../../src/server/settings.ts";
+import { setSetting } from "../../src/server/util-server.ts";
+import dayjs from "dayjs";
+import dayjsPlugin_10 from "dayjs/plugin/utc";
+
 process.env.UPTIME_KUMA_HIDE_LOG = ["info_db", "info_server"].join(",");
 
-const { describe, test, mock, before, after } = require("node:test");
-const assert = require("node:assert");
-const DomainExpiry = require("../../src/server/model/domain_expiry");
-const mockWebhook = require("./notification-providers/mock-webhook");
-const TestDB = require("../mock-testdb");
-const { R } = require("redbean-node");
-const { Notification } = require("../../src/server/notification");
-const { Settings } = require("../../src/server/settings");
-const { setSetting } = require("../../src/server/util-server");
-const dayjs = require("dayjs");
-dayjs.extend(require("dayjs/plugin/utc"));
+dayjs.extend(dayjsPlugin_10);
 
 const testDb = new TestDB();
 

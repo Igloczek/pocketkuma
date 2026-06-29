@@ -1,19 +1,22 @@
 // @ts-nocheck
-const { log } = require("../../util");
-const { Settings } = require("../settings");
-const { sendInfo } = require("../client");
-const { checkLogin } = require("../util-server");
-const fsAsync = require("fs").promises;
-const path = require("path");
 
-const pushExamplesDir = path.join(__dirname, "../assets/push-examples");
+import { log } from "../../util.ts";
+import { Settings } from "../settings.ts";
+import { sendInfo } from "../client.ts";
+import { checkLogin } from "../util-server.ts";
+import fs from "fs";
+import path from "path";
+import { testChrome } from "../monitor-types/real-browser-monitor-type.ts";
+
+const fsAsync = fs.promises;
+const pushExamplesDir = path.join(import.meta.dirname, "../assets/push-examples");
 
 /**
  * Get a game list via GameDig
  * @returns {object} list of games supported by GameDig
  */
-function getGameList() {
-    const { games } = require("gamedig");
+async function getGameList() {
+    const { games } = await import("gamedig");
     let gameList = [];
     gameList = Object.keys(games).map((key) => {
         const item = games[key];
@@ -42,7 +45,7 @@ function getGameList() {
  * @param {UptimeKumaServer} server Uptime Kuma server
  * @returns {void}
  */
-module.exports.generalSocketHandler = (socket, server) => {
+export const generalSocketHandler = (socket, server) => {
     socket.on("initServerTimezone", async (timezone) => {
         try {
             checkLogin(socket);
@@ -60,7 +63,7 @@ module.exports.generalSocketHandler = (socket, server) => {
             checkLogin(socket);
             callback({
                 ok: true,
-                gameList: getGameList(),
+                gameList: await getGameList(),
             });
         } catch (e) {
             callback({
@@ -73,7 +76,6 @@ module.exports.generalSocketHandler = (socket, server) => {
     socket.on("testChrome", (executable, callback) => {
         try {
             checkLogin(socket);
-            const { testChrome } = require("../monitor-types/real-browser-monitor-type");
             // Use a pure promise so this slow probe does not block the realtime handler.
             testChrome(executable)
                 .then((version) => {
@@ -83,7 +85,6 @@ module.exports.generalSocketHandler = (socket, server) => {
                             key: "foundChromiumVersion",
                             values: [version],
                         },
-                        msgi18n: true,
                     });
                 })
                 .catch((e) => {
@@ -100,39 +101,37 @@ module.exports.generalSocketHandler = (socket, server) => {
         }
     });
 
-    socket.on("getPushExample", async (language, callback) => {
+    socket.on("getPushExample", async (type, callback) => {
         try {
             checkLogin(socket);
-            if (!/^[a-z-]+$/.test(language)) {
-                throw new Error("Invalid language");
-            }
+            const filename = path.join(pushExamplesDir, type + ".json");
+            const content = await fsAsync.readFile(filename, "utf8");
+            callback({
+                ok: true,
+                content,
+            });
         } catch (e) {
             callback({
                 ok: false,
                 msg: e.message,
             });
-            return;
         }
+    });
 
+    socket.on("getPushExampleList", async (callback) => {
         try {
-            let dir = path.join(pushExamplesDir, language);
-            let files = await fsAsync.readdir(dir);
-
-            for (let file of files) {
-                if (file.startsWith("index.")) {
-                    callback({
-                        ok: true,
-                        code: await fsAsync.readFile(path.join(dir, file), "utf8"),
-                    });
-                    return;
-                }
-            }
-        } catch (e) {}
-
-        callback({
-            ok: false,
-            msg: "Not found",
-        });
+            checkLogin(socket);
+            const files = await fsAsync.readdir(pushExamplesDir);
+            callback({
+                ok: true,
+                list: files.map((file) => file.replace(".json", "")),
+            });
+        } catch (e) {
+            callback({
+                ok: false,
+                msg: e.message,
+            });
+        }
     });
 
     // Disconnect all other socket clients of the user

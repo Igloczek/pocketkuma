@@ -1,11 +1,14 @@
 // @ts-nocheck
-const axios = require("axios");
-const { R } = require("./redbean-compat");
-const https = require("https");
-const fsAsync = require("fs").promises;
-const path = require("path");
-const Database = require("./database");
-const { axiosAbortSignal, fsExists } = require("./util-server");
+
+import axios from "axios";
+import { R } from "./redbean-compat.ts";
+import https from "https";
+import Database from "./database.ts";
+import { axiosAbortSignal, fsExists } from "./util-server.ts";
+import fs from "fs";
+import path from "path";
+
+const fsAsync = fs.promises;
 
 class DockerHost {
     static CertificateFileNameCA = "ca.pem";
@@ -176,6 +179,4 @@ class DockerHost {
     }
 }
 
-module.exports = {
-    DockerHost,
-};
+export { DockerHost };

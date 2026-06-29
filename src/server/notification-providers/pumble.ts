@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { UP } from "../../util.ts";
 
 class Pumble extends NotificationProvider {
     name = "pumble";
@@ -47,4 +48,4 @@ class Pumble extends NotificationProvider {
     }
 }
 
-module.exports = Pumble;
+export default Pumble;

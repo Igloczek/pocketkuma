@@ -1,6 +1,4 @@
 // @ts-nocheck
-const jsesc = require("jsesc");
-const { escape } = require("html-escaper");
 
 /**
  * Returns a string that represents the javascript that is required to insert the Plausible Analytics script
@@ -9,6 +7,9 @@ const { escape } = require("html-escaper");
  * @param {string} domainsToMonitor Domains to track separated by a ',' to add Plausible Analytics script.
  * @returns {string} HTML script tags to inject into page
  */
+import jsesc from "jsesc";
+import { escape } from "html-escaper";
+
 function getPlausibleAnalyticsScript(scriptUrl, domainsToMonitor) {
     let escapedScriptUrlJS = jsesc(scriptUrl, { isScriptContext: true });
     let escapedWebsiteIdJS = jsesc(domainsToMonitor, { isScriptContext: true });
@@ -32,6 +33,6 @@ function getPlausibleAnalyticsScript(scriptUrl, domainsToMonitor) {
     `;
 }
 
-module.exports = {
-    getPlausibleAnalyticsScript,
-};
+export { getPlausibleAnalyticsScript };
+
+export default { getPlausibleAnalyticsScript };

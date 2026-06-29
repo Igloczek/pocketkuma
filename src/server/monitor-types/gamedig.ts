@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP } = require("../../util");
-const { GameDig } = require("gamedig");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP } from "../../util.ts";
+import { GameDig } from "gamedig";
 
 class GameDigMonitorType extends MonitorType {
     name = "gamedig";
@@ -28,6 +29,4 @@ class GameDigMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    GameDigMonitorType,
-};
+export { GameDigMonitorType };

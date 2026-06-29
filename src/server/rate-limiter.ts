@@ -1,6 +1,7 @@
 // @ts-nocheck
-const { RateLimiter } = require("limiter");
-const { log } = require("../util");
+
+import { RateLimiter } from "limiter";
+import { log } from "../util.ts";
 
 class KumaRateLimiter {
     /**
@@ -69,8 +70,4 @@ const twoFaRateLimiter = new KumaRateLimiter({
     errorMessage: "Too frequently, try again later.",
 });
 
-module.exports = {
-    loginRateLimiter,
-    apiRateLimiter,
-    twoFaRateLimiter,
-};
+export { loginRateLimiter, apiRateLimiter, twoFaRateLimiter };

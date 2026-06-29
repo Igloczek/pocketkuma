@@ -1,10 +1,10 @@
 // @ts-nocheck
-const { getMonitorRelativeURL } = require("../../util");
-const { setting } = require("../util-server");
-const { UP } = require("../../util");
 
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+import { getMonitorRelativeURL } from "../../util.ts";
+import { setting } from "../util-server.ts";
+import { UP } from "../../util.ts";
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Pushover extends NotificationProvider {
     name = "pushover";
@@ -62,4 +62,4 @@ class Pushover extends NotificationProvider {
     }
 }
 
-module.exports = Pushover;
+export default Pushover;

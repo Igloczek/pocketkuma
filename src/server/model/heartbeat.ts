@@ -1,7 +1,9 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
-const zlib = require("node:zlib");
-const { promisify } = require("node:util");
+
+import { BeanModel } from "../redbean-compat.ts";
+import zlib from "node:zlib";
+import { promisify } from "node:util";
+
 const brotliDecompress = promisify(zlib.brotliDecompress);
 
 /**
@@ -84,4 +86,4 @@ class Heartbeat extends BeanModel {
     }
 }
 
-module.exports = Heartbeat;
+export default Heartbeat;

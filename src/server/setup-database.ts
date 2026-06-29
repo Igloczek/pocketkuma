@@ -1,9 +1,4 @@
 // @ts-nocheck
-const { log } = require("../util");
-const Database = require("./database");
-const { printServerUrls } = require("./util-server");
-const { isSSL } = require("./config");
-const { resolveRequestPath } = require("./bun-http-server");
 
 /**
  * SQLite-only setup server.
@@ -11,6 +6,12 @@ const { resolveRequestPath } = require("./bun-http-server");
  * Fresh uptime-buna installs do not ask for a database backend. The fork uses
  * the local SQLite database path by default and rejects non-SQLite configs.
  */
+import { log } from "../util.ts";
+import Database from "./database.ts";
+import { printServerUrls } from "./util-server.ts";
+import { isSSL } from "./config.ts";
+import { resolveRequestPath } from "./bun-http-server.ts";
+
 class SetupDatabase {
     /**
      * Show Setup Page
@@ -202,6 +203,4 @@ class SetupDatabase {
     }
 }
 
-module.exports = {
-    SetupDatabase,
-};
+export { SetupDatabase };

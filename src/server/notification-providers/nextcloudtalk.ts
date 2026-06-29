@@ -1,9 +1,9 @@
 // @ts-nocheck
-const { UP, DOWN } = require("../../util");
-const Crypto = require("crypto");
 
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+import { UP, DOWN } from "../../util.ts";
+import Crypto from "crypto";
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class NextcloudTalk extends NotificationProvider {
     name = "nextcloudtalk";
@@ -58,4 +58,4 @@ class NextcloudTalk extends NotificationProvider {
     }
 }
 
-module.exports = NextcloudTalk;
+export default NextcloudTalk;

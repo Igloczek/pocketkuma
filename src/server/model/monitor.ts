@@ -1,9 +1,10 @@
 // @ts-nocheck
-const dayjs = require("dayjs");
-const axios = require("axios");
-const httpClient = require("../http-client");
-const { Prometheus } = require("../prometheus");
-const {
+
+import dayjs from "dayjs";
+import axios from "axios";
+import httpClient from "../http-client.ts";
+import { Prometheus } from "../prometheus.ts";
+import {
     log,
     UP,
     DOWN,
@@ -28,8 +29,8 @@ const {
     PING_PER_REQUEST_TIMEOUT_DEFAULT,
     RESPONSE_BODY_LENGTH_DEFAULT,
     RESPONSE_BODY_LENGTH_MAX,
-} = require("../../util");
-const {
+} from "../../util.ts";
+import {
     ping,
     checkStatusCode,
     getTotalClientInRoom,
@@ -39,24 +40,26 @@ const {
     rootCertificatesFingerprints,
     encodeBase64,
     checkCertExpiryNotifications,
-} = require("../util-server");
-const { R } = require("../redbean-compat");
-const { BeanModel } = require("../redbean-compat");
-const { Notification } = require("../notification");
-const { demoMode } = require("../config");
-const version = require("../../../package.json").version;
-const apicache = require("../modules/apicache");
-const { UptimeKumaServer } = require("../uptime-kuma-server");
-const { DockerHost } = require("../docker");
-const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
-const { UptimeCalculator } = require("../uptime-calculator");
-const https = require("https");
-const http = require("http");
-const zlib = require("node:zlib");
-const { promisify } = require("node:util");
+} from "../util-server.ts";
+import { R } from "../redbean-compat.ts";
+import { BeanModel } from "../redbean-compat.ts";
+import { Notification } from "../notification.ts";
+import { demoMode } from "../config.ts";
+import { UptimeKumaServer } from "../uptime-kuma-server.ts";
+import { DockerHost } from "../docker.ts";
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { UptimeCalculator } from "../uptime-calculator.ts";
+import https from "https";
+import http from "http";
+import zlib from "node:zlib";
+import { promisify } from "node:util";
+import DomainExpiry from "./domain_expiry.ts";
+import packageJson from "../../../package.json" with { type: "json" };
+import apicache from "../modules/apicache.ts";
+
 const brotliCompress = promisify(zlib.brotliCompress);
-const DomainExpiry = require("./domain_expiry");
+const version = packageJson.version;
 
 const rootCertificates = rootCertificatesFingerprints();
 
@@ -2012,4 +2015,4 @@ class Monitor extends BeanModel {
     }
 }
 
-module.exports = Monitor;
+export default Monitor;

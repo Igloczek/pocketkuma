@@ -1,14 +1,15 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP, log } = require("../../util");
-const dayjs = require("dayjs");
-const { R } = require("../redbean-compat");
-const { ConditionVariable } = require("../monitor-conditions/variables");
-const { defaultStringOperators } = require("../monitor-conditions/operators");
-const { ConditionExpressionGroup } = require("../monitor-conditions/expression");
-const { evaluateExpressionGroup } = require("../monitor-conditions/evaluator");
-const { Resolver } = require("node:dns/promises");
-const net = require("node:net");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP, log } from "../../util.ts";
+import dayjs from "dayjs";
+import { R } from "../redbean-compat.ts";
+import { ConditionVariable } from "../monitor-conditions/variables.ts";
+import { defaultStringOperators } from "../monitor-conditions/operators.ts";
+import { ConditionExpressionGroup } from "../monitor-conditions/expression.ts";
+import { evaluateExpressionGroup } from "../monitor-conditions/evaluator.ts";
+import { Resolver } from "node:dns/promises";
+import net from "node:net";
 
 class DnsMonitorType extends MonitorType {
     name = "dns";
@@ -182,6 +183,4 @@ class DnsMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    DnsMonitorType,
-};
+export { DnsMonitorType };

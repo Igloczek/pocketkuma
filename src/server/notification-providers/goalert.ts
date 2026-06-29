@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { UP } from "../../util.ts";
 
 class GoAlert extends NotificationProvider {
     name = "GoAlert";
@@ -39,4 +40,4 @@ class GoAlert extends NotificationProvider {
     }
 }
 
-module.exports = GoAlert;
+export default GoAlert;

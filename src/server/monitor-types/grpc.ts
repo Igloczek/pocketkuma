@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP, log } = require("../../util");
-const dayjs = require("dayjs");
-const grpc = require("@grpc/grpc-js");
-const protojs = require("protobufjs");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP, log } from "../../util.ts";
+import dayjs from "dayjs";
+import grpc from "@grpc/grpc-js";
+import protojs from "protobufjs";
 
 class GrpcKeywordMonitorType extends MonitorType {
     name = "grpc-keyword";
@@ -100,6 +101,4 @@ class GrpcKeywordMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    GrpcKeywordMonitorType,
-};
+export { GrpcKeywordMonitorType };

@@ -2,7 +2,7 @@
  * @param {import("knex").Knex} knex The Knex.js instance for database interaction.
  * @returns {Promise<void>}
  */
-exports.up = async (knex) => {
+export const up = async (knex) => {
     await knex.schema.alterTable("monitor", (table) => {
         table.string("system_service_name");
     });
@@ -12,7 +12,7 @@ exports.up = async (knex) => {
  * @param {import("knex").Knex} knex The Knex.js instance for database interaction.
  * @returns {Promise<void>}
  */
-exports.down = async (knex) => {
+export const down = async (knex) => {
     await knex.schema.alterTable("monitor", (table) => {
         table.dropColumn("system_service_name");
     });

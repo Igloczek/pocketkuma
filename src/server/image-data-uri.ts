@@ -1,10 +1,11 @@
 // @ts-nocheck
 /*
+import fs from "fs";
+import { log } from "../util.ts";
+
     From https://github.com/DiegoZoracKy/image-data-uri/blob/master/lib/image-data-uri.js
     Modified with 0 dependencies
  */
-let fs = require("fs");
-const { log } = require("../util");
 
 let ImageDataURI = (() => {
     /**
@@ -76,4 +77,4 @@ let ImageDataURI = (() => {
     };
 })();
 
-module.exports = ImageDataURI;
+export default ImageDataURI;

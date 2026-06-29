@@ -1,8 +1,9 @@
 // @ts-nocheck
-const { getMonitorRelativeURL, UP } = require("../../util");
-const { setting } = require("../util-server");
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import { getMonitorRelativeURL, UP } from "../../util.ts";
+import { setting } from "../util-server.ts";
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Notifery extends NotificationProvider {
     name = "notifery";
@@ -52,4 +53,4 @@ class Notifery extends NotificationProvider {
     }
 }
 
-module.exports = Notifery;
+export default Notifery;

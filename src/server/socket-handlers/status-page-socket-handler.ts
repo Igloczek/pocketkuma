@@ -1,14 +1,4 @@
 // @ts-nocheck
-const { R } = require("../redbean-compat");
-const { checkLogin } = require("../util-server");
-const dayjs = require("dayjs");
-const { log } = require("../../util");
-const ImageDataURI = require("../image-data-uri");
-const Database = require("../database");
-const apicache = require("../modules/apicache");
-const StatusPage = require("../model/status_page");
-const { UptimeKumaServer } = require("../uptime-kuma-server");
-const { Settings } = require("../settings");
 
 /**
  * Validates incident data
@@ -16,6 +6,17 @@ const { Settings } = require("../settings");
  * @returns {void}
  * @throws {Error} If validation fails
  */
+import { R } from "../redbean-compat.ts";
+import { checkLogin } from "../util-server.ts";
+import dayjs from "dayjs";
+import { log } from "../../util.ts";
+import ImageDataURI from "../image-data-uri.ts";
+import Database from "../database.ts";
+import apicache from "../modules/apicache.ts";
+import StatusPage from "../model/status_page.ts";
+import { UptimeKumaServer } from "../uptime-kuma-server.ts";
+import { Settings } from "../settings.ts";
+
 function validateIncident(incident) {
     if (!incident.title || incident.title.trim() === "") {
         throw new Error("Please input title");
@@ -30,7 +31,7 @@ function validateIncident(incident) {
  * @param {Socket} socket Socket.io instance to add listeners on
  * @returns {void}
  */
-module.exports.statusPageSocketHandler = (socket) => {
+export const statusPageSocketHandler = (socket) => {
     // Post or edit incident
     socket.on("postIncident", async (slug, incident, callback) => {
         try {

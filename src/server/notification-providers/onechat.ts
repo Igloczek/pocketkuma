@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { DOWN, UP } from "../../util.ts";
 
 class OneChat extends NotificationProvider {
     name = "OneChat";
@@ -68,4 +69,4 @@ Time (${heartbeatJSON["timezone"]}): ${heartbeatJSON["localDateTime"]}`,
     }
 }
 
-module.exports = OneChat;
+export default OneChat;

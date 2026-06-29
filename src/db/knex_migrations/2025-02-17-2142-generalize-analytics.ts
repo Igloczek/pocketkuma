@@ -1,5 +1,5 @@
 // Udpate status_page table to generalize analytics fields
-exports.up = function (knex) {
+export const up = function (knex) {
     return knex.schema
         .alterTable("status_page", function (table) {
             table.renameColumn("google_analytics_tag_id", "analytics_id");
@@ -14,7 +14,7 @@ exports.up = function (knex) {
         });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema.alterTable("status_page", function (table) {
         table.renameColumn("analytics_id", "google_analytics_tag_id");
         table.dropColumn("analytics_script_url");

@@ -1,12 +1,13 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const {
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import {
     ConditionExpressionGroup,
     ConditionExpression,
     LOGICAL,
-} = require("../../../src/server/monitor-conditions/expression.ts");
-const { evaluateExpressionGroup, evaluateExpression } = require("../../../src/server/monitor-conditions/evaluator.ts");
+} from "../../../src/server/monitor-conditions/expression.ts";
+import { evaluateExpressionGroup, evaluateExpression } from "../../../src/server/monitor-conditions/evaluator.ts";
 
 describe("Expression Evaluator", () => {
     test("evaluateExpression() returns true when condition matches and false otherwise", () => {

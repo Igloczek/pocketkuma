@@ -1,11 +1,14 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { version: uptimeKumaVersion } = require("../../../package.json");
 
 /**
  * Halo PSA notification provider implementation
  */
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import packageJson from "../../../package.json" with { type: "json" };
+
+const uptimeKumaVersion = packageJson.version;
+
 class HaloPSA extends NotificationProvider {
     /**
      * Provider name used in registration
@@ -79,4 +82,4 @@ class HaloPSA extends NotificationProvider {
     }
 }
 
-module.exports = HaloPSA;
+export default HaloPSA;

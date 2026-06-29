@@ -1,8 +1,10 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { UP, DOWN, getMonitorRelativeURL } = require("../../util");
-const { Settings } = require("../settings");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { UP, DOWN, getMonitorRelativeURL } from "../../util.ts";
+import { Settings } from "../settings.ts";
+
 let successMessage = "Sent Successfully.";
 
 class PagerTree extends NotificationProvider {
@@ -96,4 +98,4 @@ class PagerTree extends NotificationProvider {
     }
 }
 
-module.exports = PagerTree;
+export default PagerTree;

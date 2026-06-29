@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class OneBot extends NotificationProvider {
     name = "OneBot";
@@ -47,4 +48,4 @@ class OneBot extends NotificationProvider {
     }
 }
 
-module.exports = OneBot;
+export default OneBot;

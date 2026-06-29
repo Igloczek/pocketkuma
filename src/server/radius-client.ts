@@ -9,12 +9,12 @@
  * node-radius-client API used in Uptime Kuma.
  */
 
-const dgram = require("dgram");
-const radius = require("radius");
-
 /**
  * RADIUS Client class
  */
+import dgram from "dgram";
+import radius from "radius";
+
 class RadiusClient {
     /**
      * @param {object} options Client configuration
@@ -175,4 +175,4 @@ class RadiusClient {
     }
 }
 
-module.exports = RadiusClient;
+export default RadiusClient;

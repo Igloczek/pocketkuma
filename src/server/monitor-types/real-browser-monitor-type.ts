@@ -1,20 +1,21 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { chromium } = require("playwright-core");
-const { UP, log } = require("../../util");
-const { Settings } = require("../settings");
-const path = require("path");
-const Database = require("../database");
-const jwt = require("jsonwebtoken");
-const config = require("../config");
-const { RemoteBrowser } = require("../remote-browser");
-const { commandExists } = require("../util-server");
-const { runCommand, runCommandChecked } = require("../process-helper");
 
 /**
  * Cached instance of a browser
  * @type {import ("playwright-core").Browser}
  */
+import { MonitorType } from "./monitor-type.ts";
+import { chromium } from "playwright-core";
+import { UP, log } from "../../util.ts";
+import { Settings } from "../settings.ts";
+import path from "path";
+import Database from "../database.ts";
+import jwt from "jsonwebtoken";
+import config from "../config.ts";
+import { RemoteBrowser } from "../remote-browser.ts";
+import { commandExists } from "../util-server.ts";
+import { runCommand, runCommandChecked } from "../process-helper.ts";
+
 let browser = null;
 
 let allowedList = [];
@@ -290,9 +291,4 @@ class RealBrowserMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    RealBrowserMonitorType,
-    testChrome,
-    resetChrome,
-    testRemoteBrowser,
-};
+export { RealBrowserMonitorType, testChrome, resetChrome, testRemoteBrowser };

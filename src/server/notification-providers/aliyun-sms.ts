@@ -1,9 +1,10 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const { DOWN, UP } = require("../../util");
-const { default: axios } = require("axios");
-const Crypto = require("crypto");
-const qs = require("qs");
+
+import NotificationProvider from "./notification-provider.ts";
+import { DOWN, UP } from "../../util.ts";
+import axios from "axios";
+import Crypto from "crypto";
+import qs from "qs";
 
 class AliyunSMS extends NotificationProvider {
     name = "AliyunSMS";
@@ -176,4 +177,4 @@ class AliyunSMS extends NotificationProvider {
     }
 }
 
-module.exports = AliyunSMS;
+export default AliyunSMS;

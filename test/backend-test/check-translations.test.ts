@@ -1,8 +1,4 @@
 // @ts-nocheck
-const { describe, it } = require("node:test");
-const assert = require("node:assert");
-const fs = require("fs/promises");
-const path = require("path");
 
 /**
  * Recursively walks a directory and yields file paths.
@@ -10,6 +6,11 @@ const path = require("path");
  * @yields {string} The path to a file.
  * @returns {AsyncGenerator<string>} A generator that yields file paths.
  */
+import { describe, it } from "node:test";
+import assert from "node:assert";
+import fs from "fs/promises";
+import path from "path";
+
 async function* walk(dir) {
     const files = await fs.readdir(dir, { withFileTypes: true });
     for (const file of files) {

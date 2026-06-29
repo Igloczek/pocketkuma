@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { DOWN, UP } from "../../util.ts";
 
 class Fluxer extends NotificationProvider {
     name = "fluxer";
@@ -247,4 +248,4 @@ class Fluxer extends NotificationProvider {
     }
 }
 
-module.exports = Fluxer;
+export default Fluxer;

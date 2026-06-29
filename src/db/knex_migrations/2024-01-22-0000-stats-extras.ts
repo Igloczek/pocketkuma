@@ -1,4 +1,4 @@
-exports.up = function (knex) {
+export const up = function (knex) {
     return knex.schema
         .alterTable("stat_daily", function (table) {
             table.text("extras").defaultTo(null).comment("Extra statistics during this time period");
@@ -11,7 +11,7 @@ exports.up = function (knex) {
         });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema
         .alterTable("stat_daily", function (table) {
             table.dropColumn("extras");

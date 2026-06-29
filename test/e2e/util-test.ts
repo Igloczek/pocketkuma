@@ -1,5 +1,5 @@
 // @ts-nocheck
-const serverUrl = require("../../config/playwright.config.ts").url;
+import { url as serverUrl } from "../../config/playwright.config.ts";
 
 /**
  * @param {TestInfo} testInfo Test info

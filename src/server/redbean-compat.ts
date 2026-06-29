@@ -1,4 +1,4 @@
 // @ts-nocheck
 "use strict";
 
-module.exports = require("./bun-sqlite-store");
+export { R, BeanModel } from "./bun-sqlite-store.ts";

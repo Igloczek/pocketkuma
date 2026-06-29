@@ -104,7 +104,9 @@ function parseDuration(value) {
         return value;
     }
 
-    const match = String(value).trim().match(/^(\d+)\s+([a-z]+)$/i);
+    const match = String(value)
+        .trim()
+        .match(/^(\d+)\s+([a-z]+)$/i);
     if (!match) {
         return 0;
     }
@@ -163,7 +165,7 @@ function decodePathParam(value) {
     }
 }
 
-module.exports = {
+export {
     applyCommonHeaders,
     applyCorsHeaders,
     bodyResponse,

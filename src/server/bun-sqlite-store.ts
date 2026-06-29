@@ -1,9 +1,15 @@
 // @ts-nocheck
 "use strict";
 
-const fs = require("fs");
-const { Database: BunDatabase } = require("bun:sqlite");
-const dayjs = require("dayjs");
+import { createRequire } from "node:module";
+import fs from "fs";
+import { Database as BunDatabase } from "bun:sqlite";
+import dayjs from "dayjs";
+
+// Bun-only hybrid: lazy require() avoids top-level model imports that would create
+// circular dependencies with redbean-compat. Node CJS/ESM resolution does not support
+// require("./model/*.ts") the same way; this store is only used under Bun.
+const require = createRequire(import.meta.url);
 
 class BeanModel {
     import(data) {
@@ -34,13 +40,21 @@ class BeanModel {
     }
 }
 
+function loadModel(modulePath) {
+    const module = require(modulePath);
+    return module.default ?? module;
+}
+
+// Tables with model classes that expose instance methods (e.g. getExpiryDate) must be listed here.
+// All other tables fall back to plain BeanModel in beanForTable().
 const modelMap = {
-    group: () => require("./model/group"),
-    heartbeat: () => require("./model/heartbeat"),
-    incident: () => require("./model/incident"),
-    monitor: () => require("./model/monitor"),
-    status_page: () => require("./model/status_page"),
-    user: () => require("./model/user"),
+    group: () => loadModel("./model/group.ts"),
+    heartbeat: () => loadModel("./model/heartbeat.ts"),
+    incident: () => loadModel("./model/incident.ts"),
+    monitor: () => loadModel("./model/monitor.ts"),
+    status_page: () => loadModel("./model/status_page.ts"),
+    user: () => loadModel("./model/user.ts"),
+    domain_expiry: () => loadModel("./model/domain_expiry.ts"),
 };
 
 const monitorPropertyColumns = {
@@ -471,6 +485,9 @@ class BunSQLiteRedbean {
         this.db.run(
             "CREATE TABLE IF NOT EXISTS stat_daily (id INTEGER PRIMARY KEY AUTOINCREMENT, monitor_id INTEGER, timestamp DATETIME, ping REAL, up INTEGER, down INTEGER, maintenance INTEGER)"
         );
+        this.db.run(
+            "CREATE TABLE IF NOT EXISTS domain_expiry (id INTEGER PRIMARY KEY AUTOINCREMENT, last_check DATETIME, domain TEXT UNIQUE NOT NULL, expiry DATETIME, last_expiry_notification_sent INTEGER DEFAULT NULL)"
+        );
 
         this.addColumnIfMissing("incident", "pin", "BOOLEAN DEFAULT 1");
         this.addColumnIfMissing("incident", "active", "BOOLEAN DEFAULT 1");
@@ -682,8 +699,6 @@ class BunSQLiteRedbean {
     }
 }
 
-module.exports = {
-    R: new BunSQLiteRedbean(),
-    BeanModel,
-    BunSQLiteRedbean,
-};
+const R = new BunSQLiteRedbean();
+
+export { R, BeanModel, BunSQLiteRedbean };

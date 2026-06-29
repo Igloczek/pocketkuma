@@ -39,7 +39,6 @@ function parseArgs(argv = []) {
     return args;
 }
 
-module.exports = {
-    parseArgs,
-    args: typeof process !== "undefined" ? parseArgs(process.argv) : {},
-};
+const args = typeof process !== "undefined" ? parseArgs(process.argv) : {};
+
+export { parseArgs, args };

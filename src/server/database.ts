@@ -1,19 +1,21 @@
 // @ts-nocheck
-const fs = require("fs");
-const fsAsync = fs.promises;
-const { R } = require("./redbean-compat");
-const { setSetting, setting } = require("./util-server");
-const { log, sleep, isDev } = require("../util");
-const { runCommandSync } = require("./process-helper");
-const path = require("path");
-const { Settings } = require("./settings");
-const { UptimeCalculator } = require("./uptime-calculator");
-const dayjs = require("dayjs");
-const { SimpleMigrationServer } = require("./utils/simple-migration-server");
 
 /**
  * Database & App Data Folder
  */
+import fs from "fs";
+import { R } from "./redbean-compat.ts";
+
+const fsAsync = fs.promises;
+import { setSetting, setting } from "./util-server.ts";
+import { log, sleep, isDev } from "../util.ts";
+import { runCommandSync } from "./process-helper.ts";
+import path from "path";
+import { Settings } from "./settings.ts";
+import { UptimeCalculator } from "./uptime-calculator.ts";
+import dayjs from "dayjs";
+import { SimpleMigrationServer } from "./utils/simple-migration-server.ts";
+
 class Database {
     /**
      * Bootstrap database for SQLite
@@ -754,4 +756,4 @@ class Database {
     }
 }
 
-module.exports = Database;
+export default Database;

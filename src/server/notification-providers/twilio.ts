@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Twilio extends NotificationProvider {
     name = "twilio";
@@ -44,4 +45,4 @@ class Twilio extends NotificationProvider {
     }
 }
 
-module.exports = Twilio;
+export default Twilio;

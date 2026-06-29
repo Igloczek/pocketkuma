@@ -1,16 +1,17 @@
 // @ts-nocheck
-const { WebSocketServer } = require("ws");
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { WebSocketMonitorType } = require("../../../src/server/monitor-types/websocket-upgrade");
-const { UP, PENDING } = require("../../../src/util");
-const net = require("node:net");
-const http = require("node:http");
 
 /**
  * Simulates non compliant WS Server, doesnt send Sec-WebSocket-Accept header
  * @returns {Promise<{server: net.Server, port: number}>} Promise that resolves to the created server and its port
  */
+import { WebSocketServer } from "ws";
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { WebSocketMonitorType } from "../../../src/server/monitor-types/websocket-upgrade.ts";
+import { UP, PENDING } from "../../../src/util.ts";
+import net from "node:net";
+import http from "node:http";
+
 function nonCompliantWS() {
     const srv = net.createServer((socket) => {
         socket.once("data", (buf) => {

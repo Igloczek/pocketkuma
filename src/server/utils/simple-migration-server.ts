@@ -1,5 +1,6 @@
 // @ts-nocheck
-const { printServerUrls } = require("../util-server");
+
+import { printServerUrls } from "../util-server.ts";
 
 const encoder = new TextEncoder();
 
@@ -113,6 +114,4 @@ class SimpleMigrationServer {
     }
 }
 
-module.exports = {
-    SimpleMigrationServer,
-};
+export { SimpleMigrationServer };

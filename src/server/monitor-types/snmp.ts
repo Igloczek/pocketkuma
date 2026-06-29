@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP, log, evaluateJsonQuery } = require("../../util");
-const snmp = require("net-snmp");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP, log, evaluateJsonQuery } from "../../util.ts";
+import snmp from "net-snmp";
 
 class SNMPMonitorType extends MonitorType {
     name = "snmp";
@@ -84,6 +85,4 @@ class SNMPMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    SNMPMonitorType,
-};
+export { SNMPMonitorType };

@@ -4,28 +4,91 @@
  * bun "src/server/server.ts"
  * DO NOT require("./server") in other modules, it likely creates circular dependency!
  */
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+import timezone from "../modules/dayjs/plugin/timezone/index.ts";
+import { loadEnv } from "./env.ts";
+import { getRuntimeInfo, isBunRuntime } from "./runtime.ts";
+import { args } from "./args.ts";
+import { sleep, log, getRandomInt, genSecret } from "../util.ts";
+import config from "./config.ts";
+import * as checkVersion from "./check-version.ts";
+import { R } from "./redbean-compat.ts";
+import jwt from "jsonwebtoken";
+import { passwordStrength } from "check-password-strength";
+import TranslatableError from "./translatable-error.ts";
+import notp from "notp";
+import base32 from "thirty-two";
+import { UptimeKumaServer } from "./uptime-kuma-server.ts";
+import { listenWithBunServe } from "./bun-http-server.ts";
+import Monitor from "./model/monitor.ts";
+import User from "./model/user.ts";
+import {
+    getSettings,
+    setSettings,
+    setting,
+    initJWTSecret,
+    checkLogin,
+    doubleCheckPassword,
+    shake256,
+    SHAKE256_LENGTH,
+} from "./util-server.ts";
+import { Notification } from "./notification.ts";
+import webpush from "web-push";
+import Database from "./database.ts";
+import { initBackgroundJobs, stopBackgroundJobs } from "./jobs.ts";
+import { loginRateLimiter, twoFaRateLimiter } from "./rate-limiter.ts";
+import { login } from "./auth.ts";
+import * as passwordHash from "./password-hash.ts";
+import { Prometheus } from "./prometheus.ts";
+import { UptimeCalculator } from "./uptime-calculator.ts";
+import {
+    sendNotificationList,
+    sendHeartbeatList,
+    sendInfo,
+    sendProxyList,
+    sendDockerHostList,
+    sendAPIKeyList,
+    sendRemoteBrowserList,
+    sendMonitorTypeList,
+} from "./client.ts";
+import { statusPageSocketHandler } from "./socket-handlers/status-page-socket-handler.ts";
+import { databaseSocketHandler } from "./socket-handlers/database-socket-handler.ts";
+import { remoteBrowserSocketHandler } from "./socket-handlers/remote-browser-socket-handler.ts";
+import TwoFA from "./2fa.ts";
+import StatusPage from "./model/status_page.ts";
+import {
+    cloudflaredSocketHandler,
+    autoStart as cloudflaredAutoStart,
+    stop as cloudflaredStop,
+} from "./socket-handlers/cloudflared-socket-handler.ts";
+import { proxySocketHandler } from "./socket-handlers/proxy-socket-handler.ts";
+import { dockerSocketHandler } from "./socket-handlers/docker-socket-handler.ts";
+import { maintenanceSocketHandler } from "./socket-handlers/maintenance-socket-handler.ts";
+import { apiKeySocketHandler } from "./socket-handlers/api-key-socket-handler.ts";
+import { generalSocketHandler } from "./socket-handlers/general-socket-handler.ts";
+import { Settings } from "./settings.ts";
+import apicache from "./modules/apicache.ts";
+import { SetupDatabase } from "./setup-database.ts";
+import { chartSocketHandler } from "./socket-handlers/chart-socket-handler.ts";
+
 console.log("Welcome to Uptime Kuma");
 
 // As the log function need to use dayjs, it should be very top
-const dayjs = require("dayjs");
-dayjs.extend(require("dayjs/plugin/utc"));
-dayjs.extend(require("./modules/dayjs/plugin/timezone"));
-dayjs.extend(require("dayjs/plugin/customParseFormat"));
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(customParseFormat);
 
 // Load environment variables from `.env`
-require("./env").loadEnv();
+loadEnv();
 
-const { getRuntimeInfo, isBunRuntime } = require("./runtime");
 if (!isBunRuntime()) {
     console.error("Error: uptime-buna now requires Bun. Start it with `bun src/server/server.ts`.");
     process.exit(1);
 }
 const runtimeInfo = getRuntimeInfo();
 console.log(`Your ${runtimeInfo.name} version: ${runtimeInfo.version}`);
-
-const { args } = require("./args");
-const { sleep, log, getRandomInt, genSecret } = require("../util");
-const config = require("./config");
 
 process.title = "uptime-kuma";
 
@@ -51,61 +114,24 @@ if (process.env.UPTIME_KUMA_DEBUG_INSPECTOR === "1") {
     log.warn("server", "UPTIME_KUMA_DEBUG_INSPECTOR is not supported under Bun. Start Bun with --inspect instead.");
 }
 
-const checkVersion = require("./check-version");
 log.info("server", "Uptime Kuma Version:", checkVersion.version);
 
 log.info("server", "Loading modules");
 
 log.debug("server", "Importing database bean facade");
-const { R } = require("./redbean-compat");
 log.debug("server", "Importing jsonwebtoken");
-const jwt = require("jsonwebtoken");
-const { passwordStrength } = require("check-password-strength");
-const TranslatableError = require("./translatable-error");
-
 log.debug("server", "Importing 2FA Modules");
-const notp = require("notp");
-const base32 = require("thirty-two");
 
-const { UptimeKumaServer } = require("./uptime-kuma-server");
-const { listenWithBunServe } = require("./bun-http-server");
 const server = UptimeKumaServer.getInstance();
-const io = (module.exports.io = server.io);
+export const io = server.io;
 
 log.debug("server", "Importing Monitor");
-const Monitor = require("./model/monitor");
-const User = require("./model/user");
-
 log.debug("server", "Importing Settings");
-const {
-    getSettings,
-    setSettings,
-    setting,
-    initJWTSecret,
-    checkLogin,
-    doubleCheckPassword,
-    shake256,
-    SHAKE256_LENGTH,
-} = require("./util-server");
-
 log.debug("server", "Importing Notification");
-const { Notification } = require("./notification");
 Notification.init();
 log.debug("server", "Importing Web-Push");
-const webpush = require("web-push");
-
 log.debug("server", "Importing Database");
-const Database = require("./database");
-
 log.debug("server", "Importing Background Jobs");
-const { initBackgroundJobs, stopBackgroundJobs } = require("./jobs");
-const { loginRateLimiter, twoFaRateLimiter } = require("./rate-limiter");
-
-const { login } = require("./auth");
-const passwordHash = require("./password-hash");
-
-const { Prometheus } = require("./prometheus");
-const { UptimeCalculator } = require("./uptime-calculator");
 
 const hostname = config.hostname;
 
@@ -130,37 +156,6 @@ const twoFAVerifyOptions = {
  * @type {boolean}
  */
 const testMode = !!args["test"] || false;
-
-// Must be after io instantiation
-const {
-    sendNotificationList,
-    sendHeartbeatList,
-    sendInfo,
-    sendProxyList,
-    sendDockerHostList,
-    sendAPIKeyList,
-    sendRemoteBrowserList,
-    sendMonitorTypeList,
-} = require("./client");
-const { statusPageSocketHandler } = require("./socket-handlers/status-page-socket-handler");
-const { databaseSocketHandler } = require("./socket-handlers/database-socket-handler");
-const { remoteBrowserSocketHandler } = require("./socket-handlers/remote-browser-socket-handler");
-const TwoFA = require("./2fa");
-const StatusPage = require("./model/status_page");
-const {
-    cloudflaredSocketHandler,
-    autoStart: cloudflaredAutoStart,
-    stop: cloudflaredStop,
-} = require("./socket-handlers/cloudflared-socket-handler");
-const { proxySocketHandler } = require("./socket-handlers/proxy-socket-handler");
-const { dockerSocketHandler } = require("./socket-handlers/docker-socket-handler");
-const { maintenanceSocketHandler } = require("./socket-handlers/maintenance-socket-handler");
-const { apiKeySocketHandler } = require("./socket-handlers/api-key-socket-handler");
-const { generalSocketHandler } = require("./socket-handlers/general-socket-handler");
-const { Settings } = require("./settings");
-const apicache = require("./modules/apicache");
-const { SetupDatabase } = require("./setup-database");
-const { chartSocketHandler } = require("./socket-handlers/chart-socket-handler");
 
 /**
  * Show Setup Page
@@ -841,7 +836,7 @@ let needSetup = false;
         socket.on("checkDomain", async (partial, callback) => {
             try {
                 checkLogin(socket);
-                const DomainExpiry = require("./model/domain_expiry");
+                const { default: DomainExpiry } = await import("./model/domain_expiry.ts");
                 const supportInfo = await DomainExpiry.checkSupport(partial);
                 callback({
                     ok: true,
@@ -1338,7 +1333,7 @@ let needSetup = false;
                 // If Chrome Executable is changed, need to reset the browser
                 if (previousChromeExecutable !== data.chromeExecutable) {
                     log.info("settings", "Chrome executable is changed. Resetting Chrome...");
-                    const { resetChrome } = require("./monitor-types/real-browser-monitor-type");
+                    const { resetChrome } = await import("./monitor-types/real-browser-monitor-type.ts");
                     await resetChrome();
                 }
 

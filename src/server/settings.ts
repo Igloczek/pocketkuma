@@ -1,6 +1,7 @@
 // @ts-nocheck
-const { R } = require("./redbean-compat");
-const { log } = require("../util");
+
+import { R } from "./redbean-compat.ts";
+import { log } from "../util.ts";
 
 class Settings {
     /**
@@ -157,6 +158,4 @@ class Settings {
     }
 }
 
-module.exports = {
-    Settings,
-};
+export { Settings };

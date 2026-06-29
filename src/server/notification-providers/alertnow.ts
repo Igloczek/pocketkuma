@@ -1,8 +1,9 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { getMonitorRelativeURL, UP, DOWN } = require("../../util");
-const { Settings } = require("../settings");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { getMonitorRelativeURL, UP, DOWN } from "../../util.ts";
+import { Settings } from "../settings.ts";
 
 class AlertNow extends NotificationProvider {
     name = "AlertNow";
@@ -52,4 +53,4 @@ class AlertNow extends NotificationProvider {
     }
 }
 
-module.exports = AlertNow;
+export default AlertNow;

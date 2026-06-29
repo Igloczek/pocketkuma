@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const { runCommand } = require("../process-helper");
+
+import NotificationProvider from "./notification-provider.ts";
+import { runCommand } from "../process-helper.ts";
 
 class Apprise extends NotificationProvider {
     name = "apprise";
@@ -32,4 +33,4 @@ class Apprise extends NotificationProvider {
     }
 }
 
-module.exports = Apprise;
+export default Apprise;

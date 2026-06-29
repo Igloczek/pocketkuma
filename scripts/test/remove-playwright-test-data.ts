@@ -1,4 +1,4 @@
-const fs = require("fs");
+import fs from "fs";
 
 fs.rmSync("./data/playwright-test", {
     recursive: true,

@@ -1,5 +1,11 @@
 // @ts-nocheck
 "use strict";
+import axios from "axios";
+import * as ntlmModule from "./ntlm.ts";
+import * as httpsModule from "https";
+import * as httpModule from "http";
+import devNull from "dev-null";
+
 var __createBinding =
     (this && this.__createBinding) ||
     (Object.create
@@ -172,13 +178,11 @@ var __importDefault =
     function (mod) {
         return mod && mod.__esModule ? mod : { default: mod };
     };
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NtlmClient = void 0;
-var axios_1 = __importDefault(require("axios"));
-var ntlm = __importStar(require("./ntlm"));
-var https = __importStar(require("https"));
-var http = __importStar(require("http"));
-var dev_null_1 = __importDefault(require("dev-null"));
+var axios_1 = __importDefault(axios);
+var ntlm = __importStar(ntlmModule);
+var https = __importStar(httpsModule);
+var http = __importStar(httpModule);
+var dev_null_1 = __importDefault(devNull);
 /**
  * @param credentials An NtlmCredentials object containing the username and password
  * @param AxiosConfig The Axios config for the instance you wish to create
@@ -266,4 +270,4 @@ function NtlmClient(credentials, AxiosConfig) {
     );
     return client;
 }
-exports.NtlmClient = NtlmClient;
+export { NtlmClient };

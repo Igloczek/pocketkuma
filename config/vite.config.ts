@@ -1,16 +1,16 @@
 // @ts-nocheck
+import path from "path";
+import postCssScss from "postcss-scss";
+import postcssRTLCSS from "postcss-rtlcss";
+
 import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 import visualizer from "rollup-plugin-visualizer";
 import viteCompression from "vite-plugin-compression";
-import packageJson from "../package.json";
-
-const path = require("path");
-const postCssScss = require("postcss-scss");
-const postcssRTLCSS = require("postcss-rtlcss");
+import packageJson from "../package.json" with { type: "json" };
 
 const viteCompressionFilter = /\.(js|mjs|json|css|html|svg)$/i;
-const serviceWorkerEntry = path.resolve(__dirname, "../src/serviceWorker.ts");
+const serviceWorkerEntry = path.resolve(import.meta.dirname, "../src/serviceWorker.ts");
 
 function serviceWorkerDevRoute() {
     return {
@@ -80,7 +80,7 @@ export default defineConfig({
         },
         rollupOptions: {
             input: {
-                app: path.resolve(__dirname, "../src/index.html"),
+                app: path.resolve(import.meta.dirname, "../src/index.html"),
                 serviceWorker: serviceWorkerEntry,
             },
             output: {

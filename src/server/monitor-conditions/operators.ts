@@ -297,7 +297,7 @@ const defaultNumberOperators = [
     operatorMap.get(OP_GTE),
 ];
 
-module.exports = {
+export {
     OP_STR_EQUALS,
     OP_STR_NOT_EQUALS,
     OP_CONTAINS,

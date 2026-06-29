@@ -1,6 +1,4 @@
 // @ts-nocheck
-const { R } = require("redbean-node");
-const { log } = require("../util");
 
 /**
  * ⚠️⚠️⚠️⚠️⚠️⚠️ DO NOT ADD ANYTHING HERE!
@@ -8,6 +6,9 @@ const { log } = require("../util");
  * See ./src/db/knex_migrations/README.md for more information
  * @returns {Promise<void>}
  */
+import { R } from "redbean-node";
+import { log } from "../util.ts";
+
 async function createTables() {
     log.info("db", "Creating legacy migration tables");
     const knex = R.knex;
@@ -607,6 +608,4 @@ ALTER TABLE monitor
     log.info("db", "Created legacy migration tables");
 }
 
-module.exports = {
-    createTables,
-};
+export { createTables };

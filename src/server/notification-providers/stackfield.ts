@@ -1,8 +1,9 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { getMonitorRelativeURL } = require("../../util");
-const { Settings } = require("../settings");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { getMonitorRelativeURL } from "../../util.ts";
+import { Settings } from "../settings.ts";
 
 class Stackfield extends NotificationProvider {
     name = "stackfield";
@@ -43,4 +44,4 @@ class Stackfield extends NotificationProvider {
     }
 }
 
-module.exports = Stackfield;
+export default Stackfield;

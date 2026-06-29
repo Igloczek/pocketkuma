@@ -1,5 +1,6 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
+
+import { BeanModel } from "../redbean-compat.ts";
 
 class RemoteBrowser extends BeanModel {
     /**
@@ -15,4 +16,4 @@ class RemoteBrowser extends BeanModel {
     }
 }
 
-module.exports = RemoteBrowser;
+export default RemoteBrowser;

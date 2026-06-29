@@ -1,7 +1,8 @@
 // @ts-nocheck
-const nodemailer = require("nodemailer");
-const NotificationProvider = require("./notification-provider");
-const { log } = require("../../util");
+
+import nodemailer from "nodemailer";
+import NotificationProvider from "./notification-provider.ts";
+import { log } from "../../util.ts";
 
 class SMTP extends NotificationProvider {
     name = "smtp";
@@ -106,4 +107,4 @@ class SMTP extends NotificationProvider {
     }
 }
 
-module.exports = SMTP;
+export default SMTP;

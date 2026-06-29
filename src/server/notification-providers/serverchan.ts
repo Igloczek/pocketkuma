@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { DOWN, UP } from "../../util.ts";
 
 class ServerChan extends NotificationProvider {
     name = "ServerChan";
@@ -54,4 +55,4 @@ class ServerChan extends NotificationProvider {
     }
 }
 
-module.exports = ServerChan;
+export default ServerChan;

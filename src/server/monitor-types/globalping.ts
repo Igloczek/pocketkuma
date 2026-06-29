@@ -1,16 +1,4 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { Globalping, IpVersion } = require("globalping");
-const { Settings } = require("../settings");
-const { log, UP, evaluateJsonQuery } = require("../../util");
-const {
-    checkStatusCode,
-    getOidcTokenClientCredentials,
-    encodeBase64,
-    getDaysRemaining,
-    checkCertExpiryNotifications,
-} = require("../util-server");
-const { R } = require("../redbean-compat");
 
 /**
  * Globalping is a free and open-source tool that allows you to run network tests
@@ -20,6 +8,19 @@ const { R } = require("../redbean-compat");
  *
  * API documentation: https://globalping.io/docs/api.globalping.io
  */
+import { MonitorType } from "./monitor-type.ts";
+import { Globalping, IpVersion } from "globalping";
+import { Settings } from "../settings.ts";
+import { log, UP, evaluateJsonQuery } from "../../util.ts";
+import {
+    checkStatusCode,
+    getOidcTokenClientCredentials,
+    encodeBase64,
+    getDaysRemaining,
+    checkCertExpiryNotifications,
+} from "../util-server.ts";
+import { R } from "../redbean-compat.ts";
+
 class GlobalpingMonitorType extends MonitorType {
     name = "globalping";
 
@@ -628,6 +629,4 @@ class GlobalpingMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    GlobalpingMonitorType,
-};
+export { GlobalpingMonitorType };

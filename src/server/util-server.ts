@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { R } = require("./redbean-compat");
-const { runCommand, commandExists } = require("./process-helper");
-const {
+
+import { R } from "./redbean-compat.ts";
+import { runCommand, commandExists } from "./process-helper.ts";
+import {
     log,
     genSecret,
     badgeConstants,
@@ -9,38 +10,41 @@ const {
     PING_GLOBAL_TIMEOUT_DEFAULT,
     PING_COUNT_DEFAULT,
     PING_PER_REQUEST_TIMEOUT_DEFAULT,
-} = require("../util");
-const passwordHash = require("./password-hash");
-const iconv = require("iconv-lite");
-const chardet = require("chardet");
-const chroma = require("chroma-js");
-const { NtlmClient } = require("./modules/axios-ntlm/lib/ntlmClient");
-const { Settings } = require("./settings");
-const RadiusClient = require("./radius-client");
-const oidc = require("openid-client");
-const tls = require("tls");
-const { exists } = require("fs");
-const { networkInterfaces } = require("os");
+} from "../util.ts";
+import passwordHash from "./password-hash.ts";
+import iconv from "iconv-lite";
+import chardet from "chardet";
+import chroma from "chroma-js";
+import { NtlmClient } from "./modules/axios-ntlm/lib/ntlmClient.ts";
+import { Settings } from "./settings.ts";
+import RadiusClient from "./radius-client.ts";
+import oidc from "openid-client";
+import tls from "tls";
+import { exists } from "fs";
+import { networkInterfaces } from "os";
+import nodeRadiusUtils from "node-radius-utils";
 
 const {
     dictionaries: {
         rfc2865: { file, attributes },
     },
-} = require("node-radius-utils");
-const dayjs = require("dayjs");
-dayjs.extend(require("dayjs/plugin/utc"));
+} = nodeRadiusUtils;
+import dayjs from "dayjs";
+import { Kafka, SASLOptions } from "kafkajs";
+import crypto, { X509Certificate } from "node:crypto";
+import dayjsPlugin_19 from "dayjs/plugin/utc";
+
+dayjs.extend(dayjsPlugin_19);
 
 // SASLOptions used in JSDoc
 // eslint-disable-next-line no-unused-vars
-const { Kafka, SASLOptions } = require("kafkajs");
-const crypto = require("crypto");
 
 const isWindows = process.platform === /^win/.test(process.platform);
 /**
  * Init or reset JWT secret
  * @returns {Promise<Bean>} JWT secret
  */
-exports.initJWTSecret = async () => {
+export const initJWTSecret = async () => {
     let jwtSecretBean = await R.findOne("setting", " `key` = ? ", ["jwtSecret"]);
 
     if (!jwtSecretBean) {
@@ -58,7 +62,7 @@ exports.initJWTSecret = async () => {
  * @param {string} jwt The input jwt as a string
  * @returns {object} Decoded jwt payload object
  */
-exports.decodeJwt = (jwt) => {
+export const decodeJwt = (jwt) => {
     return JSON.parse(Buffer.from(jwt.split(".")[1], "base64").toString());
 };
 
@@ -72,7 +76,7 @@ exports.decodeJwt = (jwt) => {
  * @param {string} authMethod The method used to send the credentials. Default client_secret_basic
  * @returns {Promise<oidc.TokenSet>} TokenSet promise if the token request was successful
  */
-exports.getOidcTokenClientCredentials = async (
+export const getOidcTokenClientCredentials = async (
     tokenEndpoint,
     clientId,
     clientSecret,
@@ -113,7 +117,7 @@ exports.getOidcTokenClientCredentials = async (
  * @param {number} timeout Maximum time in seconds to wait for each response
  * @returns {Promise<number>} Time for ping in ms rounded to nearest integer
  */
-exports.ping = async (
+export const ping = async (
     destAddr,
     count = PING_COUNT_DEFAULT,
     sourceAddr = "",
@@ -123,14 +127,14 @@ exports.ping = async (
     timeout = PING_PER_REQUEST_TIMEOUT_DEFAULT
 ) => {
     try {
-        return await exports.pingAsync(destAddr, false, count, sourceAddr, numeric, size, deadline, timeout);
+        return await pingAsync(destAddr, false, count, sourceAddr, numeric, size, deadline, timeout);
     } catch (e) {
         // If the host cannot be resolved, try again with ipv6
         log.debug("ping", "IPv6 error message: " + e.message);
 
         // As node-ping does not report a specific error for this, try again if it is an empty message with ipv6 no matter what.
         if (!e.message) {
-            return await exports.pingAsync(destAddr, true, count, sourceAddr, numeric, size, deadline, timeout);
+            return await pingAsync(destAddr, true, count, sourceAddr, numeric, size, deadline, timeout);
         } else {
             throw e;
         }
@@ -149,7 +153,7 @@ exports.ping = async (
  * @param {number} timeout Maximum time in seconds to wait for each response
  * @returns {Promise<number>} Time for ping in ms rounded to nearest integer
  */
-exports.pingAsync = function (
+export function pingAsync(
     destAddr,
     ipv6 = false,
     count = PING_COUNT_DEFAULT,
@@ -170,7 +174,7 @@ exports.pingAsync = function (
     }
 
     return pingByProcess(destAddr, ipv6, count, sourceAddr, numeric, size, deadline, timeout);
-};
+}
 
 async function pingByProcess(destAddr, ipv6, count, sourceAddr, numeric, size, deadline, timeout) {
     const args = buildPingArgs(destAddr, ipv6, count, sourceAddr, numeric, size, deadline, timeout);
@@ -180,7 +184,7 @@ async function pingByProcess(destAddr, ipv6, count, sourceAddr, numeric, size, d
     const output = result.stderr || result.stdout;
 
     if (result.code !== 0) {
-        throw new Error(isWindows ? exports.convertToUTF8(output) : output);
+        throw new Error(isWindows ? convertToUTF8(output) : output);
     }
 
     const time = parsePingTime(result.stdout);
@@ -248,7 +252,7 @@ function parsePingTime(output) {
  * Authentication (SASL) (defaults to {})
  * @returns {Promise<string>} Status message
  */
-exports.kafkaProducerAsync = function (brokers, topic, message, options = {}, saslOptions = {}) {
+export function kafkaProducerAsync(brokers, topic, message, options = {}, saslOptions = {}) {
     return new Promise((resolve, reject) => {
         const {
             interval = 20,
@@ -338,7 +342,7 @@ exports.kafkaProducerAsync = function (brokers, topic, message, options = {}, sa
             }
         });
     });
-};
+}
 
 /**
  * Use NTLM Auth for a http request.
@@ -346,7 +350,7 @@ exports.kafkaProducerAsync = function (brokers, topic, message, options = {}, sa
  * @param {object} ntlmOptions The auth options
  * @returns {Promise<(string[] | object[] | object)>} NTLM response
  */
-exports.httpNtlm = function (options, ntlmOptions) {
+export function httpNtlm(options, ntlmOptions) {
     return new Promise((resolve, reject) => {
         let client = NtlmClient(ntlmOptions);
 
@@ -358,7 +362,7 @@ exports.httpNtlm = function (options, ntlmOptions) {
                 reject(err);
             });
     });
-};
+}
 
 /**
  * Query radius server
@@ -372,7 +376,7 @@ exports.httpNtlm = function (options, ntlmOptions) {
  * @param {number} timeout Timeout for connection to use
  * @returns {Promise<any>} Response from server
  */
-exports.radius = function (
+export function radius(
     hostname,
     username,
     password,
@@ -417,7 +421,7 @@ exports.radius = function (
                 throw enhancedError;
             }
         });
-};
+}
 
 /**
  * Retrieve value of setting based on key
@@ -425,9 +429,9 @@ exports.radius = function (
  * @returns {Promise<any>} Value
  * @deprecated Use await Settings.get(key)
  */
-exports.setting = async function (key) {
+export async function setting(key) {
     return await Settings.get(key);
-};
+}
 
 /**
  * Sets the specified setting to specified value
@@ -436,18 +440,18 @@ exports.setting = async function (key) {
  * @param {?string} type Type of setting
  * @returns {Promise<void>}
  */
-exports.setSetting = async function (key, value, type = null) {
+export async function setSetting(key, value, type = null) {
     await Settings.set(key, value, type);
-};
+}
 
 /**
  * Get settings based on type
  * @param {string} type The type of setting
  * @returns {Promise<Bean>} Settings of requested type
  */
-exports.getSettings = async function (type) {
+export async function getSettings(type) {
     return await Settings.getSettings(type);
-};
+}
 
 /**
  * Set settings based on type
@@ -455,9 +459,9 @@ exports.getSettings = async function (type) {
  * @param {object} data Values of settings
  * @returns {Promise<void>}
  */
-exports.setSettings = async function (type, data) {
+export async function setSettings(type, data) {
     await Settings.setSettings(type, data);
-};
+}
 
 // ssl-checker by @dyaa
 //https://github.com/dyaa/ssl-checker/blob/master/src/index.ts
@@ -476,14 +480,13 @@ const getDaysBetween = (validFrom, validTo) => Math.round(Math.abs(+validFrom - 
  * @param {Date} validTo End date
  * @returns {number} Number of days remaining
  */
-const getDaysRemaining = (validFrom, validTo) => {
+export const getDaysRemaining = (validFrom, validTo) => {
     const daysRemaining = getDaysBetween(validFrom, validTo);
     if (new Date(validTo).getTime() < new Date().getTime()) {
         return -daysRemaining;
     }
     return daysRemaining;
 };
-module.exports.getDaysRemaining = getDaysRemaining;
 
 /**
  * Fix certificate info for display
@@ -539,7 +542,7 @@ const parseCertificateInfo = function (info) {
  * @param {tls.TLSSocket} socket TLSSocket, which may or may not be connected
  * @returns {null | {valid: boolean, certInfo: object}} Object containing certificate information
  */
-exports.checkCertificate = function (socket) {
+export function checkCertificate(socket) {
     let certInfoStartTime = dayjs().valueOf();
 
     // Return null if there is no socket
@@ -561,7 +564,7 @@ exports.checkCertificate = function (socket) {
         valid: valid,
         certInfo: parsedInfo,
     };
-};
+}
 
 /**
  * Checks if the certificate is valid for the provided hostname.
@@ -570,22 +573,14 @@ exports.checkCertificate = function (socket) {
  * @param {string} hostname - The hostname to compare against.
  * @returns {boolean} True if the certificate is valid for the provided hostname, false otherwise.
  */
-exports.checkCertificateHostname = function (certBuffer, hostname) {
-    let X509Certificate;
-    try {
-        X509Certificate = require("node:crypto").X509Certificate;
-    } catch (_) {
-        // X509Certificate is not available in this version of Node.js
-        return true;
-    }
-
+export function checkCertificateHostname(certBuffer, hostname) {
     if (!X509Certificate || !certBuffer || !hostname) {
         return true;
     }
 
     let certObject = new X509Certificate(certBuffer);
     return certObject.checkHost(hostname) !== undefined;
-};
+}
 
 /**
  * Check if the provided status code is within the accepted ranges
@@ -593,7 +588,7 @@ exports.checkCertificateHostname = function (certBuffer, hostname) {
  * @param {string[]} acceptedCodes An array of accepted status codes
  * @returns {boolean} True if status code within range, false otherwise
  */
-exports.checkStatusCode = function (status, acceptedCodes) {
+export function checkStatusCode(status, acceptedCodes) {
     if (acceptedCodes == null || acceptedCodes.length === 0) {
         return false;
     }
@@ -620,7 +615,7 @@ exports.checkStatusCode = function (status, acceptedCodes) {
     }
 
     return false;
-};
+}
 
 /**
  * Get total number of clients in room
@@ -628,7 +623,7 @@ exports.checkStatusCode = function (status, acceptedCodes) {
  * @param {string} roomName Name of room to check
  * @returns {number} Total clients in room
  */
-exports.getTotalClientInRoom = (io, roomName) => {
+export const getTotalClientInRoom = (io, roomName) => {
     const sockets = io.sockets;
 
     if (!sockets) {
@@ -655,9 +650,9 @@ exports.getTotalClientInRoom = (io, roomName) => {
  * @param {object} res Response object from axios
  * @returns {void}
  */
-exports.allowDevAllOrigin = (res) => {
+export const allowDevAllOrigin = (res) => {
     if (process.env.NODE_ENV === "development") {
-        exports.allowAllOrigin(res);
+        allowAllOrigin(res);
     }
 };
 
@@ -666,7 +661,7 @@ exports.allowDevAllOrigin = (res) => {
  * @param {object} res Response object from axios
  * @returns {void}
  */
-exports.allowAllOrigin = (res) => {
+export const allowAllOrigin = (res) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -678,7 +673,7 @@ exports.allowAllOrigin = (res) => {
  * @returns {void}
  * @throws The user is not logged in
  */
-exports.checkLogin = (socket) => {
+export const checkLogin = (socket) => {
     if (!socket.userID) {
         throw new Error("You are not logged in.");
     }
@@ -692,7 +687,7 @@ exports.checkLogin = (socket) => {
  * @throws The current password is not a string
  * @throws The provided password is not correct
  */
-exports.doubleCheckPassword = async (socket, currentPassword) => {
+export const doubleCheckPassword = async (socket, currentPassword) => {
     if (typeof currentPassword !== "string") {
         throw new Error("Wrong data type?");
     }
@@ -711,7 +706,7 @@ exports.doubleCheckPassword = async (socket, currentPassword) => {
  * @param {Uint8Array} body Buffer
  * @returns {string} UTF8 string
  */
-exports.convertToUTF8 = (body) => {
+export const convertToUTF8 = (body) => {
     const guessEncoding = chardet.detect(body);
     const str = iconv.decode(body, guessEncoding);
     return str.toString();
@@ -726,7 +721,7 @@ exports.convertToUTF8 = (body) => {
  * @param {number} minHue Minimum hue - int
  * @returns {string} Color in hex
  */
-exports.percentageToColor = (percentage, maxHue = 90, minHue = 10) => {
+export const percentageToColor = (percentage, maxHue = 90, minHue = 10) => {
     const hue = percentage * (maxHue - minHue) + minHue;
     try {
         return chroma(`hsl(${hue}, 90%, 40%)`).hex();
@@ -741,7 +736,7 @@ exports.percentageToColor = (percentage, maxHue = 90, minHue = 10) => {
  * @param {string} connector Separator for joined strings
  * @returns {string} Joined strings
  */
-exports.filterAndJoin = (parts, connector = "") => {
+export const filterAndJoin = (parts, connector = "") => {
     return parts.filter((part) => !!part && part !== "").join(connector);
 };
 
@@ -751,7 +746,7 @@ exports.filterAndJoin = (parts, connector = "") => {
  * @param {string} msg Message to send
  * @returns {void}
  */
-module.exports.sendHttpError = (res, msg = "") => {
+export const sendHttpError = (res, msg = "") => {
     if (msg.includes("SQLITE_BUSY") || msg.includes("SQLITE_LOCKED")) {
         res.status(503).json({
             status: "fail",
@@ -821,7 +816,7 @@ function timeObjectConvertTimezone(obj, timezone, timeObjectToUTC = true) {
  * @param {string} timezone Timezone of time object
  * @returns {object} Updated time object
  */
-module.exports.timeObjectToUTC = (obj, timezone = undefined) => {
+export const timeObjectToUTC = (obj, timezone = undefined) => {
     return timeObjectConvertTimezone(obj, timezone, true);
 };
 
@@ -831,7 +826,7 @@ module.exports.timeObjectToUTC = (obj, timezone = undefined) => {
  * @param {string} timezone Timezone to convert to
  * @returns {object} Updated object
  */
-module.exports.timeObjectToLocal = (obj, timezone = undefined) => {
+export const timeObjectToLocal = (obj, timezone = undefined) => {
     return timeObjectConvertTimezone(obj, timezone, false);
 };
 
@@ -839,7 +834,7 @@ module.exports.timeObjectToLocal = (obj, timezone = undefined) => {
  * Returns an array of SHA256 fingerprints for all known root certificates.
  * @returns {Set} A set of SHA256 fingerprints.
  */
-module.exports.rootCertificatesFingerprints = () => {
+export const rootCertificatesFingerprints = () => {
     let fingerprints = tls.rootCertificates.map((cert) => {
         let certLines = cert.split("\n");
         certLines.shift();
@@ -866,14 +861,14 @@ module.exports.rootCertificatesFingerprints = () => {
     return new Set(fingerprints);
 };
 
-module.exports.SHAKE256_LENGTH = 16;
+export const SHAKE256_LENGTH = 16;
 
 /**
  * @param {string} data The data to be hashed
  * @param {number} len Output length of the hash
  * @returns {string} The hashed data in hex format
  */
-module.exports.shake256 = (data, len) => {
+export const shake256 = (data, len) => {
     if (!data) {
         return "";
     }
@@ -886,26 +881,28 @@ module.exports.shake256 = (data, len) => {
  * @param {number} n Milliseconds to wait
  * @returns {void}
  */
-module.exports.wait = (n) => {
+export const wait = (n) => {
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, n);
 };
 
 // For unit test, export functions
-if (process.env.TEST_BACKEND) {
-    module.exports.__test = {
-        parseCertificateInfo,
-    };
-    module.exports.__getPrivateFunction = (functionName) => {
-        return module.exports.__test[functionName];
-    };
-}
+export const __test = process.env.TEST_BACKEND
+    ? {
+          parseCertificateInfo,
+      }
+    : undefined;
+export const __getPrivateFunction = process.env.TEST_BACKEND
+    ? (functionName) => {
+          return __test[functionName];
+      }
+    : undefined;
 
 /**
  * Generates an abort signal with the specified timeout.
  * @param {number} timeoutMs - The timeout in milliseconds.
  * @returns {AbortSignal | null} - The generated abort signal, or null if not supported.
  */
-module.exports.axiosAbortSignal = (timeoutMs) => {
+export const axiosAbortSignal = (timeoutMs) => {
     try {
         // Just in case, as 0 timeout here will cause the request to be aborted immediately
         if (!timeoutMs || timeoutMs <= 0) {
@@ -931,14 +928,13 @@ module.exports.axiosAbortSignal = (timeoutMs) => {
  * @param {PathLike} path File path
  * @returns {Promise<boolean>} True if file exists, false otherwise
  */
-function fsExists(path) {
+export function fsExists(path) {
     return new Promise(function (resolve, reject) {
         exists(path, function (exists) {
             resolve(exists);
         });
     });
 }
-module.exports.fsExists = fsExists;
 
 /**
  * Encode user and password to Base64 encoding
@@ -947,10 +943,9 @@ module.exports.fsExists = fsExists;
  * @param {string|null} pass - The password (defaults to empty string if null/undefined)
  * @returns {string} Encoded Base64 string
  */
-function encodeBase64(user, pass) {
+export function encodeBase64(user, pass) {
     return Buffer.from(`${user || ""}:${pass || ""}`).toString("base64");
 }
-module.exports.encodeBase64 = encodeBase64;
 
 /**
  * checks certificate chain for expiring certificates
@@ -958,7 +953,7 @@ module.exports.encodeBase64 = encodeBase64;
  * @param {object} tlsInfoObject Information about certificate
  * @returns {Promise<void>}
  */
-async function checkCertExpiryNotifications(monitor, tlsInfoObject) {
+export async function checkCertExpiryNotifications(monitor, tlsInfoObject) {
     if (!tlsInfoObject || !tlsInfoObject.certInfo || !tlsInfoObject.certInfo.daysRemaining) {
         return;
     }
@@ -1013,14 +1008,8 @@ async function checkCertExpiryNotifications(monitor, tlsInfoObject) {
         }
     }
 }
-module.exports.checkCertExpiryNotifications = checkCertExpiryNotifications;
 
-/**
- * Check whether a command exists in PATH or at an executable file path.
- * @param {string} command Command to check
- * @returns {Promise<boolean>} True if command exists, false otherwise
- */
-module.exports.commandExists = commandExists;
+export { commandExists };
 
 /**
  * Log the server's listening URLs, similar to Vite's dev server output.
@@ -1032,7 +1021,7 @@ module.exports.commandExists = commandExists;
  * @param {boolean} isHTTPS Whether the server is using HTTPS
  * @returns {void}
  */
-module.exports.printServerUrls = (tag, port, hostname, isHTTPS = false) => {
+export const printServerUrls = (tag, port, hostname, isHTTPS = false) => {
     try {
         // If hostname is specified, just print that one.
         if (hostname) {

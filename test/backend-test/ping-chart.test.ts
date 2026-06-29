@@ -1,6 +1,4 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
 
 /**
  * Extracts the ping value filtering logic from PingChart.vue pushDatapoint().
@@ -8,6 +6,9 @@ const assert = require("node:assert");
  * @param {object} datapoint Datapoint with up, avgPing, minPing, maxPing
  * @returns {number|null} The avgPing value or null if filtered out
  */
+import { describe, test } from "node:test";
+import assert from "node:assert";
+
 function filterPingValue(datapoint) {
     return datapoint.up > 0 && datapoint.avgPing != null ? datapoint.avgPing : null;
 }

@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { DOWN, UP } from "../../util.ts";
 
 class PushPlus extends NotificationProvider {
     name = "PushPlus";
@@ -55,4 +56,4 @@ class PushPlus extends NotificationProvider {
     }
 }
 
-module.exports = PushPlus;
+export default PushPlus;

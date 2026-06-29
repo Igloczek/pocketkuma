@@ -1,9 +1,9 @@
-exports.up = function (knex) {
+export const up = function (knex) {
     // Intentionally left blank - no operation
     return Promise.resolve();
 };
 
-exports.down = async function (knex) {
+export const down = async function (knex) {
     // Intentionally left blank - no operation
     return Promise.resolve();
 };

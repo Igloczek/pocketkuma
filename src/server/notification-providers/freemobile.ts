@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class FreeMobile extends NotificationProvider {
     name = "FreeMobile";
@@ -29,4 +30,4 @@ class FreeMobile extends NotificationProvider {
     }
 }
 
-module.exports = FreeMobile;
+export default FreeMobile;

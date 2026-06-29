@@ -1,6 +1,7 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP, DOWN, PENDING } = require("../../util");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP, DOWN, PENDING } from "../../util.ts";
 
 class ManualMonitorType extends MonitorType {
     name = "Manual";
@@ -34,6 +35,4 @@ class ManualMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    ManualMonitorType,
-};
+export { ManualMonitorType };

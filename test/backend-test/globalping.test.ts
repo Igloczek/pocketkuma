@@ -1,12 +1,12 @@
 // @ts-nocheck
-const { describe, test, mock } = require("node:test");
-const assert = require("node:assert");
-const { encodeBase64 } = require("../../src/server/util-server");
-const { UP, PENDING } = require("../../src/util");
+
+import { describe, test, mock } from "node:test";
+import assert from "node:assert";
+import { encodeBase64 } from "../../src/server/util-server.ts";
+import { UP, PENDING } from "../../src/util.ts";
+import { GlobalpingMonitorType } from "../../src/server/monitor-types/globalping.ts";
 
 describe("GlobalpingMonitorType", () => {
-    const { GlobalpingMonitorType } = require("../../src/server/monitor-types/globalping");
-
     describe("ping", () => {
         test("should handle successful ping", async () => {
             const monitorType = new GlobalpingMonitorType("test-agent/1.0");

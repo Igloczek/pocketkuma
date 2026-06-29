@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class EgoSMS extends NotificationProvider {
     name = "egosms";
@@ -32,4 +33,4 @@ class EgoSMS extends NotificationProvider {
     }
 }
 
-module.exports = EgoSMS;
+export default EgoSMS;

@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Whapi extends NotificationProvider {
     name = "whapi";
@@ -39,4 +40,4 @@ class Whapi extends NotificationProvider {
     }
 }
 
-module.exports = Whapi;
+export default Whapi;

@@ -1,13 +1,14 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const grpc = require("@grpc/grpc-js");
-const protoLoader = require("@grpc/proto-loader");
-const { GrpcKeywordMonitorType } = require("../../../src/server/monitor-types/grpc");
-const { UP, PENDING } = require("../../../src/util");
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import grpc from "@grpc/grpc-js";
+import protoLoader from "@grpc/proto-loader";
+import { GrpcKeywordMonitorType } from "../../../src/server/monitor-types/grpc.ts";
+import { UP, PENDING } from "../../../src/util.ts";
+import fs from "fs";
+import path from "path";
+import os from "os";
 
 const testProto = `
 syntax = "proto3";

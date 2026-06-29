@@ -36,6 +36,4 @@ class MonitorType {
     }
 }
 
-module.exports = {
-    MonitorType,
-};
+export { MonitorType };

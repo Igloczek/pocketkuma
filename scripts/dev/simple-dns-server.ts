@@ -2,7 +2,8 @@
  * Simple DNS Server
  * For testing DNS monitoring type, dev only
  */
-const dns2 = require("dns2");
+
+import dns2 from "dns2";
 
 const { Packet } = dns2;
 

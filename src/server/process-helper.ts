@@ -1,8 +1,9 @@
 // @ts-nocheck
 "use strict";
 
-const fs = require("fs");
-const { isBunRuntime } = require("./runtime");
+import fs from "fs";
+import { isBunRuntime } from "./runtime.ts";
+import childProcess from "node:child_process";
 
 function toText(output) {
     return output ? output.toString("utf8") : "";
@@ -42,7 +43,6 @@ async function runCommand(command, args = [], options = {}) {
     }
 
     return await new Promise((resolve, reject) => {
-        const childProcess = require("child_process");
         const child = childProcess.spawn(command, args, {
             cwd: options.cwd,
             env: options.env ? { ...process.env, ...options.env } : process.env,
@@ -96,7 +96,6 @@ function runCommandSync(command, args = [], options = {}) {
         };
     }
 
-    const childProcess = require("child_process");
     const result = childProcess.spawnSync(command, args, {
         cwd: options.cwd,
         env: options.env ? { ...process.env, ...options.env } : process.env,
@@ -120,7 +119,6 @@ function startProcess(command, args = [], options = {}) {
         });
     }
 
-    const childProcess = require("child_process");
     return childProcess.spawn(command, args, {
         cwd: options.cwd,
         env: options.env ? { ...process.env, ...options.env } : process.env,
@@ -148,10 +146,4 @@ async function commandExists(command) {
     return result.code === 0;
 }
 
-module.exports = {
-    commandExists,
-    runCommand,
-    runCommandChecked,
-    runCommandSync,
-    startProcess,
-};
+export { commandExists, runCommand, runCommandChecked, runCommandSync, startProcess };

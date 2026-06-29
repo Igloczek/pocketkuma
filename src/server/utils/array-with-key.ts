@@ -81,6 +81,4 @@ class ArrayWithKey {
     }
 }
 
-module.exports = {
-    ArrayWithKey,
-};
+export { ArrayWithKey };

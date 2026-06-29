@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const httpClient = require("../http-client");
+
+import NotificationProvider from "./notification-provider.ts";
+import httpClient from "../http-client.ts";
 
 class Gotify extends NotificationProvider {
     name = "gotify";
@@ -33,4 +34,4 @@ class Gotify extends NotificationProvider {
     }
 }
 
-module.exports = Gotify;
+export default Gotify;

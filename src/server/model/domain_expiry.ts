@@ -1,14 +1,15 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
-const { R } = require("../redbean-compat");
-const { log, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } = require("../../util");
-const { parse: parseTld } = require("tldts");
-const { setting, setSetting } = require("../util-server");
-const { Notification } = require("../notification");
-const TranslatableError = require("../translatable-error");
-const dayjs = require("dayjs");
-const { Settings } = require("../settings");
 
+import { BeanModel } from "../redbean-compat.ts";
+import { R } from "../redbean-compat.ts";
+import { log, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "../../util.ts";
+import { parse as parseTld } from "tldts";
+import rdapDnsDataFallback from "../assets/rdap-dns.json" with { type: "json" };
+import { setting, setSetting } from "../util-server.ts";
+import { Notification } from "../notification.ts";
+import TranslatableError from "../translatable-error.ts";
+import dayjs from "dayjs";
+import { Settings } from "../settings.ts";
 let cacheRdapDnsData = null;
 let nextChecking = 0;
 let running = false;
@@ -98,7 +99,7 @@ async function getOfflineRdapDnsData() {
         }
     } catch (e) {
         // If not downloaded previously, use the hardcoded data
-        data = require("../assets/rdap-dns.json");
+        data = rdapDnsDataFallback;
     }
     return data;
 }
@@ -366,4 +367,4 @@ class DomainExpiry extends BeanModel {
     }
 }
 
-module.exports = DomainExpiry;
+export default DomainExpiry;

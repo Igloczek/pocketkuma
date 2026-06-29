@@ -1,8 +1,10 @@
 // @ts-nocheck
-const { checkLogin, setSetting, setting, doubleCheckPassword } = require("../util-server");
-const { CloudflaredTunnel } = require("node-cloudflared-tunnel");
-const { UptimeKumaServer } = require("../uptime-kuma-server");
-const { log } = require("../../util");
+
+import { checkLogin, setSetting, setting, doubleCheckPassword } from "../util-server.ts";
+import { CloudflaredTunnel } from "node-cloudflared-tunnel";
+import { UptimeKumaServer } from "../uptime-kuma-server.ts";
+import { log } from "../../util.ts";
+
 const io = UptimeKumaServer.getInstance().io;
 
 const prefix = "cloudflared_";
@@ -33,7 +35,7 @@ cloudflared.error = (errorMessage) => {
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-module.exports.cloudflaredSocketHandler = (socket) => {
+export const cloudflaredSocketHandler = (socket) => {
     socket.on(prefix + "join", async () => {
         try {
             checkLogin(socket);
@@ -101,7 +103,7 @@ module.exports.cloudflaredSocketHandler = (socket) => {
  * @param {string} token Cloudflared tunnel token
  * @returns {Promise<void>}
  */
-module.exports.autoStart = async (token) => {
+export const autoStart = async (token) => {
     if (!token) {
         token = await setting("cloudflaredTunnelToken");
     } else {
@@ -121,7 +123,7 @@ module.exports.autoStart = async (token) => {
  * Stop cloudflared
  * @returns {Promise<void>}
  */
-module.exports.stop = async () => {
+export const stop = async () => {
     log.info("cloudflared", "Stop cloudflared");
     if (cloudflared) {
         cloudflared.stop();

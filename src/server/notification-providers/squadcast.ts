@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { DOWN } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { DOWN } from "../../util.ts";
 
 class Squadcast extends NotificationProvider {
     name = "squadcast";
@@ -55,4 +56,4 @@ class Squadcast extends NotificationProvider {
     }
 }
 
-module.exports = Squadcast;
+export default Squadcast;

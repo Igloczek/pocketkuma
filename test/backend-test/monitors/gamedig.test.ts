@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { describe, test, mock } = require("node:test");
-const assert = require("node:assert");
-const { GameDigMonitorType } = require("../../../src/server/monitor-types/gamedig");
-const { UP, PENDING } = require("../../../src/util");
-const { GameDig } = require("gamedig");
+
+import { describe, test, mock } from "node:test";
+import assert from "node:assert";
+import { GameDigMonitorType } from "../../../src/server/monitor-types/gamedig.ts";
+import { UP, PENDING } from "../../../src/util.ts";
+import { GameDig } from "gamedig";
 
 describe("GameDig Monitor", () => {
     test("check() sets status to UP when Gamedig.query returns valid server response", async () => {

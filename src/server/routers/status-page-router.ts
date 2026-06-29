@@ -1,12 +1,12 @@
 // @ts-nocheck
 "use strict";
 
-const StatusPage = require("../model/status_page");
-const { R } = require("../redbean-compat");
-const { badgeConstants } = require("../../util");
-const { makeBadge } = require("badge-maker");
-const { UptimeCalculator } = require("../uptime-calculator");
-const {
+import StatusPage from "../model/status_page.ts";
+import { R } from "../redbean-compat.ts";
+import { badgeConstants } from "../../util.ts";
+import { makeBadge } from "badge-maker";
+import { UptimeCalculator } from "../uptime-calculator.ts";
+import {
     cachedResponse,
     decodePathParam,
     htmlResponse,
@@ -14,7 +14,7 @@ const {
     jsonResponse,
     queryObject,
     textResponse,
-} = require("../bun-response");
+} from "../bun-response.ts";
 
 async function statusPageHTMLResponse(server, slug, disableFrameSameOrigin) {
     const result = await StatusPage.renderHTMLBySlug(server.indexHTML, slug);
@@ -304,46 +304,34 @@ async function handleStatusPageRequest(request, { server, disableFrameSameOrigin
     match = pathname.match(/^\/api\/status-page\/heartbeat\/([^/]+)$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "1 minutes", () =>
-            statusPageHeartbeatResponse(slug, disableFrameSameOrigin)
-        );
+        return cachedResponse(cacheKey, "1 minutes", () => statusPageHeartbeatResponse(slug, disableFrameSameOrigin));
     }
 
     match = pathname.match(/^\/api\/status-page\/([^/]+)\/manifest\.json$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "1440 minutes", () =>
-            statusPageManifestResponse(slug, disableFrameSameOrigin)
-        );
+        return cachedResponse(cacheKey, "1440 minutes", () => statusPageManifestResponse(slug, disableFrameSameOrigin));
     }
 
     match = pathname.match(/^\/api\/status-page\/([^/]+)\/incident-history$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
-            incidentHistoryResponse(url, slug, disableFrameSameOrigin)
-        );
+        return cachedResponse(cacheKey, "5 minutes", () => incidentHistoryResponse(url, slug, disableFrameSameOrigin));
     }
 
     match = pathname.match(/^\/api\/status-page\/([^/]+)\/badge$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
-            statusPageBadgeResponse(url, slug, disableFrameSameOrigin)
-        );
+        return cachedResponse(cacheKey, "5 minutes", () => statusPageBadgeResponse(url, slug, disableFrameSameOrigin));
     }
 
     match = pathname.match(/^\/api\/status-page\/([^/]+)$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
-            statusPageConfigResponse(slug, disableFrameSameOrigin)
-        );
+        return cachedResponse(cacheKey, "5 minutes", () => statusPageConfigResponse(slug, disableFrameSameOrigin));
     }
 
     return null;
 }
 
-module.exports = {
-    handleStatusPageRequest,
-};
+export { handleStatusPageRequest };

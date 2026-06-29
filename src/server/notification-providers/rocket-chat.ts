@@ -1,9 +1,10 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const Slack = require("./slack");
-const { getMonitorRelativeURL, DOWN } = require("../../util");
-const { Settings } = require("../settings");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import Slack from "./slack.ts";
+import { getMonitorRelativeURL, DOWN } from "../../util.ts";
+import { Settings } from "../settings.ts";
 
 class RocketChat extends NotificationProvider {
     name = "rocket.chat";
@@ -65,4 +66,4 @@ class RocketChat extends NotificationProvider {
     }
 }
 
-module.exports = RocketChat;
+export default RocketChat;

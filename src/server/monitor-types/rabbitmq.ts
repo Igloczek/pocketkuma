@@ -1,8 +1,9 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { log, UP } = require("../../util");
-const { axiosAbortSignal } = require("../util-server");
-const axios = require("axios");
+
+import { MonitorType } from "./monitor-type.ts";
+import { log, UP } from "../../util.ts";
+import { axiosAbortSignal } from "../util-server.ts";
+import axios from "axios";
 
 class RabbitMqMonitorType extends MonitorType {
     name = "rabbitmq";
@@ -110,6 +111,4 @@ class RabbitMqMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    RabbitMqMonitorType,
-};
+export { RabbitMqMonitorType };

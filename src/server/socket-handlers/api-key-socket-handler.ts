@@ -1,20 +1,21 @@
 // @ts-nocheck
-const { checkLogin } = require("../util-server");
-const { log } = require("../../util");
-const { R } = require("../redbean-compat");
-const { nanoid } = require("nanoid");
-const passwordHash = require("../password-hash");
-const apicache = require("../modules/apicache");
-const APIKey = require("../model/api_key");
-const { Settings } = require("../settings");
-const { sendAPIKeyList } = require("../client");
 
 /**
  * Handlers for API keys
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-module.exports.apiKeySocketHandler = (socket) => {
+import { checkLogin } from "../util-server.ts";
+import { log } from "../../util.ts";
+import { R } from "../redbean-compat.ts";
+import { nanoid } from "nanoid";
+import passwordHash from "../password-hash.ts";
+import apicache from "../modules/apicache.ts";
+import APIKey from "../model/api_key.ts";
+import { Settings } from "../settings.ts";
+import { sendAPIKeyList } from "../client.ts";
+
+export const apiKeySocketHandler = (socket) => {
     // Add a new api key
     socket.on("addAPIKey", async (key, callback) => {
         try {

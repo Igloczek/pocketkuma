@@ -1,8 +1,9 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const dayjs = require("dayjs");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import dayjs from "dayjs";
+import { DOWN, UP } from "../../util.ts";
 
 class Discord extends NotificationProvider {
     name = "discord";
@@ -288,4 +289,4 @@ class Discord extends NotificationProvider {
     }
 }
 
-module.exports = Discord;
+export default Discord;

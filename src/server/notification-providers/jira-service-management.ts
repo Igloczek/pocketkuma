@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { UP, DOWN } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { UP, DOWN } from "../../util.ts";
 
 const okMsg = "Sent Successfully.";
 
@@ -103,4 +104,4 @@ class JiraServiceManagement extends NotificationProvider {
     }
 }
 
-module.exports = JiraServiceManagement;
+export default JiraServiceManagement;

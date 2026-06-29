@@ -1,14 +1,17 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP, PING_GLOBAL_TIMEOUT_DEFAULT: TIMEOUT, log } = require("../../util");
-const { checkCertificate } = require("../util-server");
-const tls = require("tls");
-const net = require("net");
 
 /**
  * TLS Alert codes as defined in RFC 5246 and RFC 8446
  * @see https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-6
  */
+import { MonitorType } from "./monitor-type.ts";
+import { UP, PING_GLOBAL_TIMEOUT_DEFAULT, log } from "../../util.ts";
+
+const TIMEOUT = PING_GLOBAL_TIMEOUT_DEFAULT;
+import { checkCertificate } from "../util-server.ts";
+import tls from "tls";
+import net from "net";
+
 const TLS_ALERT_CODES = {
     0: "close_notify",
     10: "unexpected_message",
@@ -404,9 +407,4 @@ class TCPMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    TCPMonitorType,
-    TLS_ALERT_CODES,
-    parseTlsAlertNumber,
-    getTlsAlertName,
-};
+export { TCPMonitorType, TLS_ALERT_CODES, parseTlsAlertNumber, getTlsAlertName };

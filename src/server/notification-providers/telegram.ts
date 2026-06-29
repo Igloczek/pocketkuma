@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Telegram extends NotificationProvider {
     name = "telegram";
@@ -110,4 +111,4 @@ class Telegram extends NotificationProvider {
     }
 }
 
-module.exports = Telegram;
+export default Telegram;

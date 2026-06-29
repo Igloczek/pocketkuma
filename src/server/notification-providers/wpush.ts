@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { DOWN, UP } from "../../util.ts";
 
 class WPush extends NotificationProvider {
     name = "WPush";
@@ -49,4 +50,4 @@ class WPush extends NotificationProvider {
     }
 }
 
-module.exports = WPush;
+export default WPush;

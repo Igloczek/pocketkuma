@@ -1,5 +1,7 @@
-const { clearResponseCache } = require("../../bun-response");
+import { clearResponseCache } from "../../bun-response.ts";
 
-module.exports = {
+const apicache = {
     clear: clearResponseCache,
 };
+
+export default apicache;

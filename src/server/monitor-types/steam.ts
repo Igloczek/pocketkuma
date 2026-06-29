@@ -1,19 +1,15 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const {
-    UP,
-    PING_COUNT_DEFAULT,
-    PING_GLOBAL_TIMEOUT_DEFAULT,
-    PING_PER_REQUEST_TIMEOUT_DEFAULT,
-} = require("../../util");
-const { Settings } = require("../settings");
-const { ping, checkStatusCode } = require("../util-server");
-const axios = require("axios");
-const crypto = require("crypto");
-const dns = require("node:dns/promises");
-const http = require("http");
-const https = require("https");
-const net = require("node:net");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP, PING_COUNT_DEFAULT, PING_GLOBAL_TIMEOUT_DEFAULT, PING_PER_REQUEST_TIMEOUT_DEFAULT } from "../../util.ts";
+import { Settings } from "../settings.ts";
+import { ping, checkStatusCode } from "../util-server.ts";
+import axios from "axios";
+import crypto from "crypto";
+import dns from "node:dns/promises";
+import http from "http";
+import https from "https";
+import net from "node:net";
 
 class SteamMonitorType extends MonitorType {
     name = "steam";
@@ -130,6 +126,4 @@ class SteamMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    SteamMonitorType,
-};
+export { SteamMonitorType };

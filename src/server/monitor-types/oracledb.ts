@@ -1,12 +1,13 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { log, UP } = require("../../util");
-const dayjs = require("dayjs");
-const oracledb = require("oracledb");
-const { ConditionVariable } = require("../monitor-conditions/variables");
-const { defaultStringOperators } = require("../monitor-conditions/operators");
-const { ConditionExpressionGroup } = require("../monitor-conditions/expression");
-const { evaluateExpressionGroup } = require("../monitor-conditions/evaluator");
+
+import { MonitorType } from "./monitor-type.ts";
+import { log, UP } from "../../util.ts";
+import dayjs from "dayjs";
+import oracledb from "oracledb";
+import { ConditionVariable } from "../monitor-conditions/variables.ts";
+import { defaultStringOperators } from "../monitor-conditions/operators.ts";
+import { ConditionExpressionGroup } from "../monitor-conditions/expression.ts";
+import { evaluateExpressionGroup } from "../monitor-conditions/evaluator.ts";
 
 class OracleDbMonitorType extends MonitorType {
     name = "oracledb";
@@ -151,6 +152,4 @@ class OracleDbMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    OracleDbMonitorType,
-};
+export { OracleDbMonitorType };

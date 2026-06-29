@@ -218,9 +218,6 @@ async function post(url, data, options = {}) {
     return request({ ...options, url, data, method: "POST" });
 }
 
-module.exports = {
-    HttpClientError,
-    request,
-    get,
-    post,
-};
+export { HttpClientError, request, get, post };
+
+export default { request, get, post, HttpClientError };

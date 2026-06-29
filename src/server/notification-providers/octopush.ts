@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Octopush extends NotificationProvider {
     name = "octopush";
@@ -76,4 +77,4 @@ class Octopush extends NotificationProvider {
     }
 }
 
-module.exports = Octopush;
+export default Octopush;

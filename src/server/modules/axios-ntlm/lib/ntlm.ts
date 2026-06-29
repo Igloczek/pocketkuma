@@ -1,9 +1,9 @@
 // @ts-nocheck
 "use strict";
 // Original file https://raw.githubusercontent.com/elasticio/node-ntlm-client/master/lib/ntlm.js
-var os = require("os"),
-    flags = require("./flags"),
-    hash = require("./hash");
+import os from "os";
+import * as flags from "./flags.ts";
+import * as hash from "./hash.ts";
 var NTLMSIGNATURE = "NTLMSSP\0";
 function createType1Message(workstation, target) {
     var dataPos = 32,
@@ -226,8 +226,4 @@ function createType3Message(type2Message, username, password, workstation, targe
     }
     return "NTLM " + buf.toString("base64", 0, dataPos);
 }
-module.exports = {
-    createType1Message: createType1Message,
-    decodeType2Message: decodeType2Message,
-    createType3Message: createType3Message,
-};
+export { createType1Message, decodeType2Message, createType3Message };

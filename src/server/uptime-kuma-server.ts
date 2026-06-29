@@ -1,22 +1,26 @@
 // @ts-nocheck
-const fs = require("fs");
-const { R } = require("./redbean-compat");
-const { log } = require("../util");
-const Database = require("./database");
-const util = require("util");
-const { Settings } = require("./settings");
-const dayjs = require("dayjs");
-const path = require("path");
-const axios = require("axios");
-const { BunRealtimeAdapter } = require("./bun-websocket-server");
-const { runCommandChecked } = require("./process-helper");
-const { createMonitorTypeList, getMonitorType } = require("./monitor-runtime-registry");
+
 // DO NOT IMPORT HERE IF THE MODULES USED `UptimeKumaServer.getInstance()`, put at the bottom of this file instead.
 
 /**
  * `module.exports` (alias: `server`) should be inside this class, in order to avoid circular dependency issue.
  * @type {UptimeKumaServer}
  */
+import fs from "fs";
+import { R } from "./redbean-compat.ts";
+import { log } from "../util.ts";
+import Database from "./database.ts";
+import util from "util";
+import { Settings } from "./settings.ts";
+import dayjs from "dayjs";
+import path from "path";
+import axios from "axios";
+import { BunRealtimeAdapter } from "./bun-websocket-server.ts";
+import { runCommandChecked } from "./process-helper.ts";
+import { createMonitorTypeList, getMonitorType } from "./monitor-runtime-registry.ts";
+import Monitor from "./model/monitor.ts";
+import packageJson from "../../package.json" with { type: "json" };
+
 class UptimeKumaServer {
     /**
      * Current server instance
@@ -448,7 +452,7 @@ class UptimeKumaServer {
      * @returns {string} User-Agent
      */
     getUserAgent() {
-        return "Uptime-Kuma/" + require("../../package.json").version;
+        return "Uptime-Kuma/" + packageJson.version;
     }
 
     /**
@@ -470,9 +474,5 @@ class UptimeKumaServer {
     }
 }
 
-module.exports = {
-    UptimeKumaServer,
-};
-
+export { UptimeKumaServer };
 // Must be at the end to avoid circular dependencies
-const Monitor = require("./model/monitor");

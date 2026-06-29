@@ -1,5 +1,6 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
+
+import { BeanModel } from "../redbean-compat.ts";
 
 class Tag extends BeanModel {
     /**
@@ -15,4 +16,4 @@ class Tag extends BeanModel {
     }
 }
 
-module.exports = Tag;
+export default Tag;

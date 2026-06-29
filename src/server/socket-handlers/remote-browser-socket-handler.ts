@@ -1,16 +1,17 @@
 // @ts-nocheck
-const { sendRemoteBrowserList } = require("../client");
-const { checkLogin } = require("../util-server");
-const { RemoteBrowser } = require("../remote-browser");
-
-const { log } = require("../../util");
 
 /**
  * Handlers for docker hosts
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-module.exports.remoteBrowserSocketHandler = (socket) => {
+import { sendRemoteBrowserList } from "../client.ts";
+import { checkLogin } from "../util-server.ts";
+import { RemoteBrowser } from "../remote-browser.ts";
+import { log } from "../../util.ts";
+import { testRemoteBrowser } from "../monitor-types/real-browser-monitor-type.ts";
+
+export const remoteBrowserSocketHandler = (socket) => {
     socket.on("addRemoteBrowser", async (remoteBrowser, remoteBrowserID, callback) => {
         try {
             checkLogin(socket);
@@ -55,7 +56,7 @@ module.exports.remoteBrowserSocketHandler = (socket) => {
     socket.on("testRemoteBrowser", async (remoteBrowser, callback) => {
         try {
             checkLogin(socket);
-            const { testRemoteBrowser } = require("../monitor-types/real-browser-monitor-type");
+
             let check = await testRemoteBrowser(remoteBrowser.url);
             log.info("remoteBrowser", "Tested remote browser: " + check);
             let msg;

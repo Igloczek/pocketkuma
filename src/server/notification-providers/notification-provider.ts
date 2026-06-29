@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { Liquid } = require("liquidjs");
-const { DOWN } = require("../../util");
-const { HttpProxyAgent } = require("http-proxy-agent");
-const { HttpsProxyAgent } = require("https-proxy-agent");
-const { SocksProxyAgent } = require("socks-proxy-agent");
+
+import { Liquid } from "liquidjs";
+import { DOWN } from "../../util.ts";
+import { HttpProxyAgent } from "http-proxy-agent";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import { SocksProxyAgent } from "socks-proxy-agent";
 
 class NotificationProvider {
     /**
@@ -197,4 +198,4 @@ class NotificationProvider {
     }
 }
 
-module.exports = NotificationProvider;
+export default NotificationProvider;

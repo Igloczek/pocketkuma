@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { DOWN, UP } from "../../util.ts";
 
 class SevenIO extends NotificationProvider {
     name = "SevenIO";
@@ -57,4 +58,4 @@ class SevenIO extends NotificationProvider {
     }
 }
 
-module.exports = SevenIO;
+export default SevenIO;

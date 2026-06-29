@@ -1,9 +1,10 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { setSettings, setting } = require("../util-server");
-const { getMonitorRelativeURL, UP, log } = require("../../util");
-const isUrl = require("is-url");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { setSettings, setting } from "../util-server.ts";
+import { getMonitorRelativeURL, UP, log } from "../../util.ts";
+import isUrl from "is-url";
 
 class Slack extends NotificationProvider {
     name = "slack";
@@ -220,4 +221,4 @@ class Slack extends NotificationProvider {
     }
 }
 
-module.exports = Slack;
+export default Slack;

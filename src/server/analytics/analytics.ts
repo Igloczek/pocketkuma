@@ -1,9 +1,4 @@
 // @ts-nocheck
-const googleAnalytics = require("./google-analytics");
-const umamiAnalytics = require("./umami-analytics");
-const plausibleAnalytics = require("./plausible-analytics");
-const matomoAnalytics = require("./matomo-analytics");
-const rybbitAnalytics = require("./rybbit-analytics");
 
 /**
  * Returns a string that represents the javascript that is required to insert the selected Analytics' script
@@ -11,6 +6,12 @@ const rybbitAnalytics = require("./rybbit-analytics");
  * @param {typeof import("../model/status_page").StatusPage} statusPage Status page populate HTML with
  * @returns {string} HTML script tags to inject into page
  */
+import googleAnalytics from "./google-analytics.ts";
+import umamiAnalytics from "./umami-analytics.ts";
+import plausibleAnalytics from "./plausible-analytics.ts";
+import matomoAnalytics from "./matomo-analytics.ts";
+import rybbitAnalytics from "./rybbit-analytics.ts";
+
 function getAnalyticsScript(statusPage) {
     switch (statusPage.analyticsType) {
         case "google":
@@ -50,7 +51,6 @@ function isValidAnalyticsConfig(statusPage) {
     }
 }
 
-module.exports = {
-    getAnalyticsScript,
-    isValidAnalyticsConfig,
-};
+export { getAnalyticsScript, isValidAnalyticsConfig };
+
+export default { getAnalyticsScript, isValidAnalyticsConfig };

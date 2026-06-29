@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class SMSC extends NotificationProvider {
     name = "smsc";
@@ -46,4 +47,4 @@ class SMSC extends NotificationProvider {
     }
 }
 
-module.exports = SMSC;
+export default SMSC;

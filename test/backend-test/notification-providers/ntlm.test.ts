@@ -1,8 +1,8 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
 
-const hash = require("../../../src/server/modules/axios-ntlm/lib/hash");
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import hash from "../../../src/server/modules/axios-ntlm/lib/hash.ts";
 
 describe("createPseudoRandomValue()", () => {
     test("returns a hexadecimal string with the requested length", () => {

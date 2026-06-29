@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { DOWN, UP } from "../../util.ts";
 
 class Feishu extends NotificationProvider {
     name = "Feishu";
@@ -103,4 +104,4 @@ function getContent(heartbeatJSON) {
     ].join("\n");
 }
 
-module.exports = Feishu;
+export default Feishu;

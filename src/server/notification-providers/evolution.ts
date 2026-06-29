@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Evolution extends NotificationProvider {
     name = "evolution";
@@ -46,4 +47,4 @@ class Evolution extends NotificationProvider {
     }
 }
 
-module.exports = Evolution;
+export default Evolution;

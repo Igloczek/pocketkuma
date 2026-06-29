@@ -1,4 +1,4 @@
-exports.up = function (knex) {
+export const up = function (knex) {
     return knex.schema.createTable("stat_hourly", function (table) {
         table.increments("id");
         table.comment("This table contains the hourly aggregate statistics for each monitor");
@@ -21,6 +21,6 @@ exports.up = function (knex) {
     });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema.dropTable("stat_hourly");
 };

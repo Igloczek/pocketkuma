@@ -1,5 +1,6 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
+
+import { BeanModel } from "../redbean-compat.ts";
 
 class Proxy extends BeanModel {
     /**
@@ -23,4 +24,4 @@ class Proxy extends BeanModel {
     }
 }
 
-module.exports = Proxy;
+export default Proxy;

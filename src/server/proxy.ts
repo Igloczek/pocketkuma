@@ -1,12 +1,13 @@
 // @ts-nocheck
-const { R } = require("./redbean-compat");
-const { HttpProxyAgent } = require("http-proxy-agent");
-const { HttpsProxyAgent } = require("https-proxy-agent");
-const { SocksProxyAgent } = require("socks-proxy-agent");
-const { debug } = require("../util");
-const { UptimeKumaServer } = require("./uptime-kuma-server");
-const { CookieJar } = require("tough-cookie");
-const { createCookieAgent } = require("http-cookie-agent/http");
+
+import { R } from "./redbean-compat.ts";
+import { HttpProxyAgent } from "http-proxy-agent";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import { SocksProxyAgent } from "socks-proxy-agent";
+import { debug } from "../util.ts";
+import { UptimeKumaServer } from "./uptime-kuma-server.ts";
+import { CookieJar } from "tough-cookie";
+import { createCookieAgent } from "http-cookie-agent/http";
 
 class Proxy {
     static SUPPORTED_PROXY_PROTOCOLS = ["http", "https", "socks", "socks5", "socks5h", "socks4"];
@@ -195,6 +196,4 @@ async function applyProxyEveryMonitor(proxyID, userID) {
     }
 }
 
-module.exports = {
-    Proxy,
-};
+export { Proxy };

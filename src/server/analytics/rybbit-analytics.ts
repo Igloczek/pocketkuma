@@ -1,6 +1,4 @@
 // @ts-nocheck
-const jsesc = require("jsesc");
-const { escape } = require("html-escaper");
 
 /**
  * Returns a string that represents the javascript that is required to insert the Rybbit Analytics script
@@ -9,6 +7,9 @@ const { escape } = require("html-escaper");
  * @param {string} siteId Site ID to use with the Rybbit Analytics script.
  * @returns {string} HTML script tags to inject into page
  */
+import jsesc from "jsesc";
+import { escape } from "html-escaper";
+
 function getRybbitAnalyticsScript(scriptUrl, siteId) {
     let escapedScriptUrlJS = jsesc(scriptUrl, { isScriptContext: true });
     let escapedSiteIdJS = jsesc(siteId, { isScriptContext: true });
@@ -32,6 +33,6 @@ function getRybbitAnalyticsScript(scriptUrl, siteId) {
     `;
 }
 
-module.exports = {
-    getRybbitAnalyticsScript,
-};
+export { getRybbitAnalyticsScript };
+
+export default { getRybbitAnalyticsScript };

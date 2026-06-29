@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { UP, DOWN } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { UP, DOWN } from "../../util.ts";
 
 const opsgenieAlertsUrlEU = "https://api.eu.opsgenie.com/v2/alerts";
 const opsgenieAlertsUrlUS = "https://api.opsgenie.com/v2/alerts";
@@ -95,4 +96,4 @@ class Opsgenie extends NotificationProvider {
     }
 }
 
-module.exports = Opsgenie;
+export default Opsgenie;

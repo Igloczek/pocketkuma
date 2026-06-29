@@ -1,10 +1,12 @@
 // @ts-nocheck
-const { checkLogin } = require("../util-server");
-const { log } = require("../../util");
-const { R } = require("../redbean-compat");
-const apicache = require("../modules/apicache");
-const { UptimeKumaServer } = require("../uptime-kuma-server");
-const Maintenance = require("../model/maintenance");
+
+import { checkLogin } from "../util-server.ts";
+import { log } from "../../util.ts";
+import { R } from "../redbean-compat.ts";
+import apicache from "../modules/apicache.ts";
+import { UptimeKumaServer } from "../uptime-kuma-server.ts";
+import Maintenance from "../model/maintenance.ts";
+
 const server = UptimeKumaServer.getInstance();
 
 /**
@@ -12,7 +14,7 @@ const server = UptimeKumaServer.getInstance();
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-module.exports.maintenanceSocketHandler = (socket) => {
+export const maintenanceSocketHandler = (socket) => {
     // Add a new maintenance
     socket.on("addMaintenance", async (maintenance, callback) => {
         try {

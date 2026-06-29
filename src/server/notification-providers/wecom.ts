@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { DOWN, UP } from "../../util.ts";
 
 class WeCom extends NotificationProvider {
     name = "WeCom";
@@ -70,4 +71,4 @@ class WeCom extends NotificationProvider {
     }
 }
 
-module.exports = WeCom;
+export default WeCom;

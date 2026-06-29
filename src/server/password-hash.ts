@@ -1,13 +1,14 @@
 // @ts-nocheck
-const crypto = require("crypto");
-const { isBunRuntime } = require("./runtime");
 
 /**
  * Hash a password
  * @param {string} password Password to hash
  * @returns {Promise<string>} Hash
  */
-exports.generate = async function (password) {
+import crypto from "node:crypto";
+import { isBunRuntime } from "./runtime.ts";
+
+export async function generate(password) {
     if (isBunRuntime()) {
         return await Bun.password.hash(password, {
             algorithm: "argon2id",
@@ -15,7 +16,7 @@ exports.generate = async function (password) {
     }
 
     return generateScrypt(password);
-};
+}
 
 /**
  * Verify a password against a hash
@@ -23,7 +24,7 @@ exports.generate = async function (password) {
  * @param {string} hash Hash to verify against
  * @returns {boolean} Does the password match the hash?
  */
-exports.verify = async function (password, hash) {
+export async function verify(password, hash) {
     if (isSHA1(hash)) {
         return verifyLegacySHA1(password, hash);
     }
@@ -37,7 +38,7 @@ exports.verify = async function (password, hash) {
     }
 
     return verifyScrypt(password, hash);
-};
+}
 
 function verifyLegacySHA1(password, hash) {
     const parts = makeLegacySHA1BackwardCompatible(hash).split("$");
@@ -99,10 +100,12 @@ function isSHA1(hash) {
  * @param {string} hash Hash to check
  * @returns {boolean} Needs to be rehashed?
  */
-exports.needRehash = function (hash) {
+export function needRehash(hash) {
     return isBunRuntime() ? !isBunPasswordHash(hash) : isSHA1(hash);
-};
+}
 
 function isBunPasswordHash(hash) {
     return typeof hash === "string" && hash.startsWith("$argon2id$");
 }
+
+export default { generate, verify, needRehash };

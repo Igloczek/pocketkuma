@@ -1,10 +1,11 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert/strict");
-const { GenericContainer } = require("testcontainers");
-const { SNMPMonitorType } = require("../../src/server/monitor-types/snmp");
-const { UP } = require("../../src/util");
-const snmp = require("net-snmp");
+
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
+import { GenericContainer } from "testcontainers";
+import { SNMPMonitorType } from "../../src/server/monitor-types/snmp.ts";
+import { UP } from "../../src/util.ts";
+import snmp from "net-snmp";
 
 describe("SNMPMonitorType", () => {
     test(

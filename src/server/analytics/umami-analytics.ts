@@ -1,6 +1,4 @@
 // @ts-nocheck
-const jsesc = require("jsesc");
-const { escape } = require("html-escaper");
 
 /**
  * Returns a string that represents the javascript that is required to insert the Umami Analytics script
@@ -9,6 +7,9 @@ const { escape } = require("html-escaper");
  * @param {string} websiteId Website ID to use with the Umami Analytics script.
  * @returns {string} HTML script tags to inject into page
  */
+import jsesc from "jsesc";
+import { escape } from "html-escaper";
+
 function getUmamiAnalyticsScript(scriptUrl, websiteId) {
     let escapedScriptUrlJS = jsesc(scriptUrl, { isScriptContext: true });
     let escapedWebsiteIdJS = jsesc(websiteId, { isScriptContext: true });
@@ -32,6 +33,6 @@ function getUmamiAnalyticsScript(scriptUrl, websiteId) {
     `;
 }
 
-module.exports = {
-    getUmamiAnalyticsScript,
-};
+export { getUmamiAnalyticsScript };
+
+export default { getUmamiAnalyticsScript };

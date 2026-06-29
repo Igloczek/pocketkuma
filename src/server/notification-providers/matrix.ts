@@ -1,8 +1,9 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const Crypto = require("crypto");
-const { log } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import Crypto from "crypto";
+import { log } from "../../util.ts";
 
 class Matrix extends NotificationProvider {
     name = "matrix";
@@ -50,4 +51,4 @@ class Matrix extends NotificationProvider {
     }
 }
 
-module.exports = Matrix;
+export default Matrix;

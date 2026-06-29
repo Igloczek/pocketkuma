@@ -1,10 +1,11 @@
 // @ts-nocheck
-const { describe, test, beforeEach, afterEach } = require("node:test");
-const assert = require("node:assert");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { BunSQLiteRedbean } = require("../../src/server/bun-sqlite-store");
+
+import { describe, test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { BunSQLiteRedbean } from "../../src/server/bun-sqlite-store.ts";
 
 describe("Bun SQLite Redbean compatibility store", () => {
     let dir;
@@ -138,7 +139,7 @@ describe("Bun SQLite Redbean compatibility store", () => {
         ]);
         await store.exec(
             "INSERT INTO monitor (id, name, type, url, interval, retry_interval, accepted_statuscodes_json, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [1, "Monitor", "http", "http://127.0.0.1", 60, 20, "[\"200-299\"]", 1]
+            [1, "Monitor", "http", "http://127.0.0.1", 60, 20, '["200-299"]', 1]
         );
         await store.exec(
             "INSERT INTO monitor_group (monitor_id, group_id, weight, send_url, custom_url) VALUES (?, ?, ?, ?, ?)",

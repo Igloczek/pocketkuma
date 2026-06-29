@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { createI18n } from "vue-i18n/dist/vue-i18n.esm-browser.prod.js";
-import en from "./lang/en.json";
+import en from "./lang/en.json" with { type: "json" };
 
 const languageList = {
     "ar-SY": "العربية",

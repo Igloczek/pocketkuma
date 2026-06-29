@@ -1,5 +1,3 @@
-const { parse: parseTld } = require("tldts");
-
 /*
  * TODO:
  *  This migration file is scary, because the json file is dynamically updated.
@@ -7,7 +5,9 @@ const { parse: parseTld } = require("tldts");
  *  Problem 2: This migration only runs once, what happens if rdp-dns.json is updated after this migration has run?
  *  Have to investigate later.
  */
-const rdapDnsData = require("../../server/assets/rdap-dns.json");
+
+import { parse as parseTld } from "tldts";
+import rdapDnsData from "../../server/assets/rdap-dns.json" with { type: "json" };
 
 const TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD = {
     http: "url",
@@ -62,7 +62,7 @@ function hasRdapSupport(target, supportedTlds) {
     return supportedTlds.has(rootTld);
 }
 
-exports.up = async function (knex) {
+export const up = async function (knex) {
     const supportedTlds = getSupportedTlds();
 
     const monitors = await knex("monitor")
@@ -86,7 +86,7 @@ exports.up = async function (knex) {
     });
 };
 
-exports.down = async function (knex) {
+export const down = async function (knex) {
     await knex.schema.alterTable("monitor", function (table) {
         table.boolean("domain_expiry_notification").defaultTo(1).alter();
     });

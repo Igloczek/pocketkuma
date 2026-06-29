@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { RabbitMQContainer } = require("@testcontainers/rabbitmq");
-const { RabbitMqMonitorType } = require("../../../src/server/monitor-types/rabbitmq");
-const { UP, PENDING } = require("../../../src/util");
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { RabbitMQContainer } from "@testcontainers/rabbitmq";
+import { RabbitMqMonitorType } from "../../../src/server/monitor-types/rabbitmq.ts";
+import { UP, PENDING } from "../../../src/util.ts";
 
 describe(
     "RabbitMQ Single Node",

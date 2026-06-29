@@ -1,11 +1,4 @@
 // @ts-nocheck
-const passwordHash = require("./password-hash");
-const { R } = require("./redbean-compat");
-const { log } = require("../util");
-const { loginRateLimiter, apiRateLimiter } = require("./rate-limiter");
-const { Settings } = require("./settings");
-const dayjs = require("dayjs");
-const { textResponse } = require("./bun-response");
 
 /**
  * Login to web app
@@ -13,7 +6,15 @@ const { textResponse } = require("./bun-response");
  * @param {string} password Password to login with
  * @returns {Promise<(Bean|null)>} User or null if login failed
  */
-exports.login = async function (username, password) {
+import passwordHash from "./password-hash.ts";
+import { R } from "./redbean-compat.ts";
+import { log } from "../util.ts";
+import { loginRateLimiter, apiRateLimiter } from "./rate-limiter.ts";
+import { Settings } from "./settings.ts";
+import dayjs from "dayjs";
+import { textResponse } from "./bun-response.ts";
+
+export async function login(username, password) {
     if (typeof username !== "string" || typeof password !== "string") {
         return null;
     }
@@ -32,7 +33,7 @@ exports.login = async function (username, password) {
     }
 
     return null;
-};
+}
 
 /**
  * Validate a provided API key
@@ -77,7 +78,7 @@ async function authorizeUser(username, password) {
         return false;
     }
 
-    const user = await exports.login(username, password);
+    const user = await login(username, password);
     if (user !== null) {
         return true;
     }
@@ -150,7 +151,7 @@ function unauthorizedResponse(disableFrameSameOrigin) {
  * @param {boolean} options.disableFrameSameOrigin Disable SAMEORIGIN frame header
  * @returns {Promise<Response|null>} null when authorized, otherwise an auth response
  */
-exports.checkBasicAuthRequest = async function (request, options = {}) {
+export async function checkBasicAuthRequest(request, options = {}) {
     const disabledAuth = await Settings.get("disableAuth");
     if (disabledAuth) {
         return null;
@@ -169,7 +170,7 @@ exports.checkBasicAuthRequest = async function (request, options = {}) {
     }
 
     return authorized ? null : unauthorizedResponse(options.disableFrameSameOrigin);
-};
+}
 
 /**
  * Check HTTP API auth, using API keys when they are enabled.
@@ -177,9 +178,9 @@ exports.checkBasicAuthRequest = async function (request, options = {}) {
  * @param {object} options Auth options
  * @returns {Promise<Response|null>} null when authorized, otherwise an auth response
  */
-exports.checkAPIAuthRequest = async function (request, options = {}) {
-    return exports.checkBasicAuthRequest(request, {
+export async function checkAPIAuthRequest(request, options = {}) {
+    return checkBasicAuthRequest(request, {
         ...options,
         apiKeys: true,
     });
-};
+}

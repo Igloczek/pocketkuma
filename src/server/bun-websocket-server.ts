@@ -1,10 +1,10 @@
 // @ts-nocheck
 "use strict";
 
-const { randomUUID } = require("crypto");
-const { EventEmitter } = require("events");
-const { log } = require("../util");
-const { Settings } = require("./settings");
+import { randomUUID } from "crypto";
+import { EventEmitter } from "events";
+import { log } from "../util.ts";
+import { Settings } from "./settings.ts";
 
 const WS_PATH = "/ws";
 
@@ -226,7 +226,4 @@ class BunRealtimeAdapter extends EventEmitter {
     }
 }
 
-module.exports = {
-    BunRealtimeAdapter,
-    WS_PATH,
-};
+export { BunRealtimeAdapter, WS_PATH };
