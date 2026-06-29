@@ -1,4 +1,4 @@
-import { log } from "../../src/util.ts";
+import { log } from "@/util";
 import { createServer } from "net";
 import aedesFactory from "aedes";
 

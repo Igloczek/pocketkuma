@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { MonitorType } from "./monitor-type.ts";
-import { UP, DOWN, PENDING } from "../../util.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { UP, DOWN, PENDING } from "@/util";
 
 class ManualMonitorType extends MonitorType {
     name = "Manual";

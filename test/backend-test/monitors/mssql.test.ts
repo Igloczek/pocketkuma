@@ -6,8 +6,8 @@
  */
 import { describe, test, expect } from "bun:test";
 import { MSSQLServerContainer } from "@testcontainers/mssqlserver";
-import { MssqlMonitorType } from "../../../src/server/monitor-types/mssql.ts";
-import { UP, PENDING } from "../../../src/util.ts";
+import { MssqlMonitorType } from "@/server/monitor-types/mssql";
+import { UP, PENDING } from "@/util";
 
 async function createAndStartMSSQLContainer() {
     const container = await new MSSQLServerContainer("mcr.microsoft.com/mssql/server:2022-latest")

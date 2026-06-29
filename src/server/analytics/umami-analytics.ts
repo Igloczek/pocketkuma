@@ -7,12 +7,12 @@
  * @param {string} websiteId Website ID to use with the Umami Analytics script.
  * @returns {string} HTML script tags to inject into page
  */
-import jsesc from "jsesc";
-import { escape } from "html-escaper";
+import { escapeJsString, escapeJsJson } from "@/util/escape";
+import { escapeHtml } from "@/util/escape";
 
 function getUmamiAnalyticsScript(scriptUrl, websiteId) {
-    let escapedScriptUrlJS = jsesc(scriptUrl, { isScriptContext: true });
-    let escapedWebsiteIdJS = jsesc(websiteId, { isScriptContext: true });
+    let escapedScriptUrlJS = escapeJsString(scriptUrl, { isScriptContext: true });
+    let escapedWebsiteIdJS = escapeJsString(websiteId, { isScriptContext: true });
 
     if (escapedScriptUrlJS) {
         escapedScriptUrlJS = escapedScriptUrlJS.trim();
@@ -23,10 +23,10 @@ function getUmamiAnalyticsScript(scriptUrl, websiteId) {
     }
 
     // Escape the Script url for use in an HTML attribute.
-    let escapedScriptUrlHTMLAttribute = escape(escapedScriptUrlJS);
+    let escapedScriptUrlHTMLAttribute = escapeHtml(escapedScriptUrlJS);
 
     // Escape the website id for use in an HTML attribute.
-    let escapedWebsiteIdHTMLAttribute = escape(escapedWebsiteIdJS);
+    let escapedWebsiteIdHTMLAttribute = escapeHtml(escapedWebsiteIdJS);
 
     return `
         <script defer src="${escapedScriptUrlHTMLAttribute}" data-website-id="${escapedWebsiteIdHTMLAttribute}"></script>

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class SerwerSMS extends NotificationProvider {
     name = "serwersms";
@@ -33,7 +33,7 @@ class SerwerSMS extends NotificationProvider {
                 data.phone = notification.serwersmsPhoneNumber;
             }
 
-            let resp = await axios.post(url, data, config);
+            let resp = await httpClient.post(url, data, config);
 
             if (!resp.data.success) {
                 if (resp.data.error) {

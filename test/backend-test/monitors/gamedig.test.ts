@@ -1,8 +1,8 @@
 // @ts-nocheck
 
 import { describe, test, expect, spyOn } from "bun:test";
-import { GameDigMonitorType } from "../../../src/server/monitor-types/gamedig.ts";
-import { UP, PENDING } from "../../../src/util.ts";
+import { GameDigMonitorType } from "@/server/monitor-types/gamedig";
+import { UP, PENDING } from "@/util";
 import { GameDig } from "gamedig";
 
 describe("GameDig Monitor", () => {

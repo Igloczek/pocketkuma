@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class GrafanaOncall extends NotificationProvider {
     name = "GrafanaOncall";
@@ -25,7 +25,7 @@ class GrafanaOncall extends NotificationProvider {
                     message: msg,
                     state: "alerting",
                 };
-                await axios.post(notification.GrafanaOncallURL, grafanaupdata, config);
+                await httpClient.post(notification.GrafanaOncallURL, grafanaupdata, config);
                 return okMsg;
             } else if (heartbeatJSON["status"] === DOWN) {
                 let grafanadowndata = {
@@ -33,7 +33,7 @@ class GrafanaOncall extends NotificationProvider {
                     message: heartbeatJSON["msg"],
                     state: "alerting",
                 };
-                await axios.post(notification.GrafanaOncallURL, grafanadowndata, config);
+                await httpClient.post(notification.GrafanaOncallURL, grafanadowndata, config);
                 return okMsg;
             } else if (heartbeatJSON["status"] === UP) {
                 let grafanaupdata = {
@@ -41,7 +41,7 @@ class GrafanaOncall extends NotificationProvider {
                     message: heartbeatJSON["msg"],
                     state: "ok",
                 };
-                await axios.post(notification.GrafanaOncallURL, grafanaupdata, config);
+                await httpClient.post(notification.GrafanaOncallURL, grafanaupdata, config);
                 return okMsg;
             }
         } catch (error) {

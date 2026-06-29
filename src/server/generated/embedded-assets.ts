@@ -5,4 +5,4 @@ export {
     getEmbeddedAssetRef,
     readEmbeddedAsset,
     readEmbeddedAssetText,
-} from "./embedded-assets.bundle.ts";
+} from "@/server/generated/embedded-assets.bundle";

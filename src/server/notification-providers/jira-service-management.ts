@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { UP, DOWN } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { UP, DOWN } from "@/util";
 
 const okMsg = "Sent Successfully.";
 
@@ -50,7 +50,7 @@ class JiraServiceManagement extends NotificationProvider {
                 const getUrl = `${baseUrl}/alerts/alias?alias=${encodeURIComponent(monitorJSON.name)}`;
                 const config = this.getConfig(notification);
 
-                let alertResponse = await axios.get(getUrl, config);
+                let alertResponse = await httpClient.get(getUrl, config);
                 const alertId = alertResponse.data.id;
 
                 const closeUrl = `${baseUrl}/alerts/${alertId}/close`;
@@ -92,7 +92,7 @@ class JiraServiceManagement extends NotificationProvider {
     async post(notification, url, data) {
         let config = this.getConfig(notification);
 
-        let res = await axios.post(url, data, config);
+        let res = await httpClient.post(url, data, config);
         if (res.status == null) {
             return "Jira Service Management notification failed with invalid response!";
         }

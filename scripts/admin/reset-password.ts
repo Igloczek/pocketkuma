@@ -1,10 +1,10 @@
-import Database from "../../src/server/database.ts";
+import Database from "@/server/database";
 import { R } from "redbean-node";
 import readline from "readline";
-import { passwordStrength } from "check-password-strength";
-import { initJWTSecret } from "../../src/server/util-server.ts";
-import User from "../../src/server/model/user.ts";
-import { args } from "../../src/server/args.ts";
+import { passwordStrength } from "@/util/password-strength";
+import { initJWTSecret } from "@/server/util-server";
+import User from "@/server/model/user";
+import { args } from "@/server/args";
 
 console.log("== Uptime Kuma Reset Password Tool ==");
 

@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import { MonitorType } from "./monitor-type.ts";
-import { UP } from "../../util.ts";
-import { runCommand } from "../process-helper.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { UP } from "@/util";
+import { runCommand } from "@/server/process-helper";
 
 class SIPMonitorType extends MonitorType {
     name = "sip-options";

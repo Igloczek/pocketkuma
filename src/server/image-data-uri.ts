@@ -1,7 +1,7 @@
 // @ts-nocheck
 /*
 import fs from "fs";
-import { log } from "../util.ts";
+import { log } from "@/util";
 
     From https://github.com/DiegoZoracKy/image-data-uri/blob/master/lib/image-data-uri.js
     Modified with 0 dependencies

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class SMSPartner extends NotificationProvider {
     name = "SMSPartner";
@@ -33,7 +33,7 @@ class SMSPartner extends NotificationProvider {
             };
             config = this.getAxiosConfigWithProxy(config);
 
-            let resp = await axios.post(url, data, config);
+            let resp = await httpClient.post(url, data, config);
 
             if (resp.data.success !== true) {
                 throw Error(`Api returned ${resp.data.response.status}.`);

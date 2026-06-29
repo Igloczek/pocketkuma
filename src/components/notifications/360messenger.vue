@@ -95,8 +95,8 @@
 </template>
 
 <script>
-import HiddenInput from "../HiddenInput.vue";
-import TemplatedTextarea from "../TemplatedTextarea.vue";
+import HiddenInput from "@/components/HiddenInput.vue";
+import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
 import VueMultiselect from "vue-multiselect";
 
 export default {

@@ -11,7 +11,7 @@ class MonitorType {
     /**
      * Variables supported by this type. e.g. an HTTP type could have a "response_code" variable to test against.
      * This property controls the choices displayed in the monitor edit form.
-     * @type {import("../monitor-conditions/variables").ConditionVariable[]}
+     * @type {import("@/server/monitor-conditions/variables").ConditionVariable[]}
      */
     conditionVariables = [];
 

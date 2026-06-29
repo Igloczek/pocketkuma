@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class Line extends NotificationProvider {
     name = "line";
@@ -32,7 +32,7 @@ class Line extends NotificationProvider {
                         },
                     ],
                 };
-                await axios.post(url, testMessage, config);
+                await httpClient.post(url, testMessage, config);
             } else if (heartbeatJSON["status"] === DOWN) {
                 let downMessage = {
                     to: notification.lineUserID,
@@ -49,7 +49,7 @@ class Line extends NotificationProvider {
                         },
                     ],
                 };
-                await axios.post(url, downMessage, config);
+                await httpClient.post(url, downMessage, config);
             } else if (heartbeatJSON["status"] === UP) {
                 let upMessage = {
                     to: notification.lineUserID,
@@ -66,7 +66,7 @@ class Line extends NotificationProvider {
                         },
                     ],
                 };
-                await axios.post(url, upMessage, config);
+                await httpClient.post(url, upMessage, config);
             }
             return okMsg;
         } catch (error) {

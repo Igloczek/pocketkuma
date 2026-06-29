@@ -1,7 +1,7 @@
 // @ts-nocheck
 import dayjs from "dayjs";
 import { getTimeZones } from "@vvo/tzdb";
-import { localeDirection, currentLocale } from "./i18n";
+import { localeDirection, currentLocale } from "@/i18n";
 import { POSITION } from "vue-toastification";
 
 /**

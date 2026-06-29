@@ -5,8 +5,8 @@
 </template>
 
 <script>
-import axios from "axios";
-import StatusPage from "./StatusPage.vue";
+import { fetchDevApi } from "@/util/dev-api-base";
+import StatusPage from "@/pages/StatusPage.vue";
 
 export default {
     components: {
@@ -24,7 +24,7 @@ export default {
         // 3. Vue Frontend Dev (not setup database yet)
         let res;
         try {
-            res = (await axios.get("/api/entry-page")).data;
+            res = await (await fetchDevApi("/api/entry-page")).json();
 
             if (res.type === "statusPageMatchedDomain") {
                 this.statusPageSlug = res.statusPageSlug;

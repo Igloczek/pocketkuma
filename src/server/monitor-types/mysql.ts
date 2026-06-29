@@ -1,13 +1,13 @@
 // @ts-nocheck
 
-import { MonitorType } from "./monitor-type.ts";
-import { UP } from "../../util.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { UP } from "@/util";
 import dayjs from "dayjs";
 import mysql from "mysql2";
-import { ConditionVariable } from "../monitor-conditions/variables.ts";
-import { defaultStringOperators } from "../monitor-conditions/operators.ts";
-import { ConditionExpressionGroup } from "../monitor-conditions/expression.ts";
-import { evaluateExpressionGroup } from "../monitor-conditions/evaluator.ts";
+import { ConditionVariable } from "@/server/monitor-conditions/variables";
+import { defaultStringOperators } from "@/server/monitor-conditions/operators";
+import { ConditionExpressionGroup } from "@/server/monitor-conditions/expression";
+import { evaluateExpressionGroup } from "@/server/monitor-conditions/evaluator";
 
 class MysqlMonitorType extends MonitorType {
     name = "mysql";

@@ -155,8 +155,8 @@
 </template>
 
 <script>
-import HiddenInput from "../../components/HiddenInput.vue";
-import Confirm from "../Confirm.vue";
+import HiddenInput from "@/components/HiddenInput.vue";
+import Confirm from "@/components/Confirm.vue";
 
 const prefix = "cloudflared_";
 

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import Monitor from "../../src/server/model/monitor.ts";
+import Monitor from "@/server/model/monitor";
 
 describe("monitor scheduler timer control", () => {
     const originalSetTimeout = global.setTimeout;

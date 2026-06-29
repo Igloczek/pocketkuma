@@ -132,9 +132,9 @@
 </template>
 
 <script>
-import HiddenInput from "../HiddenInput.vue";
-import TemplatedTextarea from "../TemplatedTextarea.vue";
-import axios from "axios";
+import HiddenInput from "@/components/HiddenInput.vue";
+import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+
 
 export default {
     components: {
@@ -182,10 +182,14 @@ Uptime Kuma Alert{% if monitorJSON %} - {{ monitorJSON['name'] }}{% endif %}
          */
         async autoGetTelegramChatID() {
             try {
-                let res = await axios.get(this.telegramGetUpdatesURL("withToken"));
+                const res = await fetch(this.telegramGetUpdatesURL("withToken"));
+                if (!res.ok) {
+                    throw new Error(`Request failed with status ${res.status}`);
+                }
+                let data = await res.json();
 
-                if (res.data.result.length >= 1) {
-                    let update = res.data.result[res.data.result.length - 1];
+                if (data.result.length >= 1) {
+                    let update = data.result[data.result.length - 1];
 
                     if (update.channel_post) {
                         this.$parent.notification.telegramChatID = update.channel_post.chat.id;

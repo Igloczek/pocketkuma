@@ -166,8 +166,8 @@
 </template>
 
 <script>
-import Login from "../components/Login.vue";
-import compareVersions from "compare-versions";
+import Login from "@/components/Login.vue";
+import { compare as compareVersions } from "@/util/version-compare";
 import { useToast } from "vue-toastification";
 const toast = useToast();
 
@@ -195,7 +195,7 @@ export default {
 
         hasNewVersion() {
             if (this.$root.info.latestVersion && this.$root.info.version) {
-                return compareVersions(this.$root.info.latestVersion, this.$root.info.version) >= 1;
+                return compareVersions(this.$root.info.latestVersion, this.$root.info.version, ">");
             } else {
                 return false;
             }

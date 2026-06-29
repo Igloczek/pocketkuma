@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import { DOWN, MAINTENANCE, PENDING, UP } from "../util.ts";
+import { DOWN, MAINTENANCE, PENDING, UP } from "@/util";
 
 export default {
     props: {

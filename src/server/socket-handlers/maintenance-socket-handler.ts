@@ -1,11 +1,11 @@
 // @ts-nocheck
 
-import { checkLogin } from "../util-server.ts";
-import { log } from "../../util.ts";
-import { R } from "../redbean-compat.ts";
-import apicache from "../modules/apicache.ts";
-import { UptimeKumaServer } from "../uptime-kuma-server.ts";
-import Maintenance from "../model/maintenance.ts";
+import { checkLogin } from "@/server/util-server";
+import { log } from "@/util";
+import { R } from "@/server/redbean-compat";
+import apicache from "@/server/modules/apicache";
+import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import Maintenance from "@/server/model/maintenance";
 
 const server = UptimeKumaServer.getInstance();
 

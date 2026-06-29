@@ -23,7 +23,7 @@
 </template>
 
 <script>
-import DockerHostDialog from "../../components/DockerHostDialog.vue";
+import DockerHostDialog from "@/components/DockerHostDialog.vue";
 
 export default {
     components: {

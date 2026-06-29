@@ -1,7 +1,7 @@
 import { R } from "redbean-node";
-import Database from "../../src/server/database.ts";
-import { args } from "../../src/server/args.ts";
-import { Settings } from "../../src/server/settings.ts";
+import Database from "@/server/database";
+import { args } from "@/server/args";
+import { Settings } from "@/server/settings";
 
 const main = async () => {
     console.log("Connecting the database");

@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class PushDeer extends NotificationProvider {
     name = "PushDeer";
@@ -36,7 +36,7 @@ class PushDeer extends NotificationProvider {
 
         try {
             let config = this.getAxiosConfigWithProxy({});
-            let res = await axios.post(url, data, config);
+            let res = await httpClient.post(url, data, config);
 
             if ("error" in res.data) {
                 let error = res.data.error;

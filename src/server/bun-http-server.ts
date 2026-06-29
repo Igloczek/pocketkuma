@@ -3,19 +3,19 @@
 
 import fs from "fs";
 import path from "path";
-import { isDev, log } from "../util.ts";
-import { setting, printServerUrls } from "./util-server.ts";
-import config from "./config.ts";
-import Database from "./database.ts";
-import StatusPage from "./model/status_page.ts";
-import { Settings } from "./settings.ts";
-import { Prometheus } from "./prometheus.ts";
-import { checkAPIAuthRequest } from "./auth.ts";
-import { handleApiRequest } from "./routers/api-router.ts";
-import { handleStatusPageRequest } from "./routers/status-page-router.ts";
-import { applyCommonHeaders, htmlResponse, jsonResponse, redirectResponse, textResponse } from "./bun-response.ts";
-import { isCompiledBinary } from "./app-paths.ts";
-import { hasEmbeddedAsset, readEmbeddedAsset } from "./generated/embedded-assets.ts";
+import { isDev, log } from "@/util";
+import { setting, printServerUrls } from "@/server/util-server";
+import config from "@/server/config";
+import Database from "@/server/database";
+import StatusPage from "@/server/model/status_page";
+import { Settings } from "@/server/settings";
+import { Prometheus } from "@/server/prometheus";
+import { checkAPIAuthRequest } from "@/server/auth";
+import { handleApiRequest } from "@/server/routers/api-router";
+import { handleStatusPageRequest } from "@/server/routers/status-page-router";
+import { applyCommonHeaders, htmlResponse, jsonResponse, redirectResponse, textResponse } from "@/server/bun-response";
+import { isCompiledBinary } from "@/server/app-paths";
+import { hasEmbeddedAsset, readEmbeddedAsset } from "@/server/generated/embedded-assets";
 
 const MIME_TYPES = {
     ".br": "application/octet-stream",

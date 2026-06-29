@@ -1,11 +1,7 @@
 // @ts-nocheck
 
-// polyfill WebSocket for nostr-tools
-import NotificationProvider from "./notification-provider.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
 import { finalizeEvent, Relay, nip19, nip59 } from "nostr-tools";
-import WebSocket from "isomorphic-ws";
-
-global.WebSocket = WebSocket;
 
 class Nostr extends NotificationProvider {
     name = "nostr";

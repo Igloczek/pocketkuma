@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class LunaSea extends NotificationProvider {
     name = "lunasea";
@@ -22,7 +22,7 @@ class LunaSea extends NotificationProvider {
                     title: "Uptime Kuma Alert",
                     body: msg,
                 };
-                await axios.post(`${url}/custom/${target}`, testdata, config);
+                await httpClient.post(`${url}/custom/${target}`, testdata, config);
                 return okMsg;
             }
 
@@ -34,7 +34,7 @@ class LunaSea extends NotificationProvider {
                         heartbeatJSON["msg"] +
                         `\nTime (${heartbeatJSON["timezone"]}): ${heartbeatJSON["localDateTime"]}`,
                 };
-                await axios.post(`${url}/custom/${target}`, downdata, config);
+                await httpClient.post(`${url}/custom/${target}`, downdata, config);
                 return okMsg;
             }
 
@@ -46,7 +46,7 @@ class LunaSea extends NotificationProvider {
                         heartbeatJSON["msg"] +
                         `\nTime (${heartbeatJSON["timezone"]}): ${heartbeatJSON["localDateTime"]}`,
                 };
-                await axios.post(`${url}/custom/${target}`, updata, config);
+                await httpClient.post(`${url}/custom/${target}`, updata, config);
                 return okMsg;
             }
         } catch (error) {

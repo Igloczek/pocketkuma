@@ -285,10 +285,10 @@
 </template>
 
 <script>
-import HiddenInput from "../HiddenInput.vue";
-import TemplatedInput from "../TemplatedInput.vue";
-import TemplatedTextarea from "../TemplatedTextarea.vue";
-import ToggleSection from "../ToggleSection.vue";
+import HiddenInput from "@/components/HiddenInput.vue";
+import TemplatedInput from "@/components/TemplatedInput.vue";
+import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import ToggleSection from "@/components/ToggleSection.vue";
 
 export default {
     components: {

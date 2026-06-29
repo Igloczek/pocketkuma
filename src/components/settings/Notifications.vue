@@ -135,8 +135,8 @@
 </template>
 
 <script>
-import NotificationDialog from "../../components/NotificationDialog.vue";
-import ActionInput from "../ActionInput.vue";
+import NotificationDialog from "@/components/NotificationDialog.vue";
+import ActionInput from "@/components/ActionInput.vue";
 
 export default {
     components: {

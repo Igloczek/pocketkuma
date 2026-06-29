@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
-import NotificationProvider from "../../../src/server/notification-providers/notification-provider.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
 
 describe("NotificationProvider.throwGeneralAxiosError()", () => {
     const provider = new NotificationProvider();

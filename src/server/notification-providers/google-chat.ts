@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { getMonitorRelativeURL, UP } from "../../util.ts";
-import { Settings } from "../settings.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { getMonitorRelativeURL, UP } from "@/util";
+import { Settings } from "@/server/settings";
 
 class GoogleChat extends NotificationProvider {
     name = "GoogleChat";
@@ -20,7 +20,7 @@ class GoogleChat extends NotificationProvider {
             retries = retries > 10 ? 10 : retries; // Enforce maximum retries in backend
             while (retries > 0) {
                 try {
-                    await axios.post(url, data, config);
+                    await httpClient.post(url, data, config);
                     return;
                 } catch (error) {
                     if (error.response && error.response.status === 429) {

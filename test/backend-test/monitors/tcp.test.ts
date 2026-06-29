@@ -1,10 +1,10 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
-import { TCPMonitorType } from "../../../src/server/monitor-types/tcp.ts";
-import { UP, PENDING } from "../../../src/util.ts";
+import { TCPMonitorType } from "@/server/monitor-types/tcp";
+import { UP, PENDING } from "@/util";
 import net from "net";
-import { parseTlsAlertNumber, getTlsAlertName } from "../../../src/server/monitor-types/tcp.ts";
+import { parseTlsAlertNumber, getTlsAlertName } from "@/server/monitor-types/tcp";
 
 describe("TCP Monitor", () => {
     /**

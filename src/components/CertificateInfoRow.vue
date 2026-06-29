@@ -42,7 +42,7 @@
 </template>
 
 <script>
-import Datetime from "../components/Datetime.vue";
+import Datetime from "@/components/Datetime.vue";
 export default {
     name: "CertificateInfoRow",
     components: {

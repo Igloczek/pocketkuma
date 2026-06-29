@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { test, expect } from "bun:test";
-import { ConditionExpressionGroup, ConditionExpression } from "../../../src/server/monitor-conditions/expression.ts";
+import { ConditionExpressionGroup, ConditionExpression } from "@/server/monitor-conditions/expression";
 
 test("Test ConditionExpressionGroup.fromMonitor", () => {
     const monitor = {

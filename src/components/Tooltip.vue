@@ -23,7 +23,7 @@
 </template>
 
 <script>
-import { DOWN, UP, PENDING, MAINTENANCE } from "../util.ts";
+import { DOWN, UP, PENDING, MAINTENANCE } from "@/util";
 
 export default {
     name: "Tooltip",

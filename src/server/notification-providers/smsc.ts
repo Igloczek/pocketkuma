@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class SMSC extends NotificationProvider {
     name = "smsc";
@@ -34,7 +34,7 @@ class SMSC extends NotificationProvider {
                 getArray.push("sender=" + notification.smscSenderName);
             }
 
-            let resp = await axios.get(url + getArray.join("&"), config);
+            let resp = await httpClient.get(url + getArray.join("&"), config);
             if (resp.data.id === undefined) {
                 let error = `Something gone wrong. Api returned code ${resp.data.error_code}: ${resp.data.error}`;
                 this.throwGeneralAxiosError(error);

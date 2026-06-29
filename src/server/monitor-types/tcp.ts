@@ -4,11 +4,11 @@
  * TLS Alert codes as defined in RFC 5246 and RFC 8446
  * @see https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-6
  */
-import { MonitorType } from "./monitor-type.ts";
-import { UP, PING_GLOBAL_TIMEOUT_DEFAULT, log } from "../../util.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { UP, PING_GLOBAL_TIMEOUT_DEFAULT, log } from "@/util";
 
 const TIMEOUT = PING_GLOBAL_TIMEOUT_DEFAULT;
-import { checkCertificate } from "../util-server.ts";
+import { checkCertificate } from "@/server/util-server";
 import tls from "tls";
 import net from "net";
 

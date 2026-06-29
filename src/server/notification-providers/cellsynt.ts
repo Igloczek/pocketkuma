@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Cellsynt extends NotificationProvider {
     name = "Cellsynt";
@@ -25,7 +25,7 @@ class Cellsynt extends NotificationProvider {
         };
         try {
             let config = this.getAxiosConfigWithProxy(data);
-            const resp = await axios.post("https://se-1.cellsynt.net/sms.php", null, config);
+            const resp = await httpClient.post("https://se-1.cellsynt.net/sms.php", null, config);
             if (resp.data == null) {
                 throw new Error("Could not connect to Cellsynt, please try again.");
             } else if (resp.data.includes("Error:")) {

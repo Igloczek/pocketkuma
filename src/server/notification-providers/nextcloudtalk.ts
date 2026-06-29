@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import { UP, DOWN } from "../../util.ts";
+import { UP, DOWN } from "@/util";
 import Crypto from "crypto";
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class NextcloudTalk extends NotificationProvider {
     name = "nextcloudtalk";
@@ -45,7 +45,7 @@ class NextcloudTalk extends NotificationProvider {
         };
 
         try {
-            let result = await axios.post(url, data, options);
+            let result = await httpClient.post(url, data, options);
 
             if (result?.status === 201) {
                 return okMsg;

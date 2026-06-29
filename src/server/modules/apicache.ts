@@ -1,1 +1,1 @@
-export { default } from "./apicache/index.ts";
+export { default } from "@/server/modules/apicache/index";

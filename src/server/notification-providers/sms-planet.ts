@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class SMSPlanet extends NotificationProvider {
     name = "SMSPlanet";
@@ -28,7 +28,7 @@ class SMSPlanet extends NotificationProvider {
                 msg: msg.replace(/🔴/, "❌"),
             };
 
-            let response = await axios.post(url, data, config);
+            let response = await httpClient.post(url, data, config);
             if (!response.data?.messageId) {
                 throw new Error(response.data?.errorMsg ?? "SMSPlanet server did not respond with the expected result");
             }

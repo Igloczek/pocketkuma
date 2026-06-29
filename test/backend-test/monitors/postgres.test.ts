@@ -2,8 +2,8 @@
 
 import { describe, test, expect } from "bun:test";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
-import { PostgresMonitorType } from "../../../src/server/monitor-types/postgres.ts";
-import { UP, PENDING } from "../../../src/util.ts";
+import { PostgresMonitorType } from "@/server/monitor-types/postgres";
+import { UP, PENDING } from "@/util";
 
 describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
     "Postgres Single Node",

@@ -62,8 +62,8 @@
 </template>
 
 <script>
-import Confirm from "../components/Confirm.vue";
-import { getResBaseURL } from "../util-frontend";
+import Confirm from "@/components/Confirm.vue";
+import { getResBaseURL } from "@/util-frontend";
 
 export default {
     components: {

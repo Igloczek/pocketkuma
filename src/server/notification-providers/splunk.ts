@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { UP, DOWN, getMonitorRelativeURL } from "../../util.ts";
-import { Settings } from "../settings.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { UP, DOWN, getMonitorRelativeURL } from "@/util";
+import { Settings } from "@/server/settings";
 
 let successMessage = "Sent Successfully.";
 
@@ -103,7 +103,7 @@ class Splunk extends NotificationProvider {
             options.client_url = baseURL + getMonitorRelativeURL(monitorInfo.id);
         }
 
-        let result = await axios.request(options);
+        let result = await httpClient.request(options);
         this.checkResult(result);
         if (result.statusText != null) {
             return "Splunk notification succeed: " + result.statusText;

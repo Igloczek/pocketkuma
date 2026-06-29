@@ -176,8 +176,8 @@
 <script>
 import { Modal } from "bootstrap";
 import VueMultiselect from "vue-multiselect";
-import { colorOptions } from "../util-frontend";
-import Tag from "../components/Tag.vue";
+import { colorOptions } from "@/util-frontend";
+import Tag from "@/components/Tag.vue";
 
 /**
  * @typedef Tag

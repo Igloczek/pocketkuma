@@ -2510,12 +2510,14 @@
                                         <option value="oauth2-cc">
                                             {{ $t("OAuth2: Client Credentials") }}
                                         </option>
-                                        <option value="ntlm">NTLM</option>
-                                        <option value="mtls">mTLS</option>
                                     </select>
                                 </div>
                                 <template v-if="monitor.authMethod && monitor.authMethod !== null">
                                     <template v-if="monitor.authMethod === 'mtls'">
+                                        <div class="alert alert-warning my-3">
+                                            mTLS authentication is not supported by the Bun fetch HTTP client. Choose
+                                            another authentication method to restore monitoring.
+                                        </div>
                                         <div class="my-3">
                                             <label for="tls-cert" class="form-label">
                                                 {{ $t("mtls-auth-server-cert-label") }}
@@ -2671,31 +2673,10 @@
                                                 :placeholder="$t('Password')"
                                             />
                                         </div>
-                                        <template v-if="monitor.authMethod === 'ntlm'">
-                                            <div class="my-3">
-                                                <label for="ntlm-domain" class="form-label">{{ $t("Domain") }}</label>
-                                                <input
-                                                    id="ntlm-domain"
-                                                    v-model="monitor.authDomain"
-                                                    type="text"
-                                                    class="form-control"
-                                                    :placeholder="$t('Domain')"
-                                                />
-                                            </div>
-
-                                            <div class="my-3">
-                                                <label for="ntlm-workstation" class="form-label">
-                                                    {{ $t("Workstation") }}
-                                                </label>
-                                                <input
-                                                    id="ntlm-workstation"
-                                                    v-model="monitor.authWorkstation"
-                                                    type="text"
-                                                    class="form-control"
-                                                    :placeholder="$t('Workstation')"
-                                                />
-                                            </div>
-                                        </template>
+                                        <div v-if="monitor.authMethod === 'ntlm'" class="alert alert-warning my-3">
+                                            NTLM authentication is no longer supported. Choose another authentication
+                                            method to restore monitoring.
+                                        </div>
                                     </template>
                                 </template>
                             </template>
@@ -3100,27 +3081,27 @@
 <script>
 import VueMultiselect from "vue-multiselect";
 import { useToast } from "vue-toastification";
-import ActionSelect from "../components/ActionSelect.vue";
-import CopyableInput from "../components/CopyableInput.vue";
-import CreateGroupDialog from "../components/CreateGroupDialog.vue";
-import Confirm from "../components/Confirm.vue";
-import NotificationDialog from "../components/NotificationDialog.vue";
-import DockerHostDialog from "../components/DockerHostDialog.vue";
-import RemoteBrowserDialog from "../components/RemoteBrowserDialog.vue";
-import ProxyDialog from "../components/ProxyDialog.vue";
-import TagsManager from "../components/TagsManager.vue";
+import ActionSelect from "@/components/ActionSelect.vue";
+import CopyableInput from "@/components/CopyableInput.vue";
+import CreateGroupDialog from "@/components/CreateGroupDialog.vue";
+import Confirm from "@/components/Confirm.vue";
+import NotificationDialog from "@/components/NotificationDialog.vue";
+import DockerHostDialog from "@/components/DockerHostDialog.vue";
+import RemoteBrowserDialog from "@/components/RemoteBrowserDialog.vue";
+import ProxyDialog from "@/components/ProxyDialog.vue";
+import TagsManager from "@/components/TagsManager.vue";
 import {
     genSecret,
     MAX_INTERVAL_SECOND,
     MIN_INTERVAL_SECOND,
     sleep,
     TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD,
-} from "../util.ts";
-import { timeDurationFormatter } from "../util-frontend";
-import isFQDN from "validator/lib/isFQDN";
-import isIP from "validator/lib/isIP";
-import HiddenInput from "../components/HiddenInput.vue";
-import EditMonitorConditions from "../components/EditMonitorConditions.vue";
+} from "@/util";
+import { timeDurationFormatter } from "@/util-frontend";
+import isFQDN from "@/util/is-fqdn";
+import isIP from "@/util/is-ip";
+import HiddenInput from "@/components/HiddenInput.vue";
+import EditMonitorConditions from "@/components/EditMonitorConditions.vue";
 
 const toast = useToast();
 

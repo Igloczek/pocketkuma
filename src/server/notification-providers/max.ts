@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Max extends NotificationProvider {
     name = "max";
@@ -37,7 +37,7 @@ class Max extends NotificationProvider {
             }
 
             const url = `${baseUrl}/messages?chat_id=${encodeURIComponent(chatId)}`;
-            await axios.post(url, body, config);
+            await httpClient.post(url, body, config);
 
             return okMsg;
         } catch (error) {

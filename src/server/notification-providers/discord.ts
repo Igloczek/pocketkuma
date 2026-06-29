@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 import dayjs from "dayjs";
-import { DOWN, UP } from "../../util.ts";
+import { DOWN, UP } from "@/util";
 
 class Discord extends NotificationProvider {
     name = "discord";
@@ -30,7 +30,7 @@ class Discord extends NotificationProvider {
             // Check if the webhook has an avatar
             let webhookHasAvatar = true;
             try {
-                const webhookInfo = await axios.get(webhookUrl.toString(), config);
+                const webhookInfo = await httpClient.get(webhookUrl.toString(), config);
                 webhookHasAvatar = !!webhookInfo.data.avatar;
             } catch (e) {
                 // If we can't verify, we assume he has an avatar to avoid forcing the default avatar
@@ -64,7 +64,7 @@ class Discord extends NotificationProvider {
                 if (notification.discordSuppressNotifications) {
                     discordtestdata.flags = SUPPRESS_NOTIFICATIONS_FLAG;
                 }
-                await axios.post(webhookUrl.toString(), discordtestdata, config);
+                await httpClient.post(webhookUrl.toString(), discordtestdata, config);
                 return okMsg;
             }
 
@@ -90,7 +90,7 @@ class Discord extends NotificationProvider {
                 if (notification.discordSuppressNotifications) {
                     payload.flags = SUPPRESS_NOTIFICATIONS_FLAG;
                 }
-                await axios.post(webhookUrl.toString(), payload, config);
+                await httpClient.post(webhookUrl.toString(), payload, config);
                 return okMsg;
             }
 
@@ -117,7 +117,7 @@ class Discord extends NotificationProvider {
                 if (notification.discordSuppressNotifications) {
                     payload.flags = SUPPRESS_NOTIFICATIONS_FLAG;
                 }
-                await axios.post(webhookUrl.toString(), payload, config);
+                await httpClient.post(webhookUrl.toString(), payload, config);
                 return okMsg;
             }
 
@@ -174,7 +174,7 @@ class Discord extends NotificationProvider {
                     discorddowndata.flags = SUPPRESS_NOTIFICATIONS_FLAG;
                 }
 
-                await axios.post(webhookUrl.toString(), discorddowndata, config);
+                await httpClient.post(webhookUrl.toString(), discorddowndata, config);
                 return okMsg;
             } else if (heartbeatJSON["status"] === UP) {
                 const backOnlineTimestamp = dayjs.utc(heartbeatJSON["time"]).unix();
@@ -254,7 +254,7 @@ class Discord extends NotificationProvider {
                     discordupdata.flags = SUPPRESS_NOTIFICATIONS_FLAG;
                 }
 
-                await axios.post(webhookUrl.toString(), discordupdata, config);
+                await httpClient.post(webhookUrl.toString(), discordupdata, config);
                 return okMsg;
             }
         } catch (error) {

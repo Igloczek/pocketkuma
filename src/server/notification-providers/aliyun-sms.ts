@@ -1,10 +1,10 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import { DOWN, UP } from "../../util.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import { DOWN, UP } from "@/util";
+import httpClient from "@/server/http-client";
 import Crypto from "crypto";
-import qs from "qs";
+import formUrlencode from "@/util/form-urlencode";
 
 class AliyunSMS extends NotificationProvider {
     name = "AliyunSMS";
@@ -75,12 +75,12 @@ class AliyunSMS extends NotificationProvider {
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
             },
-            data: qs.stringify(params),
+            data: formUrlencode(params),
         };
 
         config = this.getAxiosConfigWithProxy(config);
 
-        let result = await axios(config);
+        let result = await httpClient.request(config);
         if (result.data.Message === "OK") {
             return true;
         }

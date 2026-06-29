@@ -7,21 +7,21 @@
  * @type {UptimeKumaServer}
  */
 import fs from "fs";
-import { R } from "./redbean-compat.ts";
-import { log } from "../util.ts";
-import Database from "./database.ts";
+import { R } from "@/server/redbean-compat";
+import { log } from "@/util";
+import Database from "@/server/database";
 import util from "util";
-import { Settings } from "./settings.ts";
+import { Settings } from "@/server/settings";
 import dayjs from "dayjs";
 import path from "path";
-import axios from "axios";
-import { BunRealtimeAdapter } from "./bun-websocket-server.ts";
-import { runCommandChecked } from "./process-helper.ts";
-import { createMonitorTypeList, getMonitorType } from "./monitor-runtime-registry.ts";
-import Monitor from "./model/monitor.ts";
-import packageJson from "../../package.json" with { type: "json" };
-import { isCompiledBinary } from "./app-paths.ts";
-import { getEmbeddedAssetRef } from "./generated/embedded-assets.ts";
+import httpClient from "@/server/http-client";
+import { BunRealtimeAdapter } from "@/server/bun-websocket-server";
+import { runCommandChecked } from "@/server/process-helper";
+import { createMonitorTypeList, getMonitorType } from "@/server/monitor-runtime-registry";
+import Monitor from "@/server/model/monitor";
+import packageJson from "@/package-meta";
+import { isCompiledBinary } from "@/server/app-paths";
+import { getEmbeddedAssetRef } from "@/server/generated/embedded-assets";
 
 class UptimeKumaServer {
     /**
@@ -80,11 +80,12 @@ class UptimeKumaServer {
      *
      */
     constructor() {
-        // Set axios default user-agent to Uptime-Kuma/version
-        axios.defaults.headers.common["User-Agent"] = this.getUserAgent();
-
-        // Set default axios timeout to 5 minutes instead of infinity
-        axios.defaults.timeout = 300 * 1000;
+        httpClient.setDefaults({
+            headers: {
+                "User-Agent": this.getUserAgent(),
+            },
+            timeout: 300 * 1000,
+        });
 
         log.info("server", "Creating Bun realtime instance");
         log.info("server", "Server Type: Bun.serve HTTP");
@@ -128,7 +129,7 @@ class UptimeKumaServer {
     /**
      * Load an optional monitor implementation on demand.
      * @param {string} type Monitor type
-     * @returns {Promise<import("./monitor-types/monitor-type").MonitorType|null>} Monitor type instance
+     * @returns {Promise<import("@/server/monitor-types/monitor-type").MonitorType|null>} Monitor type instance
      */
     async getMonitorType(type) {
         return getMonitorType(type, this);

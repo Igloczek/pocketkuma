@@ -2,9 +2,9 @@
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import http from "node:http";
-import httpClient from "../../src/server/http-client.ts";
-import Monitor from "../../src/server/model/monitor.ts";
-import Heartbeat from "../../src/server/model/heartbeat.ts";
+import httpClient from "@/server/http-client";
+import Monitor from "@/server/model/monitor";
+import Heartbeat from "@/server/model/heartbeat";
 
 describe("fetch HTTP client", () => {
     let server;
@@ -35,6 +35,18 @@ describe("fetch HTTP client", () => {
             if (req.url === "/redirect") {
                 res.writeHead(302, { Location: "/ok" });
                 res.end();
+                return;
+            }
+
+            if (req.url === "/post-redirect" && req.method === "POST") {
+                res.writeHead(303, { Location: "/post-target" });
+                res.end();
+                return;
+            }
+
+            if (req.url === "/post-target" && req.method === "GET") {
+                res.writeHead(200, { "Content-Type": "application/json" });
+                res.end(JSON.stringify({ method: "GET" }));
                 return;
             }
 
@@ -104,6 +116,25 @@ describe("fetch HTTP client", () => {
         } catch (error) {
             expect(error.response.status).toBe(503);
             expect(error.response.data).toEqual({ error: "unavailable" });
+        }
+    });
+
+    test("converts POST to GET when following 303 redirects", async () => {
+        const res = await httpClient.post(`${baseUrl}/post-redirect`, { hello: "world" });
+
+        expect(res.status).toBe(200);
+        expect(res.data).toEqual({ method: "GET" });
+    });
+
+    test("detects timeout cancellations via isCancel", async () => {
+        try {
+            await httpClient.request({
+                url: `${baseUrl}/slow`,
+                timeout: 25,
+            });
+            expect.unreachable();
+        } catch (error) {
+            expect(httpClient.isCancel(error)).toBe(true);
         }
     });
 

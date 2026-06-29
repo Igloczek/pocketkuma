@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class Feishu extends NotificationProvider {
     name = "Feishu";
@@ -22,7 +22,7 @@ class Feishu extends NotificationProvider {
                         text: msg,
                     },
                 };
-                await axios.post(notification.feishuWebHookUrl, testdata, config);
+                await httpClient.post(notification.feishuWebHookUrl, testdata, config);
                 return okMsg;
             }
 
@@ -52,7 +52,7 @@ class Feishu extends NotificationProvider {
                         ],
                     },
                 };
-                await axios.post(notification.feishuWebHookUrl, downdata, config);
+                await httpClient.post(notification.feishuWebHookUrl, downdata, config);
                 return okMsg;
             }
 
@@ -82,7 +82,7 @@ class Feishu extends NotificationProvider {
                         ],
                     },
                 };
-                await axios.post(notification.feishuWebHookUrl, updata, config);
+                await httpClient.post(notification.feishuWebHookUrl, updata, config);
                 return okMsg;
             }
         } catch (error) {

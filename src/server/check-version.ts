@@ -1,10 +1,10 @@
 // @ts-nocheck
 
-import { setSetting, setting } from "./util-server.ts";
-import axios from "axios";
-import compareVersions from "compare-versions";
-import { log } from "../util.ts";
-import packageJson from "../../package.json" with { type: "json" };
+import { setSetting, setting } from "@/server/util-server";
+import httpClient from "@/server/http-client";
+import { compare as compareVersions } from "@/util/version-compare";
+import { log } from "@/util";
+import packageJson from "@/package-meta";
 
 export const version = packageJson.version;
 export let latestVersion = null;
@@ -24,7 +24,7 @@ export const startInterval = () => {
         log.debug("update-checker", "Retrieving latest versions");
 
         try {
-            const res = await axios.get(UPDATE_CHECKER_LATEST_VERSION_URL);
+            const res = await httpClient.get(UPDATE_CHECKER_LATEST_VERSION_URL);
 
             // For debug
             if (process.env.TEST_CHECK_VERSION === "1") {
@@ -34,7 +34,7 @@ export const startInterval = () => {
             let checkBeta = await setting("checkBeta");
 
             if (checkBeta && res.data.beta) {
-                if (compareVersions.compare(res.data.beta, res.data.slow, ">")) {
+                if (compareVersions(res.data.beta, res.data.slow, ">")) {
                     latestVersion = res.data.beta;
                     return;
                 }

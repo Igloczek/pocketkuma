@@ -7,7 +7,7 @@
  * @returns {Promise<void>}
  */
 import { R } from "redbean-node";
-import { log } from "../util.ts";
+import { log } from "@/util";
 
 async function createTables() {
     log.info("db", "Creating legacy migration tables");

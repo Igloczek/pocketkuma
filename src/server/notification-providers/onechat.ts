@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class OneChat extends NotificationProvider {
     name = "OneChat";
@@ -29,7 +29,7 @@ class OneChat extends NotificationProvider {
                     type: "text",
                     message: "Test Successful!",
                 };
-                await axios.post(url, testMessage, config);
+                await httpClient.post(url, testMessage, config);
             } else if (heartbeatJSON["status"] === DOWN) {
                 const downMessage = {
                     to: notification.recieverId,
@@ -41,7 +41,7 @@ Name: ${monitorJSON["name"]}
 ${heartbeatJSON["msg"]}
 Time (${heartbeatJSON["timezone"]}): ${heartbeatJSON["localDateTime"]}`,
                 };
-                await axios.post(url, downMessage, config);
+                await httpClient.post(url, downMessage, config);
             } else if (heartbeatJSON["status"] === UP) {
                 const upMessage = {
                     to: notification.recieverId,
@@ -53,7 +53,7 @@ Name: ${monitorJSON["name"]}
 ${heartbeatJSON["msg"]}
 Time (${heartbeatJSON["timezone"]}): ${heartbeatJSON["localDateTime"]}`,
                 };
-                await axios.post(url, upMessage, config);
+                await httpClient.post(url, upMessage, config);
             }
 
             return okMsg;

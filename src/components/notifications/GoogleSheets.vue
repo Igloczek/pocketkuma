@@ -42,8 +42,8 @@
 </template>
 
 <script>
-import HiddenInput from "../HiddenInput.vue";
-import ToggleSection from "../ToggleSection.vue";
+import HiddenInput from "@/components/HiddenInput.vue";
+import ToggleSection from "@/components/ToggleSection.vue";
 
 // Google Apps Script code for logging to spreadsheet
 const GOOGLE_APPS_SCRIPT_CODE = `function doPost(e) {

@@ -6,11 +6,11 @@
  * Fresh uptime-buna installs do not ask for a database backend. The fork uses
  * the local SQLite database path by default and rejects non-SQLite configs.
  */
-import { log } from "../util.ts";
-import Database from "./database.ts";
-import { printServerUrls } from "./util-server.ts";
-import { isSSL } from "./config.ts";
-import { resolveRequestPath } from "./bun-http-server.ts";
+import { log } from "@/util";
+import Database from "@/server/database";
+import { printServerUrls } from "@/server/util-server";
+import { isSSL } from "@/server/config";
+import { resolveRequestPath } from "@/server/bun-http-server";
 
 class SetupDatabase {
     /**

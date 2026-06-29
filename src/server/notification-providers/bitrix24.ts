@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { UP } from "@/util";
 
 class Bitrix24 extends NotificationProvider {
     name = "Bitrix24";
@@ -22,7 +22,7 @@ class Bitrix24 extends NotificationProvider {
             };
 
             let config = this.getAxiosConfigWithProxy({ params });
-            await axios.get(`${notification.bitrix24WebhookURL}/im.notify.system.add.json`, config);
+            await httpClient.get(`${notification.bitrix24WebhookURL}/im.notify.system.add.json`, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

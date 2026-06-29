@@ -76,8 +76,8 @@
 </template>
 
 <script>
-import APIKeyDialog from "../../components/APIKeyDialog.vue";
-import Confirm from "../Confirm.vue";
+import APIKeyDialog from "@/components/APIKeyDialog.vue";
+import Confirm from "@/components/Confirm.vue";
 
 export default {
     components: {

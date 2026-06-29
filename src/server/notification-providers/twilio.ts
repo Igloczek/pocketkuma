@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Twilio extends NotificationProvider {
     name = "twilio";
@@ -32,7 +32,7 @@ class Twilio extends NotificationProvider {
                 data.append("MessagingServiceSid", notification.twilioMessagingServiceSID);
             }
 
-            await axios.post(
+            await httpClient.post(
                 `https://api.twilio.com/2010-04-01/Accounts/${notification.twilioAccountSID}/Messages.json`,
                 data,
                 config

@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { setting } from "../util-server.ts";
-import { DOWN, UP, getMonitorRelativeURL } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { setting } from "@/server/util-server";
+import { DOWN, UP, getMonitorRelativeURL } from "@/util";
 
 class Teams extends NotificationProvider {
     name = "teams";
@@ -222,7 +222,7 @@ class Teams extends NotificationProvider {
      */
     _sendNotification = async (webhookUrl, payload) => {
         let config = this.getAxiosConfigWithProxy({});
-        await axios.post(webhookUrl, payload, config);
+        await httpClient.post(webhookUrl, payload, config);
     };
 
     /**

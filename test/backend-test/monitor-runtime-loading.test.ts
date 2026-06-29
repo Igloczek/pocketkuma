@@ -1,9 +1,9 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
-import * as registry from "../../src/server/monitor-runtime-registry.ts";
-import { Notification } from "../../src/server/notification.ts";
-import * as notificationRegistry from "../../src/server/notification-provider-registry.ts";
+import * as registry from "@/server/monitor-runtime-registry";
+import { Notification } from "@/server/notification";
+import * as notificationRegistry from "@/server/notification-provider-registry";
 
 describe("monitor runtime lazy loading", () => {
     test("startup metadata does not import optional monitor implementations", () => {

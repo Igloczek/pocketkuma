@@ -42,6 +42,11 @@ function serviceWorkerDevRoute() {
 // https://vitejs.dev/config/
 export default defineConfig({
     root: "src",
+    resolve: {
+        alias: {
+            "@": path.resolve(import.meta.dirname, "../src"),
+        },
+    },
     publicDir: "../public",
     server: {
         port: 3000,

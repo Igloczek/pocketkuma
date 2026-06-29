@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Telegram extends NotificationProvider {
     name = "telegram";
@@ -103,7 +103,7 @@ class Telegram extends NotificationProvider {
 
             let config = this.getAxiosConfigWithProxy();
 
-            await axios.post(`${url}/bot${notification.telegramBotToken}/sendMessage`, params, config);
+            await httpClient.post(`${url}/bot${notification.telegramBotToken}/sendMessage`, params, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

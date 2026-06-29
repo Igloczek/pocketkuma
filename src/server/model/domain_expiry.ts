@@ -1,15 +1,15 @@
 // @ts-nocheck
 
-import { BeanModel } from "../redbean-compat.ts";
-import { R } from "../redbean-compat.ts";
-import { log, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "../../util.ts";
+import { BeanModel } from "@/server/redbean-compat";
+import { R } from "@/server/redbean-compat";
+import { log, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/util";
 import { parse as parseTld } from "tldts";
-import rdapDnsDataFallback from "../assets/rdap-dns.json" with { type: "json" };
-import { setting, setSetting } from "../util-server.ts";
-import { Notification } from "../notification.ts";
-import TranslatableError from "../translatable-error.ts";
+import rdapDnsDataFallback from "@/server/assets/rdap-dns.json" with { type: "json" };
+import { setting, setSetting } from "@/server/util-server";
+import { Notification } from "@/server/notification";
+import TranslatableError from "@/server/translatable-error";
 import dayjs from "dayjs";
-import { Settings } from "../settings.ts";
+import { Settings } from "@/server/settings";
 let cacheRdapDnsData = null;
 let nextChecking = 0;
 let running = false;

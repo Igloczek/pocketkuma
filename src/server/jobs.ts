@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import { UptimeKumaServer } from "./uptime-kuma-server.ts";
-import { clearOldData } from "./jobs/clear-old-data.ts";
-import { incrementalVacuum } from "./jobs/incremental-vacuum.ts";
+import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { clearOldData } from "@/server/jobs/clear-old-data";
+import { incrementalVacuum } from "@/server/jobs/incremental-vacuum";
 import Cron from "croner";
 
 const jobs = [

@@ -1,8 +1,8 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
-import { SteamMonitorType } from "../../../src/server/monitor-types/steam.ts";
-import { UP, PENDING } from "../../../src/util.ts";
+import { SteamMonitorType } from "@/server/monitor-types/steam";
+import { UP, PENDING } from "@/util";
 
 describe("Steam Monitor", () => {
     test("resolveSteamHostname() returns IP addresses without DNS lookup", async () => {

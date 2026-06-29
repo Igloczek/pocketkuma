@@ -3,9 +3,8 @@
 // See: https://community.teltonika.lt/t/implementation-of-read-only-system-files-and-mobile-and-i-o-post-get-service-removal-with-rutos-7-14/12470
 // API reference https://developers.teltonika-networks.com/reference/rut241/7.19.4/v1.11.1/messages
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import https from "https";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Teltonika extends NotificationProvider {
     name = "Teltonika";
@@ -48,9 +47,9 @@ class Teltonika extends NotificationProvider {
             // certificate. Here we give them an option to disable certificate
             // validation. It's not desirable, but sometimes the only option.
             if (notification.teltonikaUnsafeTls) {
-                axiosConfig.httpsAgent = new https.Agent({
-                    rejectUnauthorized: false, // Danger! Disables SSL verification
-                });
+                axiosConfig.tls = {
+                    rejectUnauthorized: false,
+                };
             }
 
             axiosConfig = this.getAxiosConfigWithProxy(axiosConfig);
@@ -63,7 +62,7 @@ class Teltonika extends NotificationProvider {
                 password: notification.teltonikaPassword,
             };
 
-            let loginResp = await axios.post(loginUrl, loginData, axiosConfig);
+            let loginResp = await httpClient.post(loginUrl, loginData, axiosConfig);
 
             if (loginResp.data.success !== true) {
                 throw Error("Login failed: " + loginResp.data.errors.error);
@@ -80,7 +79,7 @@ class Teltonika extends NotificationProvider {
 
             axiosConfig.headers.Authorization = "Bearer " + loginResp.data.data.token;
 
-            let smsResp = await axios.post(smsUrl, smsData, axiosConfig);
+            let smsResp = await httpClient.post(smsUrl, smsData, axiosConfig);
 
             if (smsResp.data.success !== true) {
                 throw Error("Api returned: ", smsResp.data.errors.error);

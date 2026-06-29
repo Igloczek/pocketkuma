@@ -3,9 +3,9 @@
 /**
  * Halo PSA notification provider implementation
  */
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import packageJson from "../../../package.json" with { type: "json" };
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import packageJson from "@/package-meta";
 
 const uptimeKumaVersion = packageJson.version;
 
@@ -68,7 +68,7 @@ class HaloPSA extends NotificationProvider {
 
             config = this.getAxiosConfigWithProxy(config);
 
-            const result = await axios.post(notification.halowebhookurl, payload, config);
+            const result = await httpClient.post(notification.halowebhookurl, payload, config);
 
             // Check for successful HTTP response
             if (result.status === 200 || result.status === 201 || result.status === 204) {

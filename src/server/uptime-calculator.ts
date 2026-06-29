@@ -4,10 +4,10 @@
  * Calculates the uptime of a monitor.
  */
 import dayjs from "dayjs";
-import { UP, MAINTENANCE, DOWN, PENDING } from "../util.ts";
-import { LimitQueue } from "./utils/limit-queue.ts";
-import { log } from "../util.ts";
-import { R } from "./redbean-compat.ts";
+import { UP, MAINTENANCE, DOWN, PENDING } from "@/util";
+import { LimitQueue } from "@/server/utils/limit-queue";
+import { log } from "@/util";
+import { R } from "@/server/redbean-compat";
 
 class UptimeCalculator {
     /**

@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import { DOWN, UP } from "../../util.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import { DOWN, UP } from "@/util";
+import httpClient from "@/server/http-client";
 
 class YZJ extends NotificationProvider {
     name = "YZJ";
@@ -30,7 +30,7 @@ class YZJ extends NotificationProvider {
             const url = `${notification.yzjWebHookUrl}?yzjtype=0&yzjtoken=${notification.yzjToken}`;
             config = this.getAxiosConfigWithProxy(config);
 
-            const result = await axios.post(url, params, config);
+            const result = await httpClient.post(url, params, config);
             if (!result.data?.success) {
                 throw new Error(result.data?.errmsg ?? "yzj's server did not respond with the expected result");
             }

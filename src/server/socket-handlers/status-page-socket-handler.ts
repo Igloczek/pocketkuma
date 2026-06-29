@@ -6,16 +6,16 @@
  * @returns {void}
  * @throws {Error} If validation fails
  */
-import { R } from "../redbean-compat.ts";
-import { checkLogin } from "../util-server.ts";
+import { R } from "@/server/redbean-compat";
+import { checkLogin } from "@/server/util-server";
 import dayjs from "dayjs";
-import { log } from "../../util.ts";
-import ImageDataURI from "../image-data-uri.ts";
-import Database from "../database.ts";
-import apicache from "../modules/apicache.ts";
-import StatusPage from "../model/status_page.ts";
-import { UptimeKumaServer } from "../uptime-kuma-server.ts";
-import { Settings } from "../settings.ts";
+import { log } from "@/util";
+import ImageDataURI from "@/server/image-data-uri";
+import Database from "@/server/database";
+import apicache from "@/server/modules/apicache";
+import StatusPage from "@/server/model/status_page";
+import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { Settings } from "@/server/settings";
 
 function validateIncident(incident) {
     if (!incident.title || incident.title.trim() === "") {

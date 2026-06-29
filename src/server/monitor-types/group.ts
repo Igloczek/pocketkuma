@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import { UP, PENDING, DOWN } from "../../util.ts";
-import { MonitorType } from "./monitor-type.ts";
-import Monitor from "../model/monitor.ts";
+import { UP, PENDING, DOWN } from "@/util";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import Monitor from "@/server/model/monitor";
 
 class GroupMonitorType extends MonitorType {
     name = "group";

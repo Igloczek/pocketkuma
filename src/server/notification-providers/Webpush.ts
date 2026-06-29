@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
 import webpush from "web-push";
-import { setting } from "../util-server.ts";
+import { setting } from "@/server/util-server";
 
 class Webpush extends NotificationProvider {
     name = "Webpush";

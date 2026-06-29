@@ -70,7 +70,7 @@
 
 <script lang="ts">
 import { Modal } from "bootstrap";
-import BadgeLinkGeneratorDialog from "./BadgeLinkGeneratorDialog.vue";
+import BadgeLinkGeneratorDialog from "@/components/BadgeLinkGeneratorDialog.vue";
 
 export default {
     components: {

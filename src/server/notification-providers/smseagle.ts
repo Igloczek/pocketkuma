@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class SMSEagle extends NotificationProvider {
     name = "SMSEagle";
@@ -67,7 +67,7 @@ class SMSEagle extends NotificationProvider {
                     url.searchParams.append("voice_id", voiceId);
                 }
 
-                let resp = await axios.get(url.toString(), config);
+                let resp = await httpClient.get(url.toString(), config);
 
                 if (resp.data.indexOf("OK") === -1) {
                     let error = `SMSEagle API returned error: ${resp.data}`;
@@ -119,7 +119,7 @@ class SMSEagle extends NotificationProvider {
                     }
                 }
 
-                let resp = await axios.post(notification.smseagleUrl + "/api/v2" + endpoint, postData, config);
+                let resp = await httpClient.post(notification.smseagleUrl + "/api/v2" + endpoint, postData, config);
 
                 const queuedCount = resp.data.filter((x) => x.status === "queued").length;
                 const unqueuedCount = resp.data.length - queuedCount;

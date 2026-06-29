@@ -1,12 +1,12 @@
 // @ts-nocheck
 import { describe, test, expect, beforeAll, afterAll, spyOn } from "bun:test";
-import DomainExpiry from "../../src/server/model/domain_expiry.ts";
-import mockWebhook from "./notification-providers/mock-webhook.ts";
-import TestDB from "../mock-testdb.ts";
+import DomainExpiry from "@/server/model/domain_expiry";
+import mockWebhook from "./notification-providers/mock-webhook";
+import TestDB from "../mock-testdb";
 import { R } from "redbean-node";
-import { Notification } from "../../src/server/notification.ts";
-import { Settings } from "../../src/server/settings.ts";
-import { setSetting } from "../../src/server/util-server.ts";
+import { Notification } from "@/server/notification";
+import { Settings } from "@/server/settings";
+import { setSetting } from "@/server/util-server";
 import dayjs from "dayjs";
 import dayjsPlugin_10 from "dayjs/plugin/utc";
 

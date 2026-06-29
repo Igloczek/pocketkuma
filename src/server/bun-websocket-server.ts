@@ -3,8 +3,8 @@
 
 import { randomUUID } from "crypto";
 import { EventEmitter } from "events";
-import { log } from "../util.ts";
-import { Settings } from "./settings.ts";
+import { log } from "@/util";
+import { Settings } from "@/server/settings";
 
 const WS_PATH = "/ws";
 

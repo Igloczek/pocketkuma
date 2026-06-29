@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Pushy extends NotificationProvider {
     name = "pushy";
@@ -14,7 +14,7 @@ class Pushy extends NotificationProvider {
 
         try {
             let config = this.getAxiosConfigWithProxy({});
-            await axios.post(
+            await httpClient.post(
                 `https://api.pushy.me/push?api_key=${notification.pushyAPIKey}`,
                 {
                     to: notification.pushyToken,

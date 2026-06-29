@@ -44,8 +44,8 @@
 </template>
 
 <script>
-import EditMonitorConditionGroup from "./EditMonitorConditionGroup.vue";
-import EditMonitorCondition from "./EditMonitorCondition.vue";
+import EditMonitorConditionGroup from "@/components/EditMonitorConditionGroup.vue";
+import EditMonitorCondition from "@/components/EditMonitorCondition.vue";
 
 export default {
     name: "EditMonitorConditions",

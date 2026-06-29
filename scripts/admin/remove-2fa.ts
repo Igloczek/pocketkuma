@@ -1,8 +1,8 @@
-import Database from "../../src/server/database.ts";
+import Database from "@/server/database";
 import { R } from "redbean-node";
 import readline from "readline";
-import TwoFA from "../../src/server/2fa.ts";
-import { args } from "../../src/server/args.ts";
+import TwoFA from "@/server/2fa";
+import { args } from "@/server/args";
 
 console.log("== Uptime Kuma Remove 2FA Tool ==");
 console.log("Loading the database");

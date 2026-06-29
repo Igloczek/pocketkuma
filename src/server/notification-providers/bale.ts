@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Bale extends NotificationProvider {
     name = "bale";
@@ -14,7 +14,7 @@ class Bale extends NotificationProvider {
         const url = "https://tapi.bale.ai";
 
         try {
-            await axios.post(
+            await httpClient.post(
                 `${url}/bot${notification.baleBotToken}/sendMessage`,
                 {
                     chat_id: notification.baleChatID,

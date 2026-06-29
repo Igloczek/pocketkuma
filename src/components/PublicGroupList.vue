@@ -131,12 +131,12 @@
 </template>
 
 <script>
-import MonitorSettingDialog from "./MonitorSettingDialog.vue";
+import MonitorSettingDialog from "@/components/MonitorSettingDialog.vue";
 import Draggable from "vuedraggable";
-import HeartbeatBar from "./HeartbeatBar.vue";
-import Uptime from "./Uptime.vue";
-import Tag from "./Tag.vue";
-import Status from "./Status.vue";
+import HeartbeatBar from "@/components/HeartbeatBar.vue";
+import Uptime from "@/components/Uptime.vue";
+import Tag from "@/components/Tag.vue";
+import Status from "@/components/Status.vue";
 
 export default {
     components: {

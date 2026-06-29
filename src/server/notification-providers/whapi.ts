@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Whapi extends NotificationProvider {
     name = "whapi";
@@ -31,7 +31,7 @@ class Whapi extends NotificationProvider {
                 (notification.whapiApiUrl || "https://gate.whapi.cloud/").replace(/([^/])\/+$/, "$1") +
                 "/messages/text";
 
-            await axios.post(url, data, config);
+            await httpClient.post(url, data, config);
 
             return okMsg;
         } catch (error) {

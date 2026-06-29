@@ -1,10 +1,9 @@
 // @ts-nocheck
 
 // Define closing error codes https://www.iana.org/assignments/websocket/websocket.xml#close-code-number
-import { MonitorType } from "./monitor-type.ts";
-import WebSocket from "ws";
-import { UP } from "../../util.ts";
-import { checkStatusCode, getOidcTokenClientCredentials } from "../util-server.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { UP } from "@/util";
+import { checkStatusCode, getOidcTokenClientCredentials } from "@/server/util-server";
 
 const WS_ERR_CODE = {
     1002: "Protocol error",
@@ -55,7 +54,8 @@ class WebSocketMonitorType extends MonitorType {
 
     /**
      * Builds the WebSocket options object for authentication and TLS.
-     * Supports basic auth, OAuth2 client credentials, and mTLS.
+     * Supports basic auth, bearer token, and OAuth2 client credentials.
+     * mTLS is explicitly unsupported on the Bun WebSocket client.
      * @param {object} monitor The monitor object for input parameters.
      * @returns {Promise<object>} The options object to pass to the WebSocket constructor.
      */
@@ -101,23 +101,14 @@ class WebSocketMonitorType extends MonitorType {
             }
             options.headers.Authorization = `${monitor.oauthAccessToken.token_type} ${monitor.oauthAccessToken.access_token}`;
         } else if (monitor.authMethod === "mtls") {
-            if (monitor.tlsCert) {
-                options.cert = monitor.tlsCert;
-            }
-            if (monitor.tlsKey) {
-                options.key = monitor.tlsKey;
-            }
-            if (monitor.tlsCa) {
-                options.ca = monitor.tlsCa;
-            }
-            options.rejectUnauthorized = !monitor.getIgnoreTls();
+            throw new Error("mTLS WebSocket authentication is not supported by the Bun WebSocket client");
         }
 
         return options;
     }
 
     /**
-     * Uses the ws Node.js library to establish a connection to target server
+     * Uses the Bun WebSocket client to establish a connection to target server
      * @param {object} monitor The monitor object for input parameters.
      * @returns {Promise<[ string, int ]>} Array containing a status message and response code
      */
@@ -125,33 +116,54 @@ class WebSocketMonitorType extends MonitorType {
         const authOptions = await this.buildWsOptions(monitor);
 
         return new Promise((resolve) => {
-            // If user inputs subprotocol(s), convert to array, set Sec-WebSocket-Protocol header, timeout in ms. Subprotocol Identifier column: https://www.iana.org/assignments/websocket/websocket.xml#subprotocol-name
             const subprotocol = monitor.wsSubprotocol ? monitor.wsSubprotocol.replace(/\s/g, "").split(",") : undefined;
-            const ws = new WebSocket(monitor.url, subprotocol, authOptions);
+            let settled = false;
+            let ws;
 
-            ws.addEventListener("open", (event) => {
-                // Immediately close the connection
+            const finish = (message, code) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                clearTimeout(timeoutId);
+                try {
+                    ws?.close();
+                } catch (_) {}
+                resolve([message, code]);
+            };
+
+            const timeoutId = setTimeout(() => {
+                finish("Timeout", 3008);
+            }, authOptions.handshakeTimeout || 20_000);
+
+            try {
+                ws = new WebSocket(monitor.url, subprotocol, authOptions);
+            } catch (error) {
+                finish(error.message, error.code);
+                return;
+            }
+
+            ws.addEventListener("open", () => {
                 ws.close(1000);
             });
 
-            ws.onerror = (error) => {
-                // Give user the choice to ignore Sec-WebSocket-Accept header for non compliant servers
-                // Header in HTTP 101 Switching Protocols response from server, technically already upgraded to WS
+            ws.addEventListener("error", (event) => {
+                const error = event.error || event;
+                const message = error?.message;
                 if (
                     monitor.wsIgnoreSecWebsocketAcceptHeader &&
-                    error.message === "Invalid Sec-WebSocket-Accept header"
+                    (message === "Invalid Sec-WebSocket-Accept header" ||
+                        /missing websocket accept header/i.test(message))
                 ) {
-                    resolve(["1000 - OK", 1000]);
+                    finish("1000 - OK", 1000);
                     return;
                 }
-                // Upgrade failed, return message to user
-                resolve([error.message, error.code]);
-            };
+                finish(message || "WebSocket error", error?.code);
+            });
 
-            ws.onclose = (event) => {
-                // Return the close code, if connection didn't close cleanly, return the reason if present
-                resolve([event.wasClean ? event.code.toString() + " - OK" : event.reason, event.code]);
-            };
+            ws.addEventListener("close", (event) => {
+                finish(event.wasClean ? event.code.toString() + " - OK" : event.reason, event.code);
+            });
         });
     }
 }

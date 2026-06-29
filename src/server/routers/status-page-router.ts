@@ -1,11 +1,11 @@
 // @ts-nocheck
 "use strict";
 
-import StatusPage from "../model/status_page.ts";
-import { R } from "../redbean-compat.ts";
-import { badgeConstants } from "../../util.ts";
+import StatusPage from "@/server/model/status_page";
+import { R } from "@/server/redbean-compat";
+import { badgeConstants } from "@/util";
 import { makeBadge } from "badge-maker";
-import { UptimeCalculator } from "../uptime-calculator.ts";
+import { UptimeCalculator } from "@/server/uptime-calculator";
 import {
     cachedResponse,
     decodePathParam,
@@ -14,7 +14,7 @@ import {
     jsonResponse,
     queryObject,
     textResponse,
-} from "../bun-response.ts";
+} from "@/server/bun-response";
 
 async function statusPageHTMLResponse(server, slug, disableFrameSameOrigin) {
     const result = await StatusPage.renderHTMLBySlug(server.indexHTML, slug);

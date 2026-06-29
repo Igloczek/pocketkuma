@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class GoogleSheets extends NotificationProvider {
     name = "GoogleSheets";
@@ -50,7 +50,7 @@ class GoogleSheets extends NotificationProvider {
                 statusCode,
             };
 
-            await axios.post(notification.googleSheetsWebhookUrl, data, config);
+            await httpClient.post(notification.googleSheetsWebhookUrl, data, config);
 
             return okMsg;
         } catch (error) {

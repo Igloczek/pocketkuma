@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class SendGrid extends NotificationProvider {
     name = "SendGrid";
@@ -48,7 +48,7 @@ class SendGrid extends NotificationProvider {
                 ],
             };
 
-            await axios.post("https://api.sendgrid.com/v3/mail/send", data, config);
+            await httpClient.post("https://api.sendgrid.com/v3/mail/send", data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

@@ -5,8 +5,8 @@
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-import { checkLogin } from "../util-server.ts";
-import Database from "../database.ts";
+import { checkLogin } from "@/server/util-server";
+import Database from "@/server/database";
 
 export const databaseSocketHandler = (socket) => {
     // Post or edit incident

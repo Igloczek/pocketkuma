@@ -2,8 +2,8 @@
 
 import { describe, test, expect } from "bun:test";
 import { RabbitMQContainer } from "@testcontainers/rabbitmq";
-import { RabbitMqMonitorType } from "../../../src/server/monitor-types/rabbitmq.ts";
-import { UP, PENDING } from "../../../src/util.ts";
+import { RabbitMqMonitorType } from "@/server/monitor-types/rabbitmq";
+import { UP, PENDING } from "@/util";
 
 describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
     "RabbitMQ Single Node",

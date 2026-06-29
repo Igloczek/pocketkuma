@@ -21,7 +21,7 @@
 
 <script>
 /**
- * @typedef {import('./TagsManager.vue').Tag} Tag
+ * @typedef {import('@/components/TagsManager.vue').Tag} Tag
  */
 
 export default {

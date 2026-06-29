@@ -5,11 +5,11 @@
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-import { sendRemoteBrowserList } from "../client.ts";
-import { checkLogin } from "../util-server.ts";
-import { RemoteBrowser } from "../remote-browser.ts";
-import { log } from "../../util.ts";
-import { testRemoteBrowser } from "../monitor-types/real-browser-monitor-type.ts";
+import { sendRemoteBrowserList } from "@/server/client";
+import { checkLogin } from "@/server/util-server";
+import { RemoteBrowser } from "@/server/remote-browser";
+import { log } from "@/util";
+import { testRemoteBrowser } from "@/server/monitor-types/real-browser-monitor-type";
 
 export const remoteBrowserSocketHandler = (socket) => {
     socket.on("addRemoteBrowser", async (remoteBrowser, remoteBrowserID, callback) => {

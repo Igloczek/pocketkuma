@@ -13,7 +13,7 @@
 </template>
 
 <script>
-import CertificateInfoRow from "./CertificateInfoRow.vue";
+import CertificateInfoRow from "@/components/CertificateInfoRow.vue";
 export default {
     components: {
         CertificateInfoRow,

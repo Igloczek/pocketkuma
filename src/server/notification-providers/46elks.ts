@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Elks extends NotificationProvider {
     name = "Elks";
@@ -29,7 +29,7 @@ class Elks extends NotificationProvider {
 
             config = this.getAxiosConfigWithProxy(config);
 
-            await axios.post(url, data, config);
+            await httpClient.post(url, data, config);
 
             return okMsg;
         } catch (error) {

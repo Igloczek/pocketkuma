@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Threema extends NotificationProvider {
     name = "threema";
@@ -41,7 +41,7 @@ class Threema extends NotificationProvider {
         }
 
         try {
-            await axios.post(url, new URLSearchParams(data), config);
+            await httpClient.post(url, new URLSearchParams(data), config);
             return "Threema notification sent successfully.";
         } catch (error) {
             const errorMessage = this.handleApiError(error);

@@ -7,7 +7,7 @@
  */
 
 import { parse as parseTld } from "tldts";
-import rdapDnsData from "../../server/assets/rdap-dns.json" with { type: "json" };
+import rdapDnsData from "@/server/assets/rdap-dns.json" with { type: "json" };
 
 const TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD = {
     http: "url",

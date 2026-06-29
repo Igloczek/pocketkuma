@@ -1,11 +1,11 @@
 // @ts-nocheck
 
-import { R } from "./redbean-compat.ts";
+import { R } from "@/server/redbean-compat";
 import { HttpProxyAgent } from "http-proxy-agent";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import { SocksProxyAgent } from "socks-proxy-agent";
-import { debug } from "../util.ts";
-import { UptimeKumaServer } from "./uptime-kuma-server.ts";
+import { debug } from "@/util";
+import { UptimeKumaServer } from "@/server/uptime-kuma-server";
 import { CookieJar } from "tough-cookie";
 import { createCookieAgent } from "http-cookie-agent/http";
 

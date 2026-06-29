@@ -4,7 +4,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { BunSQLiteRedbean } from "../../src/server/bun-sqlite-store.ts";
+import { BunSQLiteRedbean } from "@/server/bun-sqlite-store";
 
 describe("Bun SQLite Redbean compatibility store", () => {
     let dir;

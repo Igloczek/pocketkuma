@@ -40,9 +40,9 @@
 </template>
 
 <script>
-import axios from "axios";
+import { fetchDevApi } from "@/util/dev-api-base";
 import { useToast } from "vue-toastification";
-import { sleep } from "../util.ts";
+import { sleep } from "@/util";
 const toast = useToast();
 
 export default {
@@ -64,8 +64,8 @@ export default {
         },
     },
     async mounted() {
-        let res = await axios.get("/setup-database-info");
-        this.info = res.data;
+        let res = await fetchDevApi("/setup-database-info");
+        this.info = await res.json();
 
         if (this.info && this.info.needSetup === false) {
             location.href = "/setup";
@@ -78,8 +78,14 @@ export default {
             this.info.runningSetup = true;
 
             try {
-                await axios.post("/setup-database", {
-                    dbConfig: this.dbConfig,
+                await fetchDevApi("/setup-database", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        dbConfig: this.dbConfig,
+                    }),
                 });
                 await sleep(2000);
                 await this.goToMainServerWhenReady();
@@ -93,8 +99,9 @@ export default {
         async goToMainServerWhenReady() {
             try {
                 console.log("Trying...");
-                let res = await axios.get("/setup-database-info");
-                if (res.data && res.data.needSetup === false) {
+                let res = await fetchDevApi("/setup-database-info");
+                let data = await res.json();
+                if (data && data.needSetup === false) {
                     this.show = false;
                     location.href = "/setup";
                 } else {

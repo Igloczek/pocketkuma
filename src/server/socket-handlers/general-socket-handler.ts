@@ -1,12 +1,12 @@
 // @ts-nocheck
 
-import { log } from "../../util.ts";
-import { Settings } from "../settings.ts";
-import { sendInfo } from "../client.ts";
-import { checkLogin } from "../util-server.ts";
+import { log } from "@/util";
+import { Settings } from "@/server/settings";
+import { sendInfo } from "@/server/client";
+import { checkLogin } from "@/server/util-server";
 import fs from "fs";
 import path from "path";
-import { testChrome } from "../monitor-types/real-browser-monitor-type.ts";
+import { testChrome } from "@/server/monitor-types/real-browser-monitor-type";
 
 const fsAsync = fs.promises;
 const pushExamplesDir = path.join(import.meta.dirname, "../assets/push-examples");

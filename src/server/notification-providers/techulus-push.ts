@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class TechulusPush extends NotificationProvider {
     name = "PushByTechulus";
@@ -28,7 +28,7 @@ class TechulusPush extends NotificationProvider {
 
         try {
             let config = this.getAxiosConfigWithProxy({});
-            await axios.post(`https://push.techulus.com/api/v1/notify/${notification.pushAPIKey}`, data, config);
+            await httpClient.post(`https://push.techulus.com/api/v1/notify/${notification.pushAPIKey}`, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

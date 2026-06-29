@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Onesender extends NotificationProvider {
     name = "Onesender";
@@ -36,7 +36,7 @@ class Onesender extends NotificationProvider {
                 },
             };
             config = this.getAxiosConfigWithProxy(config);
-            await axios.post(notification.onesenderURL, data, config);
+            await httpClient.post(notification.onesenderURL, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

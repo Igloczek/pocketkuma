@@ -88,7 +88,7 @@
 import { Modal } from "bootstrap";
 import dayjs from "dayjs";
 import Datepicker from "@vuepic/vue-datepicker";
-import CopyableInput from "./CopyableInput.vue";
+import CopyableInput from "@/components/CopyableInput.vue";
 
 export default {
     components: {

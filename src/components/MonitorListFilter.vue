@@ -161,9 +161,9 @@
 </template>
 
 <script>
-import MonitorListFilterDropdown from "./MonitorListFilterDropdown.vue";
-import Status from "./Status.vue";
-import Tag from "./Tag.vue";
+import MonitorListFilterDropdown from "@/components/MonitorListFilterDropdown.vue";
+import Status from "@/components/Status.vue";
+import Tag from "@/components/Tag.vue";
 
 export default {
     components: {

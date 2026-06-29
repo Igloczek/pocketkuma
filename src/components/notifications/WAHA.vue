@@ -56,7 +56,7 @@
     </i18n-t>
 </template>
 <script>
-import HiddenInput from "../HiddenInput.vue";
+import HiddenInput from "@/components/HiddenInput.vue";
 
 export default {
     components: {

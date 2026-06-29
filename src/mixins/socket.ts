@@ -1,18 +1,18 @@
 // @ts-nocheck
 import { useToast } from "vue-toastification";
-import jwtDecode from "jwt-decode";
+import jwtDecode from "@/util/jwt-decode";
 import Favico from "favico.js";
 import dayjs from "dayjs";
-import mitt from "mitt";
-import { createNativeWebSocket } from "../util/native-websocket-client.ts";
+import { createEventEmitter } from "@/util/event-emitter";
+import { createNativeWebSocket } from "@/util/native-websocket-client";
 
-import { DOWN, MAINTENANCE, PENDING, UP } from "../util.ts";
+import { DOWN, MAINTENANCE, PENDING, UP } from "@/util";
 import {
     getDevContainerServerHostname,
     isDevContainer,
     getToastSuccessTimeout,
     getToastErrorTimeout,
-} from "../util-frontend.ts";
+} from "@/util-frontend";
 const toast = useToast();
 
 let socket;
@@ -68,7 +68,7 @@ export default {
                 currentPassword: "",
             },
             faviconUpdateDebounce: null,
-            emitter: mitt(),
+            emitter: createEventEmitter(),
         };
     },
 

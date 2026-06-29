@@ -4,19 +4,19 @@
  * Database & App Data Folder
  */
 import fs from "fs";
-import { R } from "./redbean-compat.ts";
+import { R } from "@/server/redbean-compat";
 
 const fsAsync = fs.promises;
-import { setSetting, setting } from "./util-server.ts";
-import { log, sleep, isDev } from "../util.ts";
-import { runCommandSync } from "./process-helper.ts";
+import { setSetting, setting } from "@/server/util-server";
+import { log, sleep, isDev } from "@/util";
+import { runCommandSync } from "@/server/process-helper";
 import path from "path";
-import { Settings } from "./settings.ts";
-import { UptimeCalculator } from "./uptime-calculator.ts";
+import { Settings } from "@/server/settings";
+import { UptimeCalculator } from "@/server/uptime-calculator";
 import dayjs from "dayjs";
-import { SimpleMigrationServer } from "./utils/simple-migration-server.ts";
-import kumaDbTemplate from "../db/kuma.db" with { type: "file" };
-import { defaultDataDir, isCompiledBinary } from "./app-paths.ts";
+import { SimpleMigrationServer } from "@/server/utils/simple-migration-server";
+import kumaDbTemplate from "@/db/kuma.db" with { type: "file" };
+import { defaultDataDir, isCompiledBinary } from "@/server/app-paths";
 
 class Database {
     /**

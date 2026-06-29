@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class OneBot extends NotificationProvider {
     name = "OneBot";
@@ -40,7 +40,7 @@ class OneBot extends NotificationProvider {
                 data["message_type"] = "private";
                 data["user_id"] = notification.recieverId;
             }
-            await axios.post(url, data, config);
+            await httpClient.post(url, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

@@ -1,37 +1,37 @@
 // @ts-nocheck
 import { createRouter, createWebHistory } from "vue-router";
 
-import EmptyLayout from "./layouts/EmptyLayout.vue";
-import Layout from "./layouts/Layout.vue";
-import Dashboard from "./pages/Dashboard.vue";
-import DashboardHome from "./pages/DashboardHome.vue";
-import Details from "./pages/Details.vue";
-import EditMonitor from "./pages/EditMonitor.vue";
-import EditMaintenance from "./pages/EditMaintenance.vue";
-import List from "./pages/List.vue";
-const Settings = () => import("./pages/Settings.vue");
-import Setup from "./pages/Setup.vue";
-import StatusPage from "./pages/StatusPage.vue";
-import Entry from "./pages/Entry.vue";
-import ManageStatusPage from "./pages/ManageStatusPage.vue";
-import AddStatusPage from "./pages/AddStatusPage.vue";
-import NotFound from "./pages/NotFound.vue";
-import DockerHosts from "./components/settings/Docker.vue";
-import ManageMaintenance from "./pages/ManageMaintenance.vue";
-import APIKeys from "./components/settings/APIKeys.vue";
-import SetupDatabase from "./pages/SetupDatabase.vue";
+import EmptyLayout from "@/layouts/EmptyLayout.vue";
+import Layout from "@/layouts/Layout.vue";
+import Dashboard from "@/pages/Dashboard.vue";
+import DashboardHome from "@/pages/DashboardHome.vue";
+import Details from "@/pages/Details.vue";
+import EditMonitor from "@/pages/EditMonitor.vue";
+import EditMaintenance from "@/pages/EditMaintenance.vue";
+import List from "@/pages/List.vue";
+const Settings = () => import("@/pages/Settings.vue");
+import Setup from "@/pages/Setup.vue";
+import StatusPage from "@/pages/StatusPage.vue";
+import Entry from "@/pages/Entry.vue";
+import ManageStatusPage from "@/pages/ManageStatusPage.vue";
+import AddStatusPage from "@/pages/AddStatusPage.vue";
+import NotFound from "@/pages/NotFound.vue";
+import DockerHosts from "@/components/settings/Docker.vue";
+import ManageMaintenance from "@/pages/ManageMaintenance.vue";
+import APIKeys from "@/components/settings/APIKeys.vue";
+import SetupDatabase from "@/pages/SetupDatabase.vue";
 
 // Settings - Sub Pages
-import Appearance from "./components/settings/Appearance.vue";
-import General from "./components/settings/General.vue";
-const Notifications = () => import("./components/settings/Notifications.vue");
-import ReverseProxy from "./components/settings/ReverseProxy.vue";
-import Tags from "./components/settings/Tags.vue";
-import MonitorHistory from "./components/settings/MonitorHistory.vue";
-const Security = () => import("./components/settings/Security.vue");
-import Proxies from "./components/settings/Proxies.vue";
-import About from "./components/settings/About.vue";
-import RemoteBrowsers from "./components/settings/RemoteBrowsers.vue";
+import Appearance from "@/components/settings/Appearance.vue";
+import General from "@/components/settings/General.vue";
+const Notifications = () => import("@/components/settings/Notifications.vue");
+import ReverseProxy from "@/components/settings/ReverseProxy.vue";
+import Tags from "@/components/settings/Tags.vue";
+import MonitorHistory from "@/components/settings/MonitorHistory.vue";
+const Security = () => import("@/components/settings/Security.vue");
+import Proxies from "@/components/settings/Proxies.vue";
+import About from "@/components/settings/About.vue";
+import RemoteBrowsers from "@/components/settings/RemoteBrowsers.vue";
 
 const routes = [
     {

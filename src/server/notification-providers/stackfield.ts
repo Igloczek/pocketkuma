@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { getMonitorRelativeURL } from "../../util.ts";
-import { Settings } from "../settings.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { getMonitorRelativeURL } from "@/util";
+import { Settings } from "@/server/settings";
 
 class Stackfield extends NotificationProvider {
     name = "stackfield";
@@ -36,7 +36,7 @@ class Stackfield extends NotificationProvider {
             };
             let config = this.getAxiosConfigWithProxy({});
 
-            await axios.post(notification.stackfieldwebhookURL, data, config);
+            await httpClient.post(notification.stackfieldwebhookURL, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

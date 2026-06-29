@@ -2,8 +2,8 @@
 
 import { describe, test, expect } from "bun:test";
 import { GenericContainer } from "testcontainers";
-import { SNMPMonitorType } from "../../src/server/monitor-types/snmp.ts";
-import { UP } from "../../src/util.ts";
+import { SNMPMonitorType } from "@/server/monitor-types/snmp";
+import { UP } from "@/util";
 import snmp from "net-snmp";
 
 describe("SNMPMonitorType", () => {

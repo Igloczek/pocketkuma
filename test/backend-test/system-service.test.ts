@@ -5,8 +5,8 @@
  * @returns {boolean} True if the test should be skipped
  */
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { SystemServiceMonitorType } from "../../src/server/monitor-types/system-service.ts";
-import { DOWN, UP } from "../../src/util.ts";
+import { SystemServiceMonitorType } from "@/server/monitor-types/system-service";
+import { DOWN, UP } from "@/util";
 import process from "process";
 import { execSync } from "node:child_process";
 

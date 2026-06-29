@@ -40,8 +40,8 @@
 
 <script>
 import dayjs from "dayjs";
-import { DOWN, UP, PENDING, MAINTENANCE } from "../util.ts";
-import Tooltip from "./Tooltip.vue";
+import { DOWN, UP, PENDING, MAINTENANCE } from "@/util";
+import Tooltip from "@/components/Tooltip.vue";
 
 export default {
     components: {

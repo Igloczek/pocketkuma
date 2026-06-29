@@ -9,9 +9,9 @@
 
 // bark is an APN bridge that sends notifications to Apple devices.
 
-import NotificationProvider from "./notification-provider.ts";
-import { DOWN, UP } from "../../util.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import { DOWN, UP } from "@/util";
+import httpClient from "@/server/http-client";
 
 const barkNotificationAvatar = "https://github.com/louislam/uptime-kuma/raw/master/public/icon.png";
 const successMessage = "Successes!";
@@ -103,9 +103,9 @@ class Bark extends NotificationProvider {
             title = encodeURIComponent(title);
             subtitle = encodeURIComponent(subtitle);
             const params = this.additionalParameters(notification);
-            result = await axios.get(`${endpoint}/${title}/${subtitle}${params}`, config);
+            result = await httpClient.get(`${endpoint}/${title}/${subtitle}${params}`, config);
         } else {
-            result = await axios.post(
+            result = await httpClient.post(
                 endpoint,
                 {
                     title,

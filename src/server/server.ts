@@ -7,23 +7,22 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import timezone from "../modules/dayjs/plugin/timezone/index.ts";
-import { loadEnv } from "./env.ts";
-import { getRuntimeInfo, isBunRuntime } from "./runtime.ts";
-import { args } from "./args.ts";
-import { sleep, log, getRandomInt, genSecret } from "../util.ts";
-import config from "./config.ts";
-import * as checkVersion from "./check-version.ts";
-import { R } from "./redbean-compat.ts";
-import jwt from "jsonwebtoken";
-import { passwordStrength } from "check-password-strength";
-import TranslatableError from "./translatable-error.ts";
-import notp from "notp";
-import base32 from "thirty-two";
-import { UptimeKumaServer } from "./uptime-kuma-server.ts";
-import { listenWithBunServe } from "./bun-http-server.ts";
-import Monitor from "./model/monitor.ts";
-import User from "./model/user.ts";
+import timezone from "@/modules/dayjs/plugin/timezone/index";
+import { loadEnv } from "@/server/env";
+import { getRuntimeInfo, isBunRuntime } from "@/server/runtime";
+import { args } from "@/server/args";
+import { sleep, log, getRandomInt, genSecret } from "@/util";
+import config from "@/server/config";
+import * as checkVersion from "@/server/check-version";
+import { R } from "@/server/redbean-compat";
+import jwt from "@/server/jwt";
+import { passwordStrength } from "@/util/password-strength";
+import TranslatableError from "@/server/translatable-error";
+import { verify as verifyTotp, encodeSecretForUri } from "@/server/totp";
+import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { listenWithBunServe } from "@/server/bun-http-server";
+import Monitor from "@/server/model/monitor";
+import User from "@/server/model/user";
 import {
     getSettings,
     setSettings,
@@ -33,16 +32,16 @@ import {
     doubleCheckPassword,
     shake256,
     SHAKE256_LENGTH,
-} from "./util-server.ts";
-import { Notification } from "./notification.ts";
+} from "@/server/util-server";
+import { Notification } from "@/server/notification";
 import webpush from "web-push";
-import Database from "./database.ts";
-import { initBackgroundJobs, stopBackgroundJobs } from "./jobs.ts";
-import { loginRateLimiter, twoFaRateLimiter } from "./rate-limiter.ts";
-import { login } from "./auth.ts";
-import * as passwordHash from "./password-hash.ts";
-import { Prometheus } from "./prometheus.ts";
-import { UptimeCalculator } from "./uptime-calculator.ts";
+import Database from "@/server/database";
+import { initBackgroundJobs, stopBackgroundJobs } from "@/server/jobs";
+import { loginRateLimiter, twoFaRateLimiter } from "@/server/rate-limiter";
+import { login } from "@/server/auth";
+import * as passwordHash from "@/server/password-hash";
+import { Prometheus } from "@/server/prometheus";
+import { UptimeCalculator } from "@/server/uptime-calculator";
 import {
     sendNotificationList,
     sendHeartbeatList,
@@ -52,26 +51,26 @@ import {
     sendAPIKeyList,
     sendRemoteBrowserList,
     sendMonitorTypeList,
-} from "./client.ts";
-import { statusPageSocketHandler } from "./socket-handlers/status-page-socket-handler.ts";
-import { databaseSocketHandler } from "./socket-handlers/database-socket-handler.ts";
-import { remoteBrowserSocketHandler } from "./socket-handlers/remote-browser-socket-handler.ts";
-import TwoFA from "./2fa.ts";
-import StatusPage from "./model/status_page.ts";
+} from "@/server/client";
+import { statusPageSocketHandler } from "@/server/socket-handlers/status-page-socket-handler";
+import { databaseSocketHandler } from "@/server/socket-handlers/database-socket-handler";
+import { remoteBrowserSocketHandler } from "@/server/socket-handlers/remote-browser-socket-handler";
+import TwoFA from "@/server/2fa";
+import StatusPage from "@/server/model/status_page";
 import {
     cloudflaredSocketHandler,
     autoStart as cloudflaredAutoStart,
     stop as cloudflaredStop,
-} from "./socket-handlers/cloudflared-socket-handler.ts";
-import { proxySocketHandler } from "./socket-handlers/proxy-socket-handler.ts";
-import { dockerSocketHandler } from "./socket-handlers/docker-socket-handler.ts";
-import { maintenanceSocketHandler } from "./socket-handlers/maintenance-socket-handler.ts";
-import { apiKeySocketHandler } from "./socket-handlers/api-key-socket-handler.ts";
-import { generalSocketHandler } from "./socket-handlers/general-socket-handler.ts";
-import { Settings } from "./settings.ts";
-import apicache from "./modules/apicache.ts";
-import { SetupDatabase } from "./setup-database.ts";
-import { chartSocketHandler } from "./socket-handlers/chart-socket-handler.ts";
+} from "@/server/socket-handlers/cloudflared-socket-handler";
+import { proxySocketHandler } from "@/server/socket-handlers/proxy-socket-handler";
+import { dockerSocketHandler } from "@/server/socket-handlers/docker-socket-handler";
+import { maintenanceSocketHandler } from "@/server/socket-handlers/maintenance-socket-handler";
+import { apiKeySocketHandler } from "@/server/socket-handlers/api-key-socket-handler";
+import { generalSocketHandler } from "@/server/socket-handlers/general-socket-handler";
+import { Settings } from "@/server/settings";
+import apicache from "@/server/modules/apicache";
+import { SetupDatabase } from "@/server/setup-database";
+import { chartSocketHandler } from "@/server/socket-handlers/chart-socket-handler";
 
 console.log("Welcome to Uptime Kuma");
 
@@ -119,7 +118,6 @@ log.info("server", "Uptime Kuma Version:", checkVersion.version);
 log.info("server", "Loading modules");
 
 log.debug("server", "Importing database bean facade");
-log.debug("server", "Importing jsonwebtoken");
 log.debug("server", "Importing 2FA Modules");
 
 const server = UptimeKumaServer.getInstance();
@@ -297,7 +295,7 @@ let needSetup = false;
                 }
 
                 if (data.token) {
-                    let verify = notp.totp.verify(data.token, user.twofa_secret, twoFAVerifyOptions);
+                    let verify = verifyTotp(data.token, user.twofa_secret, twoFAVerifyOptions);
 
                     if (user.twofa_last_token !== data.token && verify) {
                         await afterLogin(socket, user);
@@ -361,12 +359,7 @@ let needSetup = false;
 
                 if (user.twofa_status === 0) {
                     let newSecret = genSecret();
-                    let encodedSecret = base32.encode(newSecret);
-
-                    // Google authenticator doesn't like equal signs
-                    // The fix is found at https://github.com/guyht/notp
-                    // Related issue: https://github.com/louislam/uptime-kuma/issues/486
-                    encodedSecret = encodedSecret.toString().replace(/=/g, "");
+                    let encodedSecret = encodeSecretForUri(newSecret);
 
                     let uri = `otpauth://totp/Uptime%20Kuma:${user.username}?secret=${encodedSecret}`;
 
@@ -457,7 +450,7 @@ let needSetup = false;
 
                 let user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
 
-                let verify = notp.totp.verify(token, user.twofa_secret, twoFAVerifyOptions);
+                let verify = verifyTotp(token, user.twofa_secret, twoFAVerifyOptions);
 
                 if (user.twofa_last_token !== token && verify) {
                     callback({
@@ -836,7 +829,7 @@ let needSetup = false;
         socket.on("checkDomain", async (partial, callback) => {
             try {
                 checkLogin(socket);
-                const { default: DomainExpiry } = await import("./model/domain_expiry.ts");
+                const { default: DomainExpiry } = await import("@/server/model/domain_expiry");
                 const supportInfo = await DomainExpiry.checkSupport(partial);
                 callback({
                     ok: true,
@@ -1333,7 +1326,7 @@ let needSetup = false;
                 // If Chrome Executable is changed, need to reset the browser
                 if (previousChromeExecutable !== data.chromeExecutable) {
                     log.info("settings", "Chrome executable is changed. Resetting Chrome...");
-                    const { resetChrome } = await import("./monitor-types/real-browser-monitor-type.ts");
+                    const { resetChrome } = await import("@/server/monitor-types/real-browser-monitor-type");
                     await resetChrome();
                 }
 

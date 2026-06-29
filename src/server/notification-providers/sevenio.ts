@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class SevenIO extends NotificationProvider {
     name = "SevenIO";
@@ -31,7 +31,7 @@ class SevenIO extends NotificationProvider {
             config = this.getAxiosConfigWithProxy(config);
             // testing or certificate expiry notification
             if (heartbeatJSON == null) {
-                await axios.post("sms", data, config);
+                await httpClient.post("sms", data, config);
                 return okMsg;
             }
 
@@ -50,7 +50,7 @@ class SevenIO extends NotificationProvider {
                     `Your service ${monitorJSON["name"]} ${address}went back up at ${heartbeatJSON["localDateTime"]} ` +
                     `(${heartbeatJSON["timezone"]}).`;
             }
-            await axios.post("sms", data, config);
+            await httpClient.post("sms", data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

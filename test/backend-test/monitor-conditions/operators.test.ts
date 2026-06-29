@@ -17,7 +17,7 @@ import {
     OP_ENDS_WITH,
     OP_NOT_STARTS_WITH,
     OP_NOT_ENDS_WITH,
-} from "../../../src/server/monitor-conditions/operators.ts";
+} from "@/server/monitor-conditions/operators";
 
 describe("Expression Operators", () => {
     test("StringEqualsOperator returns true for identical strings and false otherwise", () => {

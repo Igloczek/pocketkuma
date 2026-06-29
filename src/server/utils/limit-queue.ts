@@ -4,7 +4,7 @@
  * Limit Queue
  * The first element will be removed when the length exceeds the limit
  */
-import { ArrayWithKey } from "./array-with-key.ts";
+import { ArrayWithKey } from "@/server/utils/array-with-key";
 
 class LimitQueue extends ArrayWithKey {
     /**

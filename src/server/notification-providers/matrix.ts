@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 import Crypto from "crypto";
-import { log } from "../../util.ts";
+import { log } from "@/util";
 
 class Matrix extends NotificationProvider {
     name = "matrix";
@@ -39,7 +39,7 @@ class Matrix extends NotificationProvider {
             }
 
             config = this.getAxiosConfigWithProxy(config);
-            await axios.put(
+            await httpClient.put(
                 `${notification.homeserverUrl}/_matrix/client/r0/rooms/${roomId}/send/m.room.message/${randomString}`,
                 data,
                 config

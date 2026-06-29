@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { MonitorType } from "./monitor-type.ts";
-import { UP, log, evaluateJsonQuery } from "../../util.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { UP, log, evaluateJsonQuery } from "@/util";
 import snmp from "net-snmp";
 
 class SNMPMonitorType extends MonitorType {

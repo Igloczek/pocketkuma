@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class VKTeams extends NotificationProvider {
     name = "VKTeams";
@@ -35,7 +35,7 @@ class VKTeams extends NotificationProvider {
 
             const params = new URLSearchParams(rawParams).toString();
             const config = this.getAxiosConfigWithProxy({});
-            const response = await axios.get(`${baseUrl}/bot/v1/messages/sendText?${params}`, config);
+            const response = await httpClient.get(`${baseUrl}/bot/v1/messages/sendText?${params}`, config);
             if (response.data?.ok === false) {
                 throw new Error(`VKTeams API returned error: ${response.data.description}`);
             }

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Octopush extends NotificationProvider {
     name = "octopush";
@@ -37,7 +37,7 @@ class Octopush extends NotificationProvider {
                     purpose: "alert",
                     sender: notification.octopushSenderName,
                 };
-                await axios.post(urlV2, data, config);
+                await httpClient.post(urlV2, data, config);
             } else if (notification.octopushVersion === "1") {
                 let data = {
                     user_login: notification.octopushDMLogin,
@@ -60,7 +60,7 @@ class Octopush extends NotificationProvider {
 
                 // V1 API returns 200 even on error so we must check
                 // response data
-                let response = await axios.post(urlV1, {}, config);
+                let response = await httpClient.post(urlV1, {}, config);
                 if ("error_code" in response.data) {
                     if (response.data.error_code !== "000") {
                         this.throwGeneralAxiosError(`Octopush error ${JSON.stringify(response.data)}`);

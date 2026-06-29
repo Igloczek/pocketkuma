@@ -86,10 +86,10 @@
 </template>
 
 <script>
-import HeartbeatBar from "../components/HeartbeatBar.vue";
-import Tag from "../components/Tag.vue";
-import Uptime from "../components/Uptime.vue";
-import { getMonitorRelativeURL } from "../util.ts";
+import HeartbeatBar from "@/components/HeartbeatBar.vue";
+import Tag from "@/components/Tag.vue";
+import Uptime from "@/components/Uptime.vue";
+import { getMonitorRelativeURL } from "@/util";
 
 export default {
     name: "MonitorListItem",

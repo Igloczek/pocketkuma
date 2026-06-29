@@ -1,11 +1,11 @@
 // @ts-nocheck
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { UptimeCalculator } from "../../src/server/uptime-calculator.ts";
+import { UptimeCalculator } from "@/server/uptime-calculator";
 import dayjs from "dayjs";
-import { UP, DOWN, PENDING, MAINTENANCE } from "../../src/util.ts";
+import { UP, DOWN, PENDING, MAINTENANCE } from "@/util";
 import dayjsPlugin_5 from "dayjs/plugin/utc";
-import dayjsPlugin_6 from "../../src/server/modules/dayjs/plugin/timezone.ts";
+import dayjsPlugin_6 from "@/server/modules/dayjs/plugin/timezone";
 import dayjsPlugin_7 from "dayjs/plugin/customParseFormat";
 
 dayjs.extend(dayjsPlugin_5);

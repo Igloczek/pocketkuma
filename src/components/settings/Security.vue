@@ -144,8 +144,8 @@
 </template>
 
 <script>
-import Confirm from "../../components/Confirm.vue";
-import TwoFADialog from "../../components/TwoFADialog.vue";
+import Confirm from "@/components/Confirm.vue";
+import TwoFADialog from "@/components/TwoFADialog.vue";
 
 export default {
     components: {

@@ -6,12 +6,12 @@
  * @returns {boolean} Whether the expression evaluates true or false
  * @throws {Error}
  */
-import { ConditionExpressionGroup, ConditionExpression, LOGICAL } from "./expression.ts";
-import { operatorMap } from "./operators.ts";
+import { ConditionExpressionGroup, ConditionExpression, LOGICAL } from "@/server/monitor-conditions/expression";
+import { operatorMap } from "@/server/monitor-conditions/operators";
 
 function evaluateExpression(expression, context) {
     /**
-     * @type {import("./operators").ConditionOperator|null}
+     * @type {import("@/server/monitor-conditions/operators").ConditionOperator|null}
      */
     const operator = operatorMap.get(expression.operator) || null;
     if (operator === null) {

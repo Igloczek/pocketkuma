@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import { DOWN, UP } from "../../util.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import { DOWN, UP } from "@/util";
+import httpClient from "@/server/http-client";
 
 class Alerta extends NotificationProvider {
     name = "alerta";
@@ -45,7 +45,7 @@ class Alerta extends NotificationProvider {
                     data
                 );
 
-                await axios.post(notification.alertaApiEndpoint, postData, config);
+                await httpClient.post(notification.alertaApiEndpoint, postData, config);
             } else {
                 let datadup = Object.assign(
                     {
@@ -60,11 +60,11 @@ class Alerta extends NotificationProvider {
                 if (heartbeatJSON["status"] === DOWN) {
                     datadup.severity = notification.alertaAlertState; // critical
                     datadup.text = "Service " + monitorJSON["type"] + " is down.";
-                    await axios.post(notification.alertaApiEndpoint, datadup, config);
+                    await httpClient.post(notification.alertaApiEndpoint, datadup, config);
                 } else if (heartbeatJSON["status"] === UP) {
                     datadup.severity = notification.alertaRecoverState; // cleaned
                     datadup.text = "Service " + monitorJSON["type"] + " is up.";
-                    await axios.post(notification.alertaApiEndpoint, datadup, config);
+                    await httpClient.post(notification.alertaApiEndpoint, datadup, config);
                 }
             }
             return okMsg;

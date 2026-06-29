@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class Pushbullet extends NotificationProvider {
     name = "pushbullet";
@@ -28,7 +28,7 @@ class Pushbullet extends NotificationProvider {
                     title: "Uptime Kuma Alert",
                     body: msg,
                 };
-                await axios.post(url, data, config);
+                await httpClient.post(url, data, config);
             } else if (heartbeatJSON["status"] === DOWN) {
                 let downData = {
                     type: "note",
@@ -38,7 +38,7 @@ class Pushbullet extends NotificationProvider {
                         heartbeatJSON["msg"] +
                         `\nTime (${heartbeatJSON["timezone"]}): ${heartbeatJSON["localDateTime"]}`,
                 };
-                await axios.post(url, downData, config);
+                await httpClient.post(url, downData, config);
             } else if (heartbeatJSON["status"] === UP) {
                 let upData = {
                     type: "note",
@@ -48,7 +48,7 @@ class Pushbullet extends NotificationProvider {
                         heartbeatJSON["msg"] +
                         `\nTime (${heartbeatJSON["timezone"]}): ${heartbeatJSON["localDateTime"]}`,
                 };
-                await axios.post(url, upData, config);
+                await httpClient.post(url, upData, config);
             }
             return okMsg;
         } catch (error) {

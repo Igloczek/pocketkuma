@@ -100,7 +100,7 @@
 </template>
 
 <script lang="ts">
-import HiddenInput from "../HiddenInput.vue";
+import HiddenInput from "@/components/HiddenInput.vue";
 import VueMultiselect from "vue-multiselect";
 
 export default {

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 const defaultNotificationService = "notify";
 
@@ -24,7 +24,7 @@ class HomeAssistant extends NotificationProvider {
                 },
             };
             config = this.getAxiosConfigWithProxy(config);
-            await axios.post(
+            await httpClient.post(
                 `${notification.homeAssistantUrl.trim().replace(/\/*$/, "")}/api/services/notify/${notificationService}`,
                 {
                     title: "Uptime Kuma",

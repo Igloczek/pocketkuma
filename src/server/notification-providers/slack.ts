@@ -1,10 +1,10 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { setSettings, setting } from "../util-server.ts";
-import { getMonitorRelativeURL, UP, log } from "../../util.ts";
-import isUrl from "is-url";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { setSettings, setting } from "@/server/util-server";
+import { getMonitorRelativeURL, UP, log } from "@/util";
+import isUrl from "@/util/is-url";
 
 class Slack extends NotificationProvider {
     name = "slack";
@@ -155,7 +155,7 @@ class Slack extends NotificationProvider {
                     username: notification.slackusername,
                     icon_emoji: notification.slackiconemo,
                 };
-                await axios.post(notification.slackwebhookURL, data, config);
+                await httpClient.post(notification.slackwebhookURL, data, config);
                 return okMsg;
             }
 
@@ -177,7 +177,7 @@ class Slack extends NotificationProvider {
                     icon_emoji: notification.slackiconemo,
                 };
 
-                await axios.post(notification.slackwebhookURL, data, config);
+                await httpClient.post(notification.slackwebhookURL, data, config);
                 return okMsg;
             }
 
@@ -213,7 +213,7 @@ class Slack extends NotificationProvider {
                 await Slack.deprecateURL(notification.slackbutton);
             }
 
-            await axios.post(notification.slackwebhookURL, data, config);
+            await httpClient.post(notification.slackwebhookURL, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

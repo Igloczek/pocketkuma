@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class ZohoCliq extends NotificationProvider {
     name = "ZohoCliq";
@@ -30,7 +30,7 @@ class ZohoCliq extends NotificationProvider {
      */
     _sendNotification = async (webhookUrl, payload) => {
         let config = this.getAxiosConfigWithProxy({});
-        await axios.post(webhookUrl, { text: payload.join("\n") }, config);
+        await httpClient.post(webhookUrl, { text: payload.join("\n") }, config);
     };
 
     /**

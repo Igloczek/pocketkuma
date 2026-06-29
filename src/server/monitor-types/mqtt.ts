@@ -1,13 +1,13 @@
 // @ts-nocheck
 
-import { MonitorType } from "./monitor-type.ts";
-import { log, UP } from "../../util.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { log, UP } from "@/util";
 import mqtt from "mqtt";
 import jsonata from "jsonata";
-import { ConditionVariable } from "../monitor-conditions/variables.ts";
-import { defaultStringOperators, defaultNumberOperators } from "../monitor-conditions/operators.ts";
-import { ConditionExpressionGroup } from "../monitor-conditions/expression.ts";
-import { evaluateExpressionGroup } from "../monitor-conditions/evaluator.ts";
+import { ConditionVariable } from "@/server/monitor-conditions/variables";
+import { defaultStringOperators, defaultNumberOperators } from "@/server/monitor-conditions/operators";
+import { ConditionExpressionGroup } from "@/server/monitor-conditions/expression";
+import { evaluateExpressionGroup } from "@/server/monitor-conditions/evaluator";
 
 class MqttMonitorType extends MonitorType {
     name = "mqtt";

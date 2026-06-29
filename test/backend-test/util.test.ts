@@ -2,7 +2,7 @@
 
 import { describe, test, expect } from "bun:test";
 import dayjs from "dayjs";
-import { SQL_DATETIME_FORMAT } from "../../src/util.ts";
+import { SQL_DATETIME_FORMAT } from "@/util";
 import dayjsPlugin_4 from "dayjs/plugin/utc";
 import dayjsPlugin_5 from "dayjs/plugin/customParseFormat";
 

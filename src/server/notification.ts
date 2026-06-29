@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import { R } from "./redbean-compat.ts";
-import { log } from "../util.ts";
-import { commandExists } from "./util-server.ts";
-import { createProviderList, getNotificationProvider } from "./notification-provider-registry.ts";
+import { R } from "@/server/redbean-compat";
+import { log } from "@/util";
+import { commandExists } from "@/server/util-server";
+import { createProviderList, getNotificationProvider } from "@/server/notification-provider-registry";
 
 class Notification {
     providerList = {};

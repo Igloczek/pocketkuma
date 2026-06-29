@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Resend extends NotificationProvider {
     name = "Resend";
@@ -31,7 +31,7 @@ class Resend extends NotificationProvider {
                 text: msg,
             };
 
-            let result = await axios.post("https://api.resend.com/emails", data, config);
+            let result = await httpClient.post("https://api.resend.com/emails", data, config);
             if (result.status === 200) {
                 return okMsg;
             } else {

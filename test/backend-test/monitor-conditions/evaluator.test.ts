@@ -5,8 +5,8 @@ import {
     ConditionExpressionGroup,
     ConditionExpression,
     LOGICAL,
-} from "../../../src/server/monitor-conditions/expression.ts";
-import { evaluateExpressionGroup, evaluateExpression } from "../../../src/server/monitor-conditions/evaluator.ts";
+} from "@/server/monitor-conditions/expression";
+import { evaluateExpressionGroup, evaluateExpression } from "@/server/monitor-conditions/evaluator";
 
 describe("Expression Evaluator", () => {
     test("evaluateExpression() returns true when condition matches and false otherwise", () => {

@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class ServerChan extends NotificationProvider {
     name = "ServerChan";
@@ -22,7 +22,7 @@ class ServerChan extends NotificationProvider {
 
         try {
             let config = this.getAxiosConfigWithProxy({});
-            await axios.post(
+            await httpClient.post(
                 url,
                 {
                     title: this.checkStatus(heartbeatJSON, monitorJSON),

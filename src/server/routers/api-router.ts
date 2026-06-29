@@ -1,17 +1,17 @@
 // @ts-nocheck
 "use strict";
 
-import { percentageToColor, filterAndJoin } from "../util-server.ts";
-import { R } from "../redbean-compat.ts";
-import Monitor from "../model/monitor.ts";
+import { percentageToColor, filterAndJoin } from "@/server/util-server";
+import { R } from "@/server/redbean-compat";
+import Monitor from "@/server/model/monitor";
 import dayjs from "dayjs";
-import { UP, MAINTENANCE, DOWN, PENDING, flipStatus, log, badgeConstants } from "../../util.ts";
-import StatusPage from "../model/status_page.ts";
+import { UP, MAINTENANCE, DOWN, PENDING, flipStatus, log, badgeConstants } from "@/util";
+import StatusPage from "@/server/model/status_page";
 import { makeBadge } from "badge-maker";
-import { Prometheus } from "../prometheus.ts";
-import Database from "../database.ts";
-import { UptimeCalculator } from "../uptime-calculator.ts";
-import { Settings } from "../settings.ts";
+import { Prometheus } from "@/server/prometheus";
+import Database from "@/server/database";
+import { UptimeCalculator } from "@/server/uptime-calculator";
+import { Settings } from "@/server/settings";
 import {
     cachedResponse,
     decodePathParam,
@@ -19,7 +19,7 @@ import {
     jsonResponse,
     queryObject,
     textResponse,
-} from "../bun-response.ts";
+} from "@/server/bun-response";
 
 function getHostname(request) {
     const url = new URL(request.url);

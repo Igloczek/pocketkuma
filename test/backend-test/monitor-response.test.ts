@@ -1,9 +1,9 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
-import Monitor from "../../src/server/model/monitor.ts";
-import Heartbeat from "../../src/server/model/heartbeat.ts";
-import { RESPONSE_BODY_LENGTH_DEFAULT } from "../../src/util.ts";
+import Monitor from "@/server/model/monitor";
+import Heartbeat from "@/server/model/heartbeat";
+import { RESPONSE_BODY_LENGTH_DEFAULT } from "@/util";
 
 describe("Monitor response saving", () => {
     test("getSaveResponse and getSaveErrorResponse parse booleans", () => {

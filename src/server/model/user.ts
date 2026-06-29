@@ -1,10 +1,10 @@
 // @ts-nocheck
 
-import { BeanModel } from "../redbean-compat.ts";
-import passwordHash from "../password-hash.ts";
-import { R } from "../redbean-compat.ts";
-import jwt from "jsonwebtoken";
-import { shake256, SHAKE256_LENGTH } from "../util-server.ts";
+import { BeanModel } from "@/server/redbean-compat";
+import passwordHash from "@/server/password-hash";
+import { R } from "@/server/redbean-compat";
+import jwt from "@/server/jwt";
+import { shake256, SHAKE256_LENGTH } from "@/server/util-server";
 
 class User extends BeanModel {
     /**

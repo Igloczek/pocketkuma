@@ -1,10 +1,10 @@
 // @ts-nocheck
 
-import { getMonitorRelativeURL } from "../../util.ts";
-import { setting } from "../util-server.ts";
-import { UP } from "../../util.ts";
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import { getMonitorRelativeURL } from "@/util";
+import { setting } from "@/server/util-server";
+import { UP } from "@/util";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Pushover extends NotificationProvider {
     name = "pushover";
@@ -44,7 +44,7 @@ class Pushover extends NotificationProvider {
         try {
             let config = this.getAxiosConfigWithProxy({});
             if (heartbeatJSON == null) {
-                await axios.post(url, data, config);
+                await httpClient.post(url, data, config);
                 return okMsg;
             }
 
@@ -54,7 +54,7 @@ class Pushover extends NotificationProvider {
             }
 
             data.message += `\n<b>Time (${heartbeatJSON["timezone"]})</b>: ${heartbeatJSON["localDateTime"]}`;
-            await axios.post(url, data, config);
+            await httpClient.post(url, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

@@ -39,5 +39,5 @@
     </div>
 </template>
 <script setup lang="ts">
-import HiddenInput from "../HiddenInput.vue";
+import HiddenInput from "@/components/HiddenInput.vue";
 </script>

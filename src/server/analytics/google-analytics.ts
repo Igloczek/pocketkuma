@@ -6,18 +6,18 @@
  * @param {string} tagId Google UA/G/AW/DC Property ID to use with the Google Analytics script.
  * @returns {string} HTML script tags to inject into page
  */
-import jsesc from "jsesc";
-import { escape } from "html-escaper";
+import { escapeJsString, escapeJsJson } from "@/util/escape";
+import { escapeHtml } from "@/util/escape";
 
 function getGoogleAnalyticsScript(tagId) {
-    let escapedTagIdJS = jsesc(tagId, { isScriptContext: true });
+    let escapedTagIdJS = escapeJsString(tagId, { isScriptContext: true });
 
     if (escapedTagIdJS) {
         escapedTagIdJS = escapedTagIdJS.trim();
     }
 
     // Escape the tag ID for use in an HTML attribute.
-    let escapedTagIdHTMLAttribute = escape(tagId);
+    let escapedTagIdHTMLAttribute = escapeHtml(tagId);
 
     return `
         <script async src="https://www.googletagmanager.com/gtag/js?id=${escapedTagIdHTMLAttribute}"></script>

@@ -88,5 +88,5 @@
     </i18n-t>
 </template>
 <script lang="ts" setup>
-import HiddenInput from "../HiddenInput.vue";
+import HiddenInput from "@/components/HiddenInput.vue";
 </script>

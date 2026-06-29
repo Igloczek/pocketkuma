@@ -1,10 +1,9 @@
 // @ts-nocheck
 
-import axios from "axios";
-import { R } from "./redbean-compat.ts";
-import https from "https";
-import Database from "./database.ts";
-import { axiosAbortSignal, fsExists } from "./util-server.ts";
+import httpClient from "@/server/http-client";
+import { R } from "@/server/redbean-compat";
+import Database from "@/server/database";
+import { axiosAbortSignal, fsExists } from "@/server/util-server";
 import fs from "fs";
 import path from "path";
 
@@ -81,15 +80,14 @@ class DockerHost {
 
         if (dockerHost.dockerType === "socket") {
             options.socketPath = dockerHost.dockerDaemon;
+            options.url = "http://localhost" + options.url;
         } else if (dockerHost.dockerType === "tcp") {
             options.baseURL = DockerHost.patchDockerURL(dockerHost.dockerDaemon);
-            options.httpsAgent = new https.Agent(
-                await DockerHost.getHttpsAgentOptions(dockerHost.dockerType, options.baseURL)
-            );
+            options.tls = await DockerHost.getHttpsAgentOptions(dockerHost.dockerType, options.baseURL);
         }
 
         try {
-            let res = await axios.request(options);
+            let res = await httpClient.request(options);
 
             if (Array.isArray(res.data)) {
                 if (res.data.length > 1) {
@@ -105,7 +103,7 @@ class DockerHost {
                 throw new Error("Invalid Docker response, is it Docker really a daemon?");
             }
         } catch (e) {
-            if (e.code === "ECONNABORTED" || e.name === "CanceledError") {
+            if (httpClient.isCancel(e)) {
                 throw new Error("Connection to Docker daemon timed out.");
             } else {
                 throw e;

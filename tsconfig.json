@@ -1,7 +1,10 @@
 {
     "compileOnSave": true,
     "compilerOptions": {
-        "allowImportingTsExtensions": true,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": ["src/*"]
+        },
         "allowSyntheticDefaultImports": true,
         "checkJs": false,
         "declaration": false,

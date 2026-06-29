@@ -6,13 +6,13 @@
  * @param {string} password Password to login with
  * @returns {Promise<(Bean|null)>} User or null if login failed
  */
-import passwordHash from "./password-hash.ts";
-import { R } from "./redbean-compat.ts";
-import { log } from "../util.ts";
-import { loginRateLimiter, apiRateLimiter } from "./rate-limiter.ts";
-import { Settings } from "./settings.ts";
+import passwordHash from "@/server/password-hash";
+import { R } from "@/server/redbean-compat";
+import { log } from "@/util";
+import { loginRateLimiter, apiRateLimiter } from "@/server/rate-limiter";
+import { Settings } from "@/server/settings";
 import dayjs from "dayjs";
-import { textResponse } from "./bun-response.ts";
+import { textResponse } from "@/server/bun-response";
 
 export async function login(username, password) {
     if (typeof username !== "string" || typeof password !== "string") {

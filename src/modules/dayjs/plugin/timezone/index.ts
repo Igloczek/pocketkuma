@@ -5,7 +5,7 @@
  * Source: https://github.com/iamkun/dayjs/tree/dev/src/plugin/utc
  * License: MIT
  */
-import { MIN, MS } from "../../constant";
+import { MIN, MS } from "@/modules/dayjs/constant";
 let typeToPos = {
     year: 0,
     month: 1,

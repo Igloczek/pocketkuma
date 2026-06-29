@@ -7,7 +7,7 @@ import Sqlite3Dialect from "knex/lib/dialects/sqlite3/index.js";
 import sqlite3 from "@louislam/sqlite3";
 import knex from "knex";
 import redbean from "redbean-node";
-import { createTables } from "../../src/db/knex_init_db.ts";
+import { createTables } from "@/db/knex_init_db";
 
 describe("Database Migration", () => {
     test("SQLite migrations run successfully from fresh database", async () => {

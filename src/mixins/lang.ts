@@ -1,6 +1,6 @@
 // @ts-nocheck
-import { currentLocale } from "../i18n";
-import { setPageLocale, timeDurationFormatter } from "../util-frontend";
+import { currentLocale } from "@/i18n";
+import { setPageLocale, timeDurationFormatter } from "@/util-frontend";
 const langModules = import.meta.glob("../lang/*.json");
 
 export default {

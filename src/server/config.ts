@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { args } from "./args.ts";
+import { args } from "@/server/args";
 
 // If host is omitted, the server will accept connections on the unspecified IPv6 address (::) when IPv6 is available and the unspecified IPv4 address (0.0.0.0) otherwise.
 // Dual-stack support for (::)

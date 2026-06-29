@@ -1,14 +1,11 @@
 // @ts-nocheck
 
-import { MonitorType } from "./monitor-type.ts";
-import { UP, PING_COUNT_DEFAULT, PING_GLOBAL_TIMEOUT_DEFAULT, PING_PER_REQUEST_TIMEOUT_DEFAULT } from "../../util.ts";
-import { Settings } from "../settings.ts";
-import { ping, checkStatusCode } from "../util-server.ts";
-import axios from "axios";
-import crypto from "crypto";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { UP, PING_COUNT_DEFAULT, PING_GLOBAL_TIMEOUT_DEFAULT, PING_PER_REQUEST_TIMEOUT_DEFAULT } from "@/util";
+import { Settings } from "@/server/settings";
+import { ping, checkStatusCode } from "@/server/util-server";
+import httpClient from "@/server/http-client";
 import dns from "node:dns/promises";
-import http from "http";
-import https from "https";
 import net from "node:net";
 
 class SteamMonitorType extends MonitorType {
@@ -25,7 +22,7 @@ class SteamMonitorType extends MonitorType {
     constructor(options = {}) {
         super();
 
-        this.steamApiClient = options.steamApiClient || axios;
+        this.steamApiClient = options.steamApiClient || httpClient;
         this.lookup = options.lookup || dns.lookup;
         this.getSteamAPIKey = options.getSteamAPIKey || (() => Settings.get("steamAPIKey"));
         this.ping = options.ping || ping;
@@ -49,14 +46,9 @@ class SteamMonitorType extends MonitorType {
             headers: {
                 Accept: "*/*",
             },
-            httpsAgent: new https.Agent({
-                maxCachedSessions: 0, // Use Custom agent to disable session reuse (https://github.com/nodejs/node/issues/3940)
+            tls: {
                 rejectUnauthorized: !monitor.getIgnoreTls(),
-                secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
-            }),
-            httpAgent: new http.Agent({
-                maxCachedSessions: 0,
-            }),
+            },
             maxRedirects: monitor.maxredirects,
             validateStatus: (status) => {
                 return checkStatusCode(status, monitor.getAcceptedStatuscodes());

@@ -6,8 +6,8 @@
  */
 import { describe, test, expect } from "bun:test";
 import { MySqlContainer } from "@testcontainers/mysql";
-import { MysqlMonitorType } from "../../../src/server/monitor-types/mysql.ts";
-import { UP, PENDING } from "../../../src/util.ts";
+import { MysqlMonitorType } from "@/server/monitor-types/mysql";
+import { UP, PENDING } from "@/util";
 
 async function createAndStartMySQLContainer() {
     const container = await new MySqlContainer("mysql:8.0").withStartupTimeout(120000).start();

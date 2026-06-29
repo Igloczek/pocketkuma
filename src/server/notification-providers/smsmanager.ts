@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class SMSManager extends NotificationProvider {
     name = "SMSManager";
@@ -21,7 +21,7 @@ class SMSManager extends NotificationProvider {
                 gateway: notification.messageType,
             };
             let config = this.getAxiosConfigWithProxy({});
-            await axios.get(
+            await httpClient.get(
                 `${url}?apikey=${data.apikey}&message=${data.message}&number=${data.number}&gateway=${data.messageType}`,
                 config
             );

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class CallMeBot extends NotificationProvider {
     name = "CallMeBot";
@@ -15,7 +15,7 @@ class CallMeBot extends NotificationProvider {
             const url = new URL(notification.callMeBotEndpoint);
             url.searchParams.set("text", msg);
             let config = this.getAxiosConfigWithProxy({});
-            await axios.get(url.toString(), config);
+            await httpClient.get(url.toString(), config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

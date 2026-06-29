@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class WPush extends NotificationProvider {
     name = "WPush";
@@ -21,7 +21,7 @@ class WPush extends NotificationProvider {
                 channel: notification.wpushChannel,
             };
             let config = this.getAxiosConfigWithProxy({});
-            const result = await axios.post("https://api.wpush.cn/api/v1/send", context, config);
+            const result = await httpClient.post("https://api.wpush.cn/api/v1/send", context, config);
             if (result.data.code !== 0) {
                 throw result.data.message;
             }

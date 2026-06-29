@@ -1,4 +1,24 @@
 // @ts-nocheck
+
+const defaultOptions = {
+    timeout: 300_000,
+    headers: {},
+};
+
+/**
+ * Configure default HTTP client options.
+ * @param {object} options Default options.
+ * @returns {void}
+ */
+function setDefaults(options = {}) {
+    if (options.timeout !== undefined) {
+        defaultOptions.timeout = options.timeout;
+    }
+    if (options.headers) {
+        defaultOptions.headers = { ...defaultOptions.headers, ...options.headers };
+    }
+}
+
 class HttpClientError extends Error {
     /**
      * Create an HTTP client error.
@@ -41,7 +61,13 @@ function appendParams(url, params) {
  * @returns {unknown} Fetch-compatible body.
  */
 function normalizeBody(body, headers) {
-    if (body === undefined || body === null || typeof body === "string" || body instanceof URLSearchParams) {
+    if (
+        body === undefined ||
+        body === null ||
+        typeof body === "string" ||
+        body instanceof URLSearchParams ||
+        body instanceof FormData
+    ) {
         return body;
     }
 
@@ -104,18 +130,7 @@ function timeoutSignal(timeout) {
  * @throws {HttpClientError} Unsupported transport option.
  */
 function assertSupportedOptions(options) {
-    const unsupportedOptions = [
-        "httpAgent",
-        "httpsAgent",
-        "proxy",
-        "socketPath",
-        "transport",
-        "agent",
-        "cert",
-        "key",
-        "ca",
-        "rejectUnauthorized",
-    ];
+    const unsupportedOptions = ["httpAgent", "httpsAgent", "transport", "agent"];
 
     for (const option of unsupportedOptions) {
         if (options[option] !== undefined) {
@@ -129,6 +144,68 @@ function assertSupportedOptions(options) {
 }
 
 /**
+ * Build Bun fetch transport options from axios-like config.
+ * @param {object} options Request options.
+ * @returns {object} Fetch transport options.
+ */
+function buildFetchTransportOptions(options) {
+    const fetchOptions = {};
+
+    if (options.socketPath) {
+        fetchOptions.unix = options.socketPath;
+    }
+
+    if (options.proxy) {
+        fetchOptions.proxy = options.proxy;
+    }
+
+    const tls = options.tls || {};
+    if (options.cert) {
+        tls.cert = options.cert;
+    }
+    if (options.key) {
+        tls.key = options.key;
+    }
+    if (options.ca) {
+        tls.ca = options.ca;
+    }
+    if (options.rejectUnauthorized !== undefined) {
+        tls.rejectUnauthorized = options.rejectUnauthorized;
+    }
+
+    if (Object.keys(tls).length > 0) {
+        fetchOptions.tls = tls;
+    }
+
+    return fetchOptions;
+}
+
+/**
+ * Resolve the request URL from axios-like options.
+ * @param {object} options Request options.
+ * @returns {string} Request URL.
+ */
+function resolveRequestUrl(options) {
+    if (options.url && (options.url.startsWith("http://") || options.url.startsWith("https://"))) {
+        return appendParams(options.url, options.params);
+    }
+
+    if (options.baseURL && options.url) {
+        return appendParams(new URL(options.url, options.baseURL).toString(), options.params);
+    }
+
+    if (options.url) {
+        return appendParams(options.url, options.params);
+    }
+
+    if (options.baseURL) {
+        return appendParams(options.baseURL, options.params);
+    }
+
+    return appendParams("", options.params);
+}
+
+/**
  * Send an HTTP request through native fetch.
  * @param {object} options Request options.
  * @returns {Promise<object>} Axios-like response object.
@@ -136,12 +213,14 @@ function assertSupportedOptions(options) {
 async function request(options) {
     assertSupportedOptions(options);
 
-    const method = (options.method || "GET").toUpperCase();
-    const headers = new Headers(options.headers || {});
-    let url = appendParams(options.url || options.baseURL + options.url, options.params);
-    const body = normalizeBody(options.data ?? options.body, headers);
-    const signal = options.signal || timeoutSignal(options.timeout);
+    let method = (options.method || "GET").toUpperCase();
+    const headers = new Headers({ ...defaultOptions.headers, ...(options.headers || {}) });
+    let url = resolveRequestUrl(options);
+    let body = normalizeBody(options.data ?? options.body, headers);
+    const timeout = options.timeout ?? defaultOptions.timeout;
+    const signal = options.signal || timeoutSignal(timeout);
     const maxRedirects = Number.isInteger(options.maxRedirects) ? options.maxRedirects : 20;
+    const fetchTransportOptions = buildFetchTransportOptions(options);
 
     let response;
     try {
@@ -149,9 +228,10 @@ async function request(options) {
             response = await fetch(url, {
                 method,
                 headers,
-                body,
+                body: method === "GET" || method === "HEAD" ? undefined : body,
                 signal,
                 redirect: "manual",
+                ...fetchTransportOptions,
             });
 
             if (![301, 302, 303, 307, 308].includes(response.status)) {
@@ -167,6 +247,15 @@ async function request(options) {
                 throw new HttpClientError("max redirects exceeded", null, "ERR_FR_TOO_MANY_REDIRECTS");
             }
 
+            if ([301, 302, 303].includes(response.status) && method !== "GET" && method !== "HEAD") {
+                method = "GET";
+                body = undefined;
+                headers.delete("Content-Type");
+                headers.delete("content-type");
+                headers.delete("Content-Length");
+                headers.delete("content-length");
+            }
+
             url = new URL(location, url).toString();
         }
     } catch (error) {
@@ -174,7 +263,7 @@ async function request(options) {
             throw error;
         }
         if (error.name === "AbortError" || error.name === "TimeoutError") {
-            throw new HttpClientError(`timeout of ${options.timeout}ms exceeded`, null, "ECONNABORTED");
+            throw new HttpClientError(`timeout of ${timeout}ms exceeded`, null, "ECONNABORTED");
         }
         throw error;
     }
@@ -218,6 +307,30 @@ async function post(url, data, options = {}) {
     return request({ ...options, url, data, method: "POST" });
 }
 
-export { HttpClientError, request, get, post };
+/**
+ * Send a PUT request.
+ * @param {string} url Request URL.
+ * @param {unknown} data Request body.
+ * @param {object} options Request options.
+ * @returns {Promise<object>} Axios-like response object.
+ */
+async function put(url, data, options = {}) {
+    return request({ ...options, url, data, method: "PUT" });
+}
 
-export default { request, get, post, HttpClientError };
+/**
+ * Check whether an error was caused by an aborted request.
+ * @param {unknown} error Error to inspect.
+ * @returns {boolean} True when the request was aborted.
+ */
+function isCancel(error) {
+    return (
+        error?.name === "AbortError" ||
+        (error instanceof HttpClientError && error.code === "ECONNABORTED") ||
+        error?.code === "ECONNABORTED"
+    );
+}
+
+export { HttpClientError, request, get, post, put, isCancel, setDefaults };
+
+export default { request, get, post, put, isCancel, HttpClientError, setDefaults };

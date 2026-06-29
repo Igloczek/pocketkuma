@@ -1,9 +1,9 @@
 // @ts-nocheck
 
 import { describe, test, expect, mock } from "bun:test";
-import { encodeBase64 } from "../../src/server/util-server.ts";
-import { UP, PENDING } from "../../src/util.ts";
-import { GlobalpingMonitorType } from "../../src/server/monitor-types/globalping.ts";
+import { encodeBase64 } from "@/server/util-server";
+import { UP, PENDING } from "@/util";
+import { GlobalpingMonitorType } from "@/server/monitor-types/globalping";
 
 describe("GlobalpingMonitorType", () => {
     describe("ping", () => {

@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import { R } from "../redbean-compat.ts";
-import { log } from "../../util.ts";
-import Database from "../database.ts";
-import { Settings } from "../settings.ts";
+import { R } from "@/server/redbean-compat";
+import { log } from "@/util";
+import Database from "@/server/database";
+import { Settings } from "@/server/settings";
 import dayjs from "dayjs";
 
 const DEFAULT_KEEP_PERIOD = 365;

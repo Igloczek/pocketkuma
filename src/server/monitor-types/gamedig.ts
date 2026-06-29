@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { MonitorType } from "./monitor-type.ts";
-import { UP } from "../../util.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { UP } from "@/util";
 import { GameDig } from "gamedig";
 
 class GameDigMonitorType extends MonitorType {

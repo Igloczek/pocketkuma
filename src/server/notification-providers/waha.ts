@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class WAHA extends NotificationProvider {
     name = "waha";
@@ -30,7 +30,7 @@ class WAHA extends NotificationProvider {
 
             let url = notification.wahaApiUrl.replace(/([^/])\/+$/, "$1") + "/api/sendText";
 
-            await axios.post(url, data, config);
+            await httpClient.post(url, data, config);
 
             return okMsg;
         } catch (error) {

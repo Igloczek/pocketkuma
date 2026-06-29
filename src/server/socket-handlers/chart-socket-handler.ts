@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import { checkLogin } from "../util-server.ts";
-import { UptimeCalculator } from "../uptime-calculator.ts";
-import { log } from "../../util.ts";
+import { checkLogin } from "@/server/util-server";
+import { UptimeCalculator } from "@/server/uptime-calculator";
+import { log } from "@/util";
 
 export const chartSocketHandler = (socket) => {
     socket.on("getMonitorChartData", async (monitorID, period, callback) => {

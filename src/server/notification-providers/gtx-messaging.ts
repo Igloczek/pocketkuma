@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class GtxMessaging extends NotificationProvider {
     name = "gtxmessaging";
@@ -24,7 +24,7 @@ class GtxMessaging extends NotificationProvider {
 
             const url = `https://rest.gtx-messaging.net/smsc/sendsms/${notification.gtxMessagingApiKey}/json`;
 
-            await axios.post(url, data, config);
+            await httpClient.post(url, data, config);
 
             return okMsg;
         } catch (error) {

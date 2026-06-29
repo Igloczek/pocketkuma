@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import { checkLogin, setSetting, setting, doubleCheckPassword } from "../util-server.ts";
+import { checkLogin, setSetting, setting, doubleCheckPassword } from "@/server/util-server";
 import { CloudflaredTunnel } from "node-cloudflared-tunnel";
-import { UptimeKumaServer } from "../uptime-kuma-server.ts";
-import { log } from "../../util.ts";
+import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { log } from "@/util";
 
 const io = UptimeKumaServer.getInstance().io;
 

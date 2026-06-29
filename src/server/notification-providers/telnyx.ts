@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Telnyx extends NotificationProvider {
     name = "telnyx";
@@ -31,7 +31,7 @@ class Telnyx extends NotificationProvider {
             };
             config = this.getAxiosConfigWithProxy(config);
 
-            await axios.post("https://api.telnyx.com/v2/messages", data, config);
+            await httpClient.post("https://api.telnyx.com/v2/messages", data, config);
 
             return okMsg;
         } catch (error) {

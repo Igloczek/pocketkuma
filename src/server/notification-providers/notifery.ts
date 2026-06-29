@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import { getMonitorRelativeURL, UP } from "../../util.ts";
-import { setting } from "../util-server.ts";
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import { getMonitorRelativeURL, UP } from "@/util";
+import { setting } from "@/server/util-server";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Notifery extends NotificationProvider {
     name = "notifery";
@@ -45,7 +45,7 @@ class Notifery extends NotificationProvider {
             };
 
             let config = this.getAxiosConfigWithProxy({ headers });
-            await axios.post(url, data, config);
+            await httpClient.post(url, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

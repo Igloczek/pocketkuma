@@ -63,7 +63,7 @@
 <script>
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import datetimeMixin from "../mixins/datetime";
+import datetimeMixin from "@/mixins/datetime";
 
 export default {
     name: "IncidentHistory",

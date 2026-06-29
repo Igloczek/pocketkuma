@@ -1,9 +1,8 @@
 // @ts-nocheck
 
 import dayjs from "dayjs";
-import axios from "axios";
-import httpClient from "../http-client.ts";
-import { Prometheus } from "../prometheus.ts";
+import httpClient from "@/server/http-client";
+import { Prometheus } from "@/server/prometheus";
 import {
     log,
     UP,
@@ -29,7 +28,7 @@ import {
     PING_PER_REQUEST_TIMEOUT_DEFAULT,
     RESPONSE_BODY_LENGTH_DEFAULT,
     RESPONSE_BODY_LENGTH_MAX,
-} from "../../util.ts";
+} from "@/util";
 import {
     ping,
     checkStatusCode,
@@ -40,23 +39,21 @@ import {
     rootCertificatesFingerprints,
     encodeBase64,
     checkCertExpiryNotifications,
-} from "../util-server.ts";
-import { R } from "../redbean-compat.ts";
-import { BeanModel } from "../redbean-compat.ts";
-import { Notification } from "../notification.ts";
-import { demoMode } from "../config.ts";
-import { UptimeKumaServer } from "../uptime-kuma-server.ts";
-import { DockerHost } from "../docker.ts";
-import jwt from "jsonwebtoken";
+} from "@/server/util-server";
+import { R } from "@/server/redbean-compat";
+import { BeanModel } from "@/server/redbean-compat";
+import { Notification } from "@/server/notification";
+import { demoMode } from "@/server/config";
+import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { DockerHost } from "@/server/docker";
+import jwt from "@/server/jwt";
 import crypto from "crypto";
-import { UptimeCalculator } from "../uptime-calculator.ts";
-import https from "https";
-import http from "http";
+import { UptimeCalculator } from "@/server/uptime-calculator";
 import zlib from "node:zlib";
 import { promisify } from "node:util";
-import DomainExpiry from "./domain_expiry.ts";
-import packageJson from "../../../package.json" with { type: "json" };
-import apicache from "../modules/apicache.ts";
+import DomainExpiry from "@/server/model/domain_expiry";
+import packageJson from "@/package-meta";
+import apicache from "@/server/modules/apicache";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const version = packageJson.version;
@@ -686,14 +683,9 @@ class Monitor extends BeanModel {
                         headers: {
                             Accept: "*/*",
                         },
-                        httpsAgent: new https.Agent({
-                            maxCachedSessions: 0, // Use Custom agent to disable session reuse (https://github.com/nodejs/node/issues/3940)
+                        tls: {
                             rejectUnauthorized: !this.getIgnoreTls(),
-                            secureOptions: crypto.constants.SSL_OP_LEGACY_SERVER_CONNECT,
-                        }),
-                        httpAgent: new http.Agent({
-                            maxCachedSessions: 0,
-                        }),
+                        },
                     };
 
                     const dockerHost = await R.load("docker_host", this.docker_host);
@@ -704,15 +696,22 @@ class Monitor extends BeanModel {
 
                     if (dockerHost._dockerType === "socket") {
                         options.socketPath = dockerHost._dockerDaemon;
+                        options.url = "http://localhost" + options.url;
                     } else if (dockerHost._dockerType === "tcp") {
                         options.baseURL = DockerHost.patchDockerURL(dockerHost._dockerDaemon);
-                        options.httpsAgent = new https.Agent(
-                            await DockerHost.getHttpsAgentOptions(dockerHost._dockerType, options.baseURL)
+                        options.tls = {
+                            ...options.tls,
+                            ...(await DockerHost.getHttpsAgentOptions(dockerHost._dockerType, options.baseURL)),
+                        };
+                        // Bun fetch cannot enable SSL_OP_LEGACY_SERVER_CONNECT for older Docker daemons.
+                        log.debug(
+                            "monitor",
+                            `[${this.name}] Docker-over-TCP uses Bun fetch TLS; legacy TLS renegotiation is not supported`
                         );
                     }
 
-                    log.debug("monitor", `[${this.name}] Axios Request`);
-                    let res = await axios.request(options);
+                    log.debug("monitor", `[${this.name}] HTTP Request`);
+                    let res = await httpClient.request(options);
 
                     if (!res.data.State) {
                         throw Error("Container state is not available");
@@ -1127,25 +1126,7 @@ class Monitor extends BeanModel {
                 return this.makeHttpMonitorRequest(options, true);
             }
 
-            // Fix #2253
-            // Read more: https://stackoverflow.com/questions/1759956/curl-error-18-transfer-closed-with-outstanding-read-data-remaining
-            if (
-                !finalCall &&
-                typeof error.message === "string" &&
-                error.message.includes("maxContentLength size of -1 exceeded")
-            ) {
-                log.debug("monitor", "makeAxiosRequest with gzip");
-                options.headers["Accept-Encoding"] = "gzip, deflate";
-                return this.makeHttpMonitorRequest(options, true);
-            } else {
-                if (
-                    typeof error.message === "string" &&
-                    error.message.includes("maxContentLength size of -1 exceeded")
-                ) {
-                    error.message = "response timeout: incomplete response within a interval";
-                }
-                throw error;
-            }
+            throw error;
         }
     }
 
@@ -1391,7 +1372,7 @@ class Monitor extends BeanModel {
      * Send a notification about a monitor
      * @param {boolean} isFirstBeat Is this beat the first of this monitor?
      * @param {Monitor} monitor The monitor to send a notification about
-     * @param {import("./heartbeat")} bean Status information about monitor
+     * @param {import("@/server/model/heartbeat")} bean Status information about monitor
      * @returns {Promise<void>}
      */
     static async sendNotification(isFirstBeat, monitor, bean) {

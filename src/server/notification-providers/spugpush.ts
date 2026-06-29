@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class SpugPush extends NotificationProvider {
     name = "SpugPush";
@@ -28,7 +28,7 @@ class SpugPush extends NotificationProvider {
             }
             const apiUrl = `https://push.spug.cc/send/${notification.templateKey}`;
             let config = this.getAxiosConfigWithProxy({});
-            await axios.post(apiUrl, formData, config);
+            await httpClient.post(apiUrl, formData, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

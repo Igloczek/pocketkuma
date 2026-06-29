@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import { checkLogin } from "../util-server.ts";
-import { Proxy } from "../proxy.ts";
-import { sendProxyList } from "../client.ts";
-import { UptimeKumaServer } from "../uptime-kuma-server.ts";
+import { checkLogin } from "@/server/util-server";
+import { Proxy } from "@/server/proxy";
+import { sendProxyList } from "@/server/client";
+import { UptimeKumaServer } from "@/server/uptime-kuma-server";
 
 const server = UptimeKumaServer.getInstance();
 

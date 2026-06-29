@@ -607,7 +607,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import { fetchDevApi } from "@/util/dev-api-base";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import Favico from "favico.js";
@@ -622,13 +622,13 @@ import "vue-prism-editor/dist/prismeditor.min.css"; // import the styles somewhe
 import { useToast } from "vue-toastification";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import Confirm from "../components/Confirm.vue";
-import PublicGroupList from "../components/PublicGroupList.vue";
-import MaintenanceTime from "../components/MaintenanceTime.vue";
-import IncidentHistory from "../components/IncidentHistory.vue";
-import IncidentManageModal from "../components/IncidentManageModal.vue";
-import IncidentEditForm from "../components/IncidentEditForm.vue";
-import { getResBaseURL } from "../util-frontend";
+import Confirm from "@/components/Confirm.vue";
+import PublicGroupList from "@/components/PublicGroupList.vue";
+import MaintenanceTime from "@/components/MaintenanceTime.vue";
+import IncidentHistory from "@/components/IncidentHistory.vue";
+import IncidentManageModal from "@/components/IncidentManageModal.vue";
+import IncidentEditForm from "@/components/IncidentEditForm.vue";
+import { getResBaseURL } from "@/util-frontend";
 import {
     STATUS_PAGE_ALL_DOWN,
     STATUS_PAGE_ALL_UP,
@@ -636,8 +636,8 @@ import {
     STATUS_PAGE_PARTIAL_DOWN,
     UP,
     MAINTENANCE,
-} from "../util.ts";
-import Tag from "../components/Tag.vue";
+} from "@/util";
+import Tag from "@/components/Tag.vue";
 import VueMultiselect from "vue-multiselect";
 
 const toast = useToast();
@@ -1051,7 +1051,9 @@ export default {
                     })
                 );
             } else {
-                return axios.get("/api/status-page/" + this.slug);
+                return fetchDevApi("/api/status-page/" + this.slug).then(async (res) => ({
+                    data: await res.json(),
+                }));
             }
         },
 
@@ -1071,8 +1073,10 @@ export default {
         updateHeartbeatList() {
             // If editMode, it will use the data from websocket.
             if (!this.editMode) {
-                axios.get("/api/status-page/heartbeat/" + this.slug).then((res) => {
-                    const { heartbeatList, uptimeList } = res.data;
+                fetchDevApi("/api/status-page/heartbeat/" + this.slug)
+                    .then((res) => res.json())
+                    .then((data) => {
+                    const { heartbeatList, uptimeList } = data;
 
                     this.$root.heartbeatList = heartbeatList;
                     this.$root.uptimeList = uptimeList;
@@ -1486,18 +1490,18 @@ export default {
                 const url = cursor
                     ? `/api/status-page/${this.slug}/incident-history?cursor=${encodeURIComponent(cursor)}`
                     : `/api/status-page/${this.slug}/incident-history`;
-                axios
-                    .get(url)
-                    .then((res) => {
+                fetchDevApi(url)
+                    .then((res) => res.json())
+                    .then((data) => {
                         this.incidentHistoryLoading = false;
-                        if (res.data.ok) {
+                        if (data.ok) {
                             if (append) {
-                                this.incidentHistory = [...this.incidentHistory, ...res.data.incidents];
+                                this.incidentHistory = [...this.incidentHistory, ...data.incidents];
                             } else {
-                                this.incidentHistory = res.data.incidents;
+                                this.incidentHistory = data.incidents;
                             }
-                            this.incidentHistoryNextCursor = res.data.nextCursor;
-                            this.incidentHistoryHasMore = res.data.hasMore;
+                            this.incidentHistoryNextCursor = data.nextCursor;
+                            this.incidentHistoryHasMore = data.hasMore;
                         }
                     })
                     .catch((error) => {

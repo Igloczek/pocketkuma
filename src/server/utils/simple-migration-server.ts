@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { printServerUrls } from "../util-server.ts";
+import { printServerUrls } from "@/server/util-server";
 
 const encoder = new TextEncoder();
 

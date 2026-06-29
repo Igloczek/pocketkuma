@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { getMonitorRelativeURL, UP, DOWN } from "../../util.ts";
-import { Settings } from "../settings.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { getMonitorRelativeURL, UP, DOWN } from "@/util";
+import { Settings } from "@/server/settings";
 
 class AlertNow extends NotificationProvider {
     name = "AlertNow";
@@ -45,7 +45,7 @@ class AlertNow extends NotificationProvider {
 
             let config = this.getAxiosConfigWithProxy({});
 
-            await axios.post(notification.alertNowWebhookURL, data, config);
+            await httpClient.post(notification.alertNowWebhookURL, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

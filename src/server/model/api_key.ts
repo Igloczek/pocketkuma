@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { BeanModel } from "../redbean-compat.ts";
-import { R } from "../redbean-compat.ts";
+import { BeanModel } from "@/server/redbean-compat";
+import { R } from "@/server/redbean-compat";
 import dayjs from "dayjs";
 
 class APIKey extends BeanModel {

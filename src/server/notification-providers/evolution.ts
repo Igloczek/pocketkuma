@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Evolution extends NotificationProvider {
     name = "evolution";
@@ -38,7 +38,7 @@ class Evolution extends NotificationProvider {
                 "/message/sendText/" +
                 encodeURIComponent(notification.evolutionInstanceName);
 
-            await axios.post(url, data, config);
+            await httpClient.post(url, data, config);
 
             return okMsg;
         } catch (error) {

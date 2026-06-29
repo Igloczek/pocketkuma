@@ -1,8 +1,8 @@
 // @ts-nocheck
 
 import nodemailer from "nodemailer";
-import NotificationProvider from "./notification-provider.ts";
-import { log } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import { log } from "@/util";
 
 class SMTP extends NotificationProvider {
     name = "smtp";

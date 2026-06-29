@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class SMSIR extends NotificationProvider {
     name = "smsir";
@@ -49,7 +49,7 @@ class SMSIR extends NotificationProvider {
 
             // Run multiple network requests at once
             const requestPromises = formattedMobiles.map((mobile) => {
-                axios.post(
+                httpClient.post(
                     url,
                     {
                         mobile: mobile,

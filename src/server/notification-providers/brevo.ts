@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Brevo extends NotificationProvider {
     name = "Brevo";
@@ -42,7 +42,7 @@ class Brevo extends NotificationProvider {
                 data.bcc = notification.brevoBccEmail.split(",").map((email) => ({ email: email.trim() }));
             }
 
-            let result = await axios.post("https://api.brevo.com/v3/smtp/email", data, config);
+            let result = await httpClient.post("https://api.brevo.com/v3/smtp/email", data, config);
             if (result.status === 201) {
                 return okMsg;
             } else {

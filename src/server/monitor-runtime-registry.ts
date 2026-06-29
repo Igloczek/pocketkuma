@@ -1,8 +1,8 @@
 // @ts-nocheck
 "use strict";
 
-import { ConditionVariable } from "./monitor-conditions/variables.ts";
-import { defaultStringOperators } from "./monitor-conditions/operators.ts";
+import { ConditionVariable } from "@/server/monitor-conditions/variables";
+import { defaultStringOperators } from "@/server/monitor-conditions/operators";
 
 const CORE_MONITOR_TYPES = ["http", "keyword", "json-query", "ping", "push", "docker", "radius", "kafka-producer"];
 
@@ -10,21 +10,21 @@ const REMOVED_MONITOR_TYPES = [];
 
 const optionalMonitorDefinitions = {
     "real-browser": {
-        load: async () => new (await import("./monitor-types/real-browser-monitor-type.ts")).RealBrowserMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/real-browser-monitor-type")).RealBrowserMonitorType(),
     },
     "tailscale-ping": {
-        load: async () => new (await import("./monitor-types/tailscale-ping.ts")).TailscalePing(),
+        load: async () => new (await import("@/server/monitor-types/tailscale-ping")).TailscalePing(),
     },
     "websocket-upgrade": {
-        load: async () => new (await import("./monitor-types/websocket-upgrade.ts")).WebSocketMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/websocket-upgrade")).WebSocketMonitorType(),
     },
     dns: {
         supportsConditions: true,
         conditionVariables: [new ConditionVariable("record", defaultStringOperators)],
-        load: async () => new (await import("./monitor-types/dns.ts")).DnsMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/dns")).DnsMonitorType(),
     },
     postgres: {
-        load: async () => new (await import("./monitor-types/postgres.ts")).PostgresMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/postgres")).PostgresMonitorType(),
     },
     mqtt: {
         supportsConditions: true,
@@ -32,67 +32,67 @@ const optionalMonitorDefinitions = {
             new ConditionVariable("message", defaultStringOperators),
             new ConditionVariable("topic", defaultStringOperators),
         ],
-        load: async () => new (await import("./monitor-types/mqtt.ts")).MqttMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/mqtt")).MqttMonitorType(),
     },
     smtp: {
-        load: async () => new (await import("./monitor-types/smtp.ts")).SMTPMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/smtp")).SMTPMonitorType(),
     },
     group: {
         allowCustomStatus: true,
-        load: async () => new (await import("./monitor-types/group.ts")).GroupMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/group")).GroupMonitorType(),
     },
     snmp: {
-        load: async () => new (await import("./monitor-types/snmp.ts")).SNMPMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/snmp")).SNMPMonitorType(),
     },
     "grpc-keyword": {
-        load: async () => new (await import("./monitor-types/grpc.ts")).GrpcKeywordMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/grpc")).GrpcKeywordMonitorType(),
     },
     mongodb: {
-        load: async () => new (await import("./monitor-types/mongodb.ts")).MongodbMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/mongodb")).MongodbMonitorType(),
     },
     rabbitmq: {
-        load: async () => new (await import("./monitor-types/rabbitmq.ts")).RabbitMqMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/rabbitmq")).RabbitMqMonitorType(),
     },
     "sip-options": {
-        load: async () => new (await import("./monitor-types/sip-options.ts")).SIPMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/sip-options")).SIPMonitorType(),
     },
     gamedig: {
-        load: async () => new (await import("./monitor-types/gamedig.ts")).GameDigMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/gamedig")).GameDigMonitorType(),
     },
     steam: {
-        load: async () => new (await import("./monitor-types/steam.ts")).SteamMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/steam")).SteamMonitorType(),
     },
     port: {
-        load: async () => new (await import("./monitor-types/tcp.ts")).TCPMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/tcp")).TCPMonitorType(),
     },
     manual: {
         allowCustomStatus: true,
-        load: async () => new (await import("./monitor-types/manual.ts")).ManualMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/manual")).ManualMonitorType(),
     },
     globalping: {
         load: async (server) =>
-            new (await import("./monitor-types/globalping.ts")).GlobalpingMonitorType(server.getUserAgent()),
+            new (await import("@/server/monitor-types/globalping")).GlobalpingMonitorType(server.getUserAgent()),
     },
     redis: {
-        load: async () => new (await import("./monitor-types/redis.ts")).RedisMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/redis")).RedisMonitorType(),
     },
     "system-service": {
-        load: async () => new (await import("./monitor-types/system-service.ts")).SystemServiceMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/system-service")).SystemServiceMonitorType(),
     },
     sqlserver: {
         supportsConditions: true,
         conditionVariables: [new ConditionVariable("result", defaultStringOperators)],
-        load: async () => new (await import("./monitor-types/mssql.ts")).MssqlMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/mssql")).MssqlMonitorType(),
     },
     mysql: {
         supportsConditions: true,
         conditionVariables: [new ConditionVariable("result", defaultStringOperators)],
-        load: async () => new (await import("./monitor-types/mysql.ts")).MysqlMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/mysql")).MysqlMonitorType(),
     },
     oracledb: {
         supportsConditions: true,
         conditionVariables: [new ConditionVariable("result", defaultStringOperators)],
-        load: async () => new (await import("./monitor-types/oracledb.ts")).OracleDbMonitorType(),
+        load: async () => new (await import("@/server/monitor-types/oracledb")).OracleDbMonitorType(),
     },
 };
 

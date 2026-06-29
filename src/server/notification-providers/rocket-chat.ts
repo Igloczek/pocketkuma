@@ -1,10 +1,10 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import Slack from "./slack.ts";
-import { getMonitorRelativeURL, DOWN } from "../../util.ts";
-import { Settings } from "../settings.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import Slack from "@/server/notification-providers/slack";
+import { getMonitorRelativeURL, DOWN } from "@/util";
+import { Settings } from "@/server/settings";
 
 class RocketChat extends NotificationProvider {
     name = "rocket.chat";
@@ -24,7 +24,7 @@ class RocketChat extends NotificationProvider {
                     username: notification.rocketusername,
                     icon_emoji: notification.rocketiconemo,
                 };
-                await axios.post(notification.rocketwebhookURL, data, config);
+                await httpClient.post(notification.rocketwebhookURL, data, config);
                 return okMsg;
             }
 
@@ -58,7 +58,7 @@ class RocketChat extends NotificationProvider {
                 data.attachments[0].title_link = baseURL + getMonitorRelativeURL(monitorJSON.id);
             }
 
-            await axios.post(notification.rocketwebhookURL, data, config);
+            await httpClient.post(notification.rocketwebhookURL, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

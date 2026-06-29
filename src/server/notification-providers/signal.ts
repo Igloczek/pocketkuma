@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Signal extends NotificationProvider {
     name = "signal";
@@ -26,7 +26,7 @@ class Signal extends NotificationProvider {
             };
             let config = {};
             config = this.getAxiosConfigWithProxy(config);
-            await axios.post(notification.signalURL, data, config);
+            await httpClient.post(notification.signalURL, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

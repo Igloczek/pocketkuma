@@ -77,7 +77,7 @@ occ talk:bot:setup &lt;BotId&gt; &lt;ConversationToken&gt;
 </template>
 
 <script>
-import HiddenInput from "../HiddenInput.vue";
+import HiddenInput from "@/components/HiddenInput.vue";
 
 export default {
     components: {

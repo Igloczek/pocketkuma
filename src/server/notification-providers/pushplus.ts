@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class PushPlus extends NotificationProvider {
     name = "PushPlus";
@@ -31,7 +31,7 @@ class PushPlus extends NotificationProvider {
                 content: msg,
                 template: "html",
             };
-            await axios.post(url, params, config);
+            await httpClient.post(url, params, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

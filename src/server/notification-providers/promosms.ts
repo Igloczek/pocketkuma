@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class PromoSMS extends NotificationProvider {
     name = "promosms";
@@ -43,7 +43,7 @@ class PromoSMS extends NotificationProvider {
                 sender: notification.promosmsSenderName,
             };
 
-            let resp = await axios.post(url, data, config);
+            let resp = await httpClient.post(url, data, config);
 
             if (resp.data.response.status !== 0) {
                 let error = "Something gone wrong. Api returned " + resp.data.response.status + ".";

@@ -1,13 +1,13 @@
 // @ts-nocheck
 
-import { MonitorType } from "./monitor-type.ts";
-import { UP, log } from "../../util.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { UP, log } from "@/util";
 import dayjs from "dayjs";
-import { R } from "../redbean-compat.ts";
-import { ConditionVariable } from "../monitor-conditions/variables.ts";
-import { defaultStringOperators } from "../monitor-conditions/operators.ts";
-import { ConditionExpressionGroup } from "../monitor-conditions/expression.ts";
-import { evaluateExpressionGroup } from "../monitor-conditions/evaluator.ts";
+import { R } from "@/server/redbean-compat";
+import { ConditionVariable } from "@/server/monitor-conditions/variables";
+import { defaultStringOperators } from "@/server/monitor-conditions/operators";
+import { ConditionExpressionGroup } from "@/server/monitor-conditions/expression";
+import { evaluateExpressionGroup } from "@/server/monitor-conditions/evaluator";
 import { Resolver } from "node:dns/promises";
 import net from "node:net";
 

@@ -439,28 +439,28 @@
 import { defineAsyncComponent } from "vue";
 import { useToast } from "vue-toastification";
 const toast = useToast();
-import Confirm from "../components/Confirm.vue";
-import HeartbeatBar from "../components/HeartbeatBar.vue";
-import Status from "../components/Status.vue";
-import Datetime from "../components/Datetime.vue";
-import CountUp from "../components/CountUp.vue";
-import Uptime from "../components/Uptime.vue";
+import Confirm from "@/components/Confirm.vue";
+import HeartbeatBar from "@/components/HeartbeatBar.vue";
+import Status from "@/components/Status.vue";
+import Datetime from "@/components/Datetime.vue";
+import CountUp from "@/components/CountUp.vue";
+import Uptime from "@/components/Uptime.vue";
 import Pagination from "v-pagination-3";
-const PingChart = defineAsyncComponent(() => import("../components/PingChart.vue"));
-import Tag from "../components/Tag.vue";
-import CertificateInfo from "../components/CertificateInfo.vue";
-import { getMonitorRelativeURL } from "../util.ts";
-import { URL } from "whatwg-url";
+const PingChart = defineAsyncComponent(() => import("@/components/PingChart.vue"));
+import Tag from "@/components/Tag.vue";
+import CertificateInfo from "@/components/CertificateInfo.vue";
+import { getMonitorRelativeURL } from "@/util";
+
 import DOMPurify from "dompurify";
 import { marked } from "marked";
-import { getResBaseURL, timeDurationFormatter } from "../util-frontend";
+import { getResBaseURL, timeDurationFormatter } from "@/util-frontend";
 import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-clike";
 import "prismjs/components/prism-javascript";
 import "prismjs/components/prism-css";
 import { PrismEditor } from "vue-prism-editor";
 import "vue-prism-editor/dist/prismeditor.min.css";
-import ScreenshotDialog from "../components/ScreenshotDialog.vue";
+import ScreenshotDialog from "@/components/ScreenshotDialog.vue";
 
 export default {
     components: {

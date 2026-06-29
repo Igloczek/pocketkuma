@@ -1,11 +1,7 @@
 // @ts-nocheck
 
 import { Liquid } from "liquidjs";
-import { DOWN } from "../../util.ts";
-import { HttpProxyAgent } from "http-proxy-agent";
-import { HttpsProxyAgent } from "https-proxy-agent";
-import { SocksProxyAgent } from "socks-proxy-agent";
-
+import { DOWN } from "@/util";
 class NotificationProvider {
     /**
      * Notification Provider Name
@@ -177,22 +173,7 @@ class NotificationProvider {
     getAxiosConfigWithProxy(axiosConfig = {}) {
         const proxyEnv = process.env.notification_proxy || process.env.NOTIFICATION_PROXY;
         if (proxyEnv) {
-            const proxyUrl = new URL(proxyEnv);
-
-            if (proxyUrl.protocol === "http:") {
-                axiosConfig.httpAgent = new HttpProxyAgent(proxyEnv);
-                axiosConfig.httpsAgent = new HttpsProxyAgent(proxyEnv);
-            } else if (proxyUrl.protocol === "https:") {
-                const agent = new HttpsProxyAgent(proxyEnv);
-                axiosConfig.httpAgent = agent;
-                axiosConfig.httpsAgent = agent;
-            } else if (["socks:", "socks4:", "socks5:", "socks5h:"].includes(proxyUrl.protocol)) {
-                const agent = new SocksProxyAgent(proxyEnv);
-                axiosConfig.httpAgent = agent;
-                axiosConfig.httpsAgent = agent;
-            }
-
-            axiosConfig.proxy = false;
+            axiosConfig.proxy = proxyEnv;
         }
         return axiosConfig;
     }

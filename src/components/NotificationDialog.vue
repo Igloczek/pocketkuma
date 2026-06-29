@@ -168,8 +168,8 @@
 <script>
 import { Modal } from "bootstrap";
 
-import Confirm from "./Confirm.vue";
-import NotificationFormList from "./notifications";
+import Confirm from "@/components/Confirm.vue";
+import NotificationFormList from "@/components/notifications";
 
 export default {
     components: {

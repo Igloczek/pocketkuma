@@ -1,8 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import FormData from "form-data";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Webhook extends NotificationProvider {
     name = "webhook";
@@ -40,7 +39,6 @@ class Webhook extends NotificationProvider {
             } else if (notification.webhookContentType === "form-data") {
                 const formData = new FormData();
                 formData.append("data", JSON.stringify(data));
-                config.headers = formData.getHeaders();
                 data = formData;
             } else if (notification.webhookContentType === "custom") {
                 data = await this.renderTemplate(notification.webhookCustomBody, msg, monitorJSON, heartbeatJSON);
@@ -60,9 +58,9 @@ class Webhook extends NotificationProvider {
             config = this.getAxiosConfigWithProxy(config);
 
             if (httpMethod === "get") {
-                await axios.get(notification.webhookURL, config);
+                await httpClient.get(notification.webhookURL, config);
             } else {
-                await axios.post(notification.webhookURL, data, config);
+                await httpClient.post(notification.webhookURL, data, config);
             }
 
             return okMsg;

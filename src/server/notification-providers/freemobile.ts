@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class FreeMobile extends NotificationProvider {
     name = "FreeMobile";
@@ -14,7 +14,7 @@ class FreeMobile extends NotificationProvider {
 
         try {
             let config = this.getAxiosConfigWithProxy({});
-            await axios.post(
+            await httpClient.post(
                 `https://smsapi.free-mobile.fr/sendmsg?msg=${encodeURIComponent(msg.replace("🔴", "⛔️"))}`,
                 {
                     user: notification.freemobileUser,

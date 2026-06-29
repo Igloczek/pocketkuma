@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Keep extends NotificationProvider {
     name = "Keep";
@@ -35,7 +35,7 @@ class Keep extends NotificationProvider {
 
             config = this.getAxiosConfigWithProxy(config);
 
-            await axios.post(webhookURL, data, config);
+            await httpClient.post(webhookURL, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
-import { kafkaProducerAsync } from "../../../src/server/util-server.ts";
+import { kafkaProducerAsync } from "@/server/util-server";
 
 describe("Kafka Producer", () => {
     test("rejects when broker is not reachable", async () => {

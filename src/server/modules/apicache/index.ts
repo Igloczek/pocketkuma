@@ -1,4 +1,4 @@
-import { clearResponseCache } from "../../bun-response.ts";
+import { clearResponseCache } from "@/server/bun-response";
 
 const apicache = {
     clear: clearResponseCache,

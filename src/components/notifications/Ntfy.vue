@@ -146,9 +146,9 @@
 </template>
 
 <script>
-import HiddenInput from "../HiddenInput.vue";
-import TemplatedInput from "../TemplatedInput.vue";
-import TemplatedTextarea from "../TemplatedTextarea.vue";
+import HiddenInput from "@/components/HiddenInput.vue";
+import TemplatedInput from "@/components/TemplatedInput.vue";
+import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
 
 export default {
     components: {

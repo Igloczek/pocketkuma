@@ -7,12 +7,12 @@
  * @param {string} siteId Site ID to use with the Rybbit Analytics script.
  * @returns {string} HTML script tags to inject into page
  */
-import jsesc from "jsesc";
-import { escape } from "html-escaper";
+import { escapeJsString, escapeJsJson } from "@/util/escape";
+import { escapeHtml } from "@/util/escape";
 
 function getRybbitAnalyticsScript(scriptUrl, siteId) {
-    let escapedScriptUrlJS = jsesc(scriptUrl, { isScriptContext: true });
-    let escapedSiteIdJS = jsesc(siteId, { isScriptContext: true });
+    let escapedScriptUrlJS = escapeJsString(scriptUrl, { isScriptContext: true });
+    let escapedSiteIdJS = escapeJsString(siteId, { isScriptContext: true });
 
     if (escapedScriptUrlJS) {
         escapedScriptUrlJS = escapedScriptUrlJS.trim();
@@ -23,10 +23,10 @@ function getRybbitAnalyticsScript(scriptUrl, siteId) {
     }
 
     // Escape the Script url for use in an HTML attribute.
-    let escapedScriptUrlHTMLAttribute = escape(escapedScriptUrlJS);
+    let escapedScriptUrlHTMLAttribute = escapeHtml(escapedScriptUrlJS);
 
     // Escape the site id for use in an HTML attribute.
-    let escapedSiteIdHTMLAttribute = escape(escapedSiteIdJS);
+    let escapedSiteIdHTMLAttribute = escapeHtml(escapedSiteIdJS);
 
     return `
         <script defer src="${escapedScriptUrlHTMLAttribute}" data-site-id="${escapedSiteIdHTMLAttribute}"></script>

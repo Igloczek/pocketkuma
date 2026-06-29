@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
-import { checkCertificateHostname } from "../../src/server/util-server.ts";
+import { checkCertificateHostname } from "@/server/util-server";
 
 const testCert = `
 -----BEGIN CERTIFICATE-----

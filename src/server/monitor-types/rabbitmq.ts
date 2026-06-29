@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import { MonitorType } from "./monitor-type.ts";
-import { log, UP } from "../../util.ts";
-import { axiosAbortSignal } from "../util-server.ts";
-import axios from "axios";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
+import { log, UP } from "@/util";
+import { axiosAbortSignal } from "@/server/util-server";
+import httpClient from "@/server/http-client";
 
 class RabbitMqMonitorType extends MonitorType {
     name = "rabbitmq";
@@ -84,7 +84,7 @@ class RabbitMqMonitorType extends MonitorType {
         log.debug("monitor", `[${monitor.name}] Checking node ${nodeInfo}: ${baseUrl}`);
 
         try {
-            const res = await axios.request(options);
+            const res = await httpClient.request(options);
             log.debug(
                 "monitor",
                 `[${monitor.name}] Axios Response: status=${res.status} body=${JSON.stringify(res.data)}`
@@ -99,7 +99,7 @@ class RabbitMqMonitorType extends MonitorType {
                 throw new Error(`${res.status} - ${res.statusText}`);
             }
         } catch (error) {
-            if (axios.isCancel(error)) {
+            if (httpClient.isCancel(error)) {
                 throw new Error("Request timed out");
             } else if (error.response) {
                 // Re-throw with the original error message if it's already formatted

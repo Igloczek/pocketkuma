@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import { runCommand } from "../process-helper.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import { runCommand } from "@/server/process-helper";
 
 class Apprise extends NotificationProvider {
     name = "apprise";

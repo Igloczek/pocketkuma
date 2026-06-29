@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class Fluxer extends NotificationProvider {
     name = "fluxer";
@@ -21,7 +21,7 @@ class Fluxer extends NotificationProvider {
             // Check if the webhook has an avatar
             let webhookHasAvatar = true;
             try {
-                const webhookInfo = await axios.get(webhookUrl.toString(), config);
+                const webhookInfo = await httpClient.get(webhookUrl.toString(), config);
                 webhookHasAvatar = !!webhookInfo.data.avatar;
             } catch (e) {
                 // If we can't verify, we assume he has an avatar to avoid forcing the default avatar
@@ -49,7 +49,7 @@ class Fluxer extends NotificationProvider {
                 if (!webhookHasAvatar) {
                     fluxertestdata.avatar_url = "https://github.com/louislam/uptime-kuma/raw/master/public/icon.png";
                 }
-                await axios.post(webhookUrl.toString(), fluxertestdata, config);
+                await httpClient.post(webhookUrl.toString(), fluxertestdata, config);
                 return okMsg;
             }
 
@@ -70,7 +70,7 @@ class Fluxer extends NotificationProvider {
                     payload.avatar_url = "https://github.com/louislam/uptime-kuma/raw/master/public/icon.png";
                 }
 
-                await axios.post(webhookUrl.toString(), payload, config);
+                await httpClient.post(webhookUrl.toString(), payload, config);
                 return okMsg;
             }
 
@@ -92,7 +92,7 @@ class Fluxer extends NotificationProvider {
                     payload.avatar_url = "https://github.com/louislam/uptime-kuma/raw/master/public/icon.png";
                 }
 
-                await axios.post(webhookUrl.toString(), payload, config);
+                await httpClient.post(webhookUrl.toString(), payload, config);
                 return okMsg;
             }
 
@@ -142,7 +142,7 @@ class Fluxer extends NotificationProvider {
                     fluxerdowndata.content = notification.fluxerPrefixMessage;
                 }
 
-                await axios.post(webhookUrl.toString(), fluxerdowndata, config);
+                await httpClient.post(webhookUrl.toString(), fluxerdowndata, config);
                 return okMsg;
             } else if (heartbeatJSON["status"] === UP) {
                 const backOnlineTimestamp = Math.floor(new Date(heartbeatJSON["time"]).getTime() / 1000);
@@ -213,7 +213,7 @@ class Fluxer extends NotificationProvider {
                     fluxerupdata.content = notification.fluxerPrefixMessage;
                 }
 
-                await axios.post(webhookUrl.toString(), fluxerupdata, config);
+                await httpClient.post(webhookUrl.toString(), fluxerupdata, config);
                 return okMsg;
             }
         } catch (error) {

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { R } from "./redbean-compat.ts";
-import { log } from "../util.ts";
+import { R } from "@/server/redbean-compat";
+import { log } from "@/util";
 
 class Settings {
     /**

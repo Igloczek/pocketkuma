@@ -1,8 +1,8 @@
 // @ts-nocheck
 
 import PrometheusClient from "prom-client";
-import { log } from "../util.ts";
-import { R } from "./redbean-compat.ts";
+import { log } from "@/util";
+import { R } from "@/server/redbean-compat";
 
 let monitorCertDaysRemaining = null;
 let monitorCertIsValid = null;
@@ -157,7 +157,7 @@ class Prometheus {
 
     /**
      * Update the metrics page
-     * @typedef {import("./uptime-calculator").UptimeDataResult} UptimeDataResult
+     * @typedef {import("@/server/uptime-calculator").UptimeDataResult} UptimeDataResult
      * @param {object} heartbeat Heartbeat details
      * @param {object} tlsInfo TLS details
      * @param {{data24h: UptimeDataResult, data30d: UptimeDataResult, data1y:UptimeDataResult} | null} uptime the uptime and average response rate over a variety of fixed windows

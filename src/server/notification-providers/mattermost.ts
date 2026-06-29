@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class Mattermost extends NotificationProvider {
     name = "mattermost";
@@ -22,7 +22,7 @@ class Mattermost extends NotificationProvider {
                     username: mattermostUserName,
                     text: msg,
                 };
-                await axios.post(notification.mattermostWebhookUrl, mattermostTestData, config);
+                await httpClient.post(notification.mattermostWebhookUrl, mattermostTestData, config);
                 return okMsg;
             }
 
@@ -94,7 +94,7 @@ class Mattermost extends NotificationProvider {
                     },
                 ],
             };
-            await axios.post(notification.mattermostWebhookUrl, mattermostdata, config);
+            await httpClient.post(notification.mattermostWebhookUrl, mattermostdata, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

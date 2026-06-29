@@ -1,1 +1,1 @@
-export { default } from "../../../../modules/dayjs/plugin/timezone/index.ts";
+export { default } from "@/modules/dayjs/plugin/timezone/index";

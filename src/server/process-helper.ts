@@ -2,7 +2,7 @@
 "use strict";
 
 import fs from "fs";
-import { isBunRuntime } from "./runtime.ts";
+import { isBunRuntime } from "@/server/runtime";
 import childProcess from "node:child_process";
 
 function toText(output) {

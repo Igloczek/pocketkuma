@@ -30,7 +30,7 @@
 </template>
 
 <script>
-import ProxyDialog from "../../components/ProxyDialog.vue";
+import ProxyDialog from "@/components/ProxyDialog.vue";
 
 export default {
     components: {

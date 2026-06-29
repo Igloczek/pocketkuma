@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class EgoSMS extends NotificationProvider {
     name = "egosms";
@@ -24,7 +24,7 @@ class EgoSMS extends NotificationProvider {
 
             const url = `https://www.egosms.co/api/v1/plain/?${params.toString()}`;
             let config = this.getAxiosConfigWithProxy({});
-            const response = await axios.get(url, config);
+            const response = await httpClient.get(url, config);
 
             return response.data || okMsg;
         } catch (error) {

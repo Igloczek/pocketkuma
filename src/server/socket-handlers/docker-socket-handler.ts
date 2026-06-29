@@ -5,10 +5,10 @@
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-import { sendDockerHostList } from "../client.ts";
-import { checkLogin } from "../util-server.ts";
-import { DockerHost } from "../docker.ts";
-import { log } from "../../util.ts";
+import { sendDockerHostList } from "@/server/client";
+import { checkLogin } from "@/server/util-server";
+import { DockerHost } from "@/server/docker";
+import { log } from "@/util";
 
 export const dockerSocketHandler = (socket) => {
     socket.on("addDockerHost", async (dockerHost, dockerHostID, callback) => {

@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN } from "@/util";
 
 class Squadcast extends NotificationProvider {
     name = "squadcast";
@@ -48,7 +48,7 @@ class Squadcast extends NotificationProvider {
             }
             config = this.getAxiosConfigWithProxy(config);
 
-            await axios.post(notification.squadcastWebhookURL, data, config);
+            await httpClient.post(notification.squadcastWebhookURL, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class Whatsapp360messenger extends NotificationProvider {
     name = "Whatsapp360messenger";
@@ -75,7 +75,7 @@ class Whatsapp360messenger extends NotificationProvider {
                             phonenumber: recipient,
                             text: message,
                         };
-                        return axios.post("https://api.360messenger.com/v2/sendMessage", recipientData, config);
+                        return httpClient.post("https://api.360messenger.com/v2/sendMessage", recipientData, config);
                     })
                 );
 
@@ -86,7 +86,7 @@ class Whatsapp360messenger extends NotificationProvider {
                             groupId,
                             text: message,
                         };
-                        return axios.post("https://api.360messenger.com/v2/sendGroup", groupData, config);
+                        return httpClient.post("https://api.360messenger.com/v2/sendGroup", groupData, config);
                     })
                 );
 
@@ -99,7 +99,7 @@ class Whatsapp360messenger extends NotificationProvider {
                             groupId,
                             text: message,
                         };
-                        return axios.post("https://api.360messenger.com/v2/sendGroup", data, config);
+                        return httpClient.post("https://api.360messenger.com/v2/sendGroup", data, config);
                     })
                 );
 
@@ -112,7 +112,7 @@ class Whatsapp360messenger extends NotificationProvider {
                             phonenumber: recipient,
                             text: message,
                         };
-                        return axios.post("https://api.360messenger.com/v2/sendMessage", data, config);
+                        return httpClient.post("https://api.360messenger.com/v2/sendMessage", data, config);
                     })
                 );
 

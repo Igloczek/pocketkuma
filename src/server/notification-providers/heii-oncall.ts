@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import { UP, DOWN, getMonitorRelativeURL } from "../../util.ts";
-import { setting } from "../util-server.ts";
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import { UP, DOWN, getMonitorRelativeURL } from "@/util";
+import { setting } from "@/server/util-server";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class HeiiOnCall extends NotificationProvider {
     name = "HeiiOnCall";
@@ -34,16 +34,16 @@ class HeiiOnCall extends NotificationProvider {
             if (!heartbeatJSON) {
                 // Testing or general notification like certificate expiry
                 payload["msg"] = msg;
-                await axios.post(heiiUrl + "alert", payload, config);
+                await httpClient.post(heiiUrl + "alert", payload, config);
                 return okMsg;
             }
 
             if (heartbeatJSON.status === DOWN) {
-                await axios.post(heiiUrl + "alert", payload, config);
+                await httpClient.post(heiiUrl + "alert", payload, config);
                 return okMsg;
             }
             if (heartbeatJSON.status === UP) {
-                await axios.post(heiiUrl + "resolve", payload, config);
+                await httpClient.post(heiiUrl + "resolve", payload, config);
                 return okMsg;
             }
         } catch (error) {

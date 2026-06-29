@@ -13,13 +13,13 @@ class ConditionVariable {
     id;
 
     /**
-     * @type {import("./operators").ConditionOperator[]}
+     * @type {import("@/server/monitor-conditions/operators").ConditionOperator[]}
      */
     operators = {};
 
     /**
      * @param {string} id ID of variable
-     * @param {import("./operators").ConditionOperator[]} operators Operators the condition supports
+     * @param {import("@/server/monitor-conditions/operators").ConditionOperator[]} operators Operators the condition supports
      */
     constructor(id, operators = []) {
         this.id = id;

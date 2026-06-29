@@ -2,8 +2,8 @@
 
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { OracleDbContainer } from "@testcontainers/oraclefree";
-import { OracleDbMonitorType } from "../../../src/server/monitor-types/oracledb.ts";
-import { UP, PENDING } from "../../../src/util.ts";
+import { OracleDbMonitorType } from "@/server/monitor-types/oracledb";
+import { UP, PENDING } from "@/util";
 
 const ORACLE_IMAGE = "gvenzl/oracle-free:23-slim-faststart";
 const APP_USER = "uptimekuma";

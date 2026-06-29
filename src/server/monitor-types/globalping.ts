@@ -8,18 +8,18 @@
  *
  * API documentation: https://globalping.io/docs/api.globalping.io
  */
-import { MonitorType } from "./monitor-type.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { Globalping, IpVersion } from "globalping";
-import { Settings } from "../settings.ts";
-import { log, UP, evaluateJsonQuery } from "../../util.ts";
+import { Settings } from "@/server/settings";
+import { log, UP, evaluateJsonQuery } from "@/util";
 import {
     checkStatusCode,
     getOidcTokenClientCredentials,
     encodeBase64,
     getDaysRemaining,
     checkCertExpiryNotifications,
-} from "../util-server.ts";
-import { R } from "../redbean-compat.ts";
+} from "@/server/util-server";
+import { R } from "@/server/redbean-compat";
 
 class GlobalpingMonitorType extends MonitorType {
     name = "globalping";

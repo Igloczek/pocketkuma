@@ -145,11 +145,11 @@
 
 <script>
 import { Modal } from "bootstrap";
-import Confirm from "./Confirm.vue";
-import Tag from "./Tag.vue";
+import Confirm from "@/components/Confirm.vue";
+import Tag from "@/components/Tag.vue";
 import VueMultiselect from "vue-multiselect";
-import { colorOptions } from "../util-frontend";
-import { getMonitorRelativeURL } from "../util.ts";
+import { colorOptions } from "@/util-frontend";
+import { getMonitorRelativeURL } from "@/util";
 
 export default {
     components: {

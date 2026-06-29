@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { R } from "./redbean-compat.ts";
+import { R } from "@/server/redbean-compat";
 
 class TwoFA {
     /**

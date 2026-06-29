@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { UP } from "@/util";
 
 class GoAlert extends NotificationProvider {
     name = "GoAlert";
@@ -27,7 +27,7 @@ class GoAlert extends NotificationProvider {
                 headers: headers,
             };
             config = this.getAxiosConfigWithProxy(config);
-            await axios.post(
+            await httpClient.post(
                 `${notification.goAlertBaseURL}/api/v2/generic/incoming?token=${notification.goAlertToken}`,
                 data,
                 config

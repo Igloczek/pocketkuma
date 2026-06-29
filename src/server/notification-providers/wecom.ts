@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { DOWN, UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { DOWN, UP } from "@/util";
 
 class WeCom extends NotificationProvider {
     name = "WeCom";
@@ -21,7 +21,7 @@ class WeCom extends NotificationProvider {
             };
             config = this.getAxiosConfigWithProxy(config);
             let body = this.composeMessage(notification, heartbeatJSON, msg);
-            await axios.post(
+            await httpClient.post(
                 `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${notification.weComBotKey}`,
                 body,
                 config

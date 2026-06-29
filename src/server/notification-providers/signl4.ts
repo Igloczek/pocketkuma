@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { UP, DOWN } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { UP, DOWN } from "@/util";
 
 class SIGNL4 extends NotificationProvider {
     name = "SIGNL4";
@@ -44,7 +44,7 @@ class SIGNL4 extends NotificationProvider {
                 data["X-S4-Status"] = "new";
             }
 
-            await axios.post(notification.webhookURL, data, config);
+            await httpClient.post(notification.webhookURL, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

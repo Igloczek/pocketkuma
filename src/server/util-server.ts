@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { R } from "./redbean-compat.ts";
-import { runCommand, commandExists } from "./process-helper.ts";
+import { R } from "@/server/redbean-compat";
+import { runCommand, commandExists } from "@/server/process-helper";
 import {
     log,
     genSecret,
@@ -10,14 +10,14 @@ import {
     PING_GLOBAL_TIMEOUT_DEFAULT,
     PING_COUNT_DEFAULT,
     PING_PER_REQUEST_TIMEOUT_DEFAULT,
-} from "../util.ts";
-import passwordHash from "./password-hash.ts";
+} from "@/util";
+import passwordHash from "@/server/password-hash";
 import iconv from "iconv-lite";
 import chardet from "chardet";
 import chroma from "chroma-js";
-import { NtlmClient } from "./modules/axios-ntlm/lib/ntlmClient.ts";
-import { Settings } from "./settings.ts";
-import RadiusClient from "./radius-client.ts";
+
+import { Settings } from "@/server/settings";
+import RadiusClient from "@/server/radius-client";
 import oidc from "openid-client";
 import tls from "tls";
 import { exists } from "fs";
@@ -341,26 +341,6 @@ export function kafkaProducerAsync(brokers, topic, message, options = {}, saslOp
                 reject(new Error("producer.disconnect"));
             }
         });
-    });
-}
-
-/**
- * Use NTLM Auth for a http request.
- * @param {object} options The http request options
- * @param {object} ntlmOptions The auth options
- * @returns {Promise<(string[] | object[] | object)>} NTLM response
- */
-export function httpNtlm(options, ntlmOptions) {
-    return new Promise((resolve, reject) => {
-        let client = NtlmClient(ntlmOptions);
-
-        client(options)
-            .then((resp) => {
-                resolve(resp);
-            })
-            .catch((err) => {
-                reject(err);
-            });
     });
 }
 

@@ -86,7 +86,7 @@
 
 <script lang="ts">
 import { Modal } from "bootstrap";
-import Confirm from "./Confirm.vue";
+import Confirm from "@/components/Confirm.vue";
 
 export default {
     components: {

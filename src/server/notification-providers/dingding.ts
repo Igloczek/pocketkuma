@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import { DOWN, UP } from "../../util.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import { DOWN, UP } from "@/util";
+import httpClient from "@/server/http-client";
 import Crypto from "crypto";
 
 class DingDing extends NotificationProvider {
@@ -75,7 +75,7 @@ class DingDing extends NotificationProvider {
         };
         config = this.getAxiosConfigWithProxy(config);
 
-        let result = await axios(config);
+        let result = await httpClient.request(config);
         if (result.data.errmsg === "ok") {
             return true;
         }

@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import { MonitorType } from "./monitor-type.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
 import process from "process";
-import { UP } from "../../util.ts";
-import { runCommand } from "../process-helper.ts";
+import { UP } from "@/util";
+import { runCommand } from "@/server/process-helper";
 
 class SystemServiceMonitorType extends MonitorType {
     name = "system-service";

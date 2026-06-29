@@ -129,10 +129,10 @@
 </template>
 
 <script>
-import Confirm from "../components/Confirm.vue";
-import MonitorListItem from "../components/MonitorListItem.vue";
-import MonitorListFilter from "./MonitorListFilter.vue";
-import { getMonitorRelativeURL } from "../util.ts";
+import Confirm from "@/components/Confirm.vue";
+import MonitorListItem from "@/components/MonitorListItem.vue";
+import MonitorListFilter from "@/components/MonitorListFilter.vue";
+import { getMonitorRelativeURL } from "@/util";
 
 export default {
     components: {

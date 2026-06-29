@@ -5,15 +5,15 @@
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-import { checkLogin } from "../util-server.ts";
-import { log } from "../../util.ts";
-import { R } from "../redbean-compat.ts";
-import { nanoid } from "nanoid";
-import passwordHash from "../password-hash.ts";
-import apicache from "../modules/apicache.ts";
-import APIKey from "../model/api_key.ts";
-import { Settings } from "../settings.ts";
-import { sendAPIKeyList } from "../client.ts";
+import { checkLogin } from "@/server/util-server";
+import { log } from "@/util";
+import { R } from "@/server/redbean-compat";
+import { randomId } from "@/util/random-id";
+import passwordHash from "@/server/password-hash";
+import apicache from "@/server/modules/apicache";
+import APIKey from "@/server/model/api_key";
+import { Settings } from "@/server/settings";
+import { sendAPIKeyList } from "@/server/client";
 
 export const apiKeySocketHandler = (socket) => {
     // Add a new api key
@@ -21,7 +21,7 @@ export const apiKeySocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let clearKey = nanoid(40);
+            let clearKey = randomId(40);
             let hashedKey = await passwordHash.generate(clearKey);
             key["key"] = hashedKey;
             let bean = await APIKey.save(key, socket.userID);

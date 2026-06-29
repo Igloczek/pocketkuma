@@ -45,9 +45,9 @@
 </template>
 
 <script>
-import TagEditDialog from "../../components/TagEditDialog.vue";
-import Tag from "../Tag.vue";
-import Confirm from "../Confirm.vue";
+import TagEditDialog from "@/components/TagEditDialog.vue";
+import Tag from "@/components/Tag.vue";
+import Confirm from "@/components/Confirm.vue";
 
 export default {
     components: {

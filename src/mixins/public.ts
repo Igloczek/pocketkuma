@@ -1,15 +1,7 @@
 // @ts-nocheck
-import axios from "axios";
-import { getDevContainerServerHostname, isDevContainer } from "../util-frontend";
+import { getDevApiBaseURL } from "@/util/dev-api-base";
 
 const env = process.env.NODE_ENV || "production";
-
-// change the axios base url for development
-if (env === "development" && isDevContainer()) {
-    axios.defaults.baseURL = location.protocol + "//" + getDevContainerServerHostname();
-} else if (env === "development" || localStorage.dev === "dev") {
-    axios.defaults.baseURL = location.protocol + "//" + location.hostname + ":3001";
-}
 
 export default {
     data() {
@@ -47,7 +39,7 @@ export default {
             }
 
             if (env === "development" || localStorage.dev === "dev") {
-                return axios.defaults.baseURL;
+                return getDevApiBaseURL();
             } else {
                 return location.protocol + "//" + location.host;
             }

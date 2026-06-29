@@ -1,5 +1,5 @@
 import { sync as rimrafSync } from "rimraf";
-import Database from "../src/server/database.ts";
+import Database from "@/server/database";
 
 class TestDB {
     dataDir;

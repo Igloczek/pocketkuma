@@ -8,16 +8,16 @@
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<Bean[]>} List of notifications
  */
-import { TimeLogger } from "../util.ts";
-import { R } from "./redbean-compat.ts";
-import { UptimeKumaServer } from "./uptime-kuma-server.ts";
-import { setting } from "./util-server.ts";
+import { TimeLogger } from "@/util";
+import { R } from "@/server/redbean-compat";
+import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { setting } from "@/server/util-server";
 
 const server = UptimeKumaServer.getInstance();
 const io = server.io;
-import * as checkVersion from "./check-version.ts";
-import Database from "./database.ts";
-import { getRuntimeInfo } from "./runtime.ts";
+import * as checkVersion from "@/server/check-version";
+import Database from "@/server/database";
+import { getRuntimeInfo } from "@/server/runtime";
 
 async function sendNotificationList(socket) {
     const timeLogger = new TimeLogger();

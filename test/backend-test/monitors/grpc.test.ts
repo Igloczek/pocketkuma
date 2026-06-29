@@ -3,8 +3,8 @@
 import { describe, test, expect } from "bun:test";
 import grpc from "@grpc/grpc-js";
 import protoLoader from "@grpc/proto-loader";
-import { GrpcKeywordMonitorType } from "../../../src/server/monitor-types/grpc.ts";
-import { UP, PENDING } from "../../../src/util.ts";
+import { GrpcKeywordMonitorType } from "@/server/monitor-types/grpc";
+import { UP, PENDING } from "@/util";
 import fs from "fs";
 import path from "path";
 import os from "os";

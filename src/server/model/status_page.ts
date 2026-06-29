@@ -1,16 +1,16 @@
 // @ts-nocheck
 
-import { BeanModel } from "../redbean-compat.ts";
-import { R } from "../redbean-compat.ts";
+import { BeanModel } from "@/server/redbean-compat";
+import { R } from "@/server/redbean-compat";
 import { load as loadHtml } from "cheerio";
-import { UptimeKumaServer } from "../uptime-kuma-server.ts";
-import jsesc from "jsesc";
-import analytics from "../analytics/analytics.ts";
+import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { escapeJsString, escapeJsJson } from "@/util/escape";
+import analytics from "@/server/analytics/analytics";
 import { marked } from "marked";
 import { Feed } from "feed";
-import config from "../config.ts";
+import config from "@/server/config";
 import dayjs from "dayjs";
-import { setting } from "../util-server.ts";
+import { setting } from "@/server/util-server";
 import {
     STATUS_PAGE_ALL_DOWN,
     STATUS_PAGE_ALL_UP,
@@ -20,7 +20,7 @@ import {
     MAINTENANCE,
     DOWN,
     INCIDENT_PAGE_SIZE,
-} from "../../util.ts";
+} from "@/util";
 
 class StatusPage extends BeanModel {
     get analyticsId() {
@@ -248,7 +248,7 @@ class StatusPage extends BeanModel {
 
         // Preload data
         // Add jsesc, fix https://github.com/louislam/uptime-kuma/issues/2186
-        const escapedJSONObject = jsesc(await StatusPage.getStatusPageData(statusPage), {
+        const escapedJSONObject = escapeJsJson(await StatusPage.getStatusPageData(statusPage), {
             isScriptContext: true,
         });
 

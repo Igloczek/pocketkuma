@@ -77,7 +77,7 @@
 </template>
 
 <script>
-import TemplatedTextarea from "../TemplatedTextarea.vue";
+import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
 
 export default {
     name: "GoogleChat",

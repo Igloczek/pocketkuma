@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { UP, DOWN } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { UP, DOWN } from "@/util";
 
 const opsgenieAlertsUrlEU = "https://api.eu.opsgenie.com/v2/alerts";
 const opsgenieAlertsUrlUS = "https://api.opsgenie.com/v2/alerts";
@@ -84,7 +84,7 @@ class Opsgenie extends NotificationProvider {
         };
         config = this.getAxiosConfigWithProxy(config);
 
-        let res = await axios.post(url, data, config);
+        let res = await httpClient.post(url, data, config);
         if (res.status == null) {
             return "Opsgenie notification failed with invalid response!";
         }

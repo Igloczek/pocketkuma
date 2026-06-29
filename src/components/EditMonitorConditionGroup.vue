@@ -69,7 +69,7 @@
 </template>
 
 <script>
-import EditMonitorCondition from "./EditMonitorCondition.vue";
+import EditMonitorCondition from "@/components/EditMonitorCondition.vue";
 
 export default {
     name: "EditMonitorConditionGroup",

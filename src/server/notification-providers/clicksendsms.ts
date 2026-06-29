@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
 
 class ClickSendSMS extends NotificationProvider {
     name = "clicksendsms";
@@ -36,7 +36,7 @@ class ClickSendSMS extends NotificationProvider {
                 ],
             };
             config = this.getAxiosConfigWithProxy(config);
-            let resp = await axios.post(url, data, config);
+            let resp = await httpClient.post(url, data, config);
             if (resp.data.data.messages[0].status !== "SUCCESS") {
                 let error = "Something gone wrong. Api returned " + resp.data.data.messages[0].status + ".";
                 this.throwGeneralAxiosError(error);

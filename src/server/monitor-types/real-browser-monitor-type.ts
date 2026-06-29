@@ -4,17 +4,17 @@
  * Cached instance of a browser
  * @type {import ("playwright-core").Browser}
  */
-import { MonitorType } from "./monitor-type.ts";
+import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { chromium } from "playwright-core";
-import { UP, log } from "../../util.ts";
-import { Settings } from "../settings.ts";
+import { UP, log } from "@/util";
+import { Settings } from "@/server/settings";
 import path from "path";
-import Database from "../database.ts";
-import jwt from "jsonwebtoken";
-import config from "../config.ts";
-import { RemoteBrowser } from "../remote-browser.ts";
-import { commandExists } from "../util-server.ts";
-import { runCommand, runCommandChecked } from "../process-helper.ts";
+import Database from "@/server/database";
+import jwt from "@/server/jwt";
+import config from "@/server/config";
+import { RemoteBrowser } from "@/server/remote-browser";
+import { commandExists } from "@/server/util-server";
+import { runCommand, runCommandChecked } from "@/server/process-helper";
 
 let browser = null;
 

@@ -113,10 +113,10 @@
 </template>
 
 <script>
-import Status from "../components/Status.vue";
-import Datetime from "../components/Datetime.vue";
+import Status from "@/components/Status.vue";
+import Datetime from "@/components/Datetime.vue";
 import Pagination from "v-pagination-3";
-import Confirm from "../components/Confirm.vue";
+import Confirm from "@/components/Confirm.vue";
 
 export default {
     components: {

@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import NotificationProvider from "./notification-provider.ts";
-import axios from "axios";
-import { UP } from "../../util.ts";
+import NotificationProvider from "@/server/notification-providers/notification-provider";
+import httpClient from "@/server/http-client";
+import { UP } from "@/util";
 
 class Pumble extends NotificationProvider {
     name = "pumble";
@@ -26,7 +26,7 @@ class Pumble extends NotificationProvider {
                     ],
                 };
 
-                await axios.post(notification.webhookURL, data, config);
+                await httpClient.post(notification.webhookURL, data, config);
                 return okMsg;
             }
 
@@ -40,7 +40,7 @@ class Pumble extends NotificationProvider {
                 ],
             };
 
-            await axios.post(notification.webhookURL, data, config);
+            await httpClient.post(notification.webhookURL, data, config);
             return okMsg;
         } catch (error) {
             this.throwGeneralAxiosError(error);

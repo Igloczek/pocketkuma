@@ -7,12 +7,12 @@
  * @param {string} siteId Site ID to use with the Matomo Analytics script.
  * @returns {string} HTML script tags to inject into page
  */
-import jsesc from "jsesc";
-import { escape } from "html-escaper";
+import { escapeJsString, escapeJsJson } from "@/util/escape";
+import { escapeHtml } from "@/util/escape";
 
 function getMatomoAnalyticsScript(matomoUrl, siteId) {
-    let escapedMatomoUrlJS = jsesc(matomoUrl, { isScriptContext: true });
-    let escapedSiteIdJS = jsesc(siteId, { isScriptContext: true });
+    let escapedMatomoUrlJS = escapeJsString(matomoUrl, { isScriptContext: true });
+    let escapedSiteIdJS = escapeJsString(siteId, { isScriptContext: true });
 
     if (escapedMatomoUrlJS) {
         escapedMatomoUrlJS = escapedMatomoUrlJS.trim();
@@ -23,10 +23,10 @@ function getMatomoAnalyticsScript(matomoUrl, siteId) {
     }
 
     // Escape the domain url for use in an HTML attribute.
-    let escapedMatomoUrlHTMLAttribute = escape(escapedMatomoUrlJS);
+    let escapedMatomoUrlHTMLAttribute = escapeHtml(escapedMatomoUrlJS);
 
     // Escape the website id for use in an HTML attribute.
-    let escapedSiteIdHTMLAttribute = escape(escapedSiteIdJS);
+    let escapedSiteIdHTMLAttribute = escapeHtml(escapedSiteIdJS);
 
     return `
         <script type="text/javascript">

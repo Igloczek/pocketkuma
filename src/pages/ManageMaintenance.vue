@@ -110,9 +110,9 @@
 </template>
 
 <script>
-import { getResBaseURL } from "../util-frontend";
-import Confirm from "../components/Confirm.vue";
-import MaintenanceTime from "../components/MaintenanceTime.vue";
+import { getResBaseURL } from "@/util-frontend";
+import Confirm from "@/components/Confirm.vue";
+import MaintenanceTime from "@/components/MaintenanceTime.vue";
 
 export default {
     components: {

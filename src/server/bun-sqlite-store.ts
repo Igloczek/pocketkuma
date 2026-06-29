@@ -3,6 +3,8 @@
 
 import { createRequire } from "node:module";
 import fs from "fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Database as BunDatabase } from "bun:sqlite";
 import dayjs from "dayjs";
 
@@ -10,6 +12,18 @@ import dayjs from "dayjs";
 // circular dependencies with redbean-compat. Node CJS/ESM resolution does not support
 // require("./model/*.ts") the same way; this store is only used under Bun.
 const require = createRequire(import.meta.url);
+const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+function resolveImportPath(modulePath) {
+    if (modulePath.startsWith("@/")) {
+        const resolved = path.join(srcDir, modulePath.slice(2));
+        if (!path.extname(resolved)) {
+            return `${resolved}.ts`;
+        }
+        return resolved;
+    }
+    return modulePath;
+}
 
 class BeanModel {
     import(data) {
@@ -41,20 +55,20 @@ class BeanModel {
 }
 
 function loadModel(modulePath) {
-    const module = require(modulePath);
+    const module = require(resolveImportPath(modulePath));
     return module.default ?? module;
 }
 
 // Tables with model classes that expose instance methods (e.g. getExpiryDate) must be listed here.
 // All other tables fall back to plain BeanModel in beanForTable().
 const modelMap = {
-    group: () => loadModel("./model/group.ts"),
-    heartbeat: () => loadModel("./model/heartbeat.ts"),
-    incident: () => loadModel("./model/incident.ts"),
-    monitor: () => loadModel("./model/monitor.ts"),
-    status_page: () => loadModel("./model/status_page.ts"),
-    user: () => loadModel("./model/user.ts"),
-    domain_expiry: () => loadModel("./model/domain_expiry.ts"),
+    group: () => loadModel("@/server/model/group"),
+    heartbeat: () => loadModel("@/server/model/heartbeat"),
+    incident: () => loadModel("@/server/model/incident"),
+    monitor: () => loadModel("@/server/model/monitor"),
+    status_page: () => loadModel("@/server/model/status_page"),
+    user: () => loadModel("@/server/model/user"),
+    domain_expiry: () => loadModel("@/server/model/domain_expiry"),
 };
 
 const monitorPropertyColumns = {

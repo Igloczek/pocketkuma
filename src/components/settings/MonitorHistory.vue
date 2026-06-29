@@ -54,8 +54,8 @@
 </template>
 
 <script>
-import Confirm from "../../components/Confirm.vue";
-import { log } from "../../util.ts";
+import Confirm from "@/components/Confirm.vue";
+import { log } from "@/util";
 
 export default {
     components: {

@@ -6,7 +6,7 @@
  * @returns {Promise<string>} Hash
  */
 import crypto from "node:crypto";
-import { isBunRuntime } from "./runtime.ts";
+import { isBunRuntime } from "@/server/runtime";
 
 export async function generate(password) {
     if (isBunRuntime()) {
