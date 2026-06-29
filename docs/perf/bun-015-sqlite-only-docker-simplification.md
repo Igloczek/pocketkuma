@@ -42,19 +42,28 @@ Current single local runtime image:
 
 ```bash
 docker build -f Dockerfile -t uptime-buna:local .
+docker run --rm uptime-buna:local --version
 docker image inspect uptime-buna:local --format '{{.Size}}'
+```
+
+Pinned Docker bases:
+
+```text
+runtime/build = oven/bun:1.3.14-alpine
+healthcheck build = golang:1.25.5-alpine
 ```
 
 Result:
 
 ```text
-uptime-buna:local = 417786301 bytes
+Bun runtime = 1.3.14
+uptime-buna:local = 285186987 bytes
 ```
 
 Delta:
 
 ```text
--20267762 bytes
+-152867076 bytes
 ```
 
 ## Local Browser Smoke
@@ -132,6 +141,7 @@ HTTP 200 on attempt 1
 Container logs confirmed:
 
 ```text
+Your bun version: 1.3.14
 Server Type: Bun.serve HTTP
 Using SQLite as the application database
 Database Type: sqlite (bun:sqlite)

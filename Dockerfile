@@ -1,9 +1,9 @@
-ARG BUN_IMAGE=oven/bun:1.2.17-debian
+ARG BUN_IMAGE=oven/bun:1.3.14-alpine
 
 ############################################
 # Build healthcheck
 ############################################
-FROM golang:1.23-bookworm AS build_healthcheck
+FROM golang:1.25.5-alpine AS build_healthcheck
 WORKDIR /app
 COPY ./extra/healthcheck.go ./extra/healthcheck.go
 RUN go build -o /app/extra/healthcheck ./extra/healthcheck.go
