@@ -1,6 +1,4 @@
-import "dotenv/config";
 import {
-    ver,
     buildDist,
     buildImage,
     checkDocker,
@@ -46,7 +44,7 @@ checkDocker();
 // Check if the tag exists
 await checkTagExists(repoNames, version);
 
-// node extra/beta/update-version.js
+// bun extra/beta/update-version.mjs
 await import("../beta/update-version.mjs");
 
 // Create Pull Request (gh pr create will handle pushing the branch)
@@ -56,21 +54,6 @@ await createReleasePR(version, previousVersion, dryRun, branchName, githubRunId)
 buildDist();
 
 if (!dryRun) {
-    // Build slim image (rootless)
-    buildImage(
-        repoNames,
-        ["beta-slim-rootless", ver(version, "slim-rootless")],
-        "rootless",
-        "BASE_IMAGE=louislam/uptime-kuma:base2-slim"
-    );
-
-    // Build full image (rootless)
-    buildImage(repoNames, ["beta-rootless", ver(version, "rootless")], "rootless");
-
-    // Build slim image
-    buildImage(repoNames, ["beta-slim", ver(version, "slim")], "release", "BASE_IMAGE=louislam/uptime-kuma:base2-slim");
-
-    // Build full image
     buildImage(repoNames, ["beta", version], "release");
 } else {
     console.log("Dry run mode - skipping image build and push.");
