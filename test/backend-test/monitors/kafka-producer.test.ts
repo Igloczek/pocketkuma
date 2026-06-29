@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { kafkaProducerAsync } = require("../../../src/server/util-server");
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { kafkaProducerAsync } from "../../../src/server/util-server.ts";
 
 describe("Kafka Producer", () => {
     test("rejects when broker is not reachable", async () => {

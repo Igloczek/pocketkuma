@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class SMSIR extends NotificationProvider {
     name = "smsir";
@@ -73,4 +74,4 @@ class SMSIR extends NotificationProvider {
     }
 }
 
-module.exports = SMSIR;
+export default SMSIR;

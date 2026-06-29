@@ -1,12 +1,13 @@
 // @ts-nocheck
-const { R } = require("../redbean-compat");
-const { log } = require("../../util");
-const Database = require("../database");
 
 /**
  * Run incremental_vacuum and checkpoint the WAL.
  * @returns {Promise<void>} A promise that resolves when the process is finished.
  */
+
+import { R } from "../redbean-compat.ts";
+import { log } from "../../util.ts";
+import Database from "../database.ts";
 
 const incrementalVacuum = async () => {
     try {
@@ -23,6 +24,4 @@ const incrementalVacuum = async () => {
     }
 };
 
-module.exports = {
-    incrementalVacuum,
-};
+export { incrementalVacuum };

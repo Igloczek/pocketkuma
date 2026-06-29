@@ -1,4 +1,4 @@
-exports.up = function (knex) {
+export const up = function (knex) {
     return knex.schema.alterTable("monitor", function (table) {
         table.text("rabbitmq_nodes");
         table.string("rabbitmq_username");
@@ -6,7 +6,7 @@ exports.up = function (knex) {
     });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema.alterTable("monitor", function (table) {
         table.dropColumn("rabbitmq_nodes");
         table.dropColumn("rabbitmq_username");

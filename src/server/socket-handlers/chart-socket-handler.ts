@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { checkLogin } = require("../util-server");
-const { UptimeCalculator } = require("../uptime-calculator");
-const { log } = require("../../util");
 
-module.exports.chartSocketHandler = (socket) => {
+import { checkLogin } from "../util-server.ts";
+import { UptimeCalculator } from "../uptime-calculator.ts";
+import { log } from "../../util.ts";
+
+export const chartSocketHandler = (socket) => {
     socket.on("getMonitorChartData", async (monitorID, period, callback) => {
         try {
             checkLogin(socket);

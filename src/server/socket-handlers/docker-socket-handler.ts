@@ -1,15 +1,16 @@
 // @ts-nocheck
-const { sendDockerHostList } = require("../client");
-const { checkLogin } = require("../util-server");
-const { DockerHost } = require("../docker");
-const { log } = require("../../util");
 
 /**
  * Handlers for docker hosts
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-module.exports.dockerSocketHandler = (socket) => {
+import { sendDockerHostList } from "../client.ts";
+import { checkLogin } from "../util-server.ts";
+import { DockerHost } from "../docker.ts";
+import { log } from "../../util.ts";
+
+export const dockerSocketHandler = (socket) => {
     socket.on("addDockerHost", async (dockerHost, dockerHostID, callback) => {
         try {
             checkLogin(socket);

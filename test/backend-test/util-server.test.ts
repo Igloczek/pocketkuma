@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { pingAsync } = require("../../src/server/util-server");
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { pingAsync } from "../../src/server/util-server.ts";
 
 describe("Server Utilities: pingAsync", () => {
     test("should convert IDN domains to Punycode before pinging", async () => {

@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const { DOWN, UP } = require("../../util");
-const { default: axios } = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import { DOWN, UP } from "../../util.ts";
+import axios from "axios";
 
 class YZJ extends NotificationProvider {
     name = "YZJ";
@@ -56,4 +57,4 @@ class YZJ extends NotificationProvider {
     }
 }
 
-module.exports = YZJ;
+export default YZJ;

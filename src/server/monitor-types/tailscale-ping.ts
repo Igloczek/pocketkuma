@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP } = require("../../util");
-const { runCommand } = require("../process-helper");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP } from "../../util.ts";
+import { runCommand } from "../process-helper.ts";
 
 class TailscalePing extends MonitorType {
     name = "tailscale-ping";
@@ -70,6 +71,4 @@ class TailscalePing extends MonitorType {
     }
 }
 
-module.exports = {
-    TailscalePing,
-};
+export { TailscalePing };

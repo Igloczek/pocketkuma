@@ -1,8 +1,9 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { setting } = require("../util-server");
-const { DOWN, UP, getMonitorRelativeURL } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { setting } from "../util-server.ts";
+import { DOWN, UP, getMonitorRelativeURL } from "../../util.ts";
 
 class Teams extends NotificationProvider {
     name = "teams";
@@ -273,4 +274,4 @@ class Teams extends NotificationProvider {
     }
 }
 
-module.exports = Teams;
+export default Teams;

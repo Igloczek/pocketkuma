@@ -1,11 +1,12 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
-const { parseTimeObject, parseTimeFromTimeObject, log, SQL_DATETIME_FORMAT } = require("../../util");
-const { R } = require("../redbean-compat");
-const dayjs = require("dayjs");
-const Cron = require("croner");
-const { UptimeKumaServer } = require("../uptime-kuma-server");
-const apicache = require("../modules/apicache");
+
+import { BeanModel } from "../redbean-compat.ts";
+import { parseTimeObject, parseTimeFromTimeObject, log, SQL_DATETIME_FORMAT } from "../../util.ts";
+import { R } from "../redbean-compat.ts";
+import dayjs from "dayjs";
+import Cron from "croner";
+import { UptimeKumaServer } from "../uptime-kuma-server.ts";
+import apicache from "../modules/apicache.ts";
 
 class Maintenance extends BeanModel {
     /**
@@ -504,4 +505,4 @@ class Maintenance extends BeanModel {
     }
 }
 
-module.exports = Maintenance;
+export default Maintenance;

@@ -1,4 +1,4 @@
-exports.up = async function (knex) {
+export const up = async function (knex) {
     const notifications = await knex("notification").select("id", "config");
     const lineNotifyIDs = [];
 
@@ -25,6 +25,6 @@ exports.up = async function (knex) {
     });
 };
 
-exports.down = async function () {
+export const down = async function () {
     // Removal of LINE Notify configs is not reversible.
 };

@@ -105,8 +105,4 @@ class ConditionExpression {
     }
 }
 
-module.exports = {
-    LOGICAL,
-    ConditionExpressionGroup,
-    ConditionExpression,
-};
+export { LOGICAL, ConditionExpressionGroup, ConditionExpression };

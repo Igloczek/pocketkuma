@@ -1,7 +1,8 @@
 // @ts-nocheck
-const PrometheusClient = require("prom-client");
-const { log } = require("../util");
-const { R } = require("./redbean-compat");
+
+import PrometheusClient from "prom-client";
+import { log } from "../util.ts";
+import { R } from "./redbean-compat.ts";
 
 let monitorCertDaysRemaining = null;
 let monitorCertIsValid = null;
@@ -290,6 +291,4 @@ class Prometheus {
     }
 }
 
-module.exports = {
-    Prometheus,
-};
+export { Prometheus };

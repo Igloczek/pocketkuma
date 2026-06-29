@@ -20,4 +20,4 @@ class TranslatableError extends Error {
         Error.captureStackTrace(this, this.constructor);
     }
 }
-module.exports = TranslatableError;
+export default TranslatableError;

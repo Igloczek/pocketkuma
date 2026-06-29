@@ -1,5 +1,5 @@
-const { sync: rimrafSync } = require("rimraf");
-const Database = require("../src/server/database");
+import { sync as rimrafSync } from "rimraf";
+import Database from "../src/server/database.ts";
 
 class TestDB {
     dataDir;
@@ -24,4 +24,4 @@ class TestDB {
     }
 }
 
-module.exports = TestDB;
+export default TestDB;

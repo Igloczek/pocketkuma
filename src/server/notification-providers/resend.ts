@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Resend extends NotificationProvider {
     name = "Resend";
@@ -42,4 +43,4 @@ class Resend extends NotificationProvider {
     }
 }
 
-module.exports = Resend;
+export default Resend;

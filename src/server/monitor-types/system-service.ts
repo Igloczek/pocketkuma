@@ -1,8 +1,9 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const process = require("process");
-const { UP } = require("../../util");
-const { runCommand } = require("../process-helper");
+
+import { MonitorType } from "./monitor-type.ts";
+import process from "process";
+import { UP } from "../../util.ts";
+import { runCommand } from "../process-helper.ts";
 
 class SystemServiceMonitorType extends MonitorType {
     name = "system-service";
@@ -98,6 +99,4 @@ function trimOutput(output) {
     return output;
 }
 
-module.exports = {
-    SystemServiceMonitorType,
-};
+export { SystemServiceMonitorType };

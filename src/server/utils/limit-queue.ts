@@ -1,10 +1,11 @@
 // @ts-nocheck
-const { ArrayWithKey } = require("./array-with-key");
 
 /**
  * Limit Queue
  * The first element will be removed when the length exceeds the limit
  */
+import { ArrayWithKey } from "./array-with-key.ts";
+
 class LimitQueue extends ArrayWithKey {
     /**
      * The limit of the queue after which the first element will be removed
@@ -42,6 +43,4 @@ class LimitQueue extends ArrayWithKey {
     }
 }
 
-module.exports = {
-    LimitQueue,
-};
+export { LimitQueue };

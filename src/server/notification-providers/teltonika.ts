@@ -3,9 +3,9 @@
 // See: https://community.teltonika.lt/t/implementation-of-read-only-system-files-and-mobile-and-i-o-post-get-service-removal-with-rutos-7-14/12470
 // API reference https://developers.teltonika-networks.com/reference/rut241/7.19.4/v1.11.1/messages
 
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const https = require("https");
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import https from "https";
 
 class Teltonika extends NotificationProvider {
     name = "Teltonika";
@@ -93,4 +93,4 @@ class Teltonika extends NotificationProvider {
     }
 }
 
-module.exports = Teltonika;
+export default Teltonika;

@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { PostgreSqlContainer } = require("@testcontainers/postgresql");
-const { PostgresMonitorType } = require("../../../src/server/monitor-types/postgres");
-const { UP, PENDING } = require("../../../src/util");
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import { PostgresMonitorType } from "../../../src/server/monitor-types/postgres.ts";
+import { UP, PENDING } from "../../../src/util.ts";
 
 describe(
     "Postgres Single Node",

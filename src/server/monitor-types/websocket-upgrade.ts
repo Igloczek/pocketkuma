@@ -1,9 +1,11 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const WebSocket = require("ws");
-const { UP } = require("../../util");
-const { checkStatusCode, getOidcTokenClientCredentials } = require("../util-server");
+
 // Define closing error codes https://www.iana.org/assignments/websocket/websocket.xml#close-code-number
+import { MonitorType } from "./monitor-type.ts";
+import WebSocket from "ws";
+import { UP } from "../../util.ts";
+import { checkStatusCode, getOidcTokenClientCredentials } from "../util-server.ts";
+
 const WS_ERR_CODE = {
     1002: "Protocol error",
     1003: "Unsupported Data",
@@ -154,6 +156,4 @@ class WebSocketMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    WebSocketMonitorType,
-};
+export { WebSocketMonitorType };

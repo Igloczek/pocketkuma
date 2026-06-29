@@ -1,6 +1,4 @@
 // @ts-nocheck
-const { ConditionExpressionGroup, ConditionExpression, LOGICAL } = require("./expression");
-const { operatorMap } = require("./operators");
 
 /**
  * @param {ConditionExpression} expression Expression to evaluate
@@ -8,6 +6,9 @@ const { operatorMap } = require("./operators");
  * @returns {boolean} Whether the expression evaluates true or false
  * @throws {Error}
  */
+import { ConditionExpressionGroup, ConditionExpression, LOGICAL } from "./expression.ts";
+import { operatorMap } from "./operators.ts";
+
 function evaluateExpression(expression, context) {
     /**
      * @type {import("./operators").ConditionOperator|null}
@@ -78,7 +79,4 @@ function evaluateExpressionGroup(group, context) {
     return result;
 }
 
-module.exports = {
-    evaluateExpression,
-    evaluateExpressionGroup,
-};
+export { evaluateExpression, evaluateExpressionGroup };

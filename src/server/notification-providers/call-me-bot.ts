@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class CallMeBot extends NotificationProvider {
     name = "CallMeBot";
@@ -22,4 +23,4 @@ class CallMeBot extends NotificationProvider {
     }
 }
 
-module.exports = CallMeBot;
+export default CallMeBot;

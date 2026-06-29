@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
-const { R } = require("../redbean-compat");
-const dayjs = require("dayjs");
+
+import { BeanModel } from "../redbean-compat.ts";
+import { R } from "../redbean-compat.ts";
+import dayjs from "dayjs";
 
 class APIKey extends BeanModel {
     /**
@@ -74,4 +75,4 @@ class APIKey extends BeanModel {
     }
 }
 
-module.exports = APIKey;
+export default APIKey;

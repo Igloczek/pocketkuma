@@ -1,12 +1,17 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { UptimeCalculator } = require("../../src/server/uptime-calculator");
-const dayjs = require("dayjs");
-const { UP, DOWN, PENDING, MAINTENANCE } = require("../../src/util");
-dayjs.extend(require("dayjs/plugin/utc"));
-dayjs.extend(require("../../src/server/modules/dayjs/plugin/timezone"));
-dayjs.extend(require("dayjs/plugin/customParseFormat"));
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { UptimeCalculator } from "../../src/server/uptime-calculator.ts";
+import dayjs from "dayjs";
+import { UP, DOWN, PENDING, MAINTENANCE } from "../../src/util.ts";
+import dayjsPlugin_5 from "dayjs/plugin/utc";
+import dayjsPlugin_6 from "../../src/server/modules/dayjs/plugin/timezone.ts";
+import dayjsPlugin_7 from "dayjs/plugin/customParseFormat";
+
+dayjs.extend(dayjsPlugin_5);
+dayjs.extend(dayjsPlugin_6);
+dayjs.extend(dayjsPlugin_7);
 
 describe("Uptime Calculator", () => {
     test("getCurrentDate() returns custom date when set", () => {

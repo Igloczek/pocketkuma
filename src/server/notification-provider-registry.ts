@@ -101,30 +101,45 @@ const providerModules = {
 const OPTIONAL_NOTIFICATION_PROVIDERS = Object.keys(providerModules);
 const REMOVED_NOTIFICATION_PROVIDERS = [];
 const loadedProviders = {};
+const loadingProviders = {};
 
 function createProviderList() {
     return Object.fromEntries(OPTIONAL_NOTIFICATION_PROVIDERS.map((name) => [name, { name }]));
 }
 
-function getNotificationProvider(name) {
+async function getNotificationProvider(name) {
     const moduleName = providerModules[name];
     if (!moduleName) {
         return null;
     }
 
-    if (!loadedProviders[name]) {
-        const Provider = require(`./notification-providers/${moduleName}`);
-        loadedProviders[name] = new Provider();
+    if (loadedProviders[name]) {
+        return loadedProviders[name];
     }
 
-    return loadedProviders[name];
+    if (!loadingProviders[name]) {
+        loadingProviders[name] = (async () => {
+            try {
+                const module = await import(`./notification-providers/${moduleName}.ts`);
+                const provider = new module.default();
+                loadedProviders[name] = provider;
+                return provider;
+            } finally {
+                if (!loadedProviders[name]) {
+                    delete loadingProviders[name];
+                }
+            }
+        })();
+    }
+
+    return await loadingProviders[name];
 }
 
 function getLoadedNotificationProviders() {
     return Object.keys(loadedProviders);
 }
 
-module.exports = {
+export {
     OPTIONAL_NOTIFICATION_PROVIDERS,
     REMOVED_NOTIFICATION_PROVIDERS,
     createProviderList,

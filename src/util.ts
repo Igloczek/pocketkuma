@@ -5,13 +5,8 @@
 // Backend and frontend both load this TypeScript source directly under Bun/Vite.
 */
 
+import dayjsBackend from "dayjs";
 import dayjsFrontend from "dayjs";
-
-// For dayjs plugins' type checking, don't remove event though it is not used in this file
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import * as timezone from "dayjs/plugin/timezone";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import * as utc from "dayjs/plugin/utc";
 
 import jsonata from "jsonata";
 
@@ -22,7 +17,7 @@ export const isNode = typeof process !== "undefined" && process?.versions?.node;
  * Smarter dayjs import that supports both frontend and backend
  * @returns {dayjs.Dayjs} dayjs instance
  */
-const dayjs = isNode ? require("dayjs") : dayjsFrontend;
+const dayjs = isNode ? dayjsBackend : dayjsFrontend;
 
 export const appName = "Uptime Kuma";
 export const DOWN = 0;
@@ -494,10 +489,13 @@ const getRandomBytes = (
                   return randomBytes;
               };
           }
-        : // Node
+        : // Bun backend (Web Crypto API is available without importing node:crypto)
           function () {
-              // eslint-disable-next-line @typescript-eslint/no-var-requires
-              return require("crypto").randomBytes;
+              return (numBytes: number) => {
+                  const bytes = new Uint8Array(numBytes);
+                  crypto.getRandomValues(bytes);
+                  return Buffer.from(bytes);
+              };
           }
 )();
 

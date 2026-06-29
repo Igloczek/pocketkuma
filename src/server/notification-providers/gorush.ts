@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const httpClient = require("../http-client");
+
+import NotificationProvider from "./notification-provider.ts";
+import httpClient from "../http-client.ts";
 
 class Gorush extends NotificationProvider {
     name = "gorush";
@@ -41,4 +42,4 @@ class Gorush extends NotificationProvider {
     }
 }
 
-module.exports = Gorush;
+export default Gorush;

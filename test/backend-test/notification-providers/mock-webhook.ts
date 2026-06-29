@@ -38,4 +38,4 @@ async function mockWebhook(port, url, timeout = 2500) {
     });
 }
 
-module.exports = mockWebhook;
+export default mockWebhook;

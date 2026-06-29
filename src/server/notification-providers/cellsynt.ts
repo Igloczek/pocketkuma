@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Cellsynt extends NotificationProvider {
     name = "Cellsynt";
@@ -38,4 +39,4 @@ class Cellsynt extends NotificationProvider {
     }
 }
 
-module.exports = Cellsynt;
+export default Cellsynt;

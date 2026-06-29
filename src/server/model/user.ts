@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
-const passwordHash = require("../password-hash");
-const { R } = require("../redbean-compat");
-const jwt = require("jsonwebtoken");
-const { shake256, SHAKE256_LENGTH } = require("../util-server");
+
+import { BeanModel } from "../redbean-compat.ts";
+import passwordHash from "../password-hash.ts";
+import { R } from "../redbean-compat.ts";
+import jwt from "jsonwebtoken";
+import { shake256, SHAKE256_LENGTH } from "../util-server.ts";
 
 class User extends BeanModel {
     /**
@@ -50,4 +51,4 @@ class User extends BeanModel {
     }
 }
 
-module.exports = User;
+export default User;

@@ -1,5 +1,6 @@
-const grpc = require("@grpc/grpc-js");
-const protoLoader = require("@grpc/proto-loader");
+import grpc from "@grpc/grpc-js";
+import protoLoader from "@grpc/proto-loader";
+
 const packageDef = protoLoader.loadSync("echo.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDef);
 const { echo } = grpcObject;

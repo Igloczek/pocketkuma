@@ -1,7 +1,8 @@
 // @ts-nocheck
-const test = require("node:test");
-const assert = require("node:assert");
-const { ConditionExpressionGroup, ConditionExpression } = require("../../../src/server/monitor-conditions/expression.ts");
+
+import test from "node:test";
+import assert from "node:assert";
+import { ConditionExpressionGroup, ConditionExpression } from "../../../src/server/monitor-conditions/expression.ts";
 
 test("Test ConditionExpressionGroup.fromMonitor", async (t) => {
     const monitor = {

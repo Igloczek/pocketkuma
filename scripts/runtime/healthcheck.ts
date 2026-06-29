@@ -17,21 +17,24 @@ let port = isKubernetesPortEnv ? undefined : process.env.UPTIME_KUMA_PORT;
 port ||= process.env.PORT || "3001";
 
 const client = protocol === "https:" ? https : http;
-const request = client.request({
-    protocol,
-    hostname: hostname || "127.0.0.1",
-    port,
-    method: "GET",
-    timeout: 28_000,
-    rejectUnauthorized: false,
-}, (response) => {
-    response.resume();
-    response.on("end", () => {
-        const statusCode = response.statusCode ?? 0;
-        console.log(`Health Check OK [Res Code: ${statusCode}]`);
-        process.exit(statusCode >= 200 && statusCode < 400 ? 0 : 1);
-    });
-});
+const request = client.request(
+    {
+        protocol,
+        hostname: hostname || "127.0.0.1",
+        port,
+        method: "GET",
+        timeout: 28_000,
+        rejectUnauthorized: false,
+    },
+    (response) => {
+        response.resume();
+        response.on("end", () => {
+            const statusCode = response.statusCode ?? 0;
+            console.log(`Health Check OK [Res Code: ${statusCode}]`);
+            process.exit(statusCode >= 200 && statusCode < 400 ? 0 : 1);
+        });
+    }
+);
 
 request.on("timeout", () => {
     request.destroy(new Error("Healthcheck request timed out"));

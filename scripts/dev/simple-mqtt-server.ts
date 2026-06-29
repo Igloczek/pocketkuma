@@ -1,11 +1,13 @@
-const { log } = require("../../src/util");
+import { log } from "../../src/util.ts";
+import { createServer } from "net";
+import aedesFactory from "aedes";
 
 const mqttUsername = "louis1";
 const mqttPassword = "!@#$LLam";
 
 class SimpleMqttServer {
-    aedes = require("aedes")();
-    server = require("net").createServer(this.aedes.handle);
+    aedes = aedesFactory();
+    server = createServer(this.aedes.handle);
 
     /**
      * @param {number} port Port to listen on

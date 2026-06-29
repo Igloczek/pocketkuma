@@ -1,4 +1,4 @@
-exports.up = function (knex) {
+export const up = function (knex) {
     return knex.schema.alterTable("monitor", function (table) {
         table.string("snmp_oid").defaultTo(null);
         table.enum("snmp_version", ["1", "2c", "3"]).defaultTo("2c");
@@ -6,7 +6,7 @@ exports.up = function (knex) {
     });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema.alterTable("monitor", function (table) {
         table.dropColumn("snmp_oid");
         table.dropColumn("snmp_version");

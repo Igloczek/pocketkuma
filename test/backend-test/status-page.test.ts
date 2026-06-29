@@ -1,15 +1,16 @@
 // @ts-nocheck
-const { describe, test, mock } = require("node:test");
-const assert = require("node:assert");
-const StatusPage = require("../../src/server/model/status_page");
-const dayjs = require("dayjs");
-const utc = require("dayjs/plugin/utc");
-const {
+
+import { describe, test, mock } from "node:test";
+import assert from "node:assert";
+import StatusPage from "../../src/server/model/status_page.ts";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import {
     STATUS_PAGE_ALL_UP,
     STATUS_PAGE_ALL_DOWN,
     STATUS_PAGE_PARTIAL_DOWN,
     STATUS_PAGE_MAINTENANCE,
-} = require("../../src/util");
+} from "../../src/util.ts";
 
 dayjs.extend(utc);
 

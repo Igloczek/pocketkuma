@@ -1,8 +1,9 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { SteamMonitorType } = require("../../../src/server/monitor-types/steam");
-const { UP, PENDING } = require("../../../src/util");
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { SteamMonitorType } from "../../../src/server/monitor-types/steam.ts";
+import { UP, PENDING } from "../../../src/util.ts";
 
 describe("Steam Monitor", () => {
     test("resolveSteamHostname() returns IP addresses without DNS lookup", async () => {

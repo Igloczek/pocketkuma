@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Max extends NotificationProvider {
     name = "max";
@@ -45,4 +46,4 @@ class Max extends NotificationProvider {
     }
 }
 
-module.exports = Max;
+export default Max;

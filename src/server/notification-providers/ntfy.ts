@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const httpClient = require("../http-client");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import httpClient from "../http-client.ts";
+import { DOWN, UP } from "../../util.ts";
 
 class Ntfy extends NotificationProvider {
     name = "ntfy";
@@ -136,4 +137,4 @@ class Ntfy extends NotificationProvider {
     }
 }
 
-module.exports = Ntfy;
+export default Ntfy;

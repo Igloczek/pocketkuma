@@ -1,5 +1,5 @@
 // Add column last_start_date to maintenance table
-exports.up = async function (knex) {
+export const up = async function (knex) {
     await knex.schema.alterTable("maintenance", function (table) {
         table.datetime("last_start_date");
     });
@@ -26,7 +26,7 @@ exports.up = async function (knex) {
     await Promise.all(maintenanceUpdates);
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema.alterTable("maintenance", function (table) {
         table.dropColumn("last_start_date");
     });

@@ -1,25 +1,19 @@
 // @ts-nocheck
 "use strict";
 
-const fs = require("fs");
-const path = require("path");
-const { isDev, log } = require("../util");
-const { setting, printServerUrls } = require("./util-server");
-const config = require("./config");
-const Database = require("./database");
-const StatusPage = require("./model/status_page");
-const { Settings } = require("./settings");
-const { Prometheus } = require("./prometheus");
-const { checkAPIAuthRequest } = require("./auth");
-const { handleApiRequest } = require("./routers/api-router");
-const { handleStatusPageRequest } = require("./routers/status-page-router");
-const {
-    applyCommonHeaders,
-    htmlResponse,
-    jsonResponse,
-    redirectResponse,
-    textResponse,
-} = require("./bun-response");
+import fs from "fs";
+import path from "path";
+import { isDev, log } from "../util.ts";
+import { setting, printServerUrls } from "./util-server.ts";
+import config from "./config.ts";
+import Database from "./database.ts";
+import StatusPage from "./model/status_page.ts";
+import { Settings } from "./settings.ts";
+import { Prometheus } from "./prometheus.ts";
+import { checkAPIAuthRequest } from "./auth.ts";
+import { handleApiRequest } from "./routers/api-router.ts";
+import { handleStatusPageRequest } from "./routers/status-page-router.ts";
+import { applyCommonHeaders, htmlResponse, jsonResponse, redirectResponse, textResponse } from "./bun-response.ts";
 
 const MIME_TYPES = {
     ".br": "application/octet-stream",
@@ -385,8 +379,4 @@ function listenWithBunServe({ server, hostname, port, disableFrameSameOrigin }) 
     return bunServer;
 }
 
-module.exports = {
-    createBunFetchHandler,
-    listenWithBunServe,
-    resolveRequestPath,
-};
+export { createBunFetchHandler, listenWithBunServe, resolveRequestPath };

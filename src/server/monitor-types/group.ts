@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { UP, PENDING, DOWN } = require("../../util");
-const { MonitorType } = require("./monitor-type");
-const Monitor = require("../model/monitor");
+
+import { UP, PENDING, DOWN } from "../../util.ts";
+import { MonitorType } from "./monitor-type.ts";
+import Monitor from "../model/monitor.ts";
 
 class GroupMonitorType extends MonitorType {
     name = "group";
@@ -75,6 +76,4 @@ class GroupMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    GroupMonitorType,
-};
+export { GroupMonitorType };

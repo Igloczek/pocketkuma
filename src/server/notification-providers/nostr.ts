@@ -1,9 +1,11 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const { finalizeEvent, Relay, nip19, nip59 } = require("nostr-tools");
 
 // polyfill WebSocket for nostr-tools
-global.WebSocket = require("isomorphic-ws");
+import NotificationProvider from "./notification-provider.ts";
+import { finalizeEvent, Relay, nip19, nip59 } from "nostr-tools";
+import WebSocket from "isomorphic-ws";
+
+global.WebSocket = WebSocket;
 
 class Nostr extends NotificationProvider {
     name = "nostr";
@@ -113,4 +115,4 @@ class Nostr extends NotificationProvider {
     }
 }
 
-module.exports = Nostr;
+export default Nostr;

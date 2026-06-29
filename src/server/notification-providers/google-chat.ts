@@ -1,8 +1,9 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { getMonitorRelativeURL, UP } = require("../../util");
-const { Settings } = require("../settings");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { getMonitorRelativeURL, UP } from "../../util.ts";
+import { Settings } from "../settings.ts";
 
 class GoogleChat extends NotificationProvider {
     name = "GoogleChat";
@@ -138,4 +139,4 @@ class GoogleChat extends NotificationProvider {
     }
 }
 
-module.exports = GoogleChat;
+export default GoogleChat;

@@ -143,7 +143,7 @@ const gameDig4to5IdMap = {
  * @param {import("knex").Knex} knex - Knex instance
  * @returns {Promise<void>}
  */
-exports.up = async function (knex) {
+export const up = async function (knex) {
     await knex.transaction(async (trx) => {
         // Get all monitors that use the gamedig type
         const monitors = await trx("monitor").select("id", "game").where("type", "gamedig").whereNotNull("game");
@@ -165,7 +165,7 @@ exports.up = async function (knex) {
  * @param {import("knex").Knex} knex - Knex instance
  * @returns {Promise<void>}
  */
-exports.down = async function (knex) {
+export const down = async function (knex) {
     // Create reverse mapping from the same LUT
     const gameDig5to4IdMap = Object.fromEntries(Object.entries(gameDig4to5IdMap).map(([v4, v5]) => [v5, v4]));
 

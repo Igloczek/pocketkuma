@@ -1,15 +1,16 @@
 // @ts-nocheck
-const { describe, test, beforeEach, afterEach } = require("node:test");
-const assert = require("node:assert");
-const { SystemServiceMonitorType } = require("../../src/server/monitor-types/system-service");
-const { DOWN, UP } = require("../../src/util");
-const process = require("process");
-const { execSync } = require("node:child_process");
 
 /**
  * Check if the test should be skipped.
  * @returns {boolean} True if the test should be skipped
  */
+import { describe, test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
+import { SystemServiceMonitorType } from "../../src/server/monitor-types/system-service.ts";
+import { DOWN, UP } from "../../src/util.ts";
+import process from "process";
+import { execSync } from "node:child_process";
+
 function shouldSkip() {
     if (process.platform === "win32") {
         return false;

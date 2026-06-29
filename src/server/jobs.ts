@@ -1,8 +1,9 @@
 // @ts-nocheck
-const { UptimeKumaServer } = require("./uptime-kuma-server");
-const { clearOldData } = require("./jobs/clear-old-data");
-const { incrementalVacuum } = require("./jobs/incremental-vacuum");
-const Cron = require("croner");
+
+import { UptimeKumaServer } from "./uptime-kuma-server.ts";
+import { clearOldData } from "./jobs/clear-old-data.ts";
+import { incrementalVacuum } from "./jobs/incremental-vacuum.ts";
+import Cron from "croner";
 
 const jobs = [
     {
@@ -52,7 +53,4 @@ const stopBackgroundJobs = function () {
     }
 };
 
-module.exports = {
-    initBackgroundJobs,
-    stopBackgroundJobs,
-};
+export { initBackgroundJobs, stopBackgroundJobs };

@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { UP } from "../../util.ts";
 
 class Bitrix24 extends NotificationProvider {
     name = "Bitrix24";
@@ -29,4 +30,4 @@ class Bitrix24 extends NotificationProvider {
     }
 }
 
-module.exports = Bitrix24;
+export default Bitrix24;

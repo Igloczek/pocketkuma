@@ -1,7 +1,7 @@
-const { R } = require("redbean-node");
-const Database = require("../../src/server/database");
-const { args } = require("../../src/server/args");
-const { Settings } = require("../../src/server/settings");
+import { R } from "redbean-node";
+import Database from "../../src/server/database.ts";
+import { args } from "../../src/server/args.ts";
+import { Settings } from "../../src/server/settings.ts";
 
 const main = async () => {
     console.log("Connecting the database");

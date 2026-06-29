@@ -1,8 +1,10 @@
 // @ts-nocheck
-const { checkLogin } = require("../util-server");
-const { Proxy } = require("../proxy");
-const { sendProxyList } = require("../client");
-const { UptimeKumaServer } = require("../uptime-kuma-server");
+
+import { checkLogin } from "../util-server.ts";
+import { Proxy } from "../proxy.ts";
+import { sendProxyList } from "../client.ts";
+import { UptimeKumaServer } from "../uptime-kuma-server.ts";
+
 const server = UptimeKumaServer.getInstance();
 
 /**
@@ -10,7 +12,7 @@ const server = UptimeKumaServer.getInstance();
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-module.exports.proxySocketHandler = (socket) => {
+export const proxySocketHandler = (socket) => {
     socket.on("addProxy", async (proxy, proxyID, callback) => {
         try {
             checkLogin(socket);

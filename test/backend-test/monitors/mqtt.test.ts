@@ -1,10 +1,4 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { HiveMQContainer } = require("@testcontainers/hivemq");
-const mqtt = require("mqtt");
-const { MqttMonitorType } = require("../../../src/server/monitor-types/mqtt");
-const { UP, PENDING } = require("../../../src/util");
 
 /**
  * Runs an MQTT test with the
@@ -16,6 +10,13 @@ const { UP, PENDING } = require("../../../src/util");
  * @param {string|null} conditions JSON string of conditions or null
  * @returns {Promise<Heartbeat>} the heartbeat produced by the check
  */
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { HiveMQContainer } from "@testcontainers/hivemq";
+import mqtt from "mqtt";
+import { MqttMonitorType } from "../../../src/server/monitor-types/mqtt.ts";
+import { UP, PENDING } from "../../../src/util.ts";
+
 async function testMqtt(
     mqttSuccessMessage,
     mqttCheckType,

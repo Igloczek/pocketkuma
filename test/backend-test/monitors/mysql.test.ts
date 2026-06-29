@@ -1,14 +1,15 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { MySqlContainer } = require("@testcontainers/mysql");
-const { MysqlMonitorType } = require("../../../src/server/monitor-types/mysql");
-const { UP, PENDING } = require("../../../src/util");
 
 /**
  * Helper function to create and start a MySQL container
  * @returns {Promise<{container: MySqlContainer, connectionString: string}>} The started container and connection string
  */
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { MySqlContainer } from "@testcontainers/mysql";
+import { MysqlMonitorType } from "../../../src/server/monitor-types/mysql.ts";
+import { UP, PENDING } from "../../../src/util.ts";
+
 async function createAndStartMySQLContainer() {
     const container = await new MySqlContainer("mysql:8.0").withStartupTimeout(120000).start();
 

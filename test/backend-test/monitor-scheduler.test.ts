@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { describe, test, beforeEach, afterEach } = require("node:test");
-const assert = require("node:assert");
-const Monitor = require("../../src/server/model/monitor");
+
+import { describe, test, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
+import Monitor from "../../src/server/model/monitor.ts";
 
 describe("monitor scheduler timer control", () => {
     const originalSetTimeout = global.setTimeout;

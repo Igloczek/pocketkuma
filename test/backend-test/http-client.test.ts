@@ -1,10 +1,11 @@
 // @ts-nocheck
-const { describe, test, before, after } = require("node:test");
-const assert = require("node:assert");
-const http = require("node:http");
-const httpClient = require("../../src/server/http-client");
-const Monitor = require("../../src/server/model/monitor");
-const Heartbeat = require("../../src/server/model/heartbeat");
+
+import { describe, test, before, after } from "node:test";
+import assert from "node:assert";
+import http from "node:http";
+import httpClient from "../../src/server/http-client.ts";
+import Monitor from "../../src/server/model/monitor.ts";
+import Heartbeat from "../../src/server/model/heartbeat.ts";
 
 describe("fetch HTTP client", () => {
     let server;

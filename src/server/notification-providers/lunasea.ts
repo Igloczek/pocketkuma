@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const { DOWN, UP } = require("../../util");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import { DOWN, UP } from "../../util.ts";
 
 class LunaSea extends NotificationProvider {
     name = "lunasea";
@@ -66,4 +67,4 @@ class LunaSea extends NotificationProvider {
     }
 }
 
-module.exports = LunaSea;
+export default LunaSea;

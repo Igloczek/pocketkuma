@@ -1,8 +1,9 @@
 // @ts-nocheck
-const { R } = require("./redbean-compat");
-const { log } = require("../util");
-const { commandExists } = require("./util-server");
-const { createProviderList, getNotificationProvider } = require("./notification-provider-registry");
+
+import { R } from "./redbean-compat.ts";
+import { log } from "../util.ts";
+import { commandExists } from "./util-server.ts";
+import { createProviderList, getNotificationProvider } from "./notification-provider-registry.ts";
 
 class Notification {
     providerList = {};
@@ -28,7 +29,7 @@ class Notification {
      * @throws Error with fail msg
      */
     static async send(notification, msg, monitorJSON = null, heartbeatJSON = null) {
-        const provider = getNotificationProvider(notification.type);
+        const provider = await getNotificationProvider(notification.type);
         if (provider) {
             return provider.send(notification, msg, monitorJSON, heartbeatJSON);
         } else {
@@ -122,6 +123,4 @@ async function applyNotificationEveryMonitor(notificationID, userID) {
     }
 }
 
-module.exports = {
-    Notification,
-};
+export { Notification };

@@ -1,8 +1,9 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const { DOWN, UP } = require("../../util");
-const { default: axios } = require("axios");
-const Crypto = require("crypto");
+
+import NotificationProvider from "./notification-provider.ts";
+import { DOWN, UP } from "../../util.ts";
+import axios from "axios";
+import Crypto from "crypto";
 
 class DingDing extends NotificationProvider {
     name = "DingDing";
@@ -110,4 +111,4 @@ class DingDing extends NotificationProvider {
     }
 }
 
-module.exports = DingDing;
+export default DingDing;

@@ -1,9 +1,11 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { TCPMonitorType } = require("../../../src/server/monitor-types/tcp");
-const { UP, PENDING } = require("../../../src/util");
-const net = require("net");
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { TCPMonitorType } from "../../../src/server/monitor-types/tcp.ts";
+import { UP, PENDING } from "../../../src/util.ts";
+import net from "net";
+import { parseTlsAlertNumber, getTlsAlertName } from "../../../src/server/monitor-types/tcp.ts";
 
 describe("TCP Monitor", () => {
     /**
@@ -241,8 +243,6 @@ describe("TCP Monitor", () => {
     });
 
     test("parseTlsAlertNumber() extracts alert number from error message", async () => {
-        const { parseTlsAlertNumber } = require("../../../src/server/monitor-types/tcp");
-
         // Test various error message formats
         assert.strictEqual(parseTlsAlertNumber("alert number 116"), 116);
         assert.strictEqual(parseTlsAlertNumber("SSL alert number 42"), 42);
@@ -252,8 +252,6 @@ describe("TCP Monitor", () => {
     });
 
     test("getTlsAlertName() returns correct alert name for known codes", async () => {
-        const { getTlsAlertName } = require("../../../src/server/monitor-types/tcp");
-
         assert.strictEqual(getTlsAlertName(116), "certificate_required");
         assert.strictEqual(getTlsAlertName(42), "bad_certificate");
         assert.strictEqual(getTlsAlertName(48), "unknown_ca");

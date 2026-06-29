@@ -1,4 +1,4 @@
-exports.up = function (knex) {
+export const up = function (knex) {
     return knex.schema
         .createTable("stat_minutely", function (table) {
             table.increments("id");
@@ -38,6 +38,6 @@ exports.up = function (knex) {
         });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema.dropTable("stat_minutely").dropTable("stat_daily");
 };

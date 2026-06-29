@@ -1,6 +1,7 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
-const { R } = require("../redbean-compat");
+
+import { BeanModel } from "../redbean-compat.ts";
+import { R } from "../redbean-compat.ts";
 
 class Group extends BeanModel {
     /**
@@ -47,4 +48,4 @@ class Group extends BeanModel {
     }
 }
 
-module.exports = Group;
+export default Group;

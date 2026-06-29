@@ -1,4 +1,4 @@
-exports.up = function (knex) {
+export const up = function (knex) {
     return knex.schema.alterTable("monitor", function (table) {
         table.boolean("save_response").notNullable().defaultTo(false);
         table.boolean("save_error_response").notNullable().defaultTo(true);
@@ -6,7 +6,7 @@ exports.up = function (knex) {
     });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema.alterTable("monitor", function (table) {
         table.dropColumn("save_response");
         table.dropColumn("save_error_response");

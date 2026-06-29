@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
-const { R } = require("../redbean-compat");
-const dayjs = require("dayjs");
+
+import { BeanModel } from "../redbean-compat.ts";
+import { R } from "../redbean-compat.ts";
+import dayjs from "dayjs";
 
 class Incident extends BeanModel {
     /**
@@ -34,4 +35,4 @@ class Incident extends BeanModel {
     }
 }
 
-module.exports = Incident;
+export default Incident;

@@ -1,4 +1,4 @@
-exports.up = async function (knex) {
+export const up = async function (knex) {
     const isSQLite = knex.client.dialect === "sqlite3";
 
     if (isSQLite) {
@@ -20,7 +20,7 @@ exports.up = async function (knex) {
     // For MariaDB/MySQL: No changes (partial indexes not supported)
 };
 
-exports.down = async function (knex) {
+export const down = async function (knex) {
     const isSQLite = knex.client.dialect === "sqlite3";
 
     if (isSQLite) {

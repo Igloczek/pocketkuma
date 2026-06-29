@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Kook extends NotificationProvider {
     name = "Kook";
@@ -32,4 +33,4 @@ class Kook extends NotificationProvider {
     }
 }
 
-module.exports = Kook;
+export default Kook;

@@ -1,11 +1,13 @@
 // @ts-nocheck
-const { setSetting, setting } = require("./util-server");
-const axios = require("axios");
-const compareVersions = require("compare-versions");
-const { log } = require("../util");
 
-exports.version = require("../../package.json").version;
-exports.latestVersion = null;
+import { setSetting, setting } from "./util-server.ts";
+import axios from "axios";
+import compareVersions from "compare-versions";
+import { log } from "../util.ts";
+import packageJson from "../../package.json" with { type: "json" };
+
+export const version = packageJson.version;
+export let latestVersion = null;
 
 // How much time in ms to wait between update checks
 const UPDATE_CHECKER_INTERVAL_MS = 1000 * 60 * 60 * 48;
@@ -13,7 +15,7 @@ const UPDATE_CHECKER_LATEST_VERSION_URL = "https://uptime.kuma.pet/version";
 
 let interval;
 
-exports.startInterval = () => {
+export const startInterval = () => {
     let check = async () => {
         if ((await setting("checkUpdate")) === false) {
             return;
@@ -33,13 +35,13 @@ exports.startInterval = () => {
 
             if (checkBeta && res.data.beta) {
                 if (compareVersions.compare(res.data.beta, res.data.slow, ">")) {
-                    exports.latestVersion = res.data.beta;
+                    latestVersion = res.data.beta;
                     return;
                 }
             }
 
             if (res.data.slow) {
-                exports.latestVersion = res.data.slow;
+                latestVersion = res.data.slow;
             }
         } catch (_) {
             log.info("update-checker", "Failed to check for new versions");
@@ -55,14 +57,16 @@ exports.startInterval = () => {
  * @param {boolean} value Should the check update feature be enabled?
  * @returns {Promise<void>}
  */
-exports.enableCheckUpdate = async (value) => {
+export const enableCheckUpdate = async (value) => {
     await setSetting("checkUpdate", value);
 
     clearInterval(interval);
 
     if (value) {
-        exports.startInterval();
+        startInterval();
     }
 };
 
-exports.socket = null;
+export let socket = null;
+
+export default { version, latestVersion, startInterval, enableCheckUpdate, socket };

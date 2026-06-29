@@ -1,28 +1,25 @@
 // @ts-nocheck
 "use strict";
 
-const {
-    percentageToColor,
-    filterAndJoin,
-} = require("../util-server");
-const { R } = require("../redbean-compat");
-const Monitor = require("../model/monitor");
-const dayjs = require("dayjs");
-const { UP, MAINTENANCE, DOWN, PENDING, flipStatus, log, badgeConstants } = require("../../util");
-const StatusPage = require("../model/status_page");
-const { makeBadge } = require("badge-maker");
-const { Prometheus } = require("../prometheus");
-const Database = require("../database");
-const { UptimeCalculator } = require("../uptime-calculator");
-const { Settings } = require("../settings");
-const {
+import { percentageToColor, filterAndJoin } from "../util-server.ts";
+import { R } from "../redbean-compat.ts";
+import Monitor from "../model/monitor.ts";
+import dayjs from "dayjs";
+import { UP, MAINTENANCE, DOWN, PENDING, flipStatus, log, badgeConstants } from "../../util.ts";
+import StatusPage from "../model/status_page.ts";
+import { makeBadge } from "badge-maker";
+import { Prometheus } from "../prometheus.ts";
+import Database from "../database.ts";
+import { UptimeCalculator } from "../uptime-calculator.ts";
+import { Settings } from "../settings.ts";
+import {
     cachedResponse,
     decodePathParam,
     httpErrorResponse,
     jsonResponse,
     queryObject,
     textResponse,
-} = require("../bun-response");
+} from "../bun-response.ts";
 
 function getHostname(request) {
     const url = new URL(request.url);
@@ -674,6 +671,4 @@ async function handleApiRequest(request, { server, disableFrameSameOrigin }) {
     return null;
 }
 
-module.exports = {
-    handleApiRequest,
-};
+export { handleApiRequest };

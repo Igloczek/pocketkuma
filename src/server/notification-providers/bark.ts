@@ -7,11 +7,11 @@
 //  Copyright © 2021 Lakr Aream. All rights reserved.
 //
 
-const NotificationProvider = require("./notification-provider");
-const { DOWN, UP } = require("../../util");
-const { default: axios } = require("axios");
-
 // bark is an APN bridge that sends notifications to Apple devices.
+
+import NotificationProvider from "./notification-provider.ts";
+import { DOWN, UP } from "../../util.ts";
+import axios from "axios";
 
 const barkNotificationAvatar = "https://github.com/louislam/uptime-kuma/raw/master/public/icon.png";
 const successMessage = "Successes!";
@@ -126,4 +126,4 @@ class Bark extends NotificationProvider {
     }
 }
 
-module.exports = Bark;
+export default Bark;

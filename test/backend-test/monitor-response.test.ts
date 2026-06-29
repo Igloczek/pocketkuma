@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const Monitor = require("../../src/server/model/monitor");
-const Heartbeat = require("../../src/server/model/heartbeat");
-const { RESPONSE_BODY_LENGTH_DEFAULT } = require("../../src/util");
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import Monitor from "../../src/server/model/monitor.ts";
+import Heartbeat from "../../src/server/model/heartbeat.ts";
+import { RESPONSE_BODY_LENGTH_DEFAULT } from "../../src/util.ts";
 
 describe("Monitor response saving", () => {
     test("getSaveResponse and getSaveErrorResponse parse booleans", () => {

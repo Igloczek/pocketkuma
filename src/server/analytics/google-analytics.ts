@@ -1,6 +1,4 @@
 // @ts-nocheck
-const jsesc = require("jsesc");
-const { escape } = require("html-escaper");
 
 /**
  * Returns a string that represents the javascript that is required to insert the Google Analytics scripts
@@ -8,6 +6,9 @@ const { escape } = require("html-escaper");
  * @param {string} tagId Google UA/G/AW/DC Property ID to use with the Google Analytics script.
  * @returns {string} HTML script tags to inject into page
  */
+import jsesc from "jsesc";
+import { escape } from "html-escaper";
+
 function getGoogleAnalyticsScript(tagId) {
     let escapedTagIdJS = jsesc(tagId, { isScriptContext: true });
 
@@ -24,6 +25,6 @@ function getGoogleAnalyticsScript(tagId) {
     `;
 }
 
-module.exports = {
-    getGoogleAnalyticsScript,
-};
+export { getGoogleAnalyticsScript };
+
+export default { getGoogleAnalyticsScript };

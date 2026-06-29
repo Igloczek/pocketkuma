@@ -10,20 +10,20 @@ https://knexjs.org/guide/migrations.html#knexfile-in-other-languages
 
 ## Template
 
-```js
-exports.up = function (knex) {};
+```ts
+export const up = function (knex) {};
 
-exports.down = function (knex) {};
+export const down = function (knex) {};
 
-// exports.config = { transaction: false };
+// export const config = { transaction: false };
 ```
 
 ## Example
 
 Filename: 2023-06-30-1348-create-user-and-product.ts
 
-```js
-exports.up = function (knex) {
+```ts
+export const up = function (knex) {
     return knex.schema
         .createTable("user", function (table) {
             table.increments("id");
@@ -43,7 +43,7 @@ exports.up = function (knex) {
         });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema.dropTable("product").dropTable("user");
 };
 ```

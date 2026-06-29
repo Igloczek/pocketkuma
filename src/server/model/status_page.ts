@@ -1,17 +1,17 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
-const { R } = require("../redbean-compat");
-const cheerio = require("cheerio");
-const { UptimeKumaServer } = require("../uptime-kuma-server");
-const jsesc = require("jsesc");
-const analytics = require("../analytics/analytics");
-const { marked } = require("marked");
-const { Feed } = require("feed");
-const config = require("../config");
-const dayjs = require("dayjs");
 
-const { setting } = require("../util-server");
-const {
+import { BeanModel } from "../redbean-compat.ts";
+import { R } from "../redbean-compat.ts";
+import { load as loadHtml } from "cheerio";
+import { UptimeKumaServer } from "../uptime-kuma-server.ts";
+import jsesc from "jsesc";
+import analytics from "../analytics/analytics.ts";
+import { marked } from "marked";
+import { Feed } from "feed";
+import config from "../config.ts";
+import dayjs from "dayjs";
+import { setting } from "../util-server.ts";
+import {
     STATUS_PAGE_ALL_DOWN,
     STATUS_PAGE_ALL_UP,
     STATUS_PAGE_MAINTENANCE,
@@ -20,7 +20,7 @@ const {
     MAINTENANCE,
     DOWN,
     INCIDENT_PAGE_SIZE,
-} = require("../../util");
+} from "../../util.ts";
 
 class StatusPage extends BeanModel {
     get analyticsId() {
@@ -213,7 +213,7 @@ class StatusPage extends BeanModel {
      * @returns {Promise<string>} the rendered html
      */
     static async renderHTML(indexHTML, statusPage) {
-        const $ = cheerio.load(indexHTML);
+        const $ = loadHtml(indexHTML);
 
         const description155 = marked(statusPage.description ?? "")
             .replace(/<[^>]+>/gm, "")
@@ -642,4 +642,4 @@ class StatusPage extends BeanModel {
     }
 }
 
-module.exports = StatusPage;
+export default StatusPage;

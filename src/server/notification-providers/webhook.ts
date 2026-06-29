@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
-const FormData = require("form-data");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+import FormData from "form-data";
 
 class Webhook extends NotificationProvider {
     name = "webhook";
@@ -71,4 +72,4 @@ class Webhook extends NotificationProvider {
     }
 }
 
-module.exports = Webhook;
+export default Webhook;

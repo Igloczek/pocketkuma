@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Telnyx extends NotificationProvider {
     name = "telnyx";
@@ -39,4 +40,4 @@ class Telnyx extends NotificationProvider {
     }
 }
 
-module.exports = Telnyx;
+export default Telnyx;

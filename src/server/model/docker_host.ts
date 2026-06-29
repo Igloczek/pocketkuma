@@ -1,5 +1,6 @@
 // @ts-nocheck
-const { BeanModel } = require("../redbean-compat");
+
+import { BeanModel } from "../redbean-compat.ts";
 
 class DockerHost extends BeanModel {
     /**
@@ -17,4 +18,4 @@ class DockerHost extends BeanModel {
     }
 }
 
-module.exports = DockerHost;
+export default DockerHost;

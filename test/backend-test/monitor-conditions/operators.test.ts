@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const {
+
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import {
     operatorMap,
     OP_CONTAINS,
     OP_NOT_CONTAINS,
@@ -17,7 +18,7 @@ const {
     OP_ENDS_WITH,
     OP_NOT_STARTS_WITH,
     OP_NOT_ENDS_WITH,
-} = require("../../../src/server/monitor-conditions/operators.ts");
+} from "../../../src/server/monitor-conditions/operators.ts";
 
 describe("Expression Operators", () => {
     test("StringEqualsOperator returns true for identical strings and false otherwise", () => {

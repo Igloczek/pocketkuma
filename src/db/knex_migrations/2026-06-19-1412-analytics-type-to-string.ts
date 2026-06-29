@@ -1,12 +1,12 @@
 const oldValues = ["google", "umami", "plausible", "matomo", "rybbit"];
 
-exports.up = function (knex) {
+export const up = function (knex) {
     return knex.schema.alterTable("status_page", function (table) {
         table.string("analytics_type").nullable().defaultTo(null).alter();
     });
 };
 
-exports.down = async function (knex) {
+export const down = async function (knex) {
     await knex("status_page")
         .whereNotNull("analytics_type")
         .whereNotIn("analytics_type", oldValues)

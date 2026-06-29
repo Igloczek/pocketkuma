@@ -27,6 +27,4 @@ class ConditionVariable {
     }
 }
 
-module.exports = {
-    ConditionVariable,
-};
+export { ConditionVariable };

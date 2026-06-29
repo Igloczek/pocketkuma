@@ -2,7 +2,9 @@
 
 Documentation: https://bun.sh/docs/cli/test
 
-Create a test file in this directory with the name `*.test.ts` or `test-*.ts`.
+Create a test file in this directory with the name `*.test.ts`.
+
+Bun discovers `*.test.ts` files when `./test/backend-test` is passed to `bun test`.
 
 > [!TIP]
 > Writing great tests is hard.
@@ -30,5 +32,20 @@ describe("Feature Name", () => {
 ## Run
 
 ```bash
-bun run test:backend
+bun run test:backend          # CI gate: core unit tests (22 tests)
+bun run test:backend:unit     # same as test:backend
+bun run test:backend:all      # full suite (includes integration / Docker tests)
 ```
+
+### Expected failure categories in `test:backend:all`
+
+The full suite discovers all `*.test.ts` files. Many failures are pre-existing Bun runner gaps, not ESM regressions:
+
+| Category | Examples | Cause |
+|----------|----------|-------|
+| `node:test` mocks | `domain.test.ts`, `globalping.test.ts` | `mock.method` / `mock.restoreAll` unavailable under Bun |
+| Nested `node:test` | `monitor-conditions/*.test.ts` | `describe()`/`test()` nesting incompatible with Bun runner |
+| Testcontainers | `monitors/*.test.ts` | Requires Docker and live services |
+| DB / network unit tests | `uptime-calculator.test.ts`, `domain.test.ts` | Needs setup or live RDAP/network |
+
+Use `test:backend` (unit subset) to validate ESM migration changes in CI.

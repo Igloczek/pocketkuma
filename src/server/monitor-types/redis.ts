@@ -1,7 +1,8 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { UP } = require("../../util");
-const redis = require("redis");
+
+import { MonitorType } from "./monitor-type.ts";
+import { UP } from "../../util.ts";
+import redis from "redis";
 
 class RedisMonitorType extends MonitorType {
     name = "redis";
@@ -56,6 +57,4 @@ class RedisMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    RedisMonitorType,
-};
+export { RedisMonitorType };

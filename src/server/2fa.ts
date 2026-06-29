@@ -1,5 +1,6 @@
 // @ts-nocheck
-const { R } = require("./redbean-compat");
+
+import { R } from "./redbean-compat.ts";
 
 class TwoFA {
     /**
@@ -12,4 +13,4 @@ class TwoFA {
     }
 }
 
-module.exports = TwoFA;
+export default TwoFA;

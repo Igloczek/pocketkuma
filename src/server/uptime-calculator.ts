@@ -1,13 +1,14 @@
 // @ts-nocheck
-const dayjs = require("dayjs");
-const { UP, MAINTENANCE, DOWN, PENDING } = require("../util");
-const { LimitQueue } = require("./utils/limit-queue");
-const { log } = require("../util");
-const { R } = require("./redbean-compat");
 
 /**
  * Calculates the uptime of a monitor.
  */
+import dayjs from "dayjs";
+import { UP, MAINTENANCE, DOWN, PENDING } from "../util.ts";
+import { LimitQueue } from "./utils/limit-queue.ts";
+import { log } from "../util.ts";
+import { R } from "./redbean-compat.ts";
+
 class UptimeCalculator {
     /**
      * @private
@@ -886,7 +887,4 @@ class UptimeDataResult {
     avgPing = null;
 }
 
-module.exports = {
-    UptimeCalculator,
-    UptimeDataResult,
-};
+export { UptimeCalculator, UptimeDataResult };

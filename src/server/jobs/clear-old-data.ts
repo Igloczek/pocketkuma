@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { R } = require("../redbean-compat");
-const { log } = require("../../util");
-const Database = require("../database");
-const { Settings } = require("../settings");
-const dayjs = require("dayjs");
+
+import { R } from "../redbean-compat.ts";
+import { log } from "../../util.ts";
+import Database from "../database.ts";
+import { Settings } from "../settings.ts";
+import dayjs from "dayjs";
 
 const DEFAULT_KEEP_PERIOD = 365;
 
@@ -60,6 +61,4 @@ const clearOldData = async () => {
     log.debug("clearOldData", "Data cleared.");
 };
 
-module.exports = {
-    clearOldData,
-};
+export { clearOldData };

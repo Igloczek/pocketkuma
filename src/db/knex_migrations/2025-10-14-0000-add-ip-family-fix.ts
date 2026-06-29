@@ -1,4 +1,4 @@
-exports.up = function (knex) {
+export const up = function (knex) {
     return knex.schema.alterTable("monitor", function (table) {
         // Fix ip_family, change to varchar instead of boolean
         // possible values are "ipv4" and "ipv6"
@@ -6,7 +6,7 @@ exports.up = function (knex) {
     });
 };
 
-exports.down = function (knex) {
+export const down = function (knex) {
     return knex.schema.alterTable("monitor", function (table) {
         // Rollback to boolean
         table.boolean("ip_family").defaultTo(null).alter();

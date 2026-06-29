@@ -1,7 +1,8 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const webpush = require("web-push");
-const { setting } = require("../util-server");
+
+import NotificationProvider from "./notification-provider.ts";
+import webpush from "web-push";
+import { setting } from "../util-server.ts";
 
 class Webpush extends NotificationProvider {
     name = "Webpush";
@@ -32,4 +33,4 @@ class Webpush extends NotificationProvider {
     }
 }
 
-module.exports = Webpush;
+export default Webpush;

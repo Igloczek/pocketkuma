@@ -23,7 +23,4 @@ function isBunRuntime() {
     return typeof Bun !== "undefined";
 }
 
-module.exports = {
-    getRuntimeInfo,
-    isBunRuntime,
-};
+export { getRuntimeInfo, isBunRuntime };

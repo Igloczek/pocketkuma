@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Elks extends NotificationProvider {
     name = "Elks";
@@ -37,4 +38,4 @@ class Elks extends NotificationProvider {
     }
 }
 
-module.exports = Elks;
+export default Elks;

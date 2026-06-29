@@ -1,14 +1,15 @@
 // @ts-nocheck
-const { describe, test } = require("node:test");
-const assert = require("node:assert");
-const { MSSQLServerContainer } = require("@testcontainers/mssqlserver");
-const { MssqlMonitorType } = require("../../../src/server/monitor-types/mssql");
-const { UP, PENDING } = require("../../../src/util");
 
 /**
  * Helper function to create and start a MSSQL container
  * @returns {Promise<{container: MSSQLServerContainer, connectionString: string}>} The started container and connection string
  */
+import { describe, test } from "node:test";
+import assert from "node:assert";
+import { MSSQLServerContainer } from "@testcontainers/mssqlserver";
+import { MssqlMonitorType } from "../../../src/server/monitor-types/mssql.ts";
+import { UP, PENDING } from "../../../src/util.ts";
+
 async function createAndStartMSSQLContainer() {
     const container = await new MSSQLServerContainer("mcr.microsoft.com/mssql/server:2022-latest")
         .acceptLicense()

@@ -1,9 +1,10 @@
 // @ts-nocheck
-const { UP, DOWN, getMonitorRelativeURL } = require("../../util");
-const { setting } = require("../util-server");
 
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+import { UP, DOWN, getMonitorRelativeURL } from "../../util.ts";
+import { setting } from "../util-server.ts";
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
+
 class HeiiOnCall extends NotificationProvider {
     name = "HeiiOnCall";
 
@@ -51,4 +52,4 @@ class HeiiOnCall extends NotificationProvider {
     }
 }
 
-module.exports = HeiiOnCall;
+export default HeiiOnCall;

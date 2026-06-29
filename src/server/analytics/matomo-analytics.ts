@@ -1,6 +1,4 @@
 // @ts-nocheck
-const jsesc = require("jsesc");
-const { escape } = require("html-escaper");
 
 /**
  * Returns a string that represents the javascript that is required to insert the Matomo Analytics script
@@ -9,6 +7,9 @@ const { escape } = require("html-escaper");
  * @param {string} siteId Site ID to use with the Matomo Analytics script.
  * @returns {string} HTML script tags to inject into page
  */
+import jsesc from "jsesc";
+import { escape } from "html-escaper";
+
 function getMatomoAnalyticsScript(matomoUrl, siteId) {
     let escapedMatomoUrlJS = jsesc(matomoUrl, { isScriptContext: true });
     let escapedSiteIdJS = jsesc(siteId, { isScriptContext: true });
@@ -43,6 +44,6 @@ function getMatomoAnalyticsScript(matomoUrl, siteId) {
     `;
 }
 
-module.exports = {
-    getMatomoAnalyticsScript,
-};
+export { getMatomoAnalyticsScript };
+
+export default { getMatomoAnalyticsScript };

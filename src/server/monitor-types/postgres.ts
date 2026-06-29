@@ -1,9 +1,12 @@
 // @ts-nocheck
-const { MonitorType } = require("./monitor-type");
-const { log, UP } = require("../../util");
-const dayjs = require("dayjs");
-const postgresConParse = require("pg-connection-string").parse;
-const { Client } = require("pg");
+
+import { MonitorType } from "./monitor-type.ts";
+import { log, UP } from "../../util.ts";
+import dayjs from "dayjs";
+import { parse as postgresConParse } from "pg-connection-string";
+import pg from "pg";
+
+const { Client } = pg;
 
 class PostgresMonitorType extends MonitorType {
     name = "postgres";
@@ -79,6 +82,4 @@ class PostgresMonitorType extends MonitorType {
     }
 }
 
-module.exports = {
-    PostgresMonitorType,
-};
+export { PostgresMonitorType };

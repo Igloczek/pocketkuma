@@ -1,6 +1,7 @@
 // @ts-nocheck
-const NotificationProvider = require("./notification-provider");
-const axios = require("axios");
+
+import NotificationProvider from "./notification-provider.ts";
+import axios from "axios";
 
 class Whatsapp360messenger extends NotificationProvider {
     name = "Whatsapp360messenger";
@@ -159,4 +160,4 @@ class Whatsapp360messenger extends NotificationProvider {
     }
 }
 
-module.exports = Whatsapp360messenger;
+export default Whatsapp360messenger;
