@@ -20,7 +20,7 @@ Date: 2026-06-28
 - `extra/reset-password.js` no longer imports removed `socket.io-client`; after resetting JWT state it warns that a server restart disconnects active WebSocket sessions.
 - The production Docker build and runtime stages now use the Bun image instead of inherited Node base images.
 - The release image installs production dependencies with `bun install --frozen-lockfile --production` and copies only runtime directories/artifacts from the build stage: `dist`, `src`, and a minimal `extra` subset.
-- The copied `extra` subset is `extra/healthcheck` for Docker healthchecks, `extra/rdap-dns.json` for domain-expiry monitors, and `extra/push-examples/` for push-monitor socket helper examples.
+- The copied `extra` subset is `extra/healthcheck.ts` for Docker healthchecks, `extra/rdap-dns.json` for domain-expiry monitors, and `extra/push-examples/` for push-monitor socket helper examples.
 - Other `extra/*` package scripts remain host/development/release helpers and are intentionally not supported inside the pruned production container unless a later task adds them to the runtime image.
 - Inherited Docker helper scripts and compose defaults now target `uptime-buna:*` images instead of upstream `louislam/uptime-kuma:*` images. The root `compose.yaml` builds this repository with `Dockerfile` instead of pulling a public upstream runtime image.
 

@@ -52,7 +52,6 @@
         "release-beta": "bun ./extra/release/beta.mjs",
         "git-remove-tag": "git tag -d",
         "build-dist-and-restart": "bun run build && bun run start-server-dev",
-        "build-healthcheck-armv7": "GOOS=linux GOARCH=arm GOARM=7 go build -x -o ./extra/healthcheck-armv7 ./extra/healthcheck.go",
         "deploy-demo-server": "bun extra/deploy-demo-server.js",
         "rebase-pr-to-1.23.X": "bun extra/rebase-pr.js 1.23.X",
         "reset-migrate-aggregate-table-state": "bun extra/reset-migrate-aggregate-table-state.js",

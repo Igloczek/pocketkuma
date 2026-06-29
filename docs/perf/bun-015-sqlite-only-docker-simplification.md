@@ -46,24 +46,23 @@ docker run --rm uptime-buna:local --version
 docker image inspect uptime-buna:local --format '{{.Size}}'
 ```
 
-Pinned Docker bases:
+Pinned Docker base:
 
 ```text
 runtime/build = oven/bun:1.3.14-alpine
-healthcheck build = golang:1.25.5-alpine
 ```
 
 Result:
 
 ```text
 Bun runtime = 1.3.14
-uptime-buna:local = 285188310 bytes
+uptime-buna:local = 277529464 bytes
 ```
 
 Delta:
 
 ```text
--152865753 bytes
+-160524599 bytes
 ```
 
 ## Local Browser Smoke
@@ -156,7 +155,7 @@ Docker healthcheck:
     "Log": [
         {
             "ExitCode": 0,
-            "Output": "Health Check OK [Res Code: 200]\n"
+            "Output": "Health Check OK [Res Code: 302]\n"
         }
     ]
 }
