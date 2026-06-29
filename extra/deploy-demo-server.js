@@ -1,4 +1,3 @@
-require("dotenv").config();
 const { NodeSSH } = require("node-ssh");
 const readline = require("readline");
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -32,12 +31,12 @@ const prompt = (query) => new Promise((resolve) => rl.question(query, resolve));
         });
         console.log(result.stdout + result.stderr);
 
-        result = await ssh.execCommand("npm run download-dist", {
+        result = await ssh.execCommand("bun run download-dist", {
             cwd,
         });
         console.log(result.stdout + result.stderr);
 
-        result = await ssh.execCommand("npm install --production", {
+        result = await ssh.execCommand("bun install --production", {
             cwd,
         });
         console.log(result.stdout + result.stderr);

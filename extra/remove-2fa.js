@@ -1,11 +1,11 @@
 console.log("== Uptime Kuma Remove 2FA Tool ==");
 console.log("Loading the database");
 
-const Database = require("../server/database");
+const Database = require("../src/server/database");
 const { R } = require("redbean-node");
 const readline = require("readline");
-const TwoFA = require("../server/2fa");
-const args = require("args-parser")(process.argv);
+const TwoFA = require("../src/server/2fa");
+const { args } = require("../src/server/args");
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
