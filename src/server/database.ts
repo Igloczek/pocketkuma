@@ -15,6 +15,8 @@ import { Settings } from "./settings.ts";
 import { UptimeCalculator } from "./uptime-calculator.ts";
 import dayjs from "dayjs";
 import { SimpleMigrationServer } from "./utils/simple-migration-server.ts";
+import kumaDbTemplate from "../db/kuma.db" with { type: "file" };
+import { defaultDataDir, isCompiledBinary } from "./app-paths.ts";
 
 class Database {
     /**
@@ -131,9 +133,14 @@ class Database {
      * @param {object} args Arguments to initialize DB with
      * @returns {void}
      */
+    static getTemplatePath() {
+        return isCompiledBinary() ? kumaDbTemplate : Database.templatePath;
+    }
+
     static initDataDir(args) {
         // Data Directory (must be end with "/")
-        Database.dataDir = process.env.DATA_DIR || args["data-dir"] || Database.getDevDataDir() || "./data/";
+        const fallbackDataDir = isCompiledBinary() ? defaultDataDir() : "./data/";
+        Database.dataDir = process.env.DATA_DIR || args["data-dir"] || Database.getDevDataDir() || fallbackDataDir;
 
         Database.sqlitePath = path.join(Database.dataDir, "kuma.db");
         if (!fs.existsSync(Database.dataDir)) {
@@ -259,7 +266,7 @@ class Database {
         log.info("db", "Database Type: sqlite (bun:sqlite)");
         await R.connect({
             sqlitePath: Database.sqlitePath,
-            templatePath: Database.templatePath,
+            templatePath: Database.getTemplatePath(),
             testMode,
         });
         if (autoloadModels) {

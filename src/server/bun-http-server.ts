@@ -14,6 +14,8 @@ import { checkAPIAuthRequest } from "./auth.ts";
 import { handleApiRequest } from "./routers/api-router.ts";
 import { handleStatusPageRequest } from "./routers/status-page-router.ts";
 import { applyCommonHeaders, htmlResponse, jsonResponse, redirectResponse, textResponse } from "./bun-response.ts";
+import { isCompiledBinary } from "./app-paths.ts";
+import { hasEmbeddedAsset, readEmbeddedAsset } from "./generated/embedded-assets.ts";
 
 const MIME_TYPES = {
     ".br": "application/octet-stream",
@@ -119,7 +121,49 @@ async function pickFile(filePath, request, precompressed) {
     return null;
 }
 
+async function pickEmbeddedFile(webPath, request, precompressed) {
+    if (precompressed && acceptsEncoding(request, "br") && hasEmbeddedAsset(`${webPath}.br`)) {
+        const file = await readEmbeddedAsset(`${webPath}.br`);
+        if (file) {
+            return { file, contentEncoding: "br" };
+        }
+    }
+
+    if (precompressed && acceptsEncoding(request, "gzip") && hasEmbeddedAsset(`${webPath}.gz`)) {
+        const file = await readEmbeddedAsset(`${webPath}.gz`);
+        if (file) {
+            return { file, contentEncoding: "gzip" };
+        }
+    }
+
+    const file = await readEmbeddedAsset(webPath);
+    if (file) {
+        return { file };
+    }
+
+    return null;
+}
+
 async function serveFile(root, urlPathname, request, disableFrameSameOrigin, options = {}) {
+    if (isCompiledBinary() && root === "dist") {
+        const picked = await pickEmbeddedFile(urlPathname, request, !!options.precompressed);
+        if (picked) {
+            const headers = new Headers();
+            const type = MIME_TYPES[path.extname(urlPathname)];
+            if (type) {
+                headers.set("Content-Type", type);
+            }
+            if (picked.contentEncoding) {
+                headers.set("Content-Encoding", picked.contentEncoding);
+                headers.set("Vary", "Accept-Encoding");
+            }
+            applyCommonHeaders(headers, disableFrameSameOrigin);
+            return new Response(request.method === "HEAD" ? null : picked.file, { headers });
+        }
+
+        return null;
+    }
+
     const filePath = resolveRequestPath(root, urlPathname);
     if (!filePath) {
         return null;

@@ -1,61 +1,55 @@
 # Uptime Buna
 
-Uptime Buna is a performance-focused fork of [Uptime Kuma](https://github.com/louislam/uptime-kuma) for self-hosted monitoring installs where lower memory usage, fewer dependencies, and a simpler runtime matter more than supporting every upstream deployment option.
+**Uptime Buna** is a fork of [Uptime Kuma](https://github.com/louislam/uptime-kuma) — the same monitoring product, rebuilt for a lighter runtime. It is not an official Uptime Kuma project.
 
-## Focus
+## Why
 
-Uptime Buna is intentionally narrower than Uptime Kuma:
+Uptime Kuma supports a wide range of runtimes, databases, and deployment paths. That flexibility is useful, but it costs memory, dependencies, and complexity. Uptime Buna exists for self-hosted installs where a simpler stack matters more than matching every upstream option.
 
-- Bun is the runtime, package manager, and default execution path.
-- SQLite through `bun:sqlite` is the only application database.
-- Realtime updates use Bun-native WebSockets.
-- Runtime dependencies are cut when the related fallback path is removed.
-- Configuration options are removed when they only exist for broad upstream parity.
-- Docker builds one local runtime image instead of carrying an upstream-style image matrix.
-- Setup is documented as one supported path, not a menu of equivalent choices.
+If you need Node, npm, MySQL as an application database, or upstream's full deployment matrix, use [Uptime Kuma](https://github.com/louislam/uptime-kuma).
 
-## Uptime Kuma vs Uptime Buna
+## What's different
 
-| Area                 | Uptime Kuma                                                            | Uptime Buna                                                                              |
-| -------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Runtime              | Node.js for the default non-Docker path.                               | Bun for install, build, tests, and runtime.                                              |
-| Package manager      | npm-based setup in upstream docs.                                      | `bun install` with `bun.lock`.                                                           |
-| Dependency surface   | Broad compatibility paths and supporting packages.                     | Dependencies are cut when the related fallback path is removed.                          |
-| Application database | SQLite plus broader MariaDB/MySQL compatibility code.                  | SQLite only for application data. MySQL/MariaDB checks may still exist as monitor types. |
-| HTTP server          | Inherited Node/Express shape.                                          | `Bun.serve` for HTTP routes, static assets, metrics, and WebSocket upgrades.             |
-| Realtime updates     | Socket.IO/WebSocket stack inherited from upstream.                     | Native Bun WebSocket protocol.                                                           |
-| Docker               | Compose/direct Docker docs plus release/rootless/nightly/test targets. | One local Bun runtime image from the root `Dockerfile`.                                  |
-| Configuration        | Broad upstream compatibility.                                          | Fewer runtime choices, lower memory cost, better defaults.                               |
-
-## Runtime Snapshot
-
-Measured on 2026-06-29. Evidence is in [docs/perf/readme-runtime-snapshot.md](docs/perf/readme-runtime-snapshot.md) and [docs/perf/bun-015-sqlite-only-docker-simplification.md](docs/perf/bun-015-sqlite-only-docker-simplification.md).
-
-| Metric               | Current value                                                                             |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| Bun runtime          | `1.3.14`                                                                                  |
-| Server path          | `Bun.serve HTTP`                                                                          |
-| Application database | `sqlite` through `bun:sqlite`                                                             |
-| Clean startup RSS    | `193.1 MiB` on macOS with a fresh data directory, no monitors, and `/setup` responding    |
-| Local Docker image   | `277,529,464` bytes (`264.7 MiB`) for `uptime-buna:local`                                 |
-| Image-size change    | `-160,524,599` bytes (`-153.1 MiB`, `-36.6%`) compared with the earlier Bun cleanup image |
+- **Distribution:** one binary — download, run, open the browser. No runtime install, no repo clone, no Docker, no compose files.
+- **Runtime:** Bun compiled into that executable — not Node.js
+- **Database:** SQLite only for application data. MySQL/MariaDB remain available as monitor types.
+- **Server:** `Bun.serve` for HTTP, static assets, and WebSockets — not Socket.IO on Node
+- **Data:** stored in `./data` next to the executable by default
 
 ## Run
+
+Download the binary for your platform from [Releases](https://github.com/igloczek/uptime-buna/releases), then:
+
+```bash
+./uptime-buna
+```
+
+Open `http://localhost:3001` and complete the setup wizard on first visit.
+
+Optional flags: `--port=3001`, `--data-dir=/path/to/data`.
+
+## Build the binary
+
+Requires [Bun](https://bun.sh) ≥ 1.2.
 
 ```bash
 bun install --frozen-lockfile
 bun run build
-bun src/server/server.ts --port=3001 --data-dir=./data
 ```
 
-Open `http://localhost:3001`.
+This writes `uptime-buna` in the project root. Cross-compile with:
 
-Application data lives in the configured data directory. A fresh install writes:
-
-```json
-{
-    "type": "sqlite"
-}
+```bash
+bun run build -- --target=bun-linux-x64 --outfile=dist/releases/uptime-buna-linux-x64
 ```
 
-Non-SQLite application database configs are rejected.
+Tagged releases (`v*`) are built for Linux, macOS, and Windows via GitHub Actions and published to [Releases](https://github.com/igloczek/uptime-buna/releases) with SHA256 checksums.
+
+## Develop
+
+```bash
+bun install --frozen-lockfile
+bun run dev
+```
+
+Development serves the frontend from Vite and runs the server from source. Release builds embed the frontend and database template into the executable.
