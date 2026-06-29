@@ -1,6 +1,6 @@
 # Bun Backend Tests
 
-Documentation: https://bun.sh/docs/cli/test
+Documentation: https://bun.sh/docs/test
 
 Create a test file in this directory with the name `*.test.ts`.
 
@@ -29,6 +29,26 @@ describe("Feature Name", () => {
 });
 ```
 
+## Mocking
+
+Use Bun's native mocks for `node:test`-style `mock.method` / `mock.fn` patterns:
+
+```ts
+import { describe, expect, spyOn, test } from "bun:test";
+
+test("spies on a module method", async () => {
+    const spy = spyOn(SomeModule, "method").mockImplementation(async () => "ok");
+    try {
+        // exercise code under test
+        expect(spy).toHaveBeenCalled();
+    } finally {
+        spy.mockRestore();
+    }
+});
+```
+
+For standalone function mocks, use `mock()` from `bun:test` (`mock.fn()` in Node maps to `mock(() => undefined)`).
+
 ## Run
 
 ```bash
@@ -37,15 +57,27 @@ bun run test:backend:unit     # same as test:backend
 bun run test:backend:all      # full suite (includes integration / Docker tests)
 ```
 
+### CI gate (`test:backend`)
+
+The gate runs six fast, hermetic unit tests (no Docker/network):
+
+- `bun-sqlite-store.test.ts` — SQLite store bootstrap and queries
+- `http-client.test.ts` — fetch wrapper behavior
+- `monitor-runtime-loading.test.ts` — lazy monitor/notification loading
+- `monitor-scheduler.test.ts` — scheduler timer control
+- `check-translations.test.ts` — translation key and placeholder safety
+- `migration.test.ts` — SQLite knex migrations on a temp DB
+
+Add a file here only when it is fast, deterministic, and does not require external services.
+
 ### Expected failure categories in `test:backend:all`
 
-The full suite discovers all `*.test.ts` files. Many failures are pre-existing Bun runner gaps, not ESM regressions:
+The full suite discovers all `*.test.ts` files. Some failures are environmental, not migration regressions:
 
-| Category | Examples | Cause |
-|----------|----------|-------|
-| `node:test` mocks | `domain.test.ts`, `globalping.test.ts` | `mock.method` / `mock.restoreAll` unavailable under Bun |
-| Nested `node:test` | `monitor-conditions/*.test.ts` | `describe()`/`test()` nesting incompatible with Bun runner |
-| Testcontainers | `monitors/*.test.ts` | Requires Docker and live services |
-| DB / network unit tests | `uptime-calculator.test.ts`, `domain.test.ts` | Needs setup or live RDAP/network |
+| Category                | Examples                                               | Cause                             |
+| ----------------------- | ------------------------------------------------------ | --------------------------------- |
+| Testcontainers          | `monitors/*.test.ts`, `monitors/mqtt.test.ts` (HiveMQ) | Requires Docker and live services |
+| DB / network unit tests | `domain.test.ts`                                       | Needs live RDAP/network           |
+| Platform-specific       | `system-service.test.ts`, `snmp.test.ts`               | systemd/SNMP/Docker availability  |
 
-Use `test:backend` (unit subset) to validate ESM migration changes in CI.
+Use `test:backend` (unit subset) to validate core changes in CI.

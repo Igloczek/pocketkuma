@@ -1,16 +1,15 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect } from "bun:test";
 import hash from "../../../src/server/modules/axios-ntlm/lib/hash.ts";
 
 describe("createPseudoRandomValue()", () => {
     test("returns a hexadecimal string with the requested length", () => {
         for (const length of [0, 8, 16, 32, 64]) {
             const result = hash.createPseudoRandomValue(length);
-            assert.strictEqual(typeof result, "string");
-            assert.strictEqual(result.length, length);
-            assert.ok(/^[0-9a-f]*$/.test(result));
+            expect(typeof result).toBe("string");
+            expect(result.length).toBe(length);
+            expect(/^[0-9a-f]*$/.test(result)).toBeTruthy();
         }
     });
 
@@ -23,6 +22,6 @@ describe("createPseudoRandomValue()", () => {
             results.add(hash.createPseudoRandomValue(length));
         }
 
-        assert.strictEqual(results.size, iterations);
+        expect(results.size).toBe(iterations);
     });
 });

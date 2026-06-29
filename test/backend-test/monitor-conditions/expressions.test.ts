@@ -1,10 +1,9 @@
 // @ts-nocheck
 
-import test from "node:test";
-import assert from "node:assert";
+import { test, expect } from "bun:test";
 import { ConditionExpressionGroup, ConditionExpression } from "../../../src/server/monitor-conditions/expression.ts";
 
-test("Test ConditionExpressionGroup.fromMonitor", async (t) => {
+test("Test ConditionExpressionGroup.fromMonitor", () => {
     const monitor = {
         conditions: JSON.stringify([
             {
@@ -43,15 +42,15 @@ test("Test ConditionExpressionGroup.fromMonitor", async (t) => {
         ]),
     };
     const root = ConditionExpressionGroup.fromMonitor(monitor);
-    assert.strictEqual(true, root.children.length === 2);
-    assert.strictEqual(true, root.children[0] instanceof ConditionExpression);
-    assert.strictEqual(true, root.children[0].value === "foo");
-    assert.strictEqual(true, root.children[1] instanceof ConditionExpressionGroup);
-    assert.strictEqual(true, root.children[1].children.length === 2);
-    assert.strictEqual(true, root.children[1].children[0] instanceof ConditionExpression);
-    assert.strictEqual(true, root.children[1].children[0].value === "bar");
-    assert.strictEqual(true, root.children[1].children[1] instanceof ConditionExpressionGroup);
-    assert.strictEqual(true, root.children[1].children[1].children.length === 1);
-    assert.strictEqual(true, root.children[1].children[1].children[0] instanceof ConditionExpression);
-    assert.strictEqual(true, root.children[1].children[1].children[0].value === "car");
+    expect(root.children).toHaveLength(2);
+    expect(root.children[0]).toBeInstanceOf(ConditionExpression);
+    expect(root.children[0].value).toBe("foo");
+    expect(root.children[1]).toBeInstanceOf(ConditionExpressionGroup);
+    expect(root.children[1].children).toHaveLength(2);
+    expect(root.children[1].children[0]).toBeInstanceOf(ConditionExpression);
+    expect(root.children[1].children[0].value).toBe("bar");
+    expect(root.children[1].children[1]).toBeInstanceOf(ConditionExpressionGroup);
+    expect(root.children[1].children[1].children).toHaveLength(1);
+    expect(root.children[1].children[1].children[0]).toBeInstanceOf(ConditionExpression);
+    expect(root.children[1].children[1].children[0].value).toBe("car");
 });

@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect } from "bun:test";
 import NotificationProvider from "../../../src/server/notification-providers/notification-provider.ts";
 
 describe("NotificationProvider.throwGeneralAxiosError()", () => {
@@ -15,9 +14,7 @@ describe("NotificationProvider.throwGeneralAxiosError()", () => {
 
         let aggErr = new AggregateError([err1, err2], "AggregateError");
 
-        assert.throws(() => provider.throwGeneralAxiosError(aggErr), {
-            message: /^AggregateError - caused by: .+/,
-        });
+        expect(() => provider.throwGeneralAxiosError(aggErr)).toThrow(/^AggregateError - caused by: .+/);
     });
 
     test("expands AggregateError wrapped in error.cause", () => {
@@ -28,8 +25,6 @@ describe("NotificationProvider.throwGeneralAxiosError()", () => {
         let outerErr = new Error("Request failed");
         outerErr.cause = aggErr;
 
-        assert.throws(() => provider.throwGeneralAxiosError(outerErr), {
-            message: /^Request failed - caused by: .+/,
-        });
+        expect(() => provider.throwGeneralAxiosError(outerErr)).toThrow(/^Request failed - caused by: .+/);
     });
 });

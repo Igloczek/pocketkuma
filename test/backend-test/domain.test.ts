@@ -1,6 +1,5 @@
 // @ts-nocheck
-import { describe, test, mock, before, after } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect, beforeAll, afterAll, spyOn } from "bun:test";
 import DomainExpiry from "../../src/server/model/domain_expiry.ts";
 import mockWebhook from "./notification-providers/mock-webhook.ts";
 import TestDB from "../mock-testdb.ts";
@@ -24,19 +23,19 @@ describe("Domain Expiry", () => {
         domainExpiryNotification: true,
     };
 
-    before(async () => {
+    beforeAll(async () => {
         await testDb.create();
         Notification.init();
     });
 
-    after(async () => {
+    afterAll(async () => {
         Settings.stopCacheCleaner();
         await testDb.destroy();
     });
 
     test("getExpiryDate() returns correct expiry date for .wiki domain with no A record", async () => {
         const d = DomainExpiry.createByName("google.wiki");
-        assert.deepEqual(await d.getExpiryDate(), new Date("2026-11-26T23:59:59.000Z"));
+        expect(await d.getExpiryDate()).toBe(new Date("2026-11-26T23:59:59.000Z"));
     });
 
     describe("checkSupport()", () => {
@@ -46,7 +45,7 @@ describe("Domain Expiry", () => {
                 domain: "google.com",
                 tld: "com",
             };
-            assert.deepStrictEqual(supportInfo, expected);
+            expect(supportInfo).toBe(expected);
         });
 
         describe("Target Validation", () => {
@@ -56,14 +55,13 @@ describe("Domain Expiry", () => {
                     url: "",
                     domainExpiryNotification: true,
                 };
-                await assert.rejects(
-                    async () => await DomainExpiry.checkSupport(monitor),
-                    (error) => {
-                        assert.strictEqual(error.constructor.name, "TranslatableError");
-                        assert.strictEqual(error.message, "domain_expiry_unsupported_missing_target");
-                        return true;
-                    }
-                );
+                try {
+                    await DomainExpiry.checkSupport(monitor);
+                    expect.unreachable();
+                } catch (error) {
+                    expect(error.constructor.name).toBe("TranslatableError");
+                    expect(error.message).toBe("domain_expiry_unsupported_missing_target");
+                }
             });
 
             test("throws error for undefined target", async () => {
@@ -71,14 +69,13 @@ describe("Domain Expiry", () => {
                     type: "http",
                     domainExpiryNotification: true,
                 };
-                await assert.rejects(
-                    async () => await DomainExpiry.checkSupport(monitor),
-                    (error) => {
-                        assert.strictEqual(error.constructor.name, "TranslatableError");
-                        assert.strictEqual(error.message, "domain_expiry_unsupported_missing_target");
-                        return true;
-                    }
-                );
+                try {
+                    await DomainExpiry.checkSupport(monitor);
+                    expect.unreachable();
+                } catch (error) {
+                    expect(error.constructor.name).toBe("TranslatableError");
+                    expect(error.message).toBe("domain_expiry_unsupported_missing_target");
+                }
             });
 
             test("throws error for null target", async () => {
@@ -87,14 +84,13 @@ describe("Domain Expiry", () => {
                     url: null,
                     domainExpiryNotification: true,
                 };
-                await assert.rejects(
-                    async () => await DomainExpiry.checkSupport(monitor),
-                    (error) => {
-                        assert.strictEqual(error.constructor.name, "TranslatableError");
-                        assert.strictEqual(error.message, "domain_expiry_unsupported_missing_target");
-                        return true;
-                    }
-                );
+                try {
+                    await DomainExpiry.checkSupport(monitor);
+                    expect.unreachable();
+                } catch (error) {
+                    expect(error.constructor.name).toBe("TranslatableError");
+                    expect(error.message).toBe("domain_expiry_unsupported_missing_target");
+                }
             });
         });
 
@@ -105,14 +101,13 @@ describe("Domain Expiry", () => {
                     url: "https://example.local",
                     domainExpiryNotification: true,
                 };
-                await assert.rejects(
-                    async () => await DomainExpiry.checkSupport(monitor),
-                    (error) => {
-                        assert.strictEqual(error.constructor.name, "TranslatableError");
-                        assert.strictEqual(error.message, "domain_expiry_unsupported_is_icann");
-                        return true;
-                    }
-                );
+                try {
+                    await DomainExpiry.checkSupport(monitor);
+                    expect.unreachable();
+                } catch (error) {
+                    expect(error.constructor.name).toBe("TranslatableError");
+                    expect(error.message).toBe("domain_expiry_unsupported_is_icann");
+                }
             });
         });
 
@@ -124,8 +119,8 @@ describe("Domain Expiry", () => {
                     domainExpiryNotification: true,
                 };
                 const supportInfo = await DomainExpiry.checkSupport(monitor);
-                assert.strictEqual(supportInfo.domain, "example.com");
-                assert.strictEqual(supportInfo.tld, "com");
+                expect(supportInfo.domain).toBe("example.com");
+                expect(supportInfo.tld).toBe("com");
             });
 
             test("supports multi-level public suffix via RDAP fallback (e.g. com.br)", async () => {
@@ -135,8 +130,8 @@ describe("Domain Expiry", () => {
                     domainExpiryNotification: true,
                 };
                 const supportInfo = await DomainExpiry.checkSupport(monitor);
-                assert.strictEqual(supportInfo.domain, "record.com.br");
-                assert.strictEqual(supportInfo.tld, "br");
+                expect(supportInfo.domain).toBe("record.com.br");
+                expect(supportInfo.tld).toBe("br");
             });
 
             test("handles complex subdomain correctly", async () => {
@@ -146,8 +141,8 @@ describe("Domain Expiry", () => {
                     domainExpiryNotification: true,
                 };
                 const supportInfo = await DomainExpiry.checkSupport(monitor);
-                assert.strictEqual(supportInfo.domain, "example.org");
-                assert.strictEqual(supportInfo.tld, "org");
+                expect(supportInfo.domain).toBe("example.org");
+                expect(supportInfo.tld).toBe("org");
             });
 
             test("handles URL with port correctly", async () => {
@@ -157,8 +152,8 @@ describe("Domain Expiry", () => {
                     domainExpiryNotification: true,
                 };
                 const supportInfo = await DomainExpiry.checkSupport(monitor);
-                assert.strictEqual(supportInfo.domain, "example.com");
-                assert.strictEqual(supportInfo.tld, "com");
+                expect(supportInfo.domain).toBe("example.com");
+                expect(supportInfo.tld).toBe("com");
             });
 
             test("handles URL with query parameters correctly", async () => {
@@ -168,8 +163,8 @@ describe("Domain Expiry", () => {
                     domainExpiryNotification: true,
                 };
                 const supportInfo = await DomainExpiry.checkSupport(monitor);
-                assert.strictEqual(supportInfo.domain, "example.com");
-                assert.strictEqual(supportInfo.tld, "com");
+                expect(supportInfo.domain).toBe("example.com");
+                expect(supportInfo.tld).toBe("com");
             });
         });
     });
@@ -177,13 +172,13 @@ describe("Domain Expiry", () => {
     test("findByDomainNameOrCreate() retrieves expiration date for .com domain from RDAP", async () => {
         const domain = await DomainExpiry.findByDomainNameOrCreate("google.com");
         const expiryFromRdap = await domain.getExpiryDate(); // from RDAP
-        assert.deepEqual(expiryFromRdap, new Date("2028-09-14T04:00:00.000Z"));
+        expect(expiryFromRdap).toBe(new Date("2028-09-14T04:00:00.000Z"));
     });
 
     test("checkExpiry() caches expiration date in database", async () => {
         await DomainExpiry.checkExpiry("google.com"); // RDAP -> Cache
         const domain = await DomainExpiry.findByName("google.com");
-        assert(dayjs.utc().diff(dayjs.utc(domain.lastCheck), "second") < 5);
+        expect(dayjs.utc().diff(dayjs.utc(domain.lastCheck), "second") < 5).toBeTruthy();
     });
 
     test("sendNotifications() triggers notification for expiring domain", async () => {
@@ -209,7 +204,7 @@ describe("Domain Expiry", () => {
             DomainExpiry.sendNotifications("google.com", [notif]),
             mockWebhook(hook.port, hook.url),
         ]);
-        assert.match(data.msg, /will expire in/);
+        expect(data.msg).toMatch(/will expire in/);
     });
 
     test("sendNotifications() handles domain with null expiry without sending NaN", async () => {
@@ -221,7 +216,9 @@ describe("Domain Expiry", () => {
             lastExpiryNotificationSent: null,
         };
 
-        mock.method(DomainExpiry, "findByDomainNameOrCreate", async () => mockDomain);
+        const findByDomainNameOrCreateSpy = spyOn(DomainExpiry, "findByDomainNameOrCreate").mockImplementation(
+            async () => mockDomain
+        );
 
         try {
             const hook = {
@@ -255,23 +252,25 @@ describe("Domain Expiry", () => {
                     }),
             ]);
 
-            assert.ok(result === undefined || result === "timeout", "Should not send notification for null expiry");
+            expect(result === undefined || result === "timeout").toBeTruthy();
         } finally {
-            mock.restoreAll();
+            findByDomainNameOrCreateSpy.mockRestore();
         }
     });
 
     test("sendNotifications() handles domain with undefined expiry without sending NaN", async () => {
+        // Mock findByDomainNameOrCreate to return a bean with undefined expiry (newly created bean scenario)
+        const mockDomain = {
+            domain: "test-undefined.com",
+            expiry: undefined,
+            lastExpiryNotificationSent: null,
+        };
+
+        const findByDomainNameOrCreateSpy = spyOn(DomainExpiry, "findByDomainNameOrCreate").mockImplementation(
+            async () => mockDomain
+        );
+
         try {
-            // Mock findByDomainNameOrCreate to return a bean with undefined expiry (newly created bean scenario)
-            const mockDomain = {
-                domain: "test-undefined.com",
-                expiry: undefined,
-                lastExpiryNotificationSent: null,
-            };
-
-            mock.method(DomainExpiry, "findByDomainNameOrCreate", async () => mockDomain);
-
             const hook = {
                 port: 3013,
                 url: "should-not-be-called-undefined",
@@ -303,12 +302,9 @@ describe("Domain Expiry", () => {
                     }),
             ]);
 
-            assert.ok(
-                result === undefined || result === "timeout",
-                "Should not send notification for undefined expiry"
-            );
+            expect(result === undefined || result === "timeout").toBeTruthy();
         } finally {
-            mock.restoreAll();
+            findByDomainNameOrCreateSpy.mockRestore();
         }
     });
 });

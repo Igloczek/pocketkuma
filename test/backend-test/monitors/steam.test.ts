@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect } from "bun:test";
 import { SteamMonitorType } from "../../../src/server/monitor-types/steam.ts";
 import { UP, PENDING } from "../../../src/util.ts";
 
@@ -14,9 +13,9 @@ describe("Steam Monitor", () => {
             },
         });
 
-        assert.strictEqual(await steamMonitor.resolveSteamHostname("192.0.2.10"), "192.0.2.10");
-        assert.strictEqual(await steamMonitor.resolveSteamHostname("2001:db8::10"), "2001:db8::10");
-        assert.strictEqual(lookupCalled, false);
+        expect(await steamMonitor.resolveSteamHostname("192.0.2.10")).toBe("192.0.2.10");
+        expect(await steamMonitor.resolveSteamHostname("2001:db8::10")).toBe("2001:db8::10");
+        expect(lookupCalled).toBe(false);
     });
 
     test("buildServerFilter() resolves hostnames before building the Steam API addr filter", async () => {
@@ -37,9 +36,9 @@ describe("Steam Monitor", () => {
 
         const filter = await steamMonitor.buildServerFilter("server.example.com", 27015);
 
-        assert.strictEqual(filter, "addr\\203.0.113.10:27015");
-        assert.strictEqual(capturedHostname, "server.example.com");
-        assert.deepStrictEqual(capturedOptions, { all: true });
+        expect(filter).toBe("addr\\203.0.113.10:27015");
+        expect(capturedHostname).toBe("server.example.com");
+        expect(capturedOptions).toEqual({ all: true });
     });
 
     test("resolveSteamHostname() prefers IPv4 addresses returned by DNS lookup", async () => {
@@ -58,7 +57,7 @@ describe("Steam Monitor", () => {
             },
         });
 
-        assert.strictEqual(await steamMonitor.resolveSteamHostname("server.example.com"), "203.0.113.20");
+        expect(await steamMonitor.resolveSteamHostname("server.example.com")).toBe("203.0.113.20");
     });
 
     test("check() uses the resolved IP address in the Steam API filter", async () => {
@@ -110,12 +109,12 @@ describe("Steam Monitor", () => {
 
         await steamMonitor.check(monitor, heartbeat);
 
-        assert.strictEqual(capturedUrl, "https://api.steampowered.com/IGameServersService/GetServerList/v1/");
-        assert.strictEqual(capturedOptions.params.filter, "addr\\203.0.113.30:27015");
-        assert.strictEqual(capturedOptions.params.key, "test-steam-api-key");
-        assert.strictEqual(heartbeat.status, UP);
-        assert.strictEqual(heartbeat.msg, "Test Steam Server");
-        assert.strictEqual(heartbeat.ping, 42);
+        expect(capturedUrl).toBe("https://api.steampowered.com/IGameServersService/GetServerList/v1/");
+        expect(capturedOptions.params.filter).toBe("addr\\203.0.113.30:27015");
+        expect(capturedOptions.params.key).toBe("test-steam-api-key");
+        expect(heartbeat.status).toBe(UP);
+        expect(heartbeat.msg).toBe("Test Steam Server");
+        expect(heartbeat.ping).toBe(42);
     });
 
     test("check() does not resolve hostnames when the Steam API key is missing", async () => {
@@ -136,7 +135,7 @@ describe("Steam Monitor", () => {
             status: PENDING,
         };
 
-        await assert.rejects(steamMonitor.check(monitor, heartbeat), /Steam API Key not found/);
-        assert.strictEqual(lookupCalled, false);
+        await expect(steamMonitor.check(monitor, heartbeat)).rejects.toThrow(/Steam API Key not found/);
+        expect(lookupCalled).toBe(false);
     });
 });

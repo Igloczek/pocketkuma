@@ -1,18 +1,14 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
-import assert from "node:assert/strict";
+import { describe, test, expect } from "bun:test";
 import { GenericContainer } from "testcontainers";
 import { SNMPMonitorType } from "../../src/server/monitor-types/snmp.ts";
 import { UP } from "../../src/util.ts";
 import snmp from "net-snmp";
 
 describe("SNMPMonitorType", () => {
-    test(
+    test.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
         "check() sets heartbeat to UP when SNMP agent responds",
-        {
-            skip: !!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"),
-        },
         async () => {
             const container = await new GenericContainer("polinux/snmpd").withExposedPorts("161/udp").start();
 
@@ -43,19 +39,16 @@ describe("SNMPMonitorType", () => {
 
                 await snmpMonitor.check(monitor, heartbeat);
 
-                assert.strictEqual(heartbeat.status, UP);
-                assert.match(heartbeat.msg, /JSON query passes/);
+                expect(heartbeat.status).toBe(UP);
+                expect(heartbeat.msg).toMatch(/JSON query passes/);
             } finally {
                 await container.stop();
             }
         }
     );
 
-    test(
+    test.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
         "check() throws when SNMP agent does not respond",
-        {
-            skip: !!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"),
-        },
         async () => {
             const monitor = {
                 type: "snmp",
@@ -71,7 +64,7 @@ describe("SNMPMonitorType", () => {
             const snmpMonitor = new SNMPMonitorType();
             const heartbeat = {};
 
-            await assert.rejects(() => snmpMonitor.check(monitor, heartbeat), /timeout|RequestTimedOutError/i);
+            await expect(snmpMonitor.check(monitor, heartbeat)).rejects.toThrow(/timeout|RequestTimedOutError/i);
         }
     );
 
@@ -116,12 +109,12 @@ describe("SNMPMonitorType", () => {
         const snmpMonitor = new SNMPMonitorType();
         const heartbeat = {};
 
-        await assert.rejects(() => snmpMonitor.check(monitor, heartbeat), /stop test here/);
+        await expect(snmpMonitor.check(monitor, heartbeat)).rejects.toThrow(/stop test here/);
 
         // Assertions
-        assert.strictEqual(createV3Called, true);
-        assert.strictEqual(createSessionCalled, false);
-        assert.strictEqual(receivedOptions.securityLevel, snmp.SecurityLevel.noAuthNoPriv);
+        expect(createV3Called).toBe(true);
+        expect(createSessionCalled).toBe(false);
+        expect(receivedOptions.securityLevel).toBe(snmp.SecurityLevel.noAuthNoPriv);
 
         // Restore originals
         snmp.createV3Session = originalCreateV3Session;

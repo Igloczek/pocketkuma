@@ -1,7 +1,6 @@
 // @ts-nocheck
 
-import { describe, test } from "node:test";
-import assert from "node:assert";
+import { describe, test, expect } from "bun:test";
 import Monitor from "../../src/server/model/monitor.ts";
 import Heartbeat from "../../src/server/model/heartbeat.ts";
 import { RESPONSE_BODY_LENGTH_DEFAULT } from "../../src/util.ts";
@@ -12,8 +11,8 @@ describe("Monitor response saving", () => {
         monitor.save_response = 1;
         monitor.save_error_response = 0;
 
-        assert.strictEqual(monitor.getSaveResponse(), true);
-        assert.strictEqual(monitor.getSaveErrorResponse(), false);
+        expect(monitor.getSaveResponse()).toBe(true);
+        expect(monitor.getSaveErrorResponse()).toBe(false);
     });
 
     test("saveResponseData stores and truncates response", async () => {
@@ -23,7 +22,7 @@ describe("Monitor response saving", () => {
         const bean = {};
         await monitor.saveResponseData(bean, "abcdef");
 
-        assert.strictEqual(await Heartbeat.decodeResponseValue(bean.response), "abcde... (truncated)");
+        expect(await Heartbeat.decodeResponseValue(bean.response)).toBe("abcde... (truncated)");
     });
 
     test("saveResponseData stringifies objects", async () => {
@@ -33,6 +32,6 @@ describe("Monitor response saving", () => {
         const bean = {};
         await monitor.saveResponseData(bean, { ok: true });
 
-        assert.strictEqual(await Heartbeat.decodeResponseValue(bean.response), JSON.stringify({ ok: true }));
+        expect(await Heartbeat.decodeResponseValue(bean.response)).toBe(JSON.stringify({ ok: true }));
     });
 });
