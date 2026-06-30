@@ -322,14 +322,6 @@ class BunSQLiteRedbean {
         }
     }
 
-    async autoloadModels() {}
-
-    setup() {}
-
-    freeze() {}
-
-    debug() {}
-
     dispense(table) {
         return beanForTable(table);
     }

@@ -141,11 +141,10 @@ class Database {
     /**
      * Connect to the database
      * @param {boolean} testMode Should the connection be started in test mode?
-     * @param {boolean} autoloadModels Should models be automatically loaded?
      * @param {boolean} noLog Should logs not be output?
      * @returns {Promise<void>}
      */
-    static async connect(testMode = false, autoloadModels = true, noLog = false) {
+    static async connect(testMode = false, noLog = false) {
         Database.removeLegacyDbConfig();
         log.info("db", "Database Type: sqlite (bun:sqlite)");
         await R.connect({
@@ -153,9 +152,6 @@ class Database {
             templatePath: Database.getTemplatePath(),
             testMode,
         });
-        if (autoloadModels) {
-            await R.autoloadModels("./src/server/model");
-        }
         if (!noLog) {
             log.debug("db", "SQLite config:");
             log.debug("db", await R.getAll("PRAGMA journal_mode"));
