@@ -98,11 +98,6 @@ export default {
                 }
             }
 
-            // Also don't need to connect to realtime for setup database page
-            if (location.pathname === "/setup-database") {
-                return;
-            }
-
             this.socket.initedSocketIO = true;
 
             let protocol = location.protocol + "//";

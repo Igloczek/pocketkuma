@@ -68,7 +68,6 @@ import { apiKeySocketHandler } from "@/server/socket-handlers/api-key-socket-han
 import { generalSocketHandler } from "@/server/socket-handlers/general-socket-handler";
 import { Settings } from "@/server/settings";
 import { clearResponseCache } from "@/server/bun-response";
-import { SetupDatabase } from "@/server/setup-database";
 import { chartSocketHandler } from "@/server/socket-handlers/chart-socket-handler";
 
 console.log("Welcome to Uptime Kuma");
@@ -160,13 +159,6 @@ let needSetup = false;
 (async () => {
     // Create a data directory
     Database.initDataDir(args);
-
-    // Check if is chosen a database type
-    let setupDatabase = new SetupDatabase(args, server);
-    if (setupDatabase.isNeedSetup()) {
-        // Hold here and start a special setup page until user choose a database type
-        await setupDatabase.start(hostname, port);
-    }
 
     // Connect to database
     try {
