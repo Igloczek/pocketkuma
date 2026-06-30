@@ -454,7 +454,7 @@ import { getMonitorRelativeURL } from "@/util-shared";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { getDevBaseURL } from "@/util/dev-base-url";
-import { timeDurationFormatter } from "@/util-frontend";
+import { formatDuration } from "@/util-frontend";
 import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-clike";
 import "prismjs/components/prism-javascript";
@@ -866,7 +866,7 @@ export default {
         },
 
         secondsToHumanReadableFormat(seconds) {
-            return timeDurationFormatter.secondsToHumanReadableFormat(seconds);
+            return formatDuration(seconds);
         },
     },
 };
