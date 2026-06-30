@@ -1,4 +1,4 @@
-import type { MigrationStore } from "../db/schema/store-types.js";
+import type { BunSQLiteRedbean } from "./bun-sqlite-store.js";
 import { upgrade001BunaBaselineData, upgrade001BunaBaselineSchema } from "../db/schema/upgrades/001-buna-baseline.js";
 import { log } from "../util.js";
 
@@ -26,8 +26,8 @@ export const LATEST_BUNA_SCHEMA_VERSION = 1;
 interface SchemaUpgrade {
     version: number;
     name: string;
-    runSchema?: (store: MigrationStore) => Promise<void>;
-    runData?: (store: MigrationStore) => Promise<void>;
+    runSchema?: (store: BunSQLiteRedbean) => Promise<void>;
+    runData?: (store: BunSQLiteRedbean) => Promise<void>;
 }
 
 const upgrades: SchemaUpgrade[] = [
@@ -39,7 +39,7 @@ const upgrades: SchemaUpgrade[] = [
     },
 ];
 
-export async function getBunaSchemaVersion(store: MigrationStore) {
+export async function getBunaSchemaVersion(store: BunSQLiteRedbean) {
     if (!(await store.hasTable("setting"))) {
         return null;
     }
@@ -53,7 +53,7 @@ export async function getBunaSchemaVersion(store: MigrationStore) {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
-export async function setBunaSchemaVersion(store: MigrationStore, version: number) {
+export async function setBunaSchemaVersion(store: BunSQLiteRedbean, version: number) {
     const existing = await store.getRow('SELECT id FROM setting WHERE "key" = ?', [BUNA_SCHEMA_VERSION_KEY]);
     if (existing) {
         await store.exec('UPDATE setting SET value = ? WHERE "key" = ?', [String(version), BUNA_SCHEMA_VERSION_KEY]);
@@ -63,7 +63,7 @@ export async function setBunaSchemaVersion(store: MigrationStore, version: numbe
     await store.exec('INSERT INTO setting ("key", value) VALUES (?, ?)', [BUNA_SCHEMA_VERSION_KEY, String(version)]);
 }
 
-export async function resolveCurrentSchemaVersion(store: MigrationStore) {
+export async function resolveCurrentSchemaVersion(store: BunSQLiteRedbean) {
     const explicitVersion = await getBunaSchemaVersion(store);
     if (explicitVersion !== null) {
         return explicitVersion;
@@ -73,7 +73,7 @@ export async function resolveCurrentSchemaVersion(store: MigrationStore) {
     return 0;
 }
 
-export async function runPendingUpgrades(store: MigrationStore) {
+export async function runPendingUpgrades(store: BunSQLiteRedbean) {
     let currentVersion = await resolveCurrentSchemaVersion(store);
 
     for (const upgrade of upgrades) {

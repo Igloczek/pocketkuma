@@ -1,6 +1,6 @@
 import { gameDig4to5IdMap } from "../gamedig-v4-to-v5-map.js";
 import { expectedIndexes } from "../expected-schema.js";
-import type { MigrationStore } from "../store-types.js";
+import type { BunSQLiteRedbean } from "../../../server/bun-sqlite-store.js";
 import { parse as parseTld } from "tldts";
 import rdapDnsData from "../../../server/assets/rdap-dns.json" with { type: "json" };
 import { addColumnIfMissing, columnExists, createIndexIfMissing, tableExists } from "../migration-helpers.js";
@@ -220,7 +220,7 @@ function hasRdapSupport(target, supportedTlds) {
     return supportedTlds.has(rootTld);
 }
 
-async function ensureCoreTables(store: MigrationStore) {
+async function ensureCoreTables(store: BunSQLiteRedbean) {
     const db = store.db;
 
     const tableStatements = [
@@ -251,7 +251,7 @@ async function ensureCoreTables(store: MigrationStore) {
     }
 }
 
-async function ensureMonitorColumns(store: MigrationStore) {
+async function ensureMonitorColumns(store: BunSQLiteRedbean) {
     const db = store.db;
     if (!tableExists(db, "monitor")) {
         return;
@@ -262,7 +262,7 @@ async function ensureMonitorColumns(store: MigrationStore) {
     }
 }
 
-async function ensureStatusPageColumns(store: MigrationStore) {
+async function ensureStatusPageColumns(store: BunSQLiteRedbean) {
     const db = store.db;
     if (!tableExists(db, "status_page")) {
         return;
@@ -296,7 +296,7 @@ async function ensureStatusPageColumns(store: MigrationStore) {
     await store.exec("UPDATE status_page SET auto_refresh_interval = 300 WHERE auto_refresh_interval IS NULL");
 }
 
-async function ensureUserColumns(store: MigrationStore) {
+async function ensureUserColumns(store: BunSQLiteRedbean) {
     const db = store.db;
     if (!tableExists(db, "user")) {
         return;
@@ -307,7 +307,7 @@ async function ensureUserColumns(store: MigrationStore) {
     addColumnIfMissing(db, "user", "twofa_last_token", "TEXT");
 }
 
-async function ensureIncidentColumns(store: MigrationStore) {
+async function ensureIncidentColumns(store: BunSQLiteRedbean) {
     const db = store.db;
     if (!tableExists(db, "incident")) {
         return;
@@ -317,7 +317,7 @@ async function ensureIncidentColumns(store: MigrationStore) {
     addColumnIfMissing(db, "incident", "active", "BOOLEAN NOT NULL DEFAULT 1");
 }
 
-async function migrateGameDigIds(store: MigrationStore) {
+async function migrateGameDigIds(store: BunSQLiteRedbean) {
     if (!(await store.hasTable("monitor"))) {
         return;
     }
@@ -336,7 +336,7 @@ async function migrateGameDigIds(store: MigrationStore) {
     }
 }
 
-async function migrateSnmpJsonPathOperator(store: MigrationStore) {
+async function migrateSnmpJsonPathOperator(store: BunSQLiteRedbean) {
     if (!(await store.hasTable("monitor"))) {
         return;
     }
@@ -344,7 +344,7 @@ async function migrateSnmpJsonPathOperator(store: MigrationStore) {
     await store.exec('UPDATE monitor SET json_path_operator = ? WHERE json_path_operator IS NULL', ["=="]);
 }
 
-async function migrateStatusPageAnalytics(store: MigrationStore) {
+async function migrateStatusPageAnalytics(store: BunSQLiteRedbean) {
     if (!(await store.hasTable("status_page"))) {
         return;
     }
@@ -375,7 +375,7 @@ function isLineNotifyNotification(config: unknown, name: unknown) {
     return false;
 }
 
-async function removeLineNotifyNotifications(store: MigrationStore) {
+async function removeLineNotifyNotifications(store: BunSQLiteRedbean) {
     if (!(await store.hasTable("notification"))) {
         return;
     }
@@ -401,7 +401,7 @@ async function removeLineNotifyNotifications(store: MigrationStore) {
     await store.exec(`DELETE FROM notification WHERE id IN (${placeholders})`, lineNotifyIDs);
 }
 
-async function disableUnsupportedDomainExpiryNotifications(store: MigrationStore) {
+async function disableUnsupportedDomainExpiryNotifications(store: BunSQLiteRedbean) {
     if (!(await store.hasTable("monitor"))) {
         return;
     }
@@ -432,7 +432,7 @@ async function disableUnsupportedDomainExpiryNotifications(store: MigrationStore
     }
 }
 
-async function ensureCoreIndexes(store: MigrationStore) {
+async function ensureCoreIndexes(store: BunSQLiteRedbean) {
     const db = store.db;
     for (const indexName of expectedIndexes) {
         const requiredTable = coreIndexTables[indexName];
@@ -447,7 +447,7 @@ async function ensureCoreIndexes(store: MigrationStore) {
     }
 }
 
-export async function upgrade001BunaBaselineSchema(store: MigrationStore) {
+export async function upgrade001BunaBaselineSchema(store: BunSQLiteRedbean) {
     await ensureCoreTables(store);
     await ensureUserColumns(store);
     await ensureMonitorColumns(store);
@@ -456,7 +456,7 @@ export async function upgrade001BunaBaselineSchema(store: MigrationStore) {
     await ensureCoreIndexes(store);
 }
 
-export async function upgrade001BunaBaselineData(store: MigrationStore) {
+export async function upgrade001BunaBaselineData(store: BunSQLiteRedbean) {
     await migrateStatusPageAnalytics(store);
     await migrateGameDigIds(store);
     await migrateSnmpJsonPathOperator(store);
@@ -464,7 +464,7 @@ export async function upgrade001BunaBaselineData(store: MigrationStore) {
     await disableUnsupportedDomainExpiryNotifications(store);
 }
 
-export async function upgrade001BunaBaseline(store: MigrationStore) {
+export async function upgrade001BunaBaseline(store: BunSQLiteRedbean) {
     await upgrade001BunaBaselineSchema(store);
     await upgrade001BunaBaselineData(store);
 }
