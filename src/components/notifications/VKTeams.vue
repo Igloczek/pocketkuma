@@ -69,22 +69,22 @@
             </p>
 
             <label class="form-label" for="vkteams-message-template">{{ $t("Message Template") }}</label>
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="vkteams-message-template"
                 v-model="$parent.notification.vkteamsTemplate"
                 :required="true"
-            ></TemplatedTextarea>
+            ></TemplatedField>
         </div>
     </template>
 </template>
 
 <script>
 import HiddenInput from "@/components/HiddenInput.vue";
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     components: {
-        TemplatedTextarea,
+        TemplatedField,
         HiddenInput,
     },
     mounted() {

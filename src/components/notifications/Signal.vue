@@ -67,22 +67,22 @@
     <template v-if="$parent.notification.signalUseTemplate">
         <div class="mb-3">
             <label class="form-label" for="signal-template">{{ $t("Message Template") }}</label>
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="signal-template"
                 v-model="$parent.notification.signalTemplate"
                 :required="true"
                 :placeholder="signalTemplatedTextareaPlaceholder"
-            ></TemplatedTextarea>
+            ></TemplatedField>
         </div>
     </template>
 </template>
 
 <script>
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     components: {
-        TemplatedTextarea,
+        TemplatedField,
     },
     computed: {
         signalTemplatedTextareaPlaceholder() {

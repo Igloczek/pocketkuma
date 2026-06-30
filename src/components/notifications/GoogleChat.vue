@@ -66,7 +66,7 @@
 
     <template v-if="$parent.notification.googleChatUseTemplate">
         <div class="mb-3">
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="google-chat-template"
                 v-model="$parent.notification.googleChatTemplate"
                 :required="true"
@@ -77,12 +77,12 @@
 </template>
 
 <script>
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     name: "GoogleChat",
     components: {
-        TemplatedTextarea,
+        TemplatedField,
     },
     computed: {
         googleChatTemplatePlaceholder() {

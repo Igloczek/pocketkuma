@@ -84,25 +84,25 @@
     <template v-if="$parent.notification.Whatsapp360messengerUseTemplate">
         <div class="mb-3">
             <label class="form-label" for="360messenger-template">{{ $t("360messengerMessageTemplate") }}</label>
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="360messenger-template"
                 v-model="$parent.notification.Whatsapp360messengerTemplate"
                 :required="true"
                 :placeholder="Whatsapp360messengerTemplatedTextareaPlaceholder"
-            ></TemplatedTextarea>
+            ></TemplatedField>
         </div>
     </template>
 </template>
 
 <script>
 import HiddenInput from "@/components/HiddenInput.vue";
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 import VueMultiselect from "vue-multiselect";
 
 export default {
     components: {
         HiddenInput,
-        TemplatedTextarea,
+        TemplatedField,
         VueMultiselect,
     },
     data() {

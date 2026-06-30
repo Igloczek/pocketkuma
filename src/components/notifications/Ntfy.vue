@@ -123,23 +123,23 @@
     <div v-show="$parent.notification.ntfyUseTemplate">
         <div class="mb-3">
             <label for="ntfy-title" class="form-label">{{ $t("ntfyCustomTitle") }}</label>
-            <TemplatedInput
+            <TemplatedField as="input"
                 id="ntfy-title"
                 v-model="$parent.notification.ntfyCustomTitle"
                 :required="false"
                 placeholder=""
-            ></TemplatedInput>
+            ></TemplatedField>
             <div class="form-text">{{ $t("ntfyNotificationTemplateFallback") }}</div>
         </div>
 
         <div class="mb-3">
             <label for="ntfy-message" class="form-label">{{ $t("ntfyCustomMessage") }}</label>
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="ntfy-message"
                 v-model="$parent.notification.ntfyCustomMessage"
                 :required="false"
                 placeholder=""
-            ></TemplatedTextarea>
+            ></TemplatedField>
             <div class="form-text">{{ $t("ntfyNotificationTemplateFallback") }}</div>
         </div>
     </div>
@@ -147,14 +147,13 @@
 
 <script>
 import HiddenInput from "@/components/HiddenInput.vue";
-import TemplatedInput from "@/components/TemplatedInput.vue";
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     components: {
         HiddenInput,
-        TemplatedInput,
-        TemplatedTextarea,
+        TemplatedField,
     },
     computed: {
         authenticationMethods() {
