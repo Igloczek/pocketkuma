@@ -12,7 +12,7 @@ import dayjs from "dayjs";
 import { log } from "@/util";
 import ImageDataURI from "@/server/image-data-uri";
 import Database from "@/server/database";
-import apicache from "@/server/apicache";
+import { clearResponseCache } from "@/server/bun-response";
 import StatusPage from "@/server/model/status_page";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";
 import { Settings } from "@/server/settings";
@@ -418,7 +418,7 @@ export const statusPageSocketHandler = (socket) => {
                 await Settings.set("entryPage", server.entryPage, "general");
             }
 
-            apicache.clear();
+            clearResponseCache();
 
             callback({
                 ok: true,
@@ -508,7 +508,7 @@ export const statusPageSocketHandler = (socket) => {
                 // Delete status_page
                 await R.exec("DELETE FROM status_page WHERE id = ? ", [statusPageID]);
 
-                apicache.clear();
+                clearResponseCache();
             } else {
                 throw new Error("Status Page is not found");
             }

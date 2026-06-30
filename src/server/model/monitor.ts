@@ -53,7 +53,7 @@ import zlib from "node:zlib";
 import { promisify } from "node:util";
 import DomainExpiry from "@/server/model/domain_expiry";
 import packageJson from "@/package-meta";
-import apicache from "@/server/apicache";
+import { clearResponseCache } from "@/server/bun-response";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const version = packageJson.version;
@@ -883,8 +883,8 @@ class Monitor extends BeanModel {
                 bean.downCount = 0;
 
                 // Clear Status Page Cache
-                log.debug("monitor", `[${this.name}] apicache clear`);
-                apicache.clear();
+                log.debug("monitor", `[${this.name}] response cache clear`);
+                clearResponseCache();
 
                 await UptimeKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
             } else {
