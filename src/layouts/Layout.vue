@@ -167,8 +167,48 @@
 
 <script>
 import Login from "@/components/Login.vue";
-import { compare as compareVersions } from "@/util/version-compare";
 import { useToast } from "vue-toastification";
+
+function isVersionGreaterThan(latest, current) {
+    const parse = (version) => {
+        const prereleaseIndex = String(version).indexOf("-");
+        const main = prereleaseIndex === -1 ? String(version) : String(version).slice(0, prereleaseIndex);
+        const prerelease = prereleaseIndex === -1 ? null : String(version).slice(prereleaseIndex + 1);
+        return {
+            parts: main.split(".").map((part) => Number.parseInt(part, 10) || 0),
+            prerelease,
+        };
+    };
+
+    const left = parse(latest);
+    const right = parse(current);
+    const length = Math.max(left.parts.length, right.parts.length);
+
+    for (let i = 0; i < length; i++) {
+        const leftPart = left.parts[i] || 0;
+        const rightPart = right.parts[i] || 0;
+        if (leftPart > rightPart) {
+            return true;
+        }
+        if (leftPart < rightPart) {
+            return false;
+        }
+    }
+
+    if (!left.prerelease && !right.prerelease) {
+        return false;
+    }
+
+    if (!left.prerelease) {
+        return true;
+    }
+
+    if (!right.prerelease) {
+        return false;
+    }
+
+    return left.prerelease > right.prerelease;
+}
 const toast = useToast();
 
 export default {
@@ -195,7 +235,7 @@ export default {
 
         hasNewVersion() {
             if (this.$root.info.latestVersion && this.$root.info.version) {
-                return compareVersions(this.$root.info.latestVersion, this.$root.info.version, ">");
+                return isVersionGreaterThan(this.$root.info.latestVersion, this.$root.info.version);
             } else {
                 return false;
             }

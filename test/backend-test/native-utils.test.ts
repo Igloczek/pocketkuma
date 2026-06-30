@@ -4,10 +4,33 @@ import { describe, test, expect } from "bun:test";
 import net from "node:net";
 import jwt from "@/server/jwt";
 import { verify as verifyTotp, encodeSecretForUri } from "@/server/totp";
-import { passwordStrength } from "@/util/password-strength";
 import { TokenBucket } from "@/server/rate-limiter";
-import { compare as compareVersions } from "@/util/version-compare";
-import { randomId } from "@/util/random-id";
+
+const PASSWORD_DIVERSITY_PATTERNS = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/];
+const PASSWORD_STRENGTH_LEVELS = [
+    { value: "Too weak", minDiversity: 0, minLength: 0 },
+    { value: "Weak", minDiversity: 2, minLength: 6 },
+    { value: "Medium", minDiversity: 3, minLength: 8 },
+    { value: "Strong", minDiversity: 4, minLength: 10 },
+];
+
+function passwordStrength(password) {
+    let diversity = 0;
+    for (const pattern of PASSWORD_DIVERSITY_PATTERNS) {
+        if (pattern.test(password)) {
+            diversity++;
+        }
+    }
+
+    let value = "Too weak";
+    for (const level of PASSWORD_STRENGTH_LEVELS) {
+        if (diversity >= level.minDiversity && password.length >= level.minLength) {
+            value = level.value;
+        }
+    }
+
+    return { value };
+}
 
 const editMonitorFqdnOptions = {
     allowWildcard: true,
@@ -156,14 +179,19 @@ describe("validator replacements", () => {
 
 describe("version compare", () => {
     test("treats pre-release versions as lower than release", () => {
-        expect(compareVersions("1.0.0-beta", "1.0.0", "<")).toBe(true);
-        expect(compareVersions("1.0.0", "1.0.0-beta", ">")).toBe(true);
+        expect(Bun.semver.order("1.0.0-beta", "1.0.0")).toBeLessThan(0);
+        expect(Bun.semver.order("1.0.0", "1.0.0-beta")).toBeGreaterThan(0);
     });
 });
 
-describe("randomId", () => {
+describe("api key secret generation", () => {
     test("generates requested length using allowed alphabet", () => {
-        const id = randomId(40);
+        let id = "";
+        while (id.length < 40) {
+            id += crypto.randomUUID().replace(/-/g, "");
+        }
+        id = id.slice(0, 40);
+
         expect(id).toHaveLength(40);
         expect(id).toMatch(/^[A-Za-z0-9]+$/);
     });

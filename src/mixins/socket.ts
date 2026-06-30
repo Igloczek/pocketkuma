@@ -1,9 +1,7 @@
 // @ts-nocheck
 import { useToast } from "vue-toastification";
-import jwtDecode from "@/util/jwt-decode";
 import Favico from "favico.js";
 import dayjs from "dayjs";
-import { createEventEmitter } from "@/util/event-emitter";
 import { createNativeWebSocket } from "@/util/native-websocket-client";
 
 import { DOWN, MAINTENANCE, PENDING, UP } from "@/constants";
@@ -68,7 +66,7 @@ export default {
                 currentPassword: "",
             },
             faviconUpdateDebounce: null,
-            emitter: createEventEmitter(),
+            emitter: new EventTarget(),
         };
     },
 
@@ -225,7 +223,7 @@ export default {
                         }
                     }
 
-                    this.emitter.emit("newImportantHeartbeat", data);
+                    this.emitter.dispatchEvent(new CustomEvent("newImportantHeartbeat", { detail: data }));
                 }
             });
 
@@ -332,7 +330,15 @@ export default {
             const jwtToken = this.$root.storage().token;
 
             if (jwtToken && jwtToken !== "autoLogin") {
-                return jwtDecode(jwtToken);
+                const encodedPayload = jwtToken.split(".")[1];
+                if (!encodedPayload) {
+                    throw new Error("Invalid token");
+                }
+                let payload = encodedPayload.replace(/-/g, "+").replace(/_/g, "/");
+                while (payload.length % 4 !== 0) {
+                    payload += "=";
+                }
+                return JSON.parse(atob(payload));
             }
             return undefined;
         },

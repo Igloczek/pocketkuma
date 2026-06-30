@@ -8,7 +8,6 @@
 import { checkLogin } from "@/server/util-server";
 import { log } from "@/util";
 import { R } from "@/server/bun-sqlite-store";
-import { randomId } from "@/util/random-id";
 import passwordHash from "@/server/password-hash";
 import { clearResponseCache } from "@/server/bun-response";
 import APIKey from "@/server/model/api_key";
@@ -21,7 +20,11 @@ export const apiKeySocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let clearKey = randomId(40);
+            let clearKey = "";
+            while (clearKey.length < 40) {
+                clearKey += crypto.randomUUID().replace(/-/g, "");
+            }
+            clearKey = clearKey.slice(0, 40);
             let hashedKey = await passwordHash.generate(clearKey);
             key["key"] = hashedKey;
             let bean = await APIKey.save(key, socket.userID);
