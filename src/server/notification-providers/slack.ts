@@ -4,7 +4,15 @@ import NotificationProvider from "@/server/notification-providers/notification-p
 import httpClient from "@/server/http-client";
 import { setSettings, setting } from "@/server/util-server";
 import { getMonitorRelativeURL, UP, log } from "@/util";
-import isUrl from "@/util/is-url";
+
+function isUrl(str) {
+    if (typeof str !== "string" || str.length === 0 || !URL.canParse(str)) {
+        return false;
+    }
+
+    const { hostname } = new URL(str);
+    return hostname === "localhost" || /^[^\s.]+\.\S{2,}$/.test(hostname);
+}
 
 class Slack extends NotificationProvider {
     name = "slack";

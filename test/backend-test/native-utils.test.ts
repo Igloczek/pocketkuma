@@ -1,22 +1,59 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
+import net from "node:net";
 import jwt from "@/server/jwt";
 import { verify as verifyTotp, encodeSecretForUri } from "@/server/totp";
 import { passwordStrength } from "@/util/password-strength";
 import { TokenBucket } from "@/server/rate-limiter";
-import { isIP } from "@/util/is-ip";
-import { isFQDN } from "@/util/is-fqdn";
-import isUrl from "@/util/is-url";
 import { compare as compareVersions } from "@/util/version-compare";
 import { randomId } from "@/util/random-id";
 
 const editMonitorFqdnOptions = {
-    allow_wildcard: true,
-    require_tld: false,
-    allow_underscores: true,
-    allow_trailing_dot: true,
+    allowWildcard: true,
 };
+
+const HOSTNAME_LABEL_PATTERN = /^[a-zA-Z0-9_](?:[a-zA-Z0-9-_]{0,61}[a-zA-Z0-9_])?$/;
+
+function isMonitorHostname(hostname, { allowWildcard = false } = {}) {
+    if (typeof hostname !== "string" || hostname.length === 0) {
+        return false;
+    }
+
+    let host = hostname;
+    if (host.endsWith(".")) {
+        host = host.slice(0, -1);
+    }
+
+    if (host.length === 0) {
+        return false;
+    }
+
+    for (const label of host.split(".")) {
+        if (label.length === 0) {
+            return false;
+        }
+
+        if (allowWildcard && label === "*") {
+            continue;
+        }
+
+        if (!HOSTNAME_LABEL_PATTERN.test(label)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function isUrl(str) {
+    if (typeof str !== "string" || str.length === 0 || !URL.canParse(str)) {
+        return false;
+    }
+
+    const { hostname } = new URL(str);
+    return hostname === "localhost" || /^[^\s.]+\.\S{2,}$/.test(hostname);
+}
 
 describe("native JWT", () => {
     test("signs and verifies object payloads", () => {
@@ -97,19 +134,19 @@ describe("token bucket rate limiter", () => {
 });
 
 describe("validator replacements", () => {
-    test("isIP rejects CIDR notation", () => {
-        expect(isIP("192.168.1.1")).toBe(true);
-        expect(isIP("192.168.1.1/24")).toBe(false);
-        expect(isIP("::1/128")).toBe(false);
+    test("node:net isIP rejects CIDR notation", () => {
+        expect(net.isIP("192.168.1.1")).toBe(4);
+        expect(net.isIP("192.168.1.1/24")).toBe(0);
+        expect(net.isIP("::1/128")).toBe(0);
     });
 
-    test("isFQDN matches EditMonitor option set", () => {
-        expect(isFQDN("_bad.com", editMonitorFqdnOptions)).toBe(true);
-        expect(isFQDN("host.example", editMonitorFqdnOptions)).toBe(true);
-        expect(isFQDN("bad..host", editMonitorFqdnOptions)).toBe(false);
+    test("hostname validation matches EditMonitor option set", () => {
+        expect(isMonitorHostname("_bad.com", editMonitorFqdnOptions)).toBe(true);
+        expect(isMonitorHostname("host.example", editMonitorFqdnOptions)).toBe(true);
+        expect(isMonitorHostname("bad..host", editMonitorFqdnOptions)).toBe(false);
     });
 
-    test("isUrl matches is-url package behavior", () => {
+    test("URL.canParse hostname check matches is-url package behavior", () => {
         expect(isUrl("https://example.com")).toBe(true);
         expect(isUrl("https://foo")).toBe(false);
         expect(isUrl("ftp://x.com")).toBe(true);
