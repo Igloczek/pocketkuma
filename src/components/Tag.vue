@@ -14,7 +14,7 @@
     >
         <span class="tag-text">{{ displayText }}</span>
         <span v-if="remove != null" class="ps-1 btn-remove" @click="remove(item)">
-            <font-awesome-icon icon="times" />
+            <app-icon icon="times" />
         </span>
     </div>
 </template>

@@ -47,7 +47,7 @@
                         class="btn btn-primary btn-add-group me-2"
                         @click="$refs.badgeLinkGeneratorDialog.show(monitor.id, monitor.name)"
                     >
-                        <font-awesome-icon icon="certificate" />
+                        <app-icon icon="certificate" />
                         {{ $t("Open Badge Link Generator") }}
                     </button>
                 </div>

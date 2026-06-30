@@ -6,7 +6,7 @@
         <div v-else>
             <div class="add-btn">
                 <button class="btn btn-primary me-2" type="button" @click="$refs.apiKeyDialog.show()">
-                    <font-awesome-icon icon="plus" />
+                    <app-icon icon="plus" />
                     {{ $t("Add API Key") }}
                 </button>
             </div>
@@ -38,17 +38,17 @@
                     <div class="buttons">
                         <div class="btn-group" role="group">
                             <button v-if="item.active" class="btn btn-normal" @click="disableDialog(item.id)">
-                                <font-awesome-icon icon="pause" />
+                                <app-icon icon="pause" />
                                 {{ $t("Disable") }}
                             </button>
 
                             <button v-if="!item.active" class="btn btn-primary" @click="enableKey(item.id)">
-                                <font-awesome-icon icon="play" />
+                                <app-icon icon="play" />
                                 {{ $t("Enable") }}
                             </button>
 
                             <button class="btn btn-danger" @click="deleteDialog(item.id)">
-                                <font-awesome-icon icon="trash" />
+                                <app-icon icon="trash" />
                                 {{ $t("Delete") }}
                             </button>
                         </div>

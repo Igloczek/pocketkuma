@@ -3,7 +3,7 @@
         <h5 @click="isOpen = !isOpen">
             <div class="w-50 d-flex justify-content-between align-items-center pe-2">
                 <span class="pb-2">{{ heading }}</span>
-                <font-awesome-icon icon="chevron-down" class="animated" :class="{ open: isOpen }" />
+                <app-icon icon="chevron-down" class="animated" :class="{ open: isOpen }" />
             </div>
         </h5>
         <transition name="slide-fade-up">

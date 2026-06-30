@@ -3,8 +3,8 @@
         <div class="d-flex flex-row align-items-center p-1 overflow-hidden">
             <div class="m-3 ps-3">
                 <div class="cert-icon">
-                    <font-awesome-icon icon="file" />
-                    <font-awesome-icon class="award-icon" icon="award" />
+                    <app-icon icon="file" />
+                    <app-icon class="award-icon" icon="award" />
                 </div>
             </div>
             <div class="m-3">
@@ -35,7 +35,7 @@
             </div>
         </div>
         <div class="d-flex">
-            <font-awesome-icon v-if="cert.issuerCertificate" class="m-2 ps-6 link-icon" icon="link" />
+            <app-icon v-if="cert.issuerCertificate" class="m-2 ps-6 link-icon" icon="link" />
         </div>
         <certificate-info-row v-if="cert.issuerCertificate" :cert="cert.issuerCertificate" />
     </div>

@@ -17,7 +17,7 @@
         <textarea ref="hiddenTextarea" style="position: fixed; left: -999999px; top: -999999px"></textarea>
 
         <a class="btn btn-outline-primary" @click="copyToClipboard(model)">
-            <font-awesome-icon :icon="icon" />
+            <app-icon :icon="icon" />
         </a>
     </div>
 </template>

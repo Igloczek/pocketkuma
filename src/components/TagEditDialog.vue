@@ -84,7 +84,7 @@
                                         class="btn-rm-monitor btn btn-outline-danger ms-2 py-1"
                                         @click.stop.prevent="removeMonitor(monitor.id)"
                                     >
-                                        <font-awesome-icon class="" icon="times" />
+                                        <app-icon class="" icon="times" />
                                     </button>
                                 </router-link>
                             </div>

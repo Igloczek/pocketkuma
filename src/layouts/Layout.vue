@@ -28,20 +28,20 @@
                 href="https://github.com/louislam/uptime-kuma/releases"
                 class="btn btn-primary me-3"
             >
-                <font-awesome-icon icon="arrow-alt-circle-up" />
+                <app-icon icon="arrow-alt-circle-up" />
                 {{ $t("New Update") }}
             </a>
 
             <ul class="nav nav-pills">
                 <li v-if="$root.loggedIn" class="nav-item me-2">
                     <router-link to="/manage-status-page" class="nav-link">
-                        <font-awesome-icon icon="stream" />
+                        <app-icon icon="stream" />
                         {{ $t("Status Pages") }}
                     </router-link>
                 </li>
                 <li v-if="$root.loggedIn" class="nav-item me-2">
                     <router-link to="/dashboard" class="nav-link">
-                        <font-awesome-icon icon="tachometer-alt" />
+                        <app-icon icon="tachometer-alt" />
                         {{ $t("Dashboard") }}
                     </router-link>
                 </li>
@@ -49,7 +49,7 @@
                     <div class="dropdown dropdown-profile-pic">
                         <div class="nav-link" data-bs-toggle="dropdown">
                             <div class="profile-pic">{{ $root.usernameFirstChar }}</div>
-                            <font-awesome-icon icon="angle-down" />
+                            <app-icon icon="angle-down" />
                         </div>
 
                         <!-- Header's Dropdown Menu -->
@@ -78,7 +78,7 @@
                                     class="dropdown-item"
                                     :class="{ active: $route.path.includes('manage-maintenance') }"
                                 >
-                                    <font-awesome-icon icon="wrench" />
+                                    <app-icon icon="wrench" />
                                     {{ $t("Maintenance") }}
                                 </router-link>
                             </li>
@@ -89,7 +89,7 @@
                                     class="dropdown-item"
                                     :class="{ active: $route.path.includes('settings') }"
                                 >
-                                    <font-awesome-icon icon="cog" />
+                                    <app-icon icon="cog" />
                                     {{ $t("Settings") }}
                                 </router-link>
                             </li>
@@ -100,14 +100,14 @@
                                     class="dropdown-item"
                                     target="_blank"
                                 >
-                                    <font-awesome-icon icon="info-circle" />
+                                    <app-icon icon="info-circle" />
                                     {{ $t("Help") }}
                                 </a>
                             </li>
 
                             <li v-if="$root.loggedIn && $root.socket.token !== 'autoLogin'">
                                 <button class="dropdown-item" @click="$root.logout">
-                                    <font-awesome-icon icon="sign-out-alt" />
+                                    <app-icon icon="sign-out-alt" />
                                     {{ $t("Logout") }}
                                 </button>
                             </li>
@@ -134,22 +134,22 @@
         <div v-if="$root.isMobile" style="width: 100%; height: calc(60px + env(safe-area-inset-bottom))" />
         <nav v-if="$root.isMobile && $root.loggedIn" class="bottom-nav">
             <router-link to="/dashboard" class="nav-link">
-                <div><font-awesome-icon icon="tachometer-alt" /></div>
+                <div><app-icon icon="tachometer-alt" /></div>
                 {{ $t("Home") }}
             </router-link>
 
             <router-link to="/list" class="nav-link">
-                <div><font-awesome-icon icon="list" /></div>
+                <div><app-icon icon="list" /></div>
                 {{ $t("List") }}
             </router-link>
 
             <router-link to="/add" class="nav-link">
-                <div><font-awesome-icon icon="plus" /></div>
+                <div><app-icon icon="plus" /></div>
                 {{ $t("Add") }}
             </router-link>
 
             <router-link to="/settings" class="nav-link">
-                <div><font-awesome-icon icon="cog" /></div>
+                <div><app-icon icon="cog" /></div>
                 {{ $t("Settings") }}
             </router-link>
         </nav>
@@ -160,7 +160,7 @@
             class="btn btn-normal clear-all-toast-btn"
             @click="clearToasts"
         >
-            <font-awesome-icon icon="times" />
+            <app-icon icon="times" />
         </button>
     </div>
 </template>

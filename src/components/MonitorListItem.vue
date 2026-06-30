@@ -29,7 +29,7 @@
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-fill" style="min-width: 0">
                             <span v-if="hasChildren" class="collapse-padding" @click.prevent="changeCollapsed">
-                                <font-awesome-icon
+                                <app-icon
                                     icon="chevron-down"
                                     class="animated"
                                     :class="{ collapsed: isCollapsed }"

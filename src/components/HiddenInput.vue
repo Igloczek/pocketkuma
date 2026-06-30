@@ -13,10 +13,10 @@
         />
 
         <a v-if="visibility == 'password'" class="btn btn-outline-primary" @click="showInput()">
-            <font-awesome-icon icon="eye" />
+            <app-icon icon="eye" />
         </a>
         <a v-if="visibility == 'text'" class="btn btn-outline-primary" @click="hideInput()">
-            <font-awesome-icon icon="eye-slash" />
+            <app-icon icon="eye-slash" />
         </a>
     </div>
 </template>

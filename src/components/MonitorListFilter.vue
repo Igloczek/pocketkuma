@@ -10,7 +10,7 @@
                 class="badge status-pill"
                 :class="filterState.active[0] ? 'running' : 'paused'"
             >
-                <font-awesome-icon :icon="filterState.active[0] ? 'play' : 'pause'" class="icon-small" />
+                <app-icon :icon="filterState.active[0] ? 'play' : 'pause'" class="icon-small" />
                 {{ filterState.active[0] ? $t("Running") : $t("filterActivePaused") }}
             </span>
             <span v-else>
@@ -25,7 +25,7 @@
                         <span class="ps-3">
                             {{ $root.stats.up }}
                             <span v-if="filterState.status?.includes(1)" class="px-1 filter-active">
-                                <font-awesome-icon icon="check" />
+                                <app-icon icon="check" />
                             </span>
                         </span>
                     </div>
@@ -38,7 +38,7 @@
                         <span class="ps-3">
                             {{ $root.stats.down }}
                             <span v-if="filterState.status?.includes(0)" class="px-1 filter-active">
-                                <font-awesome-icon icon="check" />
+                                <app-icon icon="check" />
                             </span>
                         </span>
                     </div>
@@ -51,7 +51,7 @@
                         <span class="ps-3">
                             {{ $root.stats.pending }}
                             <span v-if="filterState.status?.includes(2)" class="px-1 filter-active">
-                                <font-awesome-icon icon="check" />
+                                <app-icon icon="check" />
                             </span>
                         </span>
                     </div>
@@ -64,7 +64,7 @@
                         <span class="ps-3">
                             {{ $root.stats.maintenance }}
                             <span v-if="filterState.status?.includes(3)" class="px-1 filter-active">
-                                <font-awesome-icon icon="check" />
+                                <app-icon icon="check" />
                             </span>
                         </span>
                     </div>
@@ -77,13 +77,13 @@
                 <div class="dropdown-item" tabindex="0" @click.stop="toggleActiveFilter(true)">
                     <div class="d-flex align-items-center justify-content-between">
                         <span class="badge status-pill running">
-                            <font-awesome-icon icon="play" class="icon-small" />
+                            <app-icon icon="play" class="icon-small" />
                             {{ $t("Running") }}
                         </span>
                         <span class="ps-3">
                             {{ $root.stats.active }}
                             <span v-if="filterState.active?.includes(true)" class="px-1 filter-active">
-                                <font-awesome-icon icon="check" />
+                                <app-icon icon="check" />
                             </span>
                         </span>
                     </div>
@@ -93,13 +93,13 @@
                 <div class="dropdown-item" tabindex="0" @click.stop="toggleActiveFilter(false)">
                     <div class="d-flex align-items-center justify-content-between">
                         <span class="badge status-pill paused">
-                            <font-awesome-icon icon="pause" class="icon-small" />
+                            <app-icon icon="pause" class="icon-small" />
                             {{ $t("filterActivePaused") }}
                         </span>
                         <span class="ps-3">
                             {{ $root.stats.pause }}
                             <span v-if="filterState.active?.includes(false)" class="px-1 filter-active">
-                                <font-awesome-icon icon="check" />
+                                <app-icon icon="check" />
                             </span>
                         </span>
                     </div>
@@ -133,7 +133,7 @@
                                     <span class="ps-3">
                                         {{ getTaggedMonitorCount(tag) }}
                                         <span v-if="filterState.tags?.includes(tag.id)" class="px-1 filter-active">
-                                            <font-awesome-icon icon="check" />
+                                            <app-icon icon="check" />
                                         </span>
                                     </span>
                                 </div>
@@ -156,7 +156,7 @@
         :title="allCollapsed ? $t('Expand All Groups') : $t('Collapse All Groups')"
         @click="$emit('toggle-collapse-all')"
     >
-        <font-awesome-icon :icon="allCollapsed ? 'folder' : 'folder-open'" fixed-width />
+        <app-icon :icon="allCollapsed ? 'folder' : 'folder-open'" fixed-width />
     </button>
 </template>
 

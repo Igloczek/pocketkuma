@@ -2,7 +2,7 @@
     <div class="my-4">
         <div class="mx-0 mx-lg-4 pt-1 mb-4">
             <button class="btn btn-primary" @click.stop="addTag">
-                <font-awesome-icon icon="plus" />
+                <app-icon icon="plus" />
                 {{ $t("Add New Tag") }}
             </button>
         </div>
@@ -31,7 +31,7 @@
                         :disabled="processing"
                         @click.stop="deleteConfirm(index)"
                     >
-                        <font-awesome-icon class="" icon="trash" />
+                        <app-icon class="" icon="trash" />
                     </button>
                 </div>
             </div>
