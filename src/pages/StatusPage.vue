@@ -610,7 +610,7 @@
 import { fetchDevApi } from "@/util/dev-api-base";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
-import Favico from "favico.js";
+import { updateFaviconBadge } from "@/util/favicon-badge";
 // import highlighting library (you can use any library you want just return html string)
 import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-css";
@@ -647,10 +647,6 @@ const leavePageMsg = "Do you really want to leave? you have unsaved changes!";
 
 // eslint-disable-next-line no-unused-vars
 let feedInterval;
-
-const favicon = new Favico({
-    animation: "none",
-});
 
 export default {
     components: {
@@ -1093,7 +1089,7 @@ export default {
                             }
                         }, 0);
 
-                        favicon.badge(downMonitors);
+                        updateFaviconBadge(downMonitors);
 
                         this.loadedData = true;
                         this.lastUpdateTime = dayjs();
