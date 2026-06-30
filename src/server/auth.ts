@@ -7,7 +7,7 @@
  * @returns {Promise<(Bean|null)>} User or null if login failed
  */
 import passwordHash from "@/server/password-hash";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
 import { loginRateLimiter, apiRateLimiter } from "@/server/rate-limiter";
 import { Settings } from "@/server/settings";

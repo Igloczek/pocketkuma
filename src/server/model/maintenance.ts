@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/redbean-compat";
+import { BeanModel } from "@/server/bun-sqlite-store";
 import { parseTimeObject, parseTimeFromTimeObject, log, SQL_DATETIME_FORMAT } from "@/util";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import dayjs from "dayjs";
 import Cron from "croner";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";

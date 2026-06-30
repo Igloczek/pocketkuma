@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { runCommand, commandExists } from "@/server/process-helper";
 import {
     log,

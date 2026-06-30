@@ -2,7 +2,7 @@
 
 import { checkLogin } from "@/server/util-server";
 import { log } from "@/util";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { clearResponseCache } from "@/server/bun-response";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";
 import Maintenance from "@/server/model/maintenance";

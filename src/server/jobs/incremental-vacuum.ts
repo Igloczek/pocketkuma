@@ -5,7 +5,7 @@
  * @returns {Promise<void>} A promise that resolves when the process is finished.
  */
 
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
 
 const incrementalVacuum = async () => {

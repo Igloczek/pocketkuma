@@ -40,8 +40,8 @@ import {
     encodeBase64,
     checkCertExpiryNotifications,
 } from "@/server/util-server";
-import { R } from "@/server/redbean-compat";
-import { BeanModel } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
+import { BeanModel } from "@/server/bun-sqlite-store";
 import { Notification } from "@/server/notification";
 import { demoMode } from "@/server/config";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";

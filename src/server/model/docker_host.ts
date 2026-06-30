@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/redbean-compat";
+import { BeanModel } from "@/server/bun-sqlite-store";
 
 class DockerHost extends BeanModel {
     /**
