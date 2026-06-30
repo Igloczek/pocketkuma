@@ -1,21 +1,10 @@
 // @ts-nocheck
 import { useToast } from "vue-toastification";
-import dayjs from "dayjs";
 import { updateFaviconBadge } from "@/util/favicon-badge";
-import { createNativeWebSocket } from "@/util/native-websocket-client";
+import { getSocket, initSocket, noSocketIOPages, socketEmit } from "@/composables/useSocket";
 
 import { DOWN, MAINTENANCE, PENDING, UP } from "@/constants";
-import { getDevBaseURL } from "@/util/dev-base-url";
-import { getToastSuccessTimeout, getToastErrorTimeout } from "@/util-frontend";
 const toast = useToast();
-
-let socket;
-
-const noSocketIOPages = [
-    /^\/status-page$/, //  /status-page
-    /^\/status/, // /status**
-    /^\/$/, //  /
-];
 
 export default {
     data() {
@@ -74,209 +63,7 @@ export default {
          * @returns {void}
          */
         initSocketIO(bypass = false) {
-            // No need to re-init
-            if (this.socket.initedSocketIO) {
-                return;
-            }
-
-            // No need to connect to realtime for status page
-            if (!bypass && location.pathname) {
-                for (let page of noSocketIOPages) {
-                    if (location.pathname.match(page)) {
-                        return;
-                    }
-                }
-            }
-
-            this.socket.initedSocketIO = true;
-
-            const devBaseURL = getDevBaseURL();
-            const url = devBaseURL || undefined;
-
-            socket = createNativeWebSocket(url);
-
-            socket.on("info", (info) => {
-                this.info = info;
-            });
-
-            socket.on("setup", (monitorID, data) => {
-                this.$router.push("/setup");
-            });
-
-            socket.on("autoLogin", (monitorID, data) => {
-                this.loggedIn = true;
-                this.storage().token = "autoLogin";
-                this.socket.token = "autoLogin";
-                this.allowLoginDialog = false;
-            });
-
-            socket.on("loginRequired", () => {
-                let token = this.storage().token;
-                if (token && token !== "autoLogin") {
-                    this.loginByToken(token);
-                } else {
-                    this.$root.storage().removeItem("token");
-                    this.allowLoginDialog = true;
-                }
-            });
-
-            socket.on("monitorList", (data) => {
-                this.assignMonitorUrlParser(data);
-                this.monitorList = data;
-            });
-
-            socket.on("updateMonitorIntoList", (data) => {
-                this.assignMonitorUrlParser(data);
-                Object.entries(data).forEach(([monitorID, updatedMonitor]) => {
-                    this.monitorList[monitorID] = updatedMonitor;
-                });
-            });
-
-            socket.on("deleteMonitorFromList", (monitorID) => {
-                if (this.monitorList[monitorID]) {
-                    delete this.monitorList[monitorID];
-                }
-            });
-
-            socket.on("monitorTypeList", (data) => {
-                this.monitorTypeList = data;
-            });
-
-            socket.on("maintenanceList", (data) => {
-                this.maintenanceList = data;
-            });
-
-            socket.on("apiKeyList", (data) => {
-                this.apiKeyList = data;
-            });
-
-            socket.on("notificationList", (data) => {
-                this.notificationList = data;
-            });
-
-            socket.on("statusPageList", (data) => {
-                this.statusPageListLoaded = true;
-                this.statusPageList = data;
-            });
-
-            socket.on("proxyList", (data) => {
-                this.proxyList = data.map((item) => {
-                    item.auth = !!item.auth;
-                    item.active = !!item.active;
-                    item.default = !!item.default;
-
-                    return item;
-                });
-            });
-
-            socket.on("dockerHostList", (data) => {
-                this.dockerHostList = data;
-            });
-
-            socket.on("remoteBrowserList", (data) => {
-                this.remoteBrowserList = data;
-            });
-
-            socket.on("heartbeat", (data) => {
-                if (!(data.monitorID in this.heartbeatList)) {
-                    this.heartbeatList[data.monitorID] = [];
-                }
-
-                this.heartbeatList[data.monitorID].push(data);
-
-                if (this.heartbeatList[data.monitorID].length >= 150) {
-                    this.heartbeatList[data.monitorID].shift();
-                }
-
-                // Add to important list if it is important
-                // Also toast
-                if (data.important) {
-                    if (this.monitorList[data.monitorID] !== undefined) {
-                        if (data.status === 0) {
-                            toast.error(`[${this.monitorList[data.monitorID].name}] [DOWN] ${data.msg}`, {
-                                timeout: getToastErrorTimeout(),
-                            });
-                        } else if (data.status === 1) {
-                            toast.success(`[${this.monitorList[data.monitorID].name}] [Up] ${data.msg}`, {
-                                timeout: getToastSuccessTimeout(),
-                            });
-                        } else {
-                            toast(`[${this.monitorList[data.monitorID].name}] ${data.msg}`);
-                        }
-                    }
-
-                    this.emitter.dispatchEvent(new CustomEvent("newImportantHeartbeat", { detail: data }));
-                }
-            });
-
-            socket.on("heartbeatList", (monitorID, data, overwrite = false) => {
-                if (!(monitorID in this.heartbeatList) || overwrite) {
-                    this.heartbeatList[monitorID] = data;
-                } else {
-                    this.heartbeatList[monitorID] = data.concat(this.heartbeatList[monitorID]);
-                }
-            });
-
-            socket.on("avgPing", (monitorID, data) => {
-                this.avgPingList[monitorID] = data;
-            });
-
-            socket.on("uptime", (monitorID, type, data) => {
-                this.uptimeList[`${monitorID}_${type}`] = data;
-            });
-
-            socket.on("certInfo", (monitorID, data) => {
-                this.tlsInfoList[monitorID] = JSON.parse(data);
-            });
-
-            socket.on("domainInfo", (monitorID, daysRemaining, expiresOn) => {
-                this.domainInfoList[monitorID] = { daysRemaining: daysRemaining, expiresOn: expiresOn };
-            });
-
-            socket.on("connect_error", (err) => {
-                console.error(
-                    `Failed to connect to the backend. WebSocket connect_error: ${err.message || err.type || err}`
-                );
-                this.connectionErrorMsg = `${this.$t("Cannot connect to the socket server.")} [${err}] ${this.$t("Reconnecting...")}`;
-                this.showReverseProxyGuide = true;
-                this.socket.connected = false;
-                this.socket.firstConnect = false;
-            });
-
-            socket.on("disconnect", () => {
-                console.log("disconnect");
-                this.connectionErrorMsg = `${this.$t("Lost connection to the socket server.")} ${this.$t("Reconnecting...")}`;
-                this.socket.connected = false;
-            });
-
-            socket.on("connect", () => {
-                console.log("Connected to the socket server");
-                this.socket.connectCount++;
-                this.socket.connected = true;
-                this.showReverseProxyGuide = false;
-
-                // Reset Heartbeat list if it is re-connect
-                if (this.socket.connectCount >= 2) {
-                    this.clearData();
-                }
-
-                this.socket.firstConnect = false;
-            });
-
-            // cloudflared
-            socket.on("cloudflared_installed", (res) => (this.cloudflared.installed = res));
-            socket.on("cloudflared_running", (res) => (this.cloudflared.running = res));
-            socket.on("cloudflared_message", (res) => (this.cloudflared.message = res));
-            socket.on("cloudflared_errorMessage", (res) => (this.cloudflared.errorMessage = res));
-            socket.on("cloudflared_token", (res) => (this.cloudflared.cloudflareTunnelToken = res));
-
-            socket.on("initServerTimezone", () => {
-                socket.emit("initServerTimezone", dayjs.tz.guess());
-            });
-
-            socket.on("refresh", () => {
-                location.reload();
-            });
+            initSocket(this, bypass);
         },
         /**
          * parse all urls from list.
@@ -330,7 +117,7 @@ export default {
          * @returns {Socket} Current socket
          */
         getSocket() {
-            return socket;
+            return getSocket();
         },
 
         /**
@@ -396,7 +183,7 @@ export default {
          * @returns {void}
          */
         login(username, password, token, callback) {
-            socket.emit(
+            socketEmit(
                 "login",
                 {
                     username,
@@ -429,7 +216,7 @@ export default {
          * @returns {void}
          */
         loginByToken(token) {
-            socket.emit("loginByToken", token, (res) => {
+            socketEmit("loginByToken", token, (res) => {
                 this.allowLoginDialog = true;
 
                 if (!res.ok) {
@@ -446,7 +233,7 @@ export default {
          * @returns {void}
          */
         logout() {
-            socket.emit("logout", () => {});
+            socketEmit("logout", () => {});
             this.storage().removeItem("token");
             this.socket.token = null;
             this.loggedIn = false;
@@ -465,7 +252,7 @@ export default {
          * @returns {void}
          */
         prepare2FA(callback) {
-            socket.emit("prepare2FA", callback);
+            socketEmit("prepare2FA", callback);
         },
 
         /**
@@ -475,7 +262,7 @@ export default {
          * @returns {void}
          */
         save2FA(secret, callback) {
-            socket.emit("save2FA", callback);
+            socketEmit("save2FA", callback);
         },
 
         /**
@@ -484,7 +271,7 @@ export default {
          * @returns {void}
          */
         disable2FA(callback) {
-            socket.emit("disable2FA", callback);
+            socketEmit("disable2FA", callback);
         },
 
         /**
@@ -494,7 +281,7 @@ export default {
          * @returns {void}
          */
         verifyToken(token, callback) {
-            socket.emit("verifyToken", token, callback);
+            socketEmit("verifyToken", token, callback);
         },
 
         /**
@@ -503,7 +290,7 @@ export default {
          * @returns {void}
          */
         twoFAStatus(callback) {
-            socket.emit("twoFAStatus", callback);
+            socketEmit("twoFAStatus", callback);
         },
 
         /**
@@ -515,7 +302,7 @@ export default {
             if (!callback) {
                 callback = () => {};
             }
-            socket.emit("getMonitorList", callback);
+            socketEmit("getMonitorList", callback);
         },
 
         /**
@@ -527,7 +314,7 @@ export default {
             if (!callback) {
                 callback = () => {};
             }
-            socket.emit("getMaintenanceList", callback);
+            socketEmit("getMaintenanceList", callback);
         },
 
         /**
@@ -539,7 +326,7 @@ export default {
             if (!callback) {
                 callback = () => {};
             }
-            socket.emit("getAPIKeyList", callback);
+            socketEmit("getAPIKeyList", callback);
         },
 
         /**
@@ -549,7 +336,7 @@ export default {
          * @returns {void}
          */
         add(monitor, callback) {
-            socket.emit("add", monitor, callback);
+            socketEmit("add", monitor, callback);
         },
 
         /**
@@ -559,7 +346,7 @@ export default {
          * @returns {void}
          */
         addMaintenance(maintenance, callback) {
-            socket.emit("addMaintenance", maintenance, callback);
+            socketEmit("addMaintenance", maintenance, callback);
         },
 
         /**
@@ -570,7 +357,7 @@ export default {
          * @returns {void}
          */
         addMonitorMaintenance(maintenanceID, monitors, callback) {
-            socket.emit("addMonitorMaintenance", maintenanceID, monitors, callback);
+            socketEmit("addMonitorMaintenance", maintenanceID, monitors, callback);
         },
 
         /**
@@ -581,7 +368,7 @@ export default {
          * @returns {void}
          */
         addMaintenanceStatusPage(maintenanceID, statusPages, callback) {
-            socket.emit("addMaintenanceStatusPage", maintenanceID, statusPages, callback);
+            socketEmit("addMaintenanceStatusPage", maintenanceID, statusPages, callback);
         },
 
         /**
@@ -591,7 +378,7 @@ export default {
          * @returns {void}
          */
         getMonitorMaintenance(maintenanceID, callback) {
-            socket.emit("getMonitorMaintenance", maintenanceID, callback);
+            socketEmit("getMonitorMaintenance", maintenanceID, callback);
         },
 
         /**
@@ -601,7 +388,7 @@ export default {
          * @returns {void}
          */
         getMaintenanceStatusPage(maintenanceID, callback) {
-            socket.emit("getMaintenanceStatusPage", maintenanceID, callback);
+            socketEmit("getMaintenanceStatusPage", maintenanceID, callback);
         },
 
         /**
@@ -612,7 +399,7 @@ export default {
          * @returns {void}
          */
         deleteMonitor(monitorID, deleteChildren, callback) {
-            socket.emit("deleteMonitor", monitorID, deleteChildren, callback);
+            socketEmit("deleteMonitor", monitorID, deleteChildren, callback);
         },
 
         /**
@@ -622,7 +409,7 @@ export default {
          * @returns {void}
          */
         deleteMaintenance(maintenanceID, callback) {
-            socket.emit("deleteMaintenance", maintenanceID, callback);
+            socketEmit("deleteMaintenance", maintenanceID, callback);
         },
 
         /**
@@ -632,7 +419,7 @@ export default {
          * @returns {void}
          */
         addAPIKey(key, callback) {
-            socket.emit("addAPIKey", key, callback);
+            socketEmit("addAPIKey", key, callback);
         },
 
         /**
@@ -642,7 +429,7 @@ export default {
          * @returns {void}
          */
         deleteAPIKey(keyID, callback) {
-            socket.emit("deleteAPIKey", keyID, callback);
+            socketEmit("deleteAPIKey", keyID, callback);
         },
 
         /**
@@ -663,7 +450,7 @@ export default {
          * @returns {void}
          */
         uploadBackup(uploadedJSON, importHandle, callback) {
-            socket.emit("uploadBackup", uploadedJSON, importHandle, callback);
+            socketEmit("uploadBackup", uploadedJSON, importHandle, callback);
         },
 
         /**
@@ -673,7 +460,7 @@ export default {
          * @returns {void}
          */
         clearEvents(monitorID, callback) {
-            socket.emit("clearEvents", monitorID, callback);
+            socketEmit("clearEvents", monitorID, callback);
         },
 
         /**
@@ -683,7 +470,7 @@ export default {
          * @returns {void}
          */
         clearHeartbeats(monitorID, callback) {
-            socket.emit("clearHeartbeats", monitorID, callback);
+            socketEmit("clearHeartbeats", monitorID, callback);
         },
 
         /**
@@ -692,7 +479,7 @@ export default {
          * @returns {void}
          */
         clearStatistics(callback) {
-            socket.emit("clearStatistics", callback);
+            socketEmit("clearStatistics", callback);
         },
 
         /**
@@ -703,7 +490,7 @@ export default {
          * @returns {void}
          */
         getMonitorBeats(monitorID, period, callback) {
-            socket.emit("getMonitorBeats", monitorID, period, callback);
+            socketEmit("getMonitorBeats", monitorID, period, callback);
         },
 
         /**
@@ -714,7 +501,7 @@ export default {
          * @returns {void}
          */
         getMonitorChartData(monitorID, period, callback) {
-            socket.emit("getMonitorChartData", monitorID, period, callback);
+            socketEmit("getMonitorChartData", monitorID, period, callback);
         },
     },
 
