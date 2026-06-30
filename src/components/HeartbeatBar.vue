@@ -18,12 +18,12 @@
             />
         </div>
         <div
-            v-if="!$root.isMobile && size !== 'small' && beatList.length > 4 && $root.styleElapsedTime !== 'none'"
+            v-if="!isMobile && size !== 'small' && beatList.length > 4 && styleElapsedTime !== 'none'"
             class="d-flex justify-content-between align-items-center word"
             :style="timeStyle"
         >
             <div>{{ timeSinceFirstBeat }}</div>
-            <div v-if="$root.styleElapsedTime === 'with-line'" class="connecting-line"></div>
+            <div v-if="styleElapsedTime === 'with-line'" class="connecting-line"></div>
             <div>{{ timeSinceLastBeat }}</div>
         </div>
 
@@ -42,8 +42,18 @@
 import dayjs from "dayjs";
 import { DOWN, UP, PENDING, MAINTENANCE } from "@/constants";
 import Tooltip from "@/components/Tooltip.vue";
+import { useDatetime } from "@/composables/useDatetime";
+import { useMobile } from "@/composables/useMobile";
+import { useTheme } from "@/composables/useTheme";
 
 export default {
+    setup() {
+        return {
+            ...useDatetime(),
+            ...useMobile(),
+            ...useTheme(),
+        };
+    },
     components: {
         Tooltip,
     },
@@ -313,7 +323,7 @@ export default {
             });
         },
 
-        "$root.theme"() {
+        theme() {
             // Redraw canvas when theme changes (nextTick ensures .dark class is applied)
             this.$nextTick(() => {
                 this.drawCanvas();
@@ -408,7 +418,7 @@ export default {
             }
 
             // Show timestamp for all beats (both individual and aggregated)
-            return `${this.$root.datetime(beat.time)}${beat.msg ? ` - ${beat.msg}` : ""}`;
+            return `${this.datetime(beat.time)}${beat.msg ? ` - ${beat.msg}` : ""}`;
         },
 
         /**
@@ -438,13 +448,13 @@ export default {
         getBeatAriaLabel(beat) {
             switch (beat?.status) {
                 case DOWN:
-                    return `Down at ${this.$root.datetime(beat.time)}`;
+                    return `Down at ${this.datetime(beat.time)}`;
                 case UP:
-                    return `Up at ${this.$root.datetime(beat.time)}`;
+                    return `Up at ${this.datetime(beat.time)}`;
                 case PENDING:
-                    return `Pending at ${this.$root.datetime(beat.time)}`;
+                    return `Pending at ${this.datetime(beat.time)}`;
                 case MAINTENANCE:
-                    return `Maintenance at ${this.$root.datetime(beat.time)}`;
+                    return `Maintenance at ${this.datetime(beat.time)}`;
                 default:
                     return "No data";
             }

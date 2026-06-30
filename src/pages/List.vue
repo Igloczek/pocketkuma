@@ -6,20 +6,24 @@
 
 <script>
 import MonitorList from "@/components/MonitorList.vue";
+import { useMobile } from "@/composables/useMobile";
 
 export default {
     components: {
         MonitorList,
     },
+    setup() {
+        return useMobile();
+    },
     watch: {
-        "$root.isMobile"(newVal) {
+        isMobile(newVal) {
             if (!newVal && this.$route.path === "/list") {
                 this.$router.replace({ path: "/dashboard" });
             }
         },
     },
     mounted() {
-        if (!this.$root.isMobile && this.$route.path === "/list") {
+        if (!this.isMobile && this.$route.path === "/list") {
             this.$router.replace({ path: "/dashboard" });
         }
     },

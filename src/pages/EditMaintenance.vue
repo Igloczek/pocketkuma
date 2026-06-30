@@ -262,7 +262,7 @@
                                     <label class="form-label">{{ $t("Maintenance Time Window of a Day") }}</label>
                                     <Datepicker
                                         v-model="maintenance.timeRange"
-                                        :dark="$root.isDark"
+                                        :dark="isDark"
                                         timePicker
                                         disableTimeRangeValidation
                                         range
@@ -448,12 +448,20 @@ import Datepicker from "@vuepic/vue-datepicker";
 import { timezoneList } from "@/util-frontend";
 import cronstrue from "cronstrue/i18n";
 import Confirm from "@/components/Confirm.vue";
+import { useLang } from "@/composables/useLang";
+import { useTheme } from "@/composables/useTheme";
 
 export default {
     components: {
         VueMultiselect,
         Datepicker,
         Confirm,
+    },
+
+    setup() {
+        const { isDark } = useTheme();
+        const { language } = useLang();
+        return { isDark, language };
     },
 
     data() {
@@ -465,7 +473,6 @@ export default {
             affectedMonitorsOptions: [],
             showOnAllPages: false,
             selectedStatusPages: [],
-            dark: this.$root.theme === "dark",
             neverEnd: false,
             lastDays: [
                 {
@@ -521,8 +528,8 @@ export default {
 
             let locale = "";
 
-            if (this.$root.language) {
-                locale = this.$root.language.replace("-", "_");
+            if (this.language) {
+                locale = this.language.replace("-", "_");
             }
 
             // Special handling

@@ -45,16 +45,12 @@
                             </div>
                         </div>
                     </div>
-                    <div
-                        v-show="$root.userHeartbeatBar == 'normal'"
-                        :key="$root.userHeartbeatBar"
-                        class="col-3 col-xl-6"
-                    >
+                    <div v-show="userHeartbeatBar == 'normal'" :key="userHeartbeatBar" class="col-3 col-xl-6">
                         <HeartbeatBar ref="heartbeatBar" size="small" :monitor-id="monitor.id" />
                     </div>
                 </div>
 
-                <div v-if="$root.userHeartbeatBar == 'bottom'" class="row">
+                <div v-if="userHeartbeatBar == 'bottom'" class="row">
                     <div class="col-12 bottom-style">
                         <HeartbeatBar ref="heartbeatBar" size="small" :monitor-id="monitor.id" />
                     </div>
@@ -86,8 +82,12 @@ import HeartbeatBar from "@/components/HeartbeatBar.vue";
 import Tag from "@/components/Tag.vue";
 import Uptime from "@/components/Uptime.vue";
 import { getMonitorRelativeURL } from "@/util-shared";
+import { useTheme } from "@/composables/useTheme";
 
 export default {
+    setup() {
+        return useTheme();
+    },
     name: "MonitorListItem",
     components: {
         Uptime,
@@ -165,7 +165,7 @@ export default {
             };
         },
         monitorStyle() {
-            const isFullWidth = this.$root.userHeartbeatBar === "bottom" || this.$root.userHeartbeatBar === "none";
+            const isFullWidth = this.userHeartbeatBar === "bottom" || this.userHeartbeatBar === "none";
             const c = {};
             if (!isFullWidth) {
                 c["col-9"] = true;

@@ -1,6 +1,6 @@
 <template>
     <!-- Group List -->
-    <Draggable v-model="appStore.publicGroupList" :disabled="!editMode" item-key="id" :animation="100">
+    <Draggable v-model="publicGroupList" :disabled="!editMode" item-key="id" :animation="100">
         <template #item="group">
             <div class="mb-5" data-testid="group">
                 <!-- Group Title -->
@@ -115,7 +115,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div :key="$root.userHeartbeatBar" class="col-3 col-xl-6">
+                                        <div :key="userHeartbeatBar" class="col-3 col-xl-6">
                                             <HeartbeatBar size="mid" :monitor-id="monitor.element.id" />
                                         </div>
                                     </div>
@@ -137,8 +137,16 @@ import HeartbeatBar from "@/components/HeartbeatBar.vue";
 import Uptime from "@/components/Uptime.vue";
 import Tag from "@/components/Tag.vue";
 import Status from "@/components/Status.vue";
+import { usePublicApi } from "@/composables/usePublicApi";
+import { useTheme } from "@/composables/useTheme";
 
 export default {
+    setup() {
+        return {
+            ...usePublicApi(),
+            ...useTheme(),
+        };
+    },
     components: {
         MonitorSettingDialog,
         Draggable,
@@ -171,7 +179,7 @@ export default {
     },
     computed: {
         showGroupDrag() {
-            return this.appStore.publicGroupList.length >= 2;
+            return this.publicGroupList.length >= 2;
         },
     },
     methods: {
@@ -234,7 +242,7 @@ export default {
          * @returns {void}
          */
         removeGroup(index) {
-            this.appStore.publicGroupList.splice(index, 1);
+            this.publicGroupList.splice(index, 1);
         },
 
         /**
@@ -244,7 +252,7 @@ export default {
          * @returns {void}
          */
         removeMonitor(groupIndex, index) {
-            this.appStore.publicGroupList[groupIndex].monitorList.splice(index, 1);
+            this.publicGroupList[groupIndex].monitorList.splice(index, 1);
         },
 
         /**
@@ -259,11 +267,11 @@ export default {
         showLink(monitor, ignoreSendUrl = false) {
             // We must check if there are any elements in monitorList to
             // prevent undefined errors if it hasn't been loaded yet
-            if (this.$parent.editMode && ignoreSendUrl && Object.keys(this.appStore.monitorList).length) {
+            if (this.$parent.editMode && ignoreSendUrl && Object.keys(this.$root.monitorList).length) {
                 return (
-                    this.appStore.monitorList[monitor.element.id].type === "http" ||
-                    this.appStore.monitorList[monitor.element.id].type === "keyword" ||
-                    this.appStore.monitorList[monitor.element.id].type === "json-query"
+                    this.$root.monitorList[monitor.element.id].type === "http" ||
+                    this.$root.monitorList[monitor.element.id].type === "keyword" ||
+                    this.$root.monitorList[monitor.element.id].type === "json-query"
                 );
             }
             return monitor.element.sendUrl && monitor.element.url && monitor.element.url !== "https://";
@@ -290,7 +298,7 @@ export default {
          * @returns {number} Status of the last heartbeat
          */
         statusOfLastHeartbeat(monitorId) {
-            let heartbeats = this.appStore.heartbeatList[monitorId] ?? [];
+            let heartbeats = this.$root.heartbeatList[monitorId] ?? [];
             let lastHeartbeat = heartbeats[heartbeats.length - 1];
             return lastHeartbeat?.status;
         },
@@ -316,7 +324,7 @@ export default {
             if (group.id !== undefined && group.id !== null) {
                 return group.id.toString();
             }
-            return `group${this.appStore.publicGroupList.indexOf(group)}`;
+            return `group${this.publicGroupList.indexOf(group)}`;
         },
     },
 };

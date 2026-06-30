@@ -24,9 +24,14 @@
 
 <script>
 import { DOWN, UP, PENDING, MAINTENANCE } from "@/constants";
+import { useDatetime } from "@/composables/useDatetime";
 
 export default {
     name: "Tooltip",
+    setup() {
+        const { datetime } = useDatetime();
+        return { datetime };
+    },
     props: {
         /** Whether tooltip is visible */
         visible: {
@@ -105,7 +110,7 @@ export default {
             if (!this.content || this.content === 0) {
                 return "";
             }
-            return this.$root.datetime(this.content.time);
+            return this.datetime(this.content.time);
         },
     },
 };

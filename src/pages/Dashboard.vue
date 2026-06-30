@@ -1,7 +1,7 @@
 <template>
     <div class="container-fluid">
         <div class="row">
-            <div v-if="!$root.isMobile" class="col-12 col-md-5 col-xl-4 ps-0">
+            <div v-if="!isMobile" class="col-12 col-md-5 col-xl-4 ps-0">
                 <div>
                     <router-link to="/add" class="btn btn-primary mb-3">
                         <app-icon icon="plus" />
@@ -21,10 +21,14 @@
 
 <script>
 import MonitorList from "@/components/MonitorList.vue";
+import { useMobile } from "@/composables/useMobile";
 
 export default {
     components: {
         MonitorList,
+    },
+    setup() {
+        return useMobile();
     },
     data() {
         return {

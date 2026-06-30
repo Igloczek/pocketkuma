@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div v-if="$root.isMobile" class="shadow-box mb-3">
+        <div v-if="isMobile" class="shadow-box mb-3">
             <router-link to="/manage-status-page" class="nav-link">
                 <app-icon icon="stream" />
                 {{ $t("Status Pages") }}
@@ -26,9 +26,9 @@
 
                     <!-- Logout Button -->
                     <a
-                        v-if="$root.isMobile && appStore.loggedIn && appStore.socket.token !== 'autoLogin'"
+                        v-if="isMobile && $root.loggedIn && $root.socket.token !== 'autoLogin'"
                         class="logout"
-                        @click.prevent="appStore.logout"
+                        @click.prevent="$root.logout"
                     >
                         <div class="menu-item">
                             <app-icon icon="sign-out-alt" />
@@ -55,8 +55,12 @@
 
 <script>
 import { useRoute } from "vue-router";
+import { useMobile } from "@/composables/useMobile";
 
 export default {
+    setup() {
+        return useMobile();
+    },
     data() {
         return {
             show: true,
@@ -76,7 +80,7 @@ export default {
         },
 
         showSubMenu() {
-            if (this.$root.isMobile) {
+            if (this.isMobile) {
                 return !this.currentPage;
             } else {
                 return true;
@@ -126,7 +130,7 @@ export default {
     },
 
     watch: {
-        "$root.isMobile"() {
+        isMobile() {
             this.loadGeneralPage();
         },
     },
@@ -143,7 +147,7 @@ export default {
          * @returns {void}
          */
         loadGeneralPage() {
-            if (!this.currentPage && !this.$root.isMobile) {
+            if (!this.currentPage && !this.isMobile) {
                 this.$router.push("/settings/general");
             }
         },
@@ -153,7 +157,7 @@ export default {
          * @returns {void}
          */
         loadSettings() {
-            this.appStore.getSocket().emit("getSettings", (res) => {
+            this.$root.getSocket().emit("getSettings", (res) => {
                 this.settings = res.data;
 
                 if (this.settings.checkUpdate === undefined) {
@@ -208,8 +212,8 @@ export default {
         saveSettings(callback, currentPassword) {
             let valid = this.validateSettings();
             if (valid.success) {
-                this.appStore.getSocket().emit("setSettings", this.settings, currentPassword, (res) => {
-                    this.appStore.toastRes(res);
+                this.$root.getSocket().emit("setSettings", this.settings, currentPassword, (res) => {
+                    this.$root.toastRes(res);
                     this.loadSettings();
 
                     if (callback) {
@@ -217,7 +221,7 @@ export default {
                     }
                 });
             } else {
-                this.appStore.toastError(valid.msg);
+                this.$root.toastError(valid.msg);
             }
         },
 

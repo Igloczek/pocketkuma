@@ -4,7 +4,7 @@
             <label for="language" class="form-label">
                 {{ $t("Language") }}
             </label>
-            <select id="language" v-model="$root.language" class="form-select">
+            <select id="language" v-model="language" class="form-select">
                 <option v-for="(lang, i) in $i18n.availableLocales" :key="`Lang${i}`" :value="lang">
                     {{ $i18n.messages[lang].languageName }}
                 </option>
@@ -16,7 +16,7 @@
                 <div class="btn-group" role="group" :aria-label="$t('Basic checkbox toggle button group')">
                     <input
                         id="btncheck1"
-                        v-model="$root.userTheme"
+                        v-model="userTheme"
                         type="radio"
                         class="btn-check"
                         name="theme"
@@ -29,7 +29,7 @@
 
                     <input
                         id="btncheck2"
-                        v-model="$root.userTheme"
+                        v-model="userTheme"
                         type="radio"
                         class="btn-check"
                         name="theme"
@@ -42,7 +42,7 @@
 
                     <input
                         id="btncheck3"
-                        v-model="$root.userTheme"
+                        v-model="userTheme"
                         type="radio"
                         class="btn-check"
                         name="theme"
@@ -61,7 +61,7 @@
                 <div class="btn-group" role="group" :aria-label="$t('Basic checkbox toggle button group')">
                     <input
                         id="btncheck4"
-                        v-model="$root.userHeartbeatBar"
+                        v-model="userHeartbeatBar"
                         type="radio"
                         class="btn-check"
                         name="heartbeatBarTheme"
@@ -74,7 +74,7 @@
 
                     <input
                         id="btncheck5"
-                        v-model="$root.userHeartbeatBar"
+                        v-model="userHeartbeatBar"
                         type="radio"
                         class="btn-check"
                         name="heartbeatBarTheme"
@@ -87,7 +87,7 @@
 
                     <input
                         id="btncheck6"
-                        v-model="$root.userHeartbeatBar"
+                        v-model="userHeartbeatBar"
                         type="radio"
                         class="btn-check"
                         name="heartbeatBarTheme"
@@ -108,7 +108,7 @@
                 <div class="btn-group" role="group">
                     <input
                         id="styleElapsedTimeShowNoLine"
-                        v-model="$root.styleElapsedTime"
+                        v-model="styleElapsedTime"
                         type="radio"
                         class="btn-check"
                         name="styleElapsedTime"
@@ -121,7 +121,7 @@
 
                     <input
                         id="styleElapsedTimeShowWithLine"
-                        v-model="$root.styleElapsedTime"
+                        v-model="styleElapsedTime"
                         type="radio"
                         class="btn-check"
                         name="styleElapsedTime"
@@ -134,7 +134,7 @@
 
                     <input
                         id="styleElapsedTimeNone"
-                        v-model="$root.styleElapsedTime"
+                        v-model="styleElapsedTime"
                         type="radio"
                         class="btn-check"
                         name="styleElapsedTime"
@@ -151,7 +151,17 @@
 </template>
 
 <script>
-export default {};
+import { useLang } from "@/composables/useLang";
+import { useTheme } from "@/composables/useTheme";
+
+export default {
+    setup() {
+        return {
+            ...useLang(),
+            ...useTheme(),
+        };
+    },
+};
 </script>
 
 <style lang="scss" scoped>

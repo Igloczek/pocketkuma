@@ -63,11 +63,14 @@
 <script>
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import datetimeMixin from "@/mixins/datetime";
+import { useDatetime } from "@/composables/useDatetime";
 
 export default {
     name: "IncidentHistory",
-    mixins: [datetimeMixin],
+    setup() {
+        const { datetime } = useDatetime();
+        return { datetime };
+    },
     props: {
         incidents: {
             type: Array,

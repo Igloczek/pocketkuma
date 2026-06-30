@@ -3,6 +3,8 @@
 </template>
 
 <script>
+import { useDatetime } from "@/composables/useDatetime";
+
 export default {
     props: {
         /** Value of date time */
@@ -17,13 +19,17 @@ export default {
         },
     },
 
+    setup() {
+        const { date, datetime } = useDatetime();
+        return { date, datetime };
+    },
+
     computed: {
         displayText() {
             if (this.dateOnly) {
-                return this.$root.date(this.value);
-            } else {
-                return this.$root.datetime(this.value);
+                return this.date(this.value);
             }
+            return this.datetime(this.value);
         },
     },
 };

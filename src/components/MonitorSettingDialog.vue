@@ -71,8 +71,12 @@
 <script lang="ts">
 import { Modal } from "bootstrap";
 import BadgeLinkGeneratorDialog from "@/components/BadgeLinkGeneratorDialog.vue";
+import { usePublicApi } from "@/composables/usePublicApi";
 
 export default {
+    setup() {
+        return usePublicApi();
+    },
     components: {
         BadgeLinkGeneratorDialog,
     },
@@ -120,8 +124,8 @@ export default {
          * @returns {void}
          */
         toggleLink(groupIndex, index) {
-            this.appStore.publicGroupList[groupIndex].monitorList[index].sendUrl =
-                !this.appStore.publicGroupList[groupIndex].monitorList[index].sendUrl;
+            this.publicGroupList[groupIndex].monitorList[index].sendUrl =
+                !this.publicGroupList[groupIndex].monitorList[index].sendUrl;
         },
 
         /**
@@ -136,11 +140,11 @@ export default {
         showLink(monitor, ignoreSendUrl = false) {
             // We must check if there are any elements in monitorList to
             // prevent undefined errors if it hasn't been loaded yet
-            if (this.$parent.editMode && ignoreSendUrl && Object.keys(this.appStore.monitorList).length) {
+            if (this.$parent.editMode && ignoreSendUrl && Object.keys(this.$root.monitorList).length) {
                 return (
-                    this.appStore.monitorList[monitor.element.id].type === "http" ||
-                    this.appStore.monitorList[monitor.element.id].type === "keyword" ||
-                    this.appStore.monitorList[monitor.element.id].type === "json-query"
+                    this.$root.monitorList[monitor.element.id].type === "http" ||
+                    this.$root.monitorList[monitor.element.id].type === "keyword" ||
+                    this.$root.monitorList[monitor.element.id].type === "json-query"
                 );
             }
             return (
@@ -156,7 +160,7 @@ export default {
          * @returns {void}
          */
         changeUrl(groupIndex, index, value) {
-            this.appStore.publicGroupList[groupIndex].monitorList[index].url = value;
+            this.publicGroupList[groupIndex].monitorList[index].url = value;
         },
     },
 };
