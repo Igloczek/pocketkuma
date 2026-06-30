@@ -16,7 +16,6 @@ import { setting } from "@/server/util-server";
 const server = UptimeKumaServer.getInstance();
 const io = server.io;
 import * as checkVersion from "@/server/check-version";
-import Database from "@/server/database";
 import { getRuntimeInfo } from "@/server/runtime";
 
 async function sendNotificationList(socket) {
@@ -156,7 +155,7 @@ async function sendInfo(socket, hideVersion = false) {
         info.version = checkVersion.version;
         info.latestVersion = checkVersion.latestVersion;
         info.isContainer = process.env.UPTIME_KUMA_IS_CONTAINER === "1";
-        info.dbType = Database.dbConfig.type;
+        info.dbType = "sqlite";
         info.runtime = getRuntimeInfo();
     }
 
