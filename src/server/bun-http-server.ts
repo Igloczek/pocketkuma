@@ -311,19 +311,6 @@ function createBunFetchHandler({ server, disableFrameSameOrigin }) {
             return rootResponse(request, server, disableFrameSameOrigin);
         }
 
-        if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/setup-database-info") {
-            return jsonResponse(
-                {
-                    runningSetup: false,
-                    needSetup: false,
-                },
-                {
-                    devCors: true,
-                    disableFrameSameOrigin,
-                }
-            );
-        }
-
         const devResponse = await handleDevRequest(request, disableFrameSameOrigin);
         if (devResponse) {
             return devResponse;

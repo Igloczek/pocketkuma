@@ -18,10 +18,9 @@ export default {
         };
     },
     async mounted() {
-        // There are only 3 cases that could come in here.
+        // There are only 2 cases that could come in here.
         // 1. Matched status Page domain name
         // 2. Vue Frontend Dev
-        // 3. Vue Frontend Dev (not setup database yet)
         let res;
         try {
             res = await (await fetchDevApi("/api/entry-page")).json();
@@ -38,8 +37,6 @@ export default {
                     // should the old setting style still exist here?
                     this.$router.push("/dashboard");
                 }
-            } else if (res.type === "setup-database") {
-                this.$router.push("/setup-database");
             } else {
                 this.$router.push("/dashboard");
             }
