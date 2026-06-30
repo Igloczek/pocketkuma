@@ -60,12 +60,12 @@
         <template v-if="$parent.notification.slackUseTemplate">
             <div class="mb-3">
                 <label class="form-label" for="slack-message-template">{{ $t("Message Template") }}</label>
-                <TemplatedTextarea
+                <TemplatedField as="textarea"
                     id="slack-message-template"
                     v-model="$parent.notification.slackTemplate"
                     :required="true"
                     :placeholder="slackTemplatedTextareaPlaceholder"
-                ></TemplatedTextarea>
+                ></TemplatedField>
             </div>
         </template>
 
@@ -106,11 +106,11 @@
 </template>
 
 <script>
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     components: {
-        TemplatedTextarea,
+        TemplatedField,
     },
     computed: {
         slackTemplatedTextareaPlaceholder() {
