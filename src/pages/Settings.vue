@@ -2,11 +2,11 @@
     <div>
         <div v-if="$root.isMobile" class="shadow-box mb-3">
             <router-link to="/manage-status-page" class="nav-link">
-                <font-awesome-icon icon="stream" />
+                <app-icon icon="stream" />
                 {{ $t("Status Pages") }}
             </router-link>
             <router-link to="/maintenance" class="nav-link">
-                <font-awesome-icon icon="wrench" />
+                <app-icon icon="wrench" />
                 {{ $t("Maintenance") }}
             </router-link>
         </div>
@@ -31,7 +31,7 @@
                         @click.prevent="$root.logout"
                     >
                         <div class="menu-item">
-                            <font-awesome-icon icon="sign-out-alt" />
+                            <app-icon icon="sign-out-alt" />
                             {{ $t("Logout") }}
                         </div>
                     </a>

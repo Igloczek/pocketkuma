@@ -61,7 +61,7 @@
                     data-testid="remove-condition-group"
                     @click="remove"
                 >
-                    <font-awesome-icon icon="trash" />
+                    <app-icon icon="trash" />
                 </button>
             </div>
         </div>

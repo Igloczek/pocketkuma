@@ -128,7 +128,7 @@
                             :aria-label="$t('Add a domain')"
                             @click="addDomainField"
                         >
-                            <font-awesome-icon icon="plus-circle" class="action text-primary" />
+                            <app-icon icon="plus-circle" class="action text-primary" />
                         </button>
                     </label>
 
@@ -145,7 +145,7 @@
                                 :aria-label="$t('Remove domain', [domain])"
                                 @click="removeDomain(index)"
                             >
-                                <font-awesome-icon icon="times" class="action remove ms-2 me-3 text-danger" />
+                                <app-icon icon="times" class="action remove ms-2 me-3 text-danger" />
                             </button>
                         </li>
                     </ul>
@@ -221,7 +221,7 @@
 
                 <div class="danger-zone">
                     <button class="btn btn-danger me-2" @click="deleteDialog">
-                        <font-awesome-icon icon="trash" />
+                        <app-icon icon="trash" />
                         {{ $t("Delete") }}
                     </button>
                 </div>
@@ -230,12 +230,12 @@
             <!-- Sidebar Footer -->
             <div class="sidebar-footer">
                 <button class="btn btn-success me-2" :disabled="loading" data-testid="save-button" @click="save">
-                    <font-awesome-icon icon="save" />
+                    <app-icon icon="save" />
                     {{ $t("Save") }}
                 </button>
 
                 <button class="btn btn-danger me-2" @click="discard">
-                    <font-awesome-icon icon="undo" />
+                    <app-icon icon="undo" />
                     {{ $t("Discard") }}
                 </button>
             </div>
@@ -253,10 +253,10 @@
                         class="p-0 bg-transparent border-0 small-reset-btn reset-top-left"
                         @click.stop="resetToDefaultImage"
                     >
-                        <font-awesome-icon icon="times" class="text-danger" />
+                        <app-icon icon="times" class="text-danger" />
                     </button>
                     <img :src="logoURL" alt class="logo me-2" :class="logoClass" />
-                    <font-awesome-icon v-if="enableEditMode" class="icon-upload" icon="upload" />
+                    <app-icon v-if="enableEditMode" class="icon-upload" icon="upload" />
                 </span>
 
                 <!-- Uploader -->
@@ -281,12 +281,12 @@
             <div v-if="hasToken" class="mb-2">
                 <div v-if="!enableEditMode">
                     <button class="btn btn-primary mb-2 me-2" data-testid="edit-button" @click="edit">
-                        <font-awesome-icon icon="edit" />
+                        <app-icon icon="edit" />
                         {{ $t("Edit Status Page") }}
                     </button>
 
                     <a href="/manage-status-page" class="btn btn-primary mb-2">
-                        <font-awesome-icon icon="tachometer-alt" />
+                        <app-icon icon="tachometer-alt" />
                         {{ $t("Go to Dashboard") }}
                     </a>
                 </div>
@@ -297,7 +297,7 @@
                         data-testid="create-incident-button"
                         @click="createIncident"
                     >
-                        <font-awesome-icon icon="bullhorn" />
+                        <app-icon icon="bullhorn" />
                         {{ $t("Create Incident") }}
                     </button>
                 </div>
@@ -363,18 +363,18 @@
 
                     <div v-if="editMode" class="mt-3">
                         <button class="btn btn-light me-2" @click="resolveIncident(activeIncident)">
-                            <font-awesome-icon icon="check" />
+                            <app-icon icon="check" />
                             {{ $t("Resolve") }}
                         </button>
                         <button class="btn btn-light me-2" @click="editIncident(activeIncident)">
-                            <font-awesome-icon icon="edit" />
+                            <app-icon icon="edit" />
                             {{ $t("Edit") }}
                         </button>
                         <button
                             class="btn btn-light me-2"
                             @click="$refs.incidentManageModal.showDelete(activeIncident)"
                         >
-                            <font-awesome-icon icon="unlink" />
+                            <app-icon icon="unlink" />
                             {{ $t("Delete") }}
                         </button>
                     </div>
@@ -384,33 +384,33 @@
             <!-- Overall Status -->
             <div class="shadow-box list p-4 overall-status mb-4">
                 <div v-if="Object.keys($root.publicMonitorList).length === 0 && loadedData">
-                    <font-awesome-icon icon="question-circle" class="ok" />
+                    <app-icon icon="question-circle" class="ok" />
                     {{ $t("No Services") }}
                 </div>
 
                 <template v-else>
                     <div v-if="allUp">
-                        <font-awesome-icon icon="check-circle" class="ok" />
+                        <app-icon icon="check-circle" class="ok" />
                         {{ $t("All Systems Operational") }}
                     </div>
 
                     <div v-else-if="partialDown">
-                        <font-awesome-icon icon="exclamation-circle" class="warning" />
+                        <app-icon icon="exclamation-circle" class="warning" />
                         {{ $t("Partially Degraded Service") }}
                     </div>
 
                     <div v-else-if="allDown">
-                        <font-awesome-icon icon="times-circle" class="danger" />
+                        <app-icon icon="times-circle" class="danger" />
                         {{ $t("Degraded Service") }}
                     </div>
 
                     <div v-else-if="isMaintenance">
-                        <font-awesome-icon icon="wrench" class="status-maintenance" />
+                        <app-icon icon="wrench" class="status-maintenance" />
                         {{ $t("maintenanceStatus-under-maintenance") }}
                     </div>
 
                     <div v-else>
-                        <font-awesome-icon icon="question-circle" style="color: #efefef" />
+                        <app-icon icon="question-circle" style="color: #efefef" />
                     </div>
                 </template>
             </div>
@@ -452,7 +452,7 @@
             <div v-if="editMode" class="mb-4">
                 <div>
                     <button class="btn btn-primary btn-add-group me-2" data-testid="add-group-button" @click="addGroup">
-                        <font-awesome-icon icon="plus" />
+                        <app-icon icon="plus" />
                         {{ $t("Add Group") }}
                     </button>
                 </div>

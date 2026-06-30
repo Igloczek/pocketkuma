@@ -7,7 +7,7 @@
 
             <div>
                 <router-link to="/add-maintenance" class="btn btn-primary mb-3">
-                    <font-awesome-icon icon="plus" />
+                    <app-icon icon="plus" />
                     {{ $t("Schedule Maintenance") }}
                 </router-link>
             </div>
@@ -41,7 +41,7 @@
                                 :aria-label="$t('ariaPauseMaintenance')"
                                 @click="pauseDialog(item.id)"
                             >
-                                <font-awesome-icon icon="pause" />
+                                <app-icon icon="pause" />
                                 {{ $t("Pause") }}
                             </button>
 
@@ -51,7 +51,7 @@
                                 :aria-label="$t('ariaResumeMaintenance')"
                                 @click="resumeMaintenance(item.id)"
                             >
-                                <font-awesome-icon icon="play" />
+                                <app-icon icon="play" />
                                 {{ $t("Resume") }}
                             </button>
 
@@ -60,7 +60,7 @@
                                 class="btn btn-normal"
                                 :aria-label="$t('ariaCloneMaintenance')"
                             >
-                                <font-awesome-icon icon="clone" />
+                                <app-icon icon="clone" />
                                 {{ $t("Clone") }}
                             </router-link>
 
@@ -69,7 +69,7 @@
                                 class="btn btn-normal"
                                 :aria-label="$t('ariaEditMaintenance')"
                             >
-                                <font-awesome-icon icon="edit" />
+                                <app-icon icon="edit" />
                                 {{ $t("Edit") }}
                             </router-link>
 
@@ -78,7 +78,7 @@
                                 :aria-label="$t('ariaDeleteMaintenance')"
                                 @click="deleteDialog(item.id)"
                             >
-                                <font-awesome-icon icon="trash" />
+                                <app-icon icon="trash" />
                                 {{ $t("Delete") }}
                             </button>
                         </div>

@@ -118,7 +118,7 @@
             <div class="functions">
                 <div class="btn-group" role="group">
                     <button v-if="monitor.active" class="btn btn-normal" @click="pauseDialog">
-                        <font-awesome-icon icon="pause" />
+                        <app-icon icon="pause" />
                         {{ $t("Pause") }}
                     </button>
                     <button
@@ -127,19 +127,19 @@
                         :disabled="monitor.forceInactive"
                         @click="resumeMonitor"
                     >
-                        <font-awesome-icon icon="play" />
+                        <app-icon icon="play" />
                         {{ $t("Resume") }}
                     </button>
                     <router-link :to="'/edit/' + monitor.id" class="btn btn-normal">
-                        <font-awesome-icon icon="edit" />
+                        <app-icon icon="edit" />
                         {{ $t("Edit") }}
                     </router-link>
                     <router-link :to="'/clone/' + monitor.id" class="btn btn-normal">
-                        <font-awesome-icon icon="clone" />
+                        <app-icon icon="clone" />
                         {{ $t("Clone") }}
                     </router-link>
                     <button class="btn btn-normal text-danger" @click="deleteDialog">
-                        <font-awesome-icon icon="trash" />
+                        <app-icon icon="trash" />
                         {{ $t("Delete") }}
                     </button>
                 </div>
@@ -267,7 +267,7 @@
                             <a href="#" @click.prevent="toggleCertInfoBox = !toggleCertInfoBox">
                                 {{ $t("days", tlsInfo.certInfo.daysRemaining) }}
                             </a>
-                            <font-awesome-icon
+                            <app-icon
                                 v-if="tlsInfo.hostnameMatchMonitorUrl === false"
                                 class="cert-info-warn"
                                 icon="exclamation-triangle"
@@ -331,7 +331,7 @@
                         type="button"
                         data-bs-toggle="dropdown"
                     >
-                        <font-awesome-icon icon="trash" />
+                        <app-icon icon="trash" />
                         {{ $t("Clear Data") }}
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">

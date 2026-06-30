@@ -3,28 +3,28 @@
 
 import asset_0 from "../../../dist/apple-touch-icon-precomposed.png" with { type: "file" };
 import asset_1 from "../../../dist/apple-touch-icon.png" with { type: "file" };
-import asset_2 from "../../../dist/assets/Notifications-DfcFF8dv.css" with { type: "file" };
-import asset_3 from "../../../dist/assets/Notifications-kuSMzCEO.js" with { type: "file" };
-import asset_4 from "../../../dist/assets/Notifications-kuSMzCEO.js.br" with { type: "file" };
-import asset_5 from "../../../dist/assets/PingChart-DY0En1Bp.js" with { type: "file" };
-import asset_6 from "../../../dist/assets/PingChart-DY0En1Bp.js.br" with { type: "file" };
-import asset_7 from "../../../dist/assets/PingChart-nUfCrWFw.css" with { type: "file" };
-import asset_8 from "../../../dist/assets/PingChart-nUfCrWFw.css.br" with { type: "file" };
-import asset_9 from "../../../dist/assets/Security-BdGJuoSY.js" with { type: "file" };
-import asset_10 from "../../../dist/assets/Security-BdGJuoSY.js.br" with { type: "file" };
+import asset_2 from "../../../dist/assets/Notifications-CoLrv4Bb.css" with { type: "file" };
+import asset_3 from "../../../dist/assets/Notifications-DnPNe0zR.js" with { type: "file" };
+import asset_4 from "../../../dist/assets/Notifications-DnPNe0zR.js.br" with { type: "file" };
+import asset_5 from "../../../dist/assets/PingChart-nUfCrWFw.css" with { type: "file" };
+import asset_6 from "../../../dist/assets/PingChart-nUfCrWFw.css.br" with { type: "file" };
+import asset_7 from "../../../dist/assets/PingChart-yBAeVShf.js" with { type: "file" };
+import asset_8 from "../../../dist/assets/PingChart-yBAeVShf.js.br" with { type: "file" };
+import asset_9 from "../../../dist/assets/Security-D5mfdB9T.js" with { type: "file" };
+import asset_10 from "../../../dist/assets/Security-D5mfdB9T.js.br" with { type: "file" };
 import asset_11 from "../../../dist/assets/Security-DoQHggT0.css" with { type: "file" };
-import asset_12 from "../../../dist/assets/Settings-B_bKqygG.css" with { type: "file" };
-import asset_13 from "../../../dist/assets/Settings-B_bKqygG.css.br" with { type: "file" };
-import asset_14 from "../../../dist/assets/Settings-DcuAfQLC.js" with { type: "file" };
-import asset_15 from "../../../dist/assets/Settings-DcuAfQLC.js.br" with { type: "file" };
+import asset_12 from "../../../dist/assets/Settings-Bx9vrbQr.js" with { type: "file" };
+import asset_13 from "../../../dist/assets/Settings-Bx9vrbQr.js.br" with { type: "file" };
+import asset_14 from "../../../dist/assets/Settings-C_JWbglW.css" with { type: "file" };
+import asset_15 from "../../../dist/assets/Settings-C_JWbglW.css.br" with { type: "file" };
 import asset_16 from "../../../dist/assets/ab-yoD6TSFD.js" with { type: "file" };
 import asset_17 from "../../../dist/assets/af-DfI6i6VB.js" with { type: "file" };
 import asset_18 from "../../../dist/assets/af-DfI6i6VB.js.br" with { type: "file" };
 import asset_19 from "../../../dist/assets/ang-DvzI6CwH.js" with { type: "file" };
-import asset_20 from "../../../dist/assets/app-BBk55TC1.js" with { type: "file" };
-import asset_21 from "../../../dist/assets/app-BBk55TC1.js.br" with { type: "file" };
-import asset_22 from "../../../dist/assets/app-VE2hq-0Q.css" with { type: "file" };
-import asset_23 from "../../../dist/assets/app-VE2hq-0Q.css.br" with { type: "file" };
+import asset_20 from "../../../dist/assets/app-CWYVDK7g.js" with { type: "file" };
+import asset_21 from "../../../dist/assets/app-CWYVDK7g.js.br" with { type: "file" };
+import asset_22 from "../../../dist/assets/app-DgRNGUpz.css" with { type: "file" };
+import asset_23 from "../../../dist/assets/app-DgRNGUpz.css.br" with { type: "file" };
 import asset_24 from "../../../dist/assets/ar-SY-7E_B_yXB.js" with { type: "file" };
 import asset_25 from "../../../dist/assets/ar-SY-7E_B_yXB.js.br" with { type: "file" };
 import asset_26 from "../../../dist/assets/ar-XLDMNs3m.js" with { type: "file" };
@@ -178,28 +178,28 @@ import asset_172 from "../../../dist/serviceWorker.js" with { type: "file" };
 const embeddedWebAssets = {
     "apple-touch-icon-precomposed.png": asset_0,
     "apple-touch-icon.png": asset_1,
-    "assets/Notifications-DfcFF8dv.css": asset_2,
-    "assets/Notifications-kuSMzCEO.js": asset_3,
-    "assets/Notifications-kuSMzCEO.js.br": asset_4,
-    "assets/PingChart-DY0En1Bp.js": asset_5,
-    "assets/PingChart-DY0En1Bp.js.br": asset_6,
-    "assets/PingChart-nUfCrWFw.css": asset_7,
-    "assets/PingChart-nUfCrWFw.css.br": asset_8,
-    "assets/Security-BdGJuoSY.js": asset_9,
-    "assets/Security-BdGJuoSY.js.br": asset_10,
+    "assets/Notifications-CoLrv4Bb.css": asset_2,
+    "assets/Notifications-DnPNe0zR.js": asset_3,
+    "assets/Notifications-DnPNe0zR.js.br": asset_4,
+    "assets/PingChart-nUfCrWFw.css": asset_5,
+    "assets/PingChart-nUfCrWFw.css.br": asset_6,
+    "assets/PingChart-yBAeVShf.js": asset_7,
+    "assets/PingChart-yBAeVShf.js.br": asset_8,
+    "assets/Security-D5mfdB9T.js": asset_9,
+    "assets/Security-D5mfdB9T.js.br": asset_10,
     "assets/Security-DoQHggT0.css": asset_11,
-    "assets/Settings-B_bKqygG.css": asset_12,
-    "assets/Settings-B_bKqygG.css.br": asset_13,
-    "assets/Settings-DcuAfQLC.js": asset_14,
-    "assets/Settings-DcuAfQLC.js.br": asset_15,
+    "assets/Settings-Bx9vrbQr.js": asset_12,
+    "assets/Settings-Bx9vrbQr.js.br": asset_13,
+    "assets/Settings-C_JWbglW.css": asset_14,
+    "assets/Settings-C_JWbglW.css.br": asset_15,
     "assets/ab-yoD6TSFD.js": asset_16,
     "assets/af-DfI6i6VB.js": asset_17,
     "assets/af-DfI6i6VB.js.br": asset_18,
     "assets/ang-DvzI6CwH.js": asset_19,
-    "assets/app-BBk55TC1.js": asset_20,
-    "assets/app-BBk55TC1.js.br": asset_21,
-    "assets/app-VE2hq-0Q.css": asset_22,
-    "assets/app-VE2hq-0Q.css.br": asset_23,
+    "assets/app-CWYVDK7g.js": asset_20,
+    "assets/app-CWYVDK7g.js.br": asset_21,
+    "assets/app-DgRNGUpz.css": asset_22,
+    "assets/app-DgRNGUpz.css.br": asset_23,
     "assets/ar-SY-7E_B_yXB.js": asset_24,
     "assets/ar-SY-7E_B_yXB.js.br": asset_25,
     "assets/ar-XLDMNs3m.js": asset_26,

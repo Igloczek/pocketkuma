@@ -31,12 +31,12 @@
 
         <div class="mt-3">
             <button class="btn btn-light me-2" data-testid="post-incident-button" @click="$emit('post')">
-                <font-awesome-icon icon="bullhorn" />
+                <app-icon icon="bullhorn" />
                 {{ $t("Post") }}
             </button>
 
             <button class="btn btn-light me-2" @click="$emit('cancel')">
-                <font-awesome-icon icon="times" />
+                <app-icon icon="times" />
                 {{ $t("Cancel") }}
             </button>
 

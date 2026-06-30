@@ -28,21 +28,21 @@
                                 :title="$t('Resolve')"
                                 @click="$emit('resolve-incident', incident)"
                             >
-                                <font-awesome-icon icon="check" />
+                                <app-icon icon="check" />
                             </button>
                             <button
                                 class="btn btn-outline-secondary btn-sm me-1"
                                 :title="$t('Edit')"
                                 @click="$emit('edit-incident', incident)"
                             >
-                                <font-awesome-icon icon="edit" />
+                                <app-icon icon="edit" />
                             </button>
                             <button
                                 class="btn btn-outline-danger btn-sm"
                                 :title="$t('Delete')"
                                 @click="$emit('delete-incident', incident)"
                             >
-                                <font-awesome-icon icon="trash" />
+                                <app-icon icon="trash" />
                             </button>
                         </div>
                     </div>
