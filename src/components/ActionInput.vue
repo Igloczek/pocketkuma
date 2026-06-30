@@ -9,7 +9,7 @@
             :disabled="!enabled"
         />
         <button type="button" class="btn btn-outline-primary" :aria-label="actionAriaLabel" @click="action()">
-            <font-awesome-icon :icon="icon" />
+            <app-icon :icon="icon" />
         </button>
     </div>
 </template>
@@ -44,7 +44,7 @@ export default {
         },
         /**
          * The icon displayed in the right button of the input field.
-         * Accepts a Font Awesome icon string identifier.
+         * Accepts an app icon string identifier.
          * @example "plus"
          */
         icon: {

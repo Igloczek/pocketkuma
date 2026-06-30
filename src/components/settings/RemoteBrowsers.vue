@@ -14,7 +14,7 @@
             </ul>
 
             <button class="btn btn-primary me-2" type="button" @click="$refs.remoteBrowserDialog.show()">
-                <font-awesome-icon icon="plus" />
+                <app-icon icon="plus" />
                 {{ $t("Add Remote Browser") }}
             </button>
         </div>

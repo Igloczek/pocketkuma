@@ -8,7 +8,7 @@ import App from "@/App.vue";
 import "@/assets/app.scss";
 import "@/assets/vue-datepicker.scss";
 import { i18n } from "@/i18n";
-import { FontAwesomeIcon } from "@/icon";
+import { AppIcon } from "@/icon";
 import datetime from "@/mixins/datetime";
 import mobile from "@/mixins/mobile";
 import publicMixin from "@/mixins/public";
@@ -41,7 +41,7 @@ app.use(i18n);
 
 app.use(Toast, loadToastSettings());
 app.component("Editable", contenteditable);
-app.component("FontAwesomeIcon", FontAwesomeIcon);
+app.component("AppIcon", AppIcon);
 
 app.mount("#app");
 

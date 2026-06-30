@@ -5,7 +5,7 @@
             <div class="filter-row">
                 <div class="search-wrapper">
                     <a v-if="searchText != ''" class="search-icon" @click="clearSearchText">
-                        <font-awesome-icon icon="times" />
+                        <app-icon icon="times" />
                     </a>
                     <form @submit.prevent>
                         <input
@@ -65,13 +65,13 @@
                         <ul class="dropdown-menu">
                             <li>
                                 <a class="dropdown-item" href="#" @click.prevent="pauseDialog">
-                                    <font-awesome-icon icon="pause" class="me-2" />
+                                    <app-icon icon="pause" class="me-2" />
                                     {{ $t("Pause") }}
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item" href="#" @click.prevent="resumeSelected">
-                                    <font-awesome-icon icon="play" class="me-2" />
+                                    <app-icon icon="play" class="me-2" />
                                     {{ $t("Resume") }}
                                 </a>
                             </li>
@@ -81,7 +81,7 @@
                                     href="#"
                                     @click.prevent="$refs.confirmDelete.show()"
                                 >
-                                    <font-awesome-icon icon="trash" class="me-2" />
+                                    <app-icon icon="trash" class="me-2" />
                                     {{ $t("Delete") }}
                                 </a>
                             </li>

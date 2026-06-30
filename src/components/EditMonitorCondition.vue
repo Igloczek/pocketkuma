@@ -8,7 +8,7 @@
             data-testid="remove-condition"
             @click="remove"
         >
-            <font-awesome-icon icon="trash" />
+            <app-icon icon="trash" />
         </button>
 
         <select v-if="!isFirst" v-model="model.andOr" class="form-select and-or-select" data-testid="condition-and-or">
