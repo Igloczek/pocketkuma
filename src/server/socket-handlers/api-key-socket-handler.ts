@@ -10,7 +10,7 @@ import { log } from "@/util";
 import { R } from "@/server/redbean-compat";
 import { randomId } from "@/util/random-id";
 import passwordHash from "@/server/password-hash";
-import apicache from "@/server/apicache";
+import { clearResponseCache } from "@/server/bun-response";
 import APIKey from "@/server/model/api_key";
 import { Settings } from "@/server/settings";
 import { sendAPIKeyList } from "@/server/client";
@@ -77,7 +77,7 @@ export const apiKeySocketHandler = (socket) => {
 
             await R.exec("DELETE FROM api_key WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
 
-            apicache.clear();
+            clearResponseCache();
 
             callback({
                 ok: true,
@@ -102,7 +102,7 @@ export const apiKeySocketHandler = (socket) => {
 
             await R.exec("UPDATE api_key SET active = 0 WHERE id = ? ", [keyID]);
 
-            apicache.clear();
+            clearResponseCache();
 
             callback({
                 ok: true,
@@ -127,7 +127,7 @@ export const apiKeySocketHandler = (socket) => {
 
             await R.exec("UPDATE api_key SET active = 1 WHERE id = ? ", [keyID]);
 
-            apicache.clear();
+            clearResponseCache();
 
             callback({
                 ok: true,

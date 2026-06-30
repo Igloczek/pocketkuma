@@ -6,8 +6,6 @@ import { defaultStringOperators } from "@/server/monitor-conditions/operators";
 
 const CORE_MONITOR_TYPES = ["http", "keyword", "json-query", "ping", "push", "docker", "radius", "kafka-producer"];
 
-const REMOVED_MONITOR_TYPES = [];
-
 const optionalMonitorDefinitions = {
     "real-browser": {
         load: async () =>
@@ -148,7 +146,6 @@ function getLoadedMonitorTypes() {
 export {
     CORE_MONITOR_TYPES,
     OPTIONAL_MONITOR_TYPES,
-    REMOVED_MONITOR_TYPES,
     createMonitorTypeList,
     getLoadedMonitorTypes,
     getMonitorType,

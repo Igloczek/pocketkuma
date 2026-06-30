@@ -99,7 +99,6 @@ const providerModules = {
 };
 
 const OPTIONAL_NOTIFICATION_PROVIDERS = Object.keys(providerModules);
-const REMOVED_NOTIFICATION_PROVIDERS = [];
 const loadedProviders = {};
 const loadingProviders = {};
 
@@ -150,7 +149,6 @@ function resetLoadedNotificationProvidersForTests() {
 
 export {
     OPTIONAL_NOTIFICATION_PROVIDERS,
-    REMOVED_NOTIFICATION_PROVIDERS,
     createProviderList,
     getLoadedNotificationProviders,
     getNotificationProvider,
