@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useToast } from "vue-toastification";
-import Favico from "favico.js";
 import dayjs from "dayjs";
+import { updateFaviconBadge } from "@/util/favicon-badge";
 import { createNativeWebSocket } from "@/util/native-websocket-client";
 
 import { DOWN, MAINTENANCE, PENDING, UP } from "@/constants";
@@ -20,10 +20,6 @@ const noSocketIOPages = [
     /^\/status/, // /status**
     /^\/$/, //  /
 ];
-
-const favicon = new Favico({
-    animation: "none",
-});
 
 export default {
     data() {
@@ -866,7 +862,7 @@ export default {
                     clearTimeout(this.faviconUpdateDebounce);
                 }
                 this.faviconUpdateDebounce = setTimeout(() => {
-                    favicon.badge(to);
+                    updateFaviconBadge(to);
                 }, 1000);
             }
         },
