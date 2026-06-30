@@ -7,7 +7,8 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import timezone from "@/modules/dayjs/plugin/timezone/index";
+import timezone from "dayjs/plugin/timezone";
+import { loadEnv } from "@/server/env";
 import { getRuntimeInfo, isBunRuntime } from "@/server/runtime";
 import { args } from "@/server/args";
 import { sleep, log, getRandomInt, genSecret } from "@/util";

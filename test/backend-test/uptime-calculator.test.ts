@@ -5,7 +5,7 @@ import { UptimeCalculator } from "@/server/uptime-calculator";
 import dayjs from "dayjs";
 import { UP, DOWN, PENDING, MAINTENANCE } from "@/util";
 import dayjsPlugin_5 from "dayjs/plugin/utc";
-import dayjsPlugin_6 from "@/modules/dayjs/plugin/timezone/index";
+import dayjsPlugin_6 from "dayjs/plugin/timezone";
 import dayjsPlugin_7 from "dayjs/plugin/customParseFormat";
 
 dayjs.extend(dayjsPlugin_5);
