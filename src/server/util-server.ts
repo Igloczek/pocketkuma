@@ -1105,7 +1105,7 @@ export { commandExists };
  * Log the server's listening URLs, similar to Vite's dev server output.
  * When no hostname is specified (bound to all interfaces), it prints
  * localhost plus every non-internal network address.
- * @param {string} tag Log tag (e.g. "server", "setup-database")
+ * @param {string} tag Log tag (e.g. "server", "db")
  * @param {number} port Port number
  * @param {string} hostname Bound hostname, if any
  * @param {boolean} isHTTPS Whether the server is using HTTPS
