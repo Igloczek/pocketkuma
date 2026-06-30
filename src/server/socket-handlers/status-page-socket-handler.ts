@@ -6,7 +6,7 @@
  * @returns {void}
  * @throws {Error} If validation fails
  */
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { checkLogin } from "@/server/util-server";
 import dayjs from "dayjs";
 import { log } from "@/util";

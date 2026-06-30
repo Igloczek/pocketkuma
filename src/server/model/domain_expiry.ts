@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/redbean-compat";
-import { R } from "@/server/redbean-compat";
+import { BeanModel } from "@/server/bun-sqlite-store";
+import { R } from "@/server/bun-sqlite-store";
 import { log, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/util";
 import { parse as parseTld } from "tldts";
 import rdapDnsDataFallback from "@/server/assets/rdap-dns.json" with { type: "json" };

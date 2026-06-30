@@ -19,7 +19,7 @@ import {
     getDaysRemaining,
     checkCertExpiryNotifications,
 } from "@/server/util-server";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 
 class GlobalpingMonitorType extends MonitorType {
     name = "globalping";

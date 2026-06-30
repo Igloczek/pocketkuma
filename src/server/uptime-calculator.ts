@@ -7,7 +7,7 @@ import dayjs from "dayjs";
 import { UP, MAINTENANCE, DOWN, PENDING } from "@/util";
 import { LimitQueue } from "@/server/utils/limit-queue";
 import { log } from "@/util";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 
 class UptimeCalculator {
     /**

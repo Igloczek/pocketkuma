@@ -2,7 +2,7 @@
 "use strict";
 
 import StatusPage from "@/server/model/status_page";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { badgeConstants } from "@/util";
 import { makeBadge } from "badge-maker";
 import { UptimeCalculator } from "@/server/uptime-calculator";

@@ -2,7 +2,7 @@
 "use strict";
 
 import { percentageToColor, filterAndJoin } from "@/server/util-server";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import Monitor from "@/server/model/monitor";
 import dayjs from "dayjs";
 import { UP, MAINTENANCE, DOWN, PENDING, flipStatus, log, badgeConstants } from "@/util";

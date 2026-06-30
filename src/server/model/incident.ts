@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/redbean-compat";
-import { R } from "@/server/redbean-compat";
+import { BeanModel } from "@/server/bun-sqlite-store";
+import { R } from "@/server/bun-sqlite-store";
 import dayjs from "dayjs";
 
 class Incident extends BeanModel {

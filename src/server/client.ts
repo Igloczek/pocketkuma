@@ -9,7 +9,7 @@
  * @returns {Promise<Bean[]>} List of notifications
  */
 import { TimeLogger } from "@/util";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";
 import { setting } from "@/server/util-server";
 

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/redbean-compat";
-import { R } from "@/server/redbean-compat";
+import { BeanModel } from "@/server/bun-sqlite-store";
+import { R } from "@/server/bun-sqlite-store";
 import { load as loadHtml } from "cheerio";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";
 import { escapeJsString, escapeJsJson } from "@/util/escape";
