@@ -3094,7 +3094,7 @@ import ProxyDialog from "@/components/ProxyDialog.vue";
 import TagsManager from "@/components/TagsManager.vue";
 import { MAX_INTERVAL_SECOND, MIN_INTERVAL_SECOND, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/constants";
 import { genSecret, sleep } from "@/util-shared";
-import { timeDurationFormatter } from "@/util-frontend";
+import { formatDuration } from "@/util-frontend";
 import HiddenInput from "@/components/HiddenInput.vue";
 import EditMonitorConditions from "@/components/EditMonitorConditions.vue";
 
@@ -3175,7 +3175,7 @@ const monitorDefaults = {
     location: "world",
     ipFamily: null,
     interval: 60,
-    humanReadableInterval: timeDurationFormatter.secondsToHumanReadableFormat(60),
+    humanReadableInterval: formatDuration(60),
     retryInterval: 60,
     resendInterval: 0,
     maxretries: 0,
@@ -3566,7 +3566,7 @@ message HealthCheckResponse {
                 this.monitor.retryInterval = value;
             }
             // Converting monitor.interval to human readable format.
-            this.monitor.humanReadableInterval = timeDurationFormatter.secondsToHumanReadableFormat(value);
+            this.monitor.humanReadableInterval = formatDuration(value);
         },
 
         "monitor.timeout"(value, oldValue) {
