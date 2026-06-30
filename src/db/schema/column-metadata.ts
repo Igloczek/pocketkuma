@@ -101,6 +101,61 @@ const monitorColumnTypes = {
     ws_subprotocol: "TEXT NOT NULL DEFAULT ''",
 };
 
+// Columns that stay snake_case end-to-end (API + model); skip camelCase aliases.
+const monitorSnakeOnlyColumns = new Set([
+    "accepted_statuscodes_json",
+    "dns_last_result",
+    "docker_container",
+    "docker_host",
+]);
+
+function snakeToCamelColumn(column) {
+    return column.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function buildMonitorPropertyColumns() {
+    const result = {};
+    for (const column of Object.keys(monitorColumnTypes)) {
+        if (!column.includes("_") || monitorSnakeOnlyColumns.has(column)) {
+            continue;
+        }
+        result[snakeToCamelColumn(column)] = column;
+    }
+    return result;
+}
+
+const monitorPropertyColumns = buildMonitorPropertyColumns();
+
+const monitorBooleanColumns = new Set(
+    Object.entries(monitorColumnTypes)
+        .filter(([, type]) => /\bBOOLEAN\b/i.test(type))
+        .map(([column]) => column)
+);
+
+const monitorSnakePrecedenceColumns = new Set([
+    "response_max_length",
+    "retry_only_on_status_code_failure",
+    "save_error_response",
+    "save_response",
+]);
+
+export function normalizeBoolean(value) {
+    if (value === true || value === 1 || value === "1") {
+        return true;
+    }
+    if (value === false || value === 0 || value === "0" || value === "" || value === null || value === undefined) {
+        return false;
+    }
+    return Boolean(value);
+}
+
+export function normalizeMonitorColumnValue(column, value) {
+    if (monitorBooleanColumns.has(column)) {
+        return normalizeBoolean(value);
+    }
+    return value;
+}
+
 const tableColumnTypes = {
     monitor: monitorColumnTypes,
     status_page: {
@@ -166,6 +221,8 @@ export function resolveColumnType(table: string, column: string, explicitType?: 
 
     throw new Error(`Unknown column type for ${table}.${column}; refusing to ALTER TABLE`);
 }
+
+export { monitorPropertyColumns, monitorBooleanColumns, monitorSnakePrecedenceColumns };
 
 export function filterStoreRow(table, row) {
     const allowed = expectedTableColumns[table];

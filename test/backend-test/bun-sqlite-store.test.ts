@@ -254,4 +254,76 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(loaded.ignoreTls).toBe(false);
         expect(loaded.getIgnoreTls()).toBe(false);
     });
+
+    test("monitor CRUD round-trip preserves socket API field names", async () => {
+        await store.exec("INSERT INTO user (id, username, password, active) VALUES (?, ?, ?, ?)", [
+            1,
+            "smoke",
+            "hash",
+            1,
+        ]);
+
+        const createPayload = {
+            active: true,
+            accepted_statuscodes_json: '["200-299"]',
+            domainExpiryNotification: true,
+            expiryNotification: false,
+            ignoreTls: true,
+            interval: 45,
+            invertKeyword: true,
+            ipFamily: "dual-stack",
+            maxretries: 2,
+            name: "Round-trip monitor",
+            proxyId: null,
+            pushToken: "round-trip-token",
+            resendInterval: 30,
+            responseMaxLength: 2048,
+            retryInterval: 15,
+            retryOnlyOnStatusCodeFailure: true,
+            saveErrorResponse: false,
+            saveResponse: true,
+            type: "http",
+            upsideDown: true,
+            url: "http://127.0.0.1:8080",
+            user_id: 1,
+            weight: 1500,
+            wsSubprotocol: "graphql-ws",
+        };
+
+        const bean = store.dispense("monitor");
+        bean.import(createPayload);
+        const id = await store.store(bean);
+
+        const created = await store.load("monitor", id);
+        expect(created.getIgnoreTls()).toBe(true);
+        expect(created.isInvertKeyword()).toBe(true);
+        expect(created.domainExpiryNotification).toBe(true);
+        expect(created.isEnabledExpiryNotification()).toBe(false);
+        expect(created.retryInterval).toBe(15);
+        expect(created.retry_only_on_status_code_failure).toBe(true);
+        expect(created.responseMaxLength).toBe(2048);
+        expect(created.getSaveResponse()).toBe(true);
+        expect(created.getSaveErrorResponse()).toBe(false);
+        expect(created.pushToken).toBe("round-trip-token");
+        expect(created.wsSubprotocol).toBe("graphql-ws");
+        expect(created.ipFamily).toBe("dual-stack");
+        expect(created.isUpsideDown()).toBe(true);
+
+        created.import({
+            name: "Updated round-trip monitor",
+            ignoreTls: false,
+            pushToken: "updated-token",
+            wsSubprotocol: "json",
+        });
+        await store.store(created);
+
+        const updated = await store.load("monitor", id);
+        expect(updated.name).toBe("Updated round-trip monitor");
+        expect(updated.getIgnoreTls()).toBe(false);
+        expect(updated.pushToken).toBe("updated-token");
+        expect(updated.retryInterval).toBe(15);
+        expect(updated.wsSubprotocol).toBe("json");
+        expect(updated.retry_only_on_status_code_failure).toBe(true);
+        expect(updated.responseMaxLength).toBe(2048);
+    });
 });
