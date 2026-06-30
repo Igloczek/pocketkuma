@@ -205,7 +205,7 @@ export default {
             if (notificationID) {
                 this.id = notificationID;
 
-                for (let n of this.$root.notificationList) {
+                for (let n of this.appStore.notificationList) {
                     if (n.id === notificationID) {
                         this.notification = JSON.parse(n.config);
 
@@ -233,8 +233,8 @@ export default {
          */
         submit() {
             this.processing = true;
-            this.$root.getSocket().emit("addNotification", this.notification, this.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("addNotification", this.notification, this.id, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok) {
@@ -254,8 +254,8 @@ export default {
          */
         test() {
             this.processing = true;
-            this.$root.getSocket().emit("testNotification", this.notification, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("testNotification", this.notification, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
             });
         },
@@ -266,8 +266,8 @@ export default {
          */
         deleteNotification() {
             this.processing = true;
-            this.$root.getSocket().emit("deleteNotification", this.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("deleteNotification", this.id, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok) {
@@ -289,7 +289,7 @@ export default {
                     notification: this.notificationFullNameList[notificationKey].replace(/\(.+\)/, "").trim(),
                     number: index++,
                 });
-            } while (this.$root.notificationList.find((it) => it.name === name));
+            } while (this.appStore.notificationList.find((it) => it.name === name));
             return name;
         },
 

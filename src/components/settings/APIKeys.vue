@@ -91,7 +91,7 @@ export default {
     },
     computed: {
         keyList() {
-            let result = Object.values(this.$root.apiKeyList);
+            let result = Object.values(this.appStore.apiKeyList);
             return result;
         },
         settings() {
@@ -115,8 +115,8 @@ export default {
          * @returns {void}
          */
         deleteKey() {
-            this.$root.deleteAPIKey(this.selectedKeyID, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.deleteAPIKey(this.selectedKeyID, (res) => {
+                this.appStore.toastRes(res);
             });
         },
 
@@ -135,8 +135,8 @@ export default {
          * @returns {void}
          */
         disableKey() {
-            this.$root.getSocket().emit("disableAPIKey", this.selectedKeyID, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("disableAPIKey", this.selectedKeyID, (res) => {
+                this.appStore.toastRes(res);
             });
         },
 
@@ -146,8 +146,8 @@ export default {
          * @returns {void}
          */
         enableKey(id) {
-            this.$root.getSocket().emit("enableAPIKey", id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("enableAPIKey", id, (res) => {
+                this.appStore.toastRes(res);
             });
         },
     },

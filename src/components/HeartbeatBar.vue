@@ -98,12 +98,12 @@ export default {
         },
 
         /**
-         * If heartbeatList is null, get it from $root.heartbeatList
+         * If heartbeatList is null, get it from appStore.heartbeatList
          * @returns {object} Heartbeat list
          */
         beatList() {
             if (this.heartbeatList === null) {
-                return this.$root.heartbeatList[this.monitorId];
+                return this.appStore.heartbeatList[this.monitorId];
             } else {
                 return this.heartbeatList;
             }
@@ -247,8 +247,8 @@ export default {
             const seconds = dayjs().diff(dayjs.utc(lastValidBeat?.time), "seconds");
 
             let tolerance = 60 * 2; // default for when monitorList not available
-            if (this.$root.monitorList[this.monitorId] != null) {
-                tolerance = this.$root.monitorList[this.monitorId].interval * 2;
+            if (this.appStore.monitorList[this.monitorId] != null) {
+                tolerance = this.appStore.monitorList[this.monitorId].interval * 2;
             }
 
             if (seconds < tolerance) {
@@ -333,8 +333,8 @@ export default {
     },
     beforeMount() {
         if (this.heartbeatList === null) {
-            if (!(this.monitorId in this.$root.heartbeatList)) {
-                this.$root.heartbeatList[this.monitorId] = [];
+            if (!(this.monitorId in this.appStore.heartbeatList)) {
+                this.appStore.heartbeatList[this.monitorId] = [];
             }
         }
     },

@@ -99,7 +99,8 @@
             </i18n-t>
 
             <label class="form-label" for="message_template">{{ $t("Message Template") }}</label>
-            <TemplatedField as="textarea"
+            <TemplatedField
+                as="textarea"
                 id="message_template"
                 v-model="$parent.notification.telegramTemplate"
                 :required="true"
@@ -201,7 +202,7 @@ Uptime Kuma Alert{% if monitorJSON %} - {{ monitorJSON['name'] }}{% endif %}
                     throw new Error(this.$t("chatIDNotFound"));
                 }
             } catch (error) {
-                this.$root.toastError(error.message);
+                this.appStore.toastError(error.message);
             }
         },
     },

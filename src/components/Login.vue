@@ -49,7 +49,7 @@
                     <div class="form-check">
                         <input
                             id="remember"
-                            v-model="$root.remember"
+                            v-model="appStore.remember"
                             type="checkbox"
                             value="remember-me"
                             class="form-check-input"
@@ -111,7 +111,7 @@ export default {
         submit() {
             this.processing = true;
 
-            this.$root.login(this.username, this.password, this.token, (res) => {
+            this.appStore.login(this.username, this.password, this.token, (res) => {
                 this.processing = false;
 
                 if (res.tokenRequired) {

@@ -87,16 +87,16 @@ export default {
         async submit() {
             this.processing = true;
 
-            this.$root.getSocket().emit("addStatusPage", this.title, this.slug, (res) => {
+            this.appStore.getSocket().emit("addStatusPage", this.title, this.slug, (res) => {
                 this.processing = false;
 
                 if (res.ok) {
                     location.href = "/status/" + res.slug + "?edit";
                 } else {
                     if (res.msg.includes("UNIQUE constraint")) {
-                        this.$root.toastError("The slug is already taken. Please choose another slug.");
+                        this.appStore.toastError("The slug is already taken. Please choose another slug.");
                     } else {
-                        this.$root.toastRes(res);
+                        this.appStore.toastRes(res);
                     }
                 }
             });

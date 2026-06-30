@@ -23,7 +23,7 @@
                     <div class="d-flex align-items-center justify-content-between">
                         <Status :status="1" />
                         <span class="ps-3">
-                            {{ $root.stats.up }}
+                            {{ appStore.stats.up }}
                             <span v-if="filterState.status?.includes(1)" class="px-1 filter-active">
                                 <app-icon icon="check" />
                             </span>
@@ -36,7 +36,7 @@
                     <div class="d-flex align-items-center justify-content-between">
                         <Status :status="0" />
                         <span class="ps-3">
-                            {{ $root.stats.down }}
+                            {{ appStore.stats.down }}
                             <span v-if="filterState.status?.includes(0)" class="px-1 filter-active">
                                 <app-icon icon="check" />
                             </span>
@@ -49,7 +49,7 @@
                     <div class="d-flex align-items-center justify-content-between">
                         <Status :status="2" />
                         <span class="ps-3">
-                            {{ $root.stats.pending }}
+                            {{ appStore.stats.pending }}
                             <span v-if="filterState.status?.includes(2)" class="px-1 filter-active">
                                 <app-icon icon="check" />
                             </span>
@@ -62,7 +62,7 @@
                     <div class="d-flex align-items-center justify-content-between">
                         <Status :status="3" />
                         <span class="ps-3">
-                            {{ $root.stats.maintenance }}
+                            {{ appStore.stats.maintenance }}
                             <span v-if="filterState.status?.includes(3)" class="px-1 filter-active">
                                 <app-icon icon="check" />
                             </span>
@@ -81,7 +81,7 @@
                             {{ $t("Running") }}
                         </span>
                         <span class="ps-3">
-                            {{ $root.stats.active }}
+                            {{ appStore.stats.active }}
                             <span v-if="filterState.active?.includes(true)" class="px-1 filter-active">
                                 <app-icon icon="check" />
                             </span>
@@ -97,7 +97,7 @@
                             {{ $t("filterActivePaused") }}
                         </span>
                         <span class="ps-3">
-                            {{ $root.stats.pause }}
+                            {{ appStore.stats.pause }}
                             <span v-if="filterState.active?.includes(false)" class="px-1 filter-active">
                                 <app-icon icon="check" />
                             </span>
@@ -262,14 +262,14 @@ export default {
             });
         },
         getExistingTags() {
-            this.$root.getSocket().emit("getTags", (res) => {
+            this.appStore.getSocket().emit("getTags", (res) => {
                 if (res.ok) {
                     this.tagsList = res.tags;
                 }
             });
         },
         getTaggedMonitorCount(tag) {
-            return Object.values(this.$root.monitorList).filter((monitor) => {
+            return Object.values(this.appStore.monitorList).filter((monitor) => {
                 return monitor.tags.find((monitorTag) => monitorTag.tag_id === tag.id);
             }).length;
         },

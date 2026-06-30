@@ -133,7 +133,7 @@ export default {
 
                 this.id = dockerHostID;
 
-                for (let n of this.$root.dockerHostList) {
+                for (let n of this.appStore.dockerHostList) {
                     if (n.id === dockerHostID) {
                         this.dockerHost = n;
                         found = true;
@@ -142,7 +142,7 @@ export default {
                 }
 
                 if (!found) {
-                    this.$root.toastError("Docker Host not found!");
+                    this.appStore.toastError("Docker Host not found!");
                 }
             } else {
                 this.id = null;
@@ -162,8 +162,8 @@ export default {
          */
         submit() {
             this.processing = true;
-            this.$root.getSocket().emit("addDockerHost", this.dockerHost, this.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("addDockerHost", this.dockerHost, this.id, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok) {
@@ -183,8 +183,8 @@ export default {
          */
         test() {
             this.processing = true;
-            this.$root.getSocket().emit("testDockerHost", this.dockerHost, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("testDockerHost", this.dockerHost, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
             });
         },
@@ -195,8 +195,8 @@ export default {
          */
         deleteDockerHost() {
             this.processing = true;
-            this.$root.getSocket().emit("deleteDockerHost", this.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("deleteDockerHost", this.id, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok) {

@@ -86,7 +86,7 @@ export default {
     mounted() {
         // TODO: Check if it is a database setup
 
-        this.$root.getSocket().emit("needSetup", (needSetup) => {
+        this.appStore.getSocket().emit("needSetup", (needSetup) => {
             if (!needSetup) {
                 this.$router.push("/");
             }
@@ -101,19 +101,19 @@ export default {
             this.processing = true;
 
             if (this.password !== this.repeatPassword) {
-                this.$root.toastError("PasswordsDoNotMatch");
+                this.appStore.toastError("PasswordsDoNotMatch");
                 this.processing = false;
                 return;
             }
 
-            this.$root.getSocket().emit("setup", this.username, this.password, (res) => {
+            this.appStore.getSocket().emit("setup", this.username, this.password, (res) => {
                 this.processing = false;
-                this.$root.toastRes(res);
+                this.appStore.toastRes(res);
 
                 if (res.ok) {
                     this.processing = true;
 
-                    this.$root.login(this.username, this.password, "", () => {
+                    this.appStore.login(this.username, this.password, "", () => {
                         this.processing = false;
                         this.$router.push("/");
                     });

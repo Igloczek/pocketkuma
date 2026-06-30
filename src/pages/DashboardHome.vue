@@ -9,29 +9,32 @@
                 <div class="row">
                     <div class="col">
                         <h3>{{ $t("Up") }}</h3>
-                        <span class="num" :class="$root.stats.up === 0 && 'text-secondary'">
-                            {{ $root.stats.up }}
+                        <span class="num" :class="appStore.stats.up === 0 && 'text-secondary'">
+                            {{ appStore.stats.up }}
                         </span>
                     </div>
                     <div class="col">
                         <h3>{{ $t("Down") }}</h3>
-                        <span class="num" :class="$root.stats.down > 0 ? 'text-danger' : 'text-secondary'">
-                            {{ $root.stats.down }}
+                        <span class="num" :class="appStore.stats.down > 0 ? 'text-danger' : 'text-secondary'">
+                            {{ appStore.stats.down }}
                         </span>
                     </div>
                     <div class="col">
                         <h3>{{ $t("Maintenance") }}</h3>
-                        <span class="num" :class="$root.stats.maintenance > 0 ? 'text-maintenance' : 'text-secondary'">
-                            {{ $root.stats.maintenance }}
+                        <span
+                            class="num"
+                            :class="appStore.stats.maintenance > 0 ? 'text-maintenance' : 'text-secondary'"
+                        >
+                            {{ appStore.stats.maintenance }}
                         </span>
                     </div>
                     <div class="col">
                         <h3>{{ $t("Unknown") }}</h3>
-                        <span class="num text-secondary">{{ $root.stats.unknown }}</span>
+                        <span class="num text-secondary">{{ appStore.stats.unknown }}</span>
                     </div>
                     <div class="col">
                         <h3>{{ $t("pauseDashboardHome") }}</h3>
-                        <span class="num text-secondary">{{ $root.stats.pause }}</span>
+                        <span class="num text-secondary">{{ appStore.stats.pause }}</span>
                     </div>
                 </div>
             </div>
@@ -73,7 +76,7 @@
                             </td>
                             <td class="name-column">
                                 <router-link :to="`/dashboard/${beat.monitorID}`">
-                                    {{ $root.monitorList[beat.monitorID]?.name }}
+                                    {{ appStore.monitorList[beat.monitorID]?.name }}
                                 </router-link>
                             </td>
                             <td><Status :status="beat.status" /></td>
@@ -147,7 +150,7 @@ export default {
     },
     computed: {
         showGroupColumn() {
-            return Object.values(this.$root.monitorList).some((m) => m.parent != null);
+            return Object.values(this.appStore.monitorList).some((m) => m.parent != null);
         },
         tableColumnCount() {
             return this.showGroupColumn ? 5 : 4;
@@ -168,7 +171,7 @@ export default {
     mounted() {
         this.getImportantHeartbeatListLength();
 
-        this.$root.emitter.addEventListener("newImportantHeartbeat", this.onNewImportantHeartbeat);
+        this.appStore.emitter.on("newImportantHeartbeat", this.onNewImportantHeartbeat);
 
         this.initialPerPage = this.perPage;
 
@@ -177,7 +180,7 @@ export default {
     },
 
     beforeUnmount() {
-        this.$root.emitter.removeEventListener("newImportantHeartbeat", this.onNewImportantHeartbeat);
+        this.appStore.emitter.off("newImportantHeartbeat", this.onNewImportantHeartbeat);
 
         window.removeEventListener("resize", this.updatePerPage);
     },
@@ -189,11 +192,11 @@ export default {
          * @returns {string} The group name or empty string.
          */
         getGroupName(monitorID) {
-            const monitor = this.$root.monitorList[monitorID];
+            const monitor = this.appStore.monitorList[monitorID];
             if (!monitor || monitor.parent == null) {
                 return "";
             }
-            const parent = this.$root.monitorList[monitor.parent];
+            const parent = this.appStore.monitorList[monitor.parent];
             return parent ? parent.name : "";
         },
 
@@ -203,7 +206,7 @@ export default {
          * @returns {number|null} The group monitor ID or null.
          */
         getGroupId(monitorID) {
-            const monitor = this.$root.monitorList[monitorID];
+            const monitor = this.appStore.monitorList[monitorID];
             return monitor && monitor.parent != null ? monitor.parent : null;
         },
 
@@ -212,8 +215,7 @@ export default {
          * @param {object} heartbeat - The heartbeat object received.
          * @returns {void}
          */
-        onNewImportantHeartbeat(event) {
-            const heartbeat = event.detail;
+        onNewImportantHeartbeat(heartbeat) {
             if (this.page === 1) {
                 this.displayedRecords.unshift(heartbeat);
                 if (this.displayedRecords.length > this.perPage) {
@@ -228,7 +230,7 @@ export default {
          * @returns {void}
          */
         getImportantHeartbeatListLength() {
-            this.$root.getSocket().emit("monitorImportantHeartbeatListCount", null, (res) => {
+            this.appStore.getSocket().emit("monitorImportantHeartbeatListCount", null, (res) => {
                 if (res.ok) {
                     this.importantHeartBeatListLength = res.count;
                     this.getImportantHeartbeatListPaged();
@@ -242,7 +244,7 @@ export default {
          */
         getImportantHeartbeatListPaged() {
             const offset = (this.page - 1) * this.perPage;
-            this.$root.getSocket().emit("monitorImportantHeartbeatListPaged", null, offset, this.perPage, (res) => {
+            this.appStore.getSocket().emit("monitorImportantHeartbeatListPaged", null, offset, this.perPage, (res) => {
                 if (res.ok) {
                     this.displayedRecords = res.data;
                 }
@@ -271,18 +273,18 @@ export default {
         },
         clearAllEvents() {
             this.clearingAllEvents = true;
-            const monitorIDs = Object.keys(this.$root.monitorList);
+            const monitorIDs = Object.keys(this.appStore.monitorList);
             let failed = 0;
             const total = monitorIDs.length;
 
             if (total === 0) {
                 this.clearingAllEvents = false;
-                this.$root.toastError(this.$t("No monitors found"));
+                this.appStore.toastError(this.$t("No monitors found"));
                 return;
             }
 
             monitorIDs.forEach((monitorID) => {
-                this.$root.getSocket().emit("clearEvents", monitorID, (res) => {
+                this.appStore.getSocket().emit("clearEvents", monitorID, (res) => {
                     if (!res || !res.ok) {
                         failed++;
                     }
@@ -292,9 +294,9 @@ export default {
             this.page = 1;
             this.getImportantHeartbeatListLength();
             if (failed === 0) {
-                this.$root.toastSuccess(this.$t("Events cleared successfully"));
+                this.appStore.toastSuccess(this.$t("Events cleared successfully"));
             } else {
-                this.$root.toastError(
+                this.appStore.toastError(
                     this.$t("Could not clear events", {
                         failed,
                         total,

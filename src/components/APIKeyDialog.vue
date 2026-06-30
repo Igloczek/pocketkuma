@@ -142,7 +142,7 @@ export default {
                 this.key.expires = null;
             }
 
-            this.$root.addAPIKey(this.key, async (res) => {
+            this.appStore.addAPIKey(this.key, async (res) => {
                 this.keyaddmodal.hide();
                 this.processing = false;
                 if (res.ok) {
@@ -150,7 +150,7 @@ export default {
                     this.keymodal.show();
                     this.clearForm();
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },

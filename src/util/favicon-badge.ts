@@ -1,29 +1,35 @@
 // @ts-nocheck
-
 import Favico from "favico.js";
 
 let favicon;
+let faviconUpdateDebounce = null;
 
 /**
- * Initialize the shared favicon badge helper.
- * @returns {object} Favico instance.
+ * Get or create the shared favicon badge instance.
+ * @returns {object} Favico instance
  */
-function initFaviconBadge() {
+export function getFaviconBadge() {
     if (!favicon) {
         favicon = new Favico({
             animation: "none",
         });
     }
+
     return favicon;
 }
 
 /**
- * Update the favicon badge count.
- * @param {number} count Number of down monitors to display.
+ * Update the favicon badge count with debouncing.
+ * @param {number} count Badge count
+ * @param {number} debounceMs Debounce delay in milliseconds
  * @returns {void}
  */
-function updateFaviconBadge(count) {
-    initFaviconBadge().badge(count);
-}
+export function updateFaviconBadge(count, debounceMs = 1000) {
+    if (faviconUpdateDebounce != null) {
+        clearTimeout(faviconUpdateDebounce);
+    }
 
-export { initFaviconBadge, updateFaviconBadge };
+    faviconUpdateDebounce = setTimeout(() => {
+        getFaviconBadge().badge(count);
+    }, debounceMs);
+}

@@ -182,13 +182,13 @@ export default {
         prepare2FA() {
             this.processing = true;
 
-            this.$root.getSocket().emit("prepare2FA", this.currentPassword, (res) => {
+            this.appStore.getSocket().emit("prepare2FA", this.currentPassword, (res) => {
                 this.processing = false;
 
                 if (res.ok) {
                     this.uri = res.uri;
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },
@@ -200,16 +200,16 @@ export default {
         save2FA() {
             this.processing = true;
 
-            this.$root.getSocket().emit("save2FA", this.currentPassword, (res) => {
+            this.appStore.getSocket().emit("save2FA", this.currentPassword, (res) => {
                 this.processing = false;
 
                 if (res.ok) {
-                    this.$root.toastRes(res);
+                    this.appStore.toastRes(res);
                     this.getStatus();
                     this.currentPassword = "";
                     this.modal.hide();
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },
@@ -221,16 +221,16 @@ export default {
         disable2FA() {
             this.processing = true;
 
-            this.$root.getSocket().emit("disable2FA", this.currentPassword, (res) => {
+            this.appStore.getSocket().emit("disable2FA", this.currentPassword, (res) => {
                 this.processing = false;
 
                 if (res.ok) {
-                    this.$root.toastRes(res);
+                    this.appStore.toastRes(res);
                     this.getStatus();
                     this.currentPassword = "";
                     this.modal.hide();
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },
@@ -240,11 +240,11 @@ export default {
          * @returns {void}
          */
         verifyToken() {
-            this.$root.getSocket().emit("verifyToken", this.token, this.currentPassword, (res) => {
+            this.appStore.getSocket().emit("verifyToken", this.token, this.currentPassword, (res) => {
                 if (res.ok) {
                     this.tokenValid = res.valid;
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },
@@ -254,11 +254,11 @@ export default {
          * @returns {void}
          */
         getStatus() {
-            this.$root.getSocket().emit("twoFAStatus", (res) => {
+            this.appStore.getSocket().emit("twoFAStatus", (res) => {
                 if (res.ok) {
                     this.twoFAStatus = res.status;
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },

@@ -203,12 +203,16 @@ export default {
         selectedMonitors() {
             return this.monitors
                 .concat(
-                    Object.values(this.$root.monitorList).filter((monitor) => this.addingMonitor.includes(monitor.id))
+                    Object.values(this.appStore.monitorList).filter((monitor) =>
+                        this.addingMonitor.includes(monitor.id)
+                    )
                 )
                 .filter((monitor) => !this.removingMonitor.includes(monitor.id));
         },
         allMonitorList() {
-            return Object.values(this.$root.monitorList).filter((monitor) => !this.selectedMonitors.includes(monitor));
+            return Object.values(this.appStore.monitorList).filter(
+                (monitor) => !this.selectedMonitors.includes(monitor)
+            );
         },
     },
 
@@ -329,7 +333,7 @@ export default {
             if (this.tag.id == null) {
                 await this.addTagAsync(this.tag).then((res) => {
                     if (!res.ok) {
-                        this.$root.toastRes(res.msg);
+                        this.appStore.toastRes(res.msg);
                         editResult = false;
                     } else {
                         this.tag.id = res.tag.id;
@@ -345,7 +349,7 @@ export default {
             for (let addId of this.addingMonitor) {
                 await this.addMonitorTagAsync(this.tag.id, addId, "").then((res) => {
                     if (!res.ok) {
-                        this.$root.toastError(res.msg);
+                        this.appStore.toastError(res.msg);
                         editResult = false;
                     }
                 });
@@ -357,15 +361,15 @@ export default {
                     ?.tags.forEach(async (monitorTag) => {
                         await this.deleteMonitorTagAsync(this.tag.id, removeId, monitorTag.value).then((res) => {
                             if (!res.ok) {
-                                this.$root.toastError(res.msg);
+                                this.appStore.toastError(res.msg);
                                 editResult = false;
                             }
                         });
                     });
             }
 
-            this.$root.getSocket().emit("editTag", this.tag, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("editTag", this.tag, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok && editResult) {
@@ -382,7 +386,7 @@ export default {
         async deleteTag() {
             this.processing = true;
             await this.deleteTagAsync(this.tag.id).then((res) => {
-                this.$root.toastRes(res);
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok) {
@@ -411,7 +415,7 @@ export default {
          * @returns {object[]} list of monitors which has a specific tag
          */
         monitorsByTag(tagId) {
-            return Object.values(this.$root.monitorList).filter((monitor) => {
+            return Object.values(this.appStore.monitorList).filter((monitor) => {
                 return monitor.tags.find((monitorTag) => monitorTag.tag_id === tagId);
             });
         },
@@ -432,7 +436,7 @@ export default {
          */
         addTagAsync(newTag) {
             return new Promise((resolve) => {
-                this.$root.getSocket().emit("addTag", newTag, resolve);
+                this.appStore.getSocket().emit("addTag", newTag, resolve);
             });
         },
 
@@ -443,7 +447,7 @@ export default {
          */
         deleteTagAsync(tagId) {
             return new Promise((resolve) => {
-                this.$root.getSocket().emit("deleteTag", tagId, resolve);
+                this.appStore.getSocket().emit("deleteTag", tagId, resolve);
             });
         },
 
@@ -456,7 +460,7 @@ export default {
          */
         addMonitorTagAsync(tagId, monitorId, value) {
             return new Promise((resolve) => {
-                this.$root.getSocket().emit("addMonitorTag", tagId, monitorId, value, resolve);
+                this.appStore.getSocket().emit("addMonitorTag", tagId, monitorId, value, resolve);
             });
         },
         /**
@@ -468,7 +472,7 @@ export default {
          */
         deleteMonitorTagAsync(tagId, monitorId, value) {
             return new Promise((resolve) => {
-                this.$root.getSocket().emit("deleteMonitorTag", tagId, monitorId, value, resolve);
+                this.appStore.getSocket().emit("deleteMonitorTag", tagId, monitorId, value, resolve);
             });
         },
     },
