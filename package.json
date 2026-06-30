@@ -20,6 +20,7 @@
         "build": "bun scripts/build/generate-kuma-db.ts && bun scripts/build/build-binary.ts",
         "build:kuma-db": "bun scripts/build/generate-kuma-db.ts",
         "build:frontend": "bun --bun vite build --config ./config/vite.config.ts && bun scripts/build/generate-embedded-assets.ts",
+        "build:frontend:analyze": "ANALYZE=1 bun run build:frontend",
         "build:binary": "bun scripts/build/build-binary.ts",
         "preview": "vite preview --host --config ./config/vite.config.ts",
         "lint": "bun run lint:js && bun run lint:style",
