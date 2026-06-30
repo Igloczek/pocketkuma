@@ -109,7 +109,14 @@
                         </div>
 
                         <!-- form body -->
-                        <component :is="currentForm" />
+                        <Suspense v-if="currentForm">
+                            <component :is="currentForm" />
+                            <template #fallback>
+                                <div class="d-flex justify-content-center py-3">
+                                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                                </div>
+                            </template>
+                        </Suspense>
 
                         <div class="mb-3 mt-4">
                             <hr class="dropdown-divider mb-4" />
@@ -169,7 +176,7 @@
 import { Modal } from "bootstrap";
 
 import Confirm from "@/components/Confirm.vue";
-import NotificationFormList from "@/components/notifications";
+import NotificationFormList, { notificationProviderTypes } from "@/components/notifications";
 
 export default {
     components: {
@@ -182,7 +189,7 @@ export default {
             model: null,
             processing: false,
             id: null,
-            notificationTypes: Object.keys(NotificationFormList).sort((a, b) => {
+            notificationTypes: [...notificationProviderTypes].sort((a, b) => {
                 return a.toLowerCase().localeCompare(b.toLowerCase());
             }),
             notification: {
