@@ -4,12 +4,8 @@ import dayjs from "dayjs";
 import { createNativeWebSocket } from "@/util/native-websocket-client";
 import { i18n } from "@/i18n";
 import { router } from "@/router";
-import {
-    getDevContainerServerHostname,
-    isDevContainer,
-    getToastSuccessTimeout,
-    getToastErrorTimeout,
-} from "@/util-frontend";
+import { getDevBaseURL } from "@/util/dev-base-url";
+import { getToastSuccessTimeout, getToastErrorTimeout } from "@/util-frontend";
 
 const toast = useToast();
 
@@ -26,16 +22,7 @@ export const noSocketIOPages = [
  * @returns {string | undefined} Socket server URL
  */
 export function resolveSocketUrl() {
-    const protocol = location.protocol + "//";
-
-    const env = process.env.NODE_ENV || "production";
-    if (env === "development" && isDevContainer()) {
-        return protocol + getDevContainerServerHostname();
-    } else if (env === "development" || localStorage.dev === "dev") {
-        return protocol + location.hostname + ":3001";
-    }
-
-    return undefined;
+    return getDevBaseURL() || undefined;
 }
 
 /**
