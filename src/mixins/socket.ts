@@ -6,7 +6,7 @@ import dayjs from "dayjs";
 import { createEventEmitter } from "@/util/event-emitter";
 import { createNativeWebSocket } from "@/util/native-websocket-client";
 
-import { DOWN, MAINTENANCE, PENDING, UP } from "@/util";
+import { DOWN, MAINTENANCE, PENDING, UP } from "@/constants";
 import {
     getDevContainerServerHostname,
     isDevContainer,

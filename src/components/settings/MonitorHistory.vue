@@ -55,7 +55,6 @@
 
 <script>
 import Confirm from "@/components/Confirm.vue";
-import { log } from "@/util";
 
 export default {
     components: {
@@ -93,13 +92,13 @@ export default {
          * @returns {void}
          */
         loadDatabaseSize() {
-            log.debug("monitorhistory", "load database size");
+            console.debug("monitorhistory", "load database size");
             this.$root.getSocket().emit("getDatabaseSize", (res) => {
                 if (res.ok) {
                     this.databaseSize = res.size;
-                    log.debug("monitorhistory", "database size: " + res.size);
+                    console.debug("monitorhistory", "database size: " + res.size);
                 } else {
-                    log.debug("monitorhistory", res);
+                    console.debug("monitorhistory", res);
                 }
             });
         },
@@ -114,7 +113,7 @@ export default {
                     this.loadDatabaseSize();
                     this.$root.toastSuccess("Done");
                 } else {
-                    log.debug("monitorhistory", res);
+                    console.debug("monitorhistory", res);
                 }
             });
         },

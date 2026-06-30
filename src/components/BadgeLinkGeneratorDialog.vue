@@ -215,7 +215,7 @@
 <script lang="ts">
 import { Modal } from "bootstrap";
 import CopyableInput from "@/components/CopyableInput.vue";
-import { badgeConstants } from "@/util";
+import { badgeConstants } from "@/constants";
 
 export default {
     components: {

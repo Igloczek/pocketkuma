@@ -449,7 +449,7 @@ import Pagination from "v-pagination-3";
 const PingChart = defineAsyncComponent(() => import("@/components/PingChart.vue"));
 import Tag from "@/components/Tag.vue";
 import CertificateInfo from "@/components/CertificateInfo.vue";
-import { getMonitorRelativeURL } from "@/util";
+import { getMonitorRelativeURL } from "@/util-shared";
 
 import DOMPurify from "dompurify";
 import { marked } from "marked";

@@ -44,7 +44,7 @@ import {
 } from "chart.js";
 import "chartjs-adapter-dayjs-4";
 import { Line } from "vue-chartjs";
-import { UP, DOWN, PENDING, MAINTENANCE } from "@/util";
+import { UP, DOWN, PENDING, MAINTENANCE } from "@/constants";
 
 Chart.register(
     LineController,
