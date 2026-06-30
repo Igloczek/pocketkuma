@@ -16,7 +16,7 @@ import socket from "@/mixins/socket";
 import theme from "@/mixins/theme";
 import lang from "@/mixins/lang";
 import { router } from "@/router";
-import { appName } from "@/util";
+import { appName } from "@/constants";
 import dayjs from "dayjs";
 import timezone from "@/modules/dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";

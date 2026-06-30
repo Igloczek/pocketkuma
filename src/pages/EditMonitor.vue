@@ -3090,13 +3090,8 @@ import DockerHostDialog from "@/components/DockerHostDialog.vue";
 import RemoteBrowserDialog from "@/components/RemoteBrowserDialog.vue";
 import ProxyDialog from "@/components/ProxyDialog.vue";
 import TagsManager from "@/components/TagsManager.vue";
-import {
-    genSecret,
-    MAX_INTERVAL_SECOND,
-    MIN_INTERVAL_SECOND,
-    sleep,
-    TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD,
-} from "@/util";
+import { MAX_INTERVAL_SECOND, MIN_INTERVAL_SECOND, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/constants";
+import { genSecret, sleep } from "@/util-shared";
 import { timeDurationFormatter } from "@/util-frontend";
 import HiddenInput from "@/components/HiddenInput.vue";
 import EditMonitorConditions from "@/components/EditMonitorConditions.vue";
