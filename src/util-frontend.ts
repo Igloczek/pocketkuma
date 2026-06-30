@@ -201,95 +201,82 @@ export function getToastErrorTimeout() {
     return errorTimeout;
 }
 
-class TimeDurationFormatter {
-    /**
-     * Default locale and options for Time Duration Formatter (supports both DurationFormat and RelativeTimeFormat)
-     */
-    constructor() {
-        this.durationFormatOptions = { style: "long" };
-        this.relativeTimeFormatOptions = { numeric: "always" };
-        if (Intl.DurationFormat !== undefined) {
-            this.durationFormatInstance = new Intl.DurationFormat(currentLocale(), this.durationFormatOptions);
-        } else {
-            this.relativeTimeFormatInstance = new Intl.RelativeTimeFormat(
-                currentLocale(),
-                this.relativeTimeFormatOptions
-            );
-        }
-    }
+const durationFormatOptions = { style: "long" };
+const relativeTimeFormatOptions = { numeric: "always" };
 
-    /**
-     * Method to update the instance locale and options
-     * @param {string} locale Localization identifier (e.g., "en", "ar-sy") to update the instance with.
-     * @returns {void} No return value.
-     */
-    updateLocale(locale) {
-        if (Intl.DurationFormat !== undefined) {
-            this.durationFormatInstance = new Intl.DurationFormat(locale, this.durationFormatOptions);
-        } else {
-            this.relativeTimeFormatInstance = new Intl.RelativeTimeFormat(locale, this.relativeTimeFormatOptions);
-        }
-    }
+let durationFormatLocale = currentLocale();
+/** @type {Intl.DurationFormat | undefined} */
+let durationFormatInstance;
+/** @type {Intl.RelativeTimeFormat | undefined} */
+let relativeTimeFormatInstance;
 
-    /**
-     * Method to convert seconds into Human readable format
-     * @param {number} seconds Receive value in seconds.
-     * @returns {string} String converted to Days Mins Seconds Format
-     */
-    secondsToHumanReadableFormat(seconds) {
-        const days = Math.floor(seconds / 86400);
-        const hours = Math.floor((seconds % 86400) / 3600);
-        const minutes = Math.floor(((seconds % 86400) % 3600) / 60);
-        const secs = ((seconds % 86400) % 3600) % 60;
-
-        if (this.durationFormatInstance !== undefined) {
-            // use Intl.DurationFormat if available
-            return this.durationFormatInstance.format({
-                days,
-                hours,
-                minutes,
-                seconds: secs,
-            });
-        }
-
-        const parts = [];
-        /**
-         * Build the formatted string from parts
-         * 1. Get the relative time formatted parts from the instance.
-         * 2. Filter out the relevant parts literal (unit of time) or integer (value).
-         * 3. Map out the required values.
-         * @param {number} value Receives value in seconds.
-         * @param {string} unitOfTime Expected unit of time after conversion.
-         * @returns {void}
-         */
-        const toFormattedPart = (value, unitOfTime) => {
-            const partsArray = this.relativeTimeFormatInstance.formatToParts(value, unitOfTime);
-            const filteredParts = partsArray
-                .filter((part, index) => part.type === "integer" || (part.type === "literal" && index > 0))
-                .map((part) => part.value);
-
-            const formattedString = filteredParts.join("").trim();
-            parts.push(formattedString);
-        };
-
-        if (days > 0) {
-            toFormattedPart(days, "day");
-        }
-        if (hours > 0) {
-            toFormattedPart(hours, "hour");
-        }
-        if (minutes > 0) {
-            toFormattedPart(minutes, "minute");
-        }
-        if (secs > 0) {
-            toFormattedPart(secs, "second");
-        }
-
-        if (parts.length > 0) {
-            return `${parts.join(" ")}`;
-        }
-        return this.relativeTimeFormatInstance.format(0, "second"); // Handle case for 0 seconds
+function initDurationFormatters() {
+    if (Intl.DurationFormat !== undefined) {
+        durationFormatInstance = new Intl.DurationFormat(durationFormatLocale, durationFormatOptions);
+        relativeTimeFormatInstance = undefined;
+    } else {
+        durationFormatInstance = undefined;
+        relativeTimeFormatInstance = new Intl.RelativeTimeFormat(durationFormatLocale, relativeTimeFormatOptions);
     }
 }
 
-export const timeDurationFormatter = new TimeDurationFormatter();
+initDurationFormatters();
+
+/**
+ * Update locale used for duration formatting.
+ * @param {string} locale Localization identifier (e.g., "en", "ar-sy").
+ * @returns {void}
+ */
+export function setDurationFormatLocale(locale) {
+    durationFormatLocale = locale;
+    initDurationFormatters();
+}
+
+/**
+ * Convert seconds into a human-readable duration string.
+ * @param {number} seconds Value in seconds.
+ * @returns {string} Localized duration (days, hours, minutes, seconds).
+ */
+export function formatDuration(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor(((seconds % 86400) % 3600) / 60);
+    const secs = ((seconds % 86400) % 3600) % 60;
+
+    if (durationFormatInstance !== undefined) {
+        return durationFormatInstance.format({
+            days,
+            hours,
+            minutes,
+            seconds: secs,
+        });
+    }
+
+    const parts = [];
+    const toFormattedPart = (value, unitOfTime) => {
+        const partsArray = relativeTimeFormatInstance.formatToParts(value, unitOfTime);
+        const filteredParts = partsArray
+            .filter((part, index) => part.type === "integer" || (part.type === "literal" && index > 0))
+            .map((part) => part.value);
+
+        parts.push(filteredParts.join("").trim());
+    };
+
+    if (days > 0) {
+        toFormattedPart(days, "day");
+    }
+    if (hours > 0) {
+        toFormattedPart(hours, "hour");
+    }
+    if (minutes > 0) {
+        toFormattedPart(minutes, "minute");
+    }
+    if (secs > 0) {
+        toFormattedPart(secs, "second");
+    }
+
+    if (parts.length > 0) {
+        return parts.join(" ");
+    }
+    return relativeTimeFormatInstance.format(0, "second");
+}
