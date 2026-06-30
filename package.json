@@ -34,7 +34,7 @@
         "test": "bun run test:backend && bun run test-e2e",
         "test-with-build": "bun run build:frontend && bun run test:backend",
         "test:backend": "bun run test:backend:unit",
-        "test:backend:unit": "bun test ./test/backend-test/bun-sqlite-store.test.ts ./test/backend-test/http-client.test.ts ./test/backend-test/native-utils.test.ts ./test/backend-test/monitor-runtime-loading.test.ts ./test/backend-test/monitor-scheduler.test.ts ./test/backend-test/check-translations.test.ts ./test/backend-test/schema.test.ts ./test/backend-test/upgrade.test.ts ./test/backend-test/gamedig-map.test.ts ./test/backend-test/monitors/websocket.test.ts",
+        "test:backend:unit": "bun test ./test/backend-test/analytics-scripts.test.ts ./test/backend-test/bun-sqlite-store.test.ts ./test/backend-test/http-client.test.ts ./test/backend-test/native-utils.test.ts ./test/backend-test/monitor-runtime-loading.test.ts ./test/backend-test/monitor-scheduler.test.ts ./test/backend-test/check-translations.test.ts ./test/backend-test/schema.test.ts ./test/backend-test/upgrade.test.ts ./test/backend-test/gamedig-map.test.ts ./test/backend-test/monitors/websocket.test.ts",
         "test:backend:all": "bun test ./test/backend-test",
         "test-e2e": "playwright test --config ./config/playwright.config.ts",
         "test-e2e-ui": "playwright test --config ./config/playwright.config.ts --ui --ui-port=51063",
