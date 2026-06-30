@@ -15,7 +15,6 @@ class TestDB {
         };
         Database.writeDBConfig(Database.dbConfig);
         await Database.connect(true);
-        await Database.patch();
     }
 
     async destroy() {
