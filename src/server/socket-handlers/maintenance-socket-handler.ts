@@ -3,7 +3,7 @@
 import { checkLogin } from "@/server/util-server";
 import { log } from "@/util";
 import { R } from "@/server/redbean-compat";
-import apicache from "@/server/apicache";
+import { clearResponseCache } from "@/server/bun-response";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";
 import Maintenance from "@/server/model/maintenance";
 
@@ -93,7 +93,7 @@ export const maintenanceSocketHandler = (socket) => {
                 await R.store(bean);
             }
 
-            apicache.clear();
+            clearResponseCache();
 
             callback({
                 ok: true,
@@ -125,7 +125,7 @@ export const maintenanceSocketHandler = (socket) => {
                 await R.store(bean);
             }
 
-            apicache.clear();
+            clearResponseCache();
 
             callback({
                 ok: true,
@@ -237,7 +237,7 @@ export const maintenanceSocketHandler = (socket) => {
 
             await R.exec("DELETE FROM maintenance WHERE id = ? AND user_id = ? ", [maintenanceID, socket.userID]);
 
-            apicache.clear();
+            clearResponseCache();
 
             callback({
                 ok: true,
@@ -270,7 +270,7 @@ export const maintenanceSocketHandler = (socket) => {
             await R.store(maintenance);
             maintenance.stop();
 
-            apicache.clear();
+            clearResponseCache();
 
             callback({
                 ok: true,
@@ -303,7 +303,7 @@ export const maintenanceSocketHandler = (socket) => {
             await R.store(maintenance);
             await maintenance.run();
 
-            apicache.clear();
+            clearResponseCache();
 
             callback({
                 ok: true,

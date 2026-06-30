@@ -8,7 +8,6 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import timezone from "@/modules/dayjs/plugin/timezone/index";
-import { loadEnv } from "@/server/env";
 import { getRuntimeInfo, isBunRuntime } from "@/server/runtime";
 import { args } from "@/server/args";
 import { sleep, log, getRandomInt, genSecret } from "@/util";
@@ -68,7 +67,7 @@ import { maintenanceSocketHandler } from "@/server/socket-handlers/maintenance-s
 import { apiKeySocketHandler } from "@/server/socket-handlers/api-key-socket-handler";
 import { generalSocketHandler } from "@/server/socket-handlers/general-socket-handler";
 import { Settings } from "@/server/settings";
-import apicache from "@/server/apicache";
+import { clearResponseCache } from "@/server/bun-response";
 import { SetupDatabase } from "@/server/setup-database";
 import { chartSocketHandler } from "@/server/socket-handlers/chart-socket-handler";
 
@@ -78,9 +77,6 @@ console.log("Welcome to Uptime Kuma");
 dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(customParseFormat);
-
-// Load environment variables from `.env`
-loadEnv();
 
 if (!isBunRuntime()) {
     console.error("Error: uptime-buna now requires Bun. Start it with `bun src/server/server.ts`.");
@@ -975,7 +971,7 @@ let needSetup = false;
                 await Monitor.deleteMonitor(monitorID, socket.userID);
 
                 // Fix #2880
-                apicache.clear();
+                clearResponseCache();
 
                 const endTime = Date.now();
 
