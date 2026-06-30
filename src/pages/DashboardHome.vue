@@ -168,7 +168,7 @@ export default {
     mounted() {
         this.getImportantHeartbeatListLength();
 
-        this.$root.emitter.on("newImportantHeartbeat", this.onNewImportantHeartbeat);
+        this.$root.emitter.addEventListener("newImportantHeartbeat", this.onNewImportantHeartbeat);
 
         this.initialPerPage = this.perPage;
 
@@ -177,7 +177,7 @@ export default {
     },
 
     beforeUnmount() {
-        this.$root.emitter.off("newImportantHeartbeat", this.onNewImportantHeartbeat);
+        this.$root.emitter.removeEventListener("newImportantHeartbeat", this.onNewImportantHeartbeat);
 
         window.removeEventListener("resize", this.updatePerPage);
     },
@@ -212,7 +212,8 @@ export default {
          * @param {object} heartbeat - The heartbeat object received.
          * @returns {void}
          */
-        onNewImportantHeartbeat(heartbeat) {
+        onNewImportantHeartbeat(event) {
+            const heartbeat = event.detail;
             if (this.page === 1) {
                 this.displayedRecords.unshift(heartbeat);
                 if (this.displayedRecords.length > this.perPage) {

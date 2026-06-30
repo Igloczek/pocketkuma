@@ -2,7 +2,7 @@
 
 import { setSetting, setting } from "@/server/util-server";
 import httpClient from "@/server/http-client";
-import { compare as compareVersions } from "@/util/version-compare";
+
 import { log } from "@/util";
 import packageJson from "@/package-meta";
 
@@ -34,7 +34,7 @@ export const startInterval = () => {
             let checkBeta = await setting("checkBeta");
 
             if (checkBeta && res.data.beta) {
-                if (compareVersions(res.data.beta, res.data.slow, ">")) {
+                if (Bun.semver.order(res.data.beta, res.data.slow) > 0) {
                     latestVersion = res.data.beta;
                     return;
                 }
