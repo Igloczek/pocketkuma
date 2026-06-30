@@ -11,6 +11,7 @@ import packageJson from "../package.json" with { type: "json" };
 
 const viteCompressionFilter = /\.(js|mjs|json|css|html|svg)$/i;
 const serviceWorkerEntry = path.resolve(import.meta.dirname, "../src/serviceWorker.ts");
+const analyze = process.env.ANALYZE === "1" || process.env.ANALYZE === "true";
 
 function serviceWorkerDevRoute() {
     return {
@@ -58,17 +59,18 @@ export default defineConfig({
     plugins: [
         vue(),
         serviceWorkerDevRoute(),
-        visualizer({
-            filename: "../tmp/dist-stats.html",
-        }),
-        viteCompression({
-            algorithm: "gzip",
-            filter: viteCompressionFilter,
-        }),
         viteCompression({
             algorithm: "brotliCompress",
             filter: viteCompressionFilter,
         }),
+        ...(analyze
+            ? [
+                  visualizer({
+                      filename: path.resolve(import.meta.dirname, "../tmp/dist-stats.html"),
+                      open: false,
+                  }),
+              ]
+            : []),
     ],
     css: {
         postcss: {
