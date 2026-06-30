@@ -7,7 +7,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Database as BunDatabase } from "bun:sqlite";
 import dayjs from "dayjs";
-import { filterStoreRow } from "@/db/schema/column-metadata";
+import {
+    filterStoreRow,
+    monitorPropertyColumns,
+    monitorSnakePrecedenceColumns,
+    normalizeBoolean,
+    normalizeMonitorColumnValue,
+} from "@/db/schema/column-metadata";
 import { addColumnIfMissing as addSchemaColumnIfMissing, runPendingUpgrades } from "@/server/db-migrations";
 
 // Bun-only hybrid: lazy require() avoids top-level model imports that would create
@@ -73,145 +79,42 @@ const modelMap = {
     domain_expiry: () => loadModel("@/server/model/domain_expiry"),
 };
 
-const monitorPropertyColumns = {
-    authDomain: "auth_domain",
-    authMethod: "auth_method",
-    authWorkstation: "auth_workstation",
-    bearerToken: "bearer_token",
-    cacheBust: "cache_bust",
-    databaseConnectionString: "database_connection_string",
-    databaseQuery: "database_query",
-    dnsResolveServer: "dns_resolve_server",
-    dnsResolveType: "dns_resolve_type",
-    domainExpiryNotification: "domain_expiry_notification",
-    expectedTlsAlert: "expected_tls_alert",
-    expectedValue: "expected_value",
-    expiryNotification: "expiry_notification",
-    gamedigGivenPortOnly: "gamedig_given_port_only",
-    gamedigToken: "gamedig_token",
-    grpcBody: "grpc_body",
-    grpcEnableTls: "grpc_enable_tls",
-    grpcMetadata: "grpc_metadata",
-    grpcMethod: "grpc_method",
-    grpcProtobuf: "grpc_protobuf",
-    grpcServiceName: "grpc_service_name",
-    grpcUrl: "grpc_url",
-    httpBodyEncoding: "http_body_encoding",
-    ignoreTls: "ignore_tls",
-    invertKeyword: "invert_keyword",
-    ipFamily: "ip_family",
-    jsonPath: "json_path",
-    jsonPathOperator: "json_path_operator",
-    kafkaProducerAllowAutoTopicCreation: "kafka_producer_allow_auto_topic_creation",
-    kafkaProducerBrokers: "kafka_producer_brokers",
-    kafkaProducerMessage: "kafka_producer_message",
-    kafkaProducerSaslOptions: "kafka_producer_sasl_options",
-    kafkaProducerSsl: "kafka_producer_ssl",
-    kafkaProducerTopic: "kafka_producer_topic",
-    manualStatus: "manual_status",
-    mqttCheckType: "mqtt_check_type",
-    mqttPassword: "mqtt_password",
-    mqttSuccessMessage: "mqtt_success_message",
-    mqttTopic: "mqtt_topic",
-    mqttUsername: "mqtt_username",
-    mqttWebsocketPath: "mqtt_websocket_path",
-    oauthAudience: "oauth_audience",
-    oauthAuthMethod: "oauth_auth_method",
-    oauthClientId: "oauth_client_id",
-    oauthClientSecret: "oauth_client_secret",
-    oauthScopes: "oauth_scopes",
-    oauthTokenUrl: "oauth_token_url",
-    packetSize: "packet_size",
-    pingCount: "ping_count",
-    pingNumeric: "ping_numeric",
-    pingPerRequestTimeout: "ping_per_request_timeout",
-    proxyId: "proxy_id",
-    pushToken: "push_token",
-    rabbitmqNodes: "rabbitmq_nodes",
-    rabbitmqPassword: "rabbitmq_password",
-    rabbitmqUsername: "rabbitmq_username",
-    radiusCalledStationId: "radius_called_station_id",
-    radiusCallingStationId: "radius_calling_station_id",
-    radiusPassword: "radius_password",
-    radiusSecret: "radius_secret",
-    radiusUsername: "radius_username",
-    resendInterval: "resend_interval",
-    responseMaxLength: "response_max_length",
-    retryInterval: "retry_interval",
-    retryOnlyOnStatusCodeFailure: "retry_only_on_status_code_failure",
-    remoteBrowser: "remote_browser",
-    saveErrorResponse: "save_error_response",
-    saveResponse: "save_response",
-    screenshotDelay: "screenshot_delay",
-    smtpSecurity: "smtp_security",
-    snmpOid: "snmp_oid",
-    snmpVersion: "snmp_version",
-    snmpV3Username: "snmp_v3_username",
-    systemServiceName: "system_service_name",
-    tlsCa: "tls_ca",
-    tlsCert: "tls_cert",
-    tlsKey: "tls_key",
-    upsideDown: "upside_down",
-    wsIgnoreSecWebsocketAcceptHeader: "ws_ignore_sec_websocket_accept_header",
-    wsSubprotocol: "ws_subprotocol",
-};
-
-const monitorBooleanColumns = new Set([
-    "cache_bust",
-    "domain_expiry_notification",
-    "expiry_notification",
-    "gamedig_given_port_only",
-    "grpc_enable_tls",
-    "ignore_tls",
-    "invert_keyword",
-    "kafka_producer_allow_auto_topic_creation",
-    "kafka_producer_ssl",
-    "ping_numeric",
-    "retry_only_on_status_code_failure",
-    "save_error_response",
-    "save_response",
-    "upside_down",
-    "ws_ignore_sec_websocket_accept_header",
-]);
-
-const monitorSnakePrecedenceColumns = new Set([
-    "response_max_length",
-    "retry_only_on_status_code_failure",
-    "save_error_response",
-    "save_response",
-]);
+const monitorMappedProperties = new Set(Object.keys(monitorPropertyColumns));
 
 function normalizeSql(sql) {
     return sql.replace(/`/g, '"');
 }
 
-function normalizeBoolean(value) {
-    if (value === true || value === 1 || value === "1") {
-        return true;
-    }
-    if (value === false || value === 0 || value === "0" || value === "" || value === null || value === undefined) {
-        return false;
-    }
-    return Boolean(value);
-}
+function resolveMonitorField(row, property, column, { forStore = false } = {}) {
+    const hasColumn = forStore
+        ? row[column] !== undefined
+        : row[column] !== undefined && row[column] !== null;
+    const hasProperty = forStore
+        ? row[property] !== undefined
+        : row[property] !== undefined && row[property] !== null;
 
-function normalizeMonitorColumnValue(column, value) {
-    if (monitorBooleanColumns.has(column)) {
-        return normalizeBoolean(value);
+    if (!hasColumn && !hasProperty) {
+        return undefined;
     }
-    return value;
+
+    let raw;
+    if (forStore) {
+        const preferColumn = monitorSnakePrecedenceColumns.has(column);
+        raw = preferColumn && hasColumn ? row[column] : hasProperty ? row[property] : row[column];
+    } else {
+        raw = hasColumn ? row[column] : row[property];
+    }
+
+    return normalizeMonitorColumnValue(column, raw);
 }
 
 function normalizeMonitorRow(row) {
     const result = { ...row };
     for (const [property, column] of Object.entries(monitorPropertyColumns)) {
-        const hasColumn = result[column] !== undefined && result[column] !== null;
-        const hasProperty = result[property] !== undefined && result[property] !== null;
-        if (!hasColumn && !hasProperty) {
+        const value = resolveMonitorField(result, property, column);
+        if (value === undefined) {
             continue;
         }
-
-        const value = normalizeMonitorColumnValue(column, hasColumn ? result[column] : result[property]);
         result[column] = value;
         result[property] = value;
     }
@@ -232,24 +135,13 @@ function normalizeRowForStore(table, row) {
         return row;
     }
 
-    const result = {};
-    const mappedProperties = new Set(Object.keys(monitorPropertyColumns));
-    for (const [key, value] of Object.entries(row)) {
-        if (!mappedProperties.has(key)) {
-            result[key] = value;
-        }
-    }
+    const result = Object.fromEntries(Object.entries(row).filter(([key]) => !monitorMappedProperties.has(key)));
 
     for (const [property, column] of Object.entries(monitorPropertyColumns)) {
-        const hasProperty = row[property] !== undefined;
-        const hasColumn = row[column] !== undefined;
-        if (!hasProperty && !hasColumn) {
-            continue;
+        const value = resolveMonitorField(row, property, column, { forStore: true });
+        if (value !== undefined) {
+            result[column] = value;
         }
-
-        const preferColumn = monitorSnakePrecedenceColumns.has(column);
-        const value = preferColumn && hasColumn ? row[column] : hasProperty ? row[property] : row[column];
-        result[column] = normalizeMonitorColumnValue(column, value);
     }
 
     return result;
