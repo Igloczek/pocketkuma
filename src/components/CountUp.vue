@@ -5,7 +5,7 @@
 </template>
 
 <script lang="ts">
-import { sleep } from "@/util";
+import { sleep } from "@/util-shared";
 
 export default {
     props: {

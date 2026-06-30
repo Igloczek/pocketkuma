@@ -636,7 +636,7 @@ import {
     STATUS_PAGE_PARTIAL_DOWN,
     UP,
     MAINTENANCE,
-} from "@/util";
+} from "@/constants";
 import Tag from "@/components/Tag.vue";
 import VueMultiselect from "vue-multiselect";
 

@@ -149,7 +149,7 @@ import Confirm from "@/components/Confirm.vue";
 import Tag from "@/components/Tag.vue";
 import VueMultiselect from "vue-multiselect";
 import { colorOptions } from "@/util-frontend";
-import { getMonitorRelativeURL } from "@/util";
+import { getMonitorRelativeURL } from "@/util-shared";
 
 export default {
     components: {

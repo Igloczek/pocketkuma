@@ -19,7 +19,7 @@
 
 <script>
 import dayjs from "dayjs";
-import { SQL_DATETIME_FORMAT_WITHOUT_SECOND } from "@/util";
+import { SQL_DATETIME_FORMAT_WITHOUT_SECOND } from "@/constants";
 
 export default {
     props: {
