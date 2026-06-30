@@ -110,7 +110,7 @@
 </template>
 
 <script>
-import { getResBaseURL } from "@/util-frontend";
+import { getDevBaseURL } from "@/util/dev-base-url";
 import Confirm from "@/components/Confirm.vue";
 import MaintenanceTime from "@/components/MaintenanceTime.vue";
 
@@ -157,7 +157,7 @@ export default {
             if (icon === "/icon.svg") {
                 return icon;
             } else {
-                return getResBaseURL() + icon;
+                return getDevBaseURL() + icon;
             }
         },
 

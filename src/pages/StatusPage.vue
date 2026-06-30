@@ -607,7 +607,7 @@
 </template>
 
 <script>
-import { fetchDevApi } from "@/util/dev-api-base";
+import { fetchDevApi, getDevBaseURL } from "@/util/dev-base-url";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { updateFaviconBadge } from "@/util/favicon-badge";
@@ -628,7 +628,7 @@ import MaintenanceTime from "@/components/MaintenanceTime.vue";
 import IncidentHistory from "@/components/IncidentHistory.vue";
 import IncidentManageModal from "@/components/IncidentManageModal.vue";
 import IncidentEditForm from "@/components/IncidentEditForm.vue";
-import { getResBaseURL } from "@/util-frontend";
+
 import {
     STATUS_PAGE_ALL_DOWN,
     STATUS_PAGE_ALL_UP,
@@ -968,7 +968,7 @@ export default {
         });
 
         // Special handle for dev
-        this.baseURL = getResBaseURL();
+        this.baseURL = getDevBaseURL();
     },
     async mounted() {
         this.slug = this.overrideSlug || this.$route.params.slug;

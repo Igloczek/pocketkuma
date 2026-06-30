@@ -63,7 +63,7 @@
 
 <script>
 import Confirm from "@/components/Confirm.vue";
-import { getResBaseURL } from "@/util-frontend";
+import { getDevBaseURL } from "@/util/dev-base-url";
 
 export default {
     components: {
@@ -86,7 +86,7 @@ export default {
             if (icon === "/icon.svg") {
                 return icon;
             } else {
-                return getResBaseURL() + icon;
+                return getDevBaseURL() + icon;
             }
         },
         deleteDialog(slug) {

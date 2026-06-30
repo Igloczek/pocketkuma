@@ -5,12 +5,8 @@ import { updateFaviconBadge } from "@/util/favicon-badge";
 import { createNativeWebSocket } from "@/util/native-websocket-client";
 
 import { DOWN, MAINTENANCE, PENDING, UP } from "@/constants";
-import {
-    getDevContainerServerHostname,
-    isDevContainer,
-    getToastSuccessTimeout,
-    getToastErrorTimeout,
-} from "@/util-frontend";
+import { getDevBaseURL } from "@/util/dev-base-url";
+import { getToastSuccessTimeout, getToastErrorTimeout } from "@/util-frontend";
 const toast = useToast();
 
 let socket;
@@ -94,18 +90,8 @@ export default {
 
             this.socket.initedSocketIO = true;
 
-            let protocol = location.protocol + "//";
-
-            let url;
-            const env = process.env.NODE_ENV || "production";
-            if (env === "development" && isDevContainer()) {
-                url = protocol + getDevContainerServerHostname();
-            } else if (env === "development" || localStorage.dev === "dev") {
-                url = protocol + location.hostname + ":3001";
-            } else {
-                // Connect to the current url
-                url = undefined;
-            }
+            const devBaseURL = getDevBaseURL();
+            const url = devBaseURL || undefined;
 
             socket = createNativeWebSocket(url);
 

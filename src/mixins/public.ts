@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { getDevApiBaseURL } from "@/util/dev-api-base";
+import { getDevBaseURL } from "@/util/dev-base-url";
 
 const env = process.env.NODE_ENV || "production";
 
@@ -39,7 +39,7 @@ export default {
             }
 
             if (env === "development" || localStorage.dev === "dev") {
-                return getDevApiBaseURL();
+                return getDevBaseURL();
             } else {
                 return location.protocol + "//" + location.host;
             }
