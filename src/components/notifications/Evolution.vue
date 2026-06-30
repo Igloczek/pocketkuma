@@ -65,12 +65,12 @@
 
     <template v-if="$parent.notification.evolutionUseCustomMessage">
         <div class="mb-3">
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="evolution-custom-message"
                 v-model="$parent.notification.evolutionCustomMessage"
                 :required="true"
                 :placeholder="customMessagePlaceholder"
-            ></TemplatedTextarea>
+            ></TemplatedField>
         </div>
     </template>
 
@@ -81,12 +81,12 @@
 
 <script>
 import HiddenInput from "@/components/HiddenInput.vue";
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     components: {
         HiddenInput,
-        TemplatedTextarea,
+        TemplatedField,
     },
     computed: {
         customMessagePlaceholder() {

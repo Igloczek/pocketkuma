@@ -50,12 +50,12 @@
             </template>
         </i18n-t>
         <template v-else-if="$parent.notification.webhookContentType == 'custom'">
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="customBody"
                 v-model="$parent.notification.webhookCustomBody"
                 :required="true"
                 :placeholder="customBodyPlaceholder"
-            ></TemplatedTextarea>
+            ></TemplatedField>
         </template>
     </div>
 
@@ -77,11 +77,11 @@
 </template>
 
 <script>
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     components: {
-        TemplatedTextarea,
+        TemplatedField,
     },
     data() {
         return {

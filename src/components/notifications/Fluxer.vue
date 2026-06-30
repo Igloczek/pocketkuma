@@ -49,23 +49,23 @@
     <div v-show="$parent.notification.fluxerMessageFormat === 'custom'">
         <div class="mb-3">
             <label for="fluxer-message-template" class="form-label">{{ $t("fluxerMessageTemplate") }}</label>
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="fluxer-message-template"
                 v-model="$parent.notification.fluxerMessageTemplate"
                 :required="false"
                 placeholder=""
-            ></TemplatedTextarea>
+            ></TemplatedField>
             <div class="form-text">{{ $t("fluxerUseMessageTemplateDescription") }}</div>
         </div>
     </div>
 </template>
 <script>
 import HiddenInput from "@/components/HiddenInput.vue";
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     components: {
-        TemplatedTextarea,
+        TemplatedField,
         HiddenInput,
     },
     mounted() {

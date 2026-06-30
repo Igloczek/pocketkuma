@@ -99,12 +99,12 @@
             </i18n-t>
 
             <label class="form-label" for="message_template">{{ $t("Message Template") }}</label>
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="message_template"
                 v-model="$parent.notification.telegramTemplate"
                 :required="true"
                 :placeholder="telegramTemplatedTextareaPlaceholder"
-            ></TemplatedTextarea>
+            ></TemplatedField>
         </div>
     </template>
 
@@ -133,12 +133,12 @@
 
 <script>
 import HiddenInput from "@/components/HiddenInput.vue";
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     components: {
         HiddenInput,
-        TemplatedTextarea,
+        TemplatedField,
     },
     computed: {
         telegramTemplatedTextareaPlaceholder() {
