@@ -4,7 +4,6 @@ import NotificationProvider from "@/server/notification-providers/notification-p
 import { DOWN, UP } from "@/util";
 import httpClient from "@/server/http-client";
 import Crypto from "crypto";
-import formUrlencode from "@/util/form-urlencode";
 
 class AliyunSMS extends NotificationProvider {
     name = "AliyunSMS";
@@ -75,7 +74,11 @@ class AliyunSMS extends NotificationProvider {
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
             },
-            data: formUrlencode(params),
+            data: new URLSearchParams(
+                Object.entries(params)
+                    .filter(([, value]) => value != null)
+                    .map(([key, value]) => [key, String(value)])
+            ).toString(),
         };
 
         config = this.getAxiosConfigWithProxy(config);

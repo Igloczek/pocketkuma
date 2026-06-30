@@ -3098,14 +3098,63 @@ import {
     TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD,
 } from "@/util";
 import { timeDurationFormatter } from "@/util-frontend";
-import isFQDN from "@/util/is-fqdn";
-import isIP from "@/util/is-ip";
 import HiddenInput from "@/components/HiddenInput.vue";
 import EditMonitorConditions from "@/components/EditMonitorConditions.vue";
 
 const toast = useToast();
 
 const pushTokenLength = 32;
+
+const IPV4_PATTERN = /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)$/;
+const HOSTNAME_LABEL_PATTERN = /^[a-zA-Z0-9_](?:[a-zA-Z0-9-_]{0,61}[a-zA-Z0-9_])?$/;
+
+function isHostnameIP(hostname) {
+    if (typeof hostname !== "string" || hostname.includes("/")) {
+        return false;
+    }
+
+    if (IPV4_PATTERN.test(hostname)) {
+        return true;
+    }
+
+    try {
+        new URL(`http://[${hostname}]`);
+        return hostname.includes(":");
+    } catch {
+        return false;
+    }
+}
+
+function isMonitorHostname(hostname, { allowWildcard = false } = {}) {
+    if (typeof hostname !== "string" || hostname.length === 0) {
+        return false;
+    }
+
+    let host = hostname;
+    if (host.endsWith(".")) {
+        host = host.slice(0, -1);
+    }
+
+    if (host.length === 0) {
+        return false;
+    }
+
+    for (const label of host.split(".")) {
+        if (label.length === 0) {
+            return false;
+        }
+
+        if (allowWildcard && label === "*") {
+            continue;
+        }
+
+        if (!HOSTNAME_LABEL_PATTERN.test(label)) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 const defaultValueList = {
     http: {
@@ -3985,22 +4034,19 @@ message HealthCheckResponse {
             ) {
                 let hostname = this.monitor.hostname.trim();
 
-                if (this.monitor.type === "dns" && this.monitor.dns_resolve_type !== "PTR" && isIP(hostname)) {
+                if (this.monitor.type === "dns" && this.monitor.dns_resolve_type !== "PTR" && isHostnameIP(hostname)) {
                     toast.error(this.$t("hostnameCannotBeIP"));
                     return false;
                 }
 
-                // Root zone "." is valid for DNS but not recognized by isFQDN
+                // Root zone "." is valid for DNS but not recognized by hostname label validation
                 const isRootZone = this.monitor.type === "dns" && hostname === ".";
                 if (
                     !isRootZone &&
-                    !isFQDN(hostname, {
-                        allow_wildcard: this.monitor.type === "dns",
-                        require_tld: false,
-                        allow_underscores: true,
-                        allow_trailing_dot: true,
+                    !isMonitorHostname(hostname, {
+                        allowWildcard: this.monitor.type === "dns",
                     }) &&
-                    !isIP(hostname)
+                    !isHostnameIP(hostname)
                 ) {
                     if (this.monitor.type === "dns") {
                         toast.error(this.$t("invalidDNSHostname"));
