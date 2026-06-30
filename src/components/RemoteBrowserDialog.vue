@@ -118,7 +118,7 @@ export default {
 
                 this.id = remoteBrowserID;
 
-                for (let n of this.$root.remoteBrowserList) {
+                for (let n of this.appStore.remoteBrowserList) {
                     if (n.id === remoteBrowserID) {
                         this.remoteBrowser = n;
                         found = true;
@@ -127,7 +127,7 @@ export default {
                 }
 
                 if (!found) {
-                    this.$root.toastError(this.$t("Remote Browser not found!"));
+                    this.appStore.toastError(this.$t("Remote Browser not found!"));
                 }
             } else {
                 this.id = null;
@@ -146,8 +146,8 @@ export default {
          */
         submit() {
             this.processing = true;
-            this.$root.getSocket().emit("addRemoteBrowser", this.remoteBrowser, this.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("addRemoteBrowser", this.remoteBrowser, this.id, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok) {
@@ -167,8 +167,8 @@ export default {
          */
         test() {
             this.processing = true;
-            this.$root.getSocket().emit("testRemoteBrowser", this.remoteBrowser, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("testRemoteBrowser", this.remoteBrowser, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
             });
         },
@@ -179,8 +179,8 @@ export default {
          */
         deleteDockerHost() {
             this.processing = true;
-            this.$root.getSocket().emit("deleteRemoteBrowser", this.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("deleteRemoteBrowser", this.id, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok) {

@@ -87,7 +87,7 @@ export default {
          */
         tagsUpdated() {
             this.getExistingTags();
-            this.$root.getMonitorList();
+            this.appStore.getMonitorList();
         },
 
         /**
@@ -96,12 +96,12 @@ export default {
          */
         getExistingTags() {
             this.processing = true;
-            this.$root.getSocket().emit("getTags", (res) => {
+            this.appStore.getSocket().emit("getTags", (res) => {
                 this.processing = false;
                 if (res.ok) {
                     this.tagsList = res.tags;
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },
@@ -140,8 +140,8 @@ export default {
          */
         deleteTag() {
             this.processing = true;
-            this.$root.getSocket().emit("deleteTag", this.deletingTag.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("deleteTag", this.deletingTag.id, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok) {
@@ -156,7 +156,7 @@ export default {
          * @returns {object[]} list of monitors which has a specific tag
          */
         monitorsByTag(tagId) {
-            return Object.values(this.$root.monitorList).filter((monitor) => {
+            return Object.values(this.appStore.monitorList).filter((monitor) => {
                 return monitor.tags.find((monitorTag) => monitorTag.tag_id === tagId);
             });
         },

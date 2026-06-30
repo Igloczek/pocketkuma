@@ -2,6 +2,8 @@
 import { useToast } from "vue-toastification";
 import dayjs from "dayjs";
 import { createNativeWebSocket } from "@/util/native-websocket-client";
+import { i18n } from "@/i18n";
+import { router } from "@/router";
 import { getDevBaseURL } from "@/util/dev-base-url";
 import { getToastSuccessTimeout, getToastErrorTimeout } from "@/util-frontend";
 
@@ -79,77 +81,79 @@ export function disconnectSocket() {
 }
 
 /**
- * Register all socket event handlers on the Vue root context.
- * @param {object} context Vue component instance
+ * Register all socket event handlers on the app store.
+ * @param {object} store Pinia app store
  * @returns {void}
  */
-function registerSocketHandlers(context) {
+function registerSocketHandlers(store) {
+    const t = i18n.global.t;
+
     socket.on("info", (info) => {
-        context.info = info;
+        store.info = info;
     });
 
     socket.on("setup", () => {
-        context.$router.push("/setup");
+        router.push("/setup");
     });
 
     socket.on("autoLogin", () => {
-        context.loggedIn = true;
-        context.storage().token = "autoLogin";
-        context.socket.token = "autoLogin";
-        context.allowLoginDialog = false;
+        store.loggedIn = true;
+        store.storage().token = "autoLogin";
+        store.socket.token = "autoLogin";
+        store.allowLoginDialog = false;
     });
 
     socket.on("loginRequired", () => {
-        const token = context.storage().token;
+        const token = store.storage().token;
         if (token && token !== "autoLogin") {
-            context.loginByToken(token);
+            store.loginByToken(token);
         } else {
-            context.$root.storage().removeItem("token");
-            context.allowLoginDialog = true;
+            store.storage().removeItem("token");
+            store.allowLoginDialog = true;
         }
     });
 
     socket.on("monitorList", (data) => {
-        context.assignMonitorUrlParser(data);
-        context.monitorList = data;
+        store.assignMonitorUrlParser(data);
+        store.monitorList = data;
     });
 
     socket.on("updateMonitorIntoList", (data) => {
-        context.assignMonitorUrlParser(data);
+        store.assignMonitorUrlParser(data);
         Object.entries(data).forEach(([monitorID, updatedMonitor]) => {
-            context.monitorList[monitorID] = updatedMonitor;
+            store.monitorList[monitorID] = updatedMonitor;
         });
     });
 
     socket.on("deleteMonitorFromList", (monitorID) => {
-        if (context.monitorList[monitorID]) {
-            delete context.monitorList[monitorID];
+        if (store.monitorList[monitorID]) {
+            delete store.monitorList[monitorID];
         }
     });
 
     socket.on("monitorTypeList", (data) => {
-        context.monitorTypeList = data;
+        store.monitorTypeList = data;
     });
 
     socket.on("maintenanceList", (data) => {
-        context.maintenanceList = data;
+        store.maintenanceList = data;
     });
 
     socket.on("apiKeyList", (data) => {
-        context.apiKeyList = data;
+        store.apiKeyList = data;
     });
 
     socket.on("notificationList", (data) => {
-        context.notificationList = data;
+        store.notificationList = data;
     });
 
     socket.on("statusPageList", (data) => {
-        context.statusPageListLoaded = true;
-        context.statusPageList = data;
+        store.statusPageListLoaded = true;
+        store.statusPageList = data;
     });
 
     socket.on("proxyList", (data) => {
-        context.proxyList = data.map((item) => {
+        store.proxyList = data.map((item) => {
             item.auth = !!item.auth;
             item.active = !!item.active;
             item.default = !!item.default;
@@ -159,99 +163,99 @@ function registerSocketHandlers(context) {
     });
 
     socket.on("dockerHostList", (data) => {
-        context.dockerHostList = data;
+        store.dockerHostList = data;
     });
 
     socket.on("remoteBrowserList", (data) => {
-        context.remoteBrowserList = data;
+        store.remoteBrowserList = data;
     });
 
     socket.on("heartbeat", (data) => {
-        if (!(data.monitorID in context.heartbeatList)) {
-            context.heartbeatList[data.monitorID] = [];
+        if (!(data.monitorID in store.heartbeatList)) {
+            store.heartbeatList[data.monitorID] = [];
         }
 
-        context.heartbeatList[data.monitorID].push(data);
+        store.heartbeatList[data.monitorID].push(data);
 
-        if (context.heartbeatList[data.monitorID].length >= 150) {
-            context.heartbeatList[data.monitorID].shift();
+        if (store.heartbeatList[data.monitorID].length >= 150) {
+            store.heartbeatList[data.monitorID].shift();
         }
 
         if (data.important) {
-            if (context.monitorList[data.monitorID] !== undefined) {
+            if (store.monitorList[data.monitorID] !== undefined) {
                 if (data.status === 0) {
-                    toast.error(`[${context.monitorList[data.monitorID].name}] [DOWN] ${data.msg}`, {
+                    toast.error(`[${store.monitorList[data.monitorID].name}] [DOWN] ${data.msg}`, {
                         timeout: getToastErrorTimeout(),
                     });
                 } else if (data.status === 1) {
-                    toast.success(`[${context.monitorList[data.monitorID].name}] [Up] ${data.msg}`, {
+                    toast.success(`[${store.monitorList[data.monitorID].name}] [Up] ${data.msg}`, {
                         timeout: getToastSuccessTimeout(),
                     });
                 } else {
-                    toast(`[${context.monitorList[data.monitorID].name}] ${data.msg}`);
+                    toast(`[${store.monitorList[data.monitorID].name}] ${data.msg}`);
                 }
             }
 
-            context.emitter.dispatchEvent(new CustomEvent("newImportantHeartbeat", { detail: data }));
+            store.emitter.emit("newImportantHeartbeat", data);
         }
     });
 
     socket.on("heartbeatList", (monitorID, data, overwrite = false) => {
-        if (!(monitorID in context.heartbeatList) || overwrite) {
-            context.heartbeatList[monitorID] = data;
+        if (!(monitorID in store.heartbeatList) || overwrite) {
+            store.heartbeatList[monitorID] = data;
         } else {
-            context.heartbeatList[monitorID] = data.concat(context.heartbeatList[monitorID]);
+            store.heartbeatList[monitorID] = data.concat(store.heartbeatList[monitorID]);
         }
     });
 
     socket.on("avgPing", (monitorID, data) => {
-        context.avgPingList[monitorID] = data;
+        store.avgPingList[monitorID] = data;
     });
 
     socket.on("uptime", (monitorID, type, data) => {
-        context.uptimeList[`${monitorID}_${type}`] = data;
+        store.uptimeList[`${monitorID}_${type}`] = data;
     });
 
     socket.on("certInfo", (monitorID, data) => {
-        context.tlsInfoList[monitorID] = JSON.parse(data);
+        store.tlsInfoList[monitorID] = JSON.parse(data);
     });
 
     socket.on("domainInfo", (monitorID, daysRemaining, expiresOn) => {
-        context.domainInfoList[monitorID] = { daysRemaining: daysRemaining, expiresOn: expiresOn };
+        store.domainInfoList[monitorID] = { daysRemaining: daysRemaining, expiresOn: expiresOn };
     });
 
     socket.on("connect_error", (err) => {
         console.error(`Failed to connect to the backend. WebSocket connect_error: ${err.message || err.type || err}`);
-        context.connectionErrorMsg = `${context.$t("Cannot connect to the socket server.")} [${err}] ${context.$t("Reconnecting...")}`;
-        context.showReverseProxyGuide = true;
-        context.socket.connected = false;
-        context.socket.firstConnect = false;
+        store.connectionErrorMsg = `${t("Cannot connect to the socket server.")} [${err}] ${t("Reconnecting...")}`;
+        store.showReverseProxyGuide = true;
+        store.socket.connected = false;
+        store.socket.firstConnect = false;
     });
 
     socket.on("disconnect", () => {
         console.log("disconnect");
-        context.connectionErrorMsg = `${context.$t("Lost connection to the socket server.")} ${context.$t("Reconnecting...")}`;
-        context.socket.connected = false;
+        store.connectionErrorMsg = `${t("Lost connection to the socket server.")} ${t("Reconnecting...")}`;
+        store.socket.connected = false;
     });
 
     socket.on("connect", () => {
         console.log("Connected to the socket server");
-        context.socket.connectCount++;
-        context.socket.connected = true;
-        context.showReverseProxyGuide = false;
+        store.socket.connectCount++;
+        store.socket.connected = true;
+        store.showReverseProxyGuide = false;
 
-        if (context.socket.connectCount >= 2) {
-            context.clearData();
+        if (store.socket.connectCount >= 2) {
+            store.clearData();
         }
 
-        context.socket.firstConnect = false;
+        store.socket.firstConnect = false;
     });
 
-    socket.on("cloudflared_installed", (res) => (context.cloudflared.installed = res));
-    socket.on("cloudflared_running", (res) => (context.cloudflared.running = res));
-    socket.on("cloudflared_message", (res) => (context.cloudflared.message = res));
-    socket.on("cloudflared_errorMessage", (res) => (context.cloudflared.errorMessage = res));
-    socket.on("cloudflared_token", (res) => (context.cloudflared.cloudflareTunnelToken = res));
+    socket.on("cloudflared_installed", (res) => (store.cloudflared.installed = res));
+    socket.on("cloudflared_running", (res) => (store.cloudflared.running = res));
+    socket.on("cloudflared_message", (res) => (store.cloudflared.message = res));
+    socket.on("cloudflared_errorMessage", (res) => (store.cloudflared.errorMessage = res));
+    socket.on("cloudflared_token", (res) => (store.cloudflared.cloudflareTunnelToken = res));
 
     socket.on("initServerTimezone", () => {
         socket.emit("initServerTimezone", dayjs.tz.guess());
@@ -264,12 +268,12 @@ function registerSocketHandlers(context) {
 
 /**
  * Initialize connection to socket server.
- * @param {object} context Vue component instance
+ * @param {object} store Pinia app store
  * @param {boolean} bypass Should the check for status pages be bypassed?
  * @returns {void}
  */
-export function initSocket(context, bypass = false) {
-    if (context.socket.initedSocketIO) {
+export function initSocket(store, bypass = false) {
+    if (store.socket.initedSocketIO) {
         return;
     }
 
@@ -277,7 +281,7 @@ export function initSocket(context, bypass = false) {
         return;
     }
 
-    context.socket.initedSocketIO = true;
+    store.socket.initedSocketIO = true;
     socket = createNativeWebSocket(resolveSocketUrl());
-    registerSocketHandlers(context);
+    registerSocketHandlers(store);
 }

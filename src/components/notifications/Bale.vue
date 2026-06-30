@@ -103,7 +103,7 @@ export default {
                     throw new Error(this.$t("chatIDNotFound"));
                 }
             } catch (error) {
-                this.$root.toastError(error.message);
+                this.appStore.toastError(error.message);
             }
         },
     },

@@ -82,7 +82,7 @@
                     </label>
                 </div>
 
-                <div v-for="statusPage in $root.statusPageList" :key="statusPage.id" class="form-check">
+                <div v-for="statusPage in appStore.statusPageList" :key="statusPage.id" class="form-check">
                     <input
                         :id="'status-page-' + statusPage.id"
                         v-model="settings.entryPage"
@@ -151,7 +151,7 @@
             </div>
 
             <!-- DNS Cache (nscd) -->
-            <div v-if="$root.info.isContainer" class="mb-4">
+            <div v-if="appStore.info.isContainer" class="mb-4">
                 <label class="form-label">
                     {{ $t("enableNSCD") }}
                 </label>
@@ -273,8 +273,8 @@ export default {
          * @returns {void}
          */
         testChrome() {
-            this.$root.getSocket().emit("testChrome", this.settings.chromeExecutable, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("testChrome", this.settings.chromeExecutable, (res) => {
+                this.appStore.toastRes(res);
             });
         },
     },

@@ -133,7 +133,7 @@ export default {
     },
     computed: {
         sortedMaintenanceList() {
-            let result = Object.values(this.$root.maintenanceList);
+            let result = Object.values(this.appStore.maintenanceList);
 
             result.sort((m1, m2) => {
                 if (this.statusOrderList[m1.status] === this.statusOrderList[m2.status]) {
@@ -177,8 +177,8 @@ export default {
          * @returns {void}
          */
         deleteMaintenance() {
-            this.$root.deleteMaintenance(this.selectedMaintenanceID, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.deleteMaintenance(this.selectedMaintenanceID, (res) => {
+                this.appStore.toastRes(res);
                 if (res.ok) {
                     this.$router.push("/maintenance");
                 }
@@ -201,8 +201,8 @@ export default {
          * @returns {void}
          */
         pauseMaintenance() {
-            this.$root.getSocket().emit("pauseMaintenance", this.selectedMaintenanceID, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("pauseMaintenance", this.selectedMaintenanceID, (res) => {
+                this.appStore.toastRes(res);
             });
         },
 
@@ -212,8 +212,8 @@ export default {
          * @returns {void}
          */
         resumeMaintenance(id) {
-            this.$root.getSocket().emit("resumeMaintenance", id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("resumeMaintenance", id, (res) => {
+                this.appStore.toastRes(res);
             });
         },
     },

@@ -1,7 +1,7 @@
 <template>
     <div>
         <div class="notification-list my-4">
-            <p v-if="$root.notificationList.length === 0">
+            <p v-if="appStore.notificationList.length === 0">
                 {{ $t("Not available, please setup.") }}
             </p>
             <p v-else>
@@ -9,7 +9,7 @@
             </p>
 
             <ul class="list-group mb-3" style="border-radius: 1rem">
-                <li v-for="(notification, index) in $root.notificationList" :key="index" class="list-group-item">
+                <li v-for="(notification, index) in appStore.notificationList" :key="index" class="list-group-item">
                     {{ notification.name }}
                     <br />
                     <a href="#" @click="$refs.notificationDialog.show(notification.id)">{{ $t("Edit") }}</a>

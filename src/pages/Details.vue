@@ -118,7 +118,7 @@
             <div class="functions">
                 <div class="btn-group" role="group">
                     <button v-if="monitor.active" class="btn btn-normal" @click="pauseDialog">
-                        <app-icon icon="pause" />
+                        <font-awesome-icon icon="pause" />
                         {{ $t("Pause") }}
                     </button>
                     <button
@@ -127,19 +127,19 @@
                         :disabled="monitor.forceInactive"
                         @click="resumeMonitor"
                     >
-                        <app-icon icon="play" />
+                        <font-awesome-icon icon="play" />
                         {{ $t("Resume") }}
                     </button>
                     <router-link :to="'/edit/' + monitor.id" class="btn btn-normal">
-                        <app-icon icon="edit" />
+                        <font-awesome-icon icon="edit" />
                         {{ $t("Edit") }}
                     </router-link>
                     <router-link :to="'/clone/' + monitor.id" class="btn btn-normal">
-                        <app-icon icon="clone" />
+                        <font-awesome-icon icon="clone" />
                         {{ $t("Clone") }}
                     </router-link>
                     <button class="btn btn-normal text-danger" @click="deleteDialog">
-                        <app-icon icon="trash" />
+                        <font-awesome-icon icon="trash" />
                         {{ $t("Delete") }}
                     </button>
                 </div>
@@ -267,7 +267,7 @@
                             <a href="#" @click.prevent="toggleCertInfoBox = !toggleCertInfoBox">
                                 {{ $t("days", tlsInfo.certInfo.daysRemaining) }}
                             </a>
-                            <app-icon
+                            <font-awesome-icon
                                 v-if="tlsInfo.hostnameMatchMonitorUrl === false"
                                 class="cert-info-warn"
                                 icon="exclamation-triangle"
@@ -331,7 +331,7 @@
                         type="button"
                         data-bs-toggle="dropdown"
                     >
-                        <app-icon icon="trash" />
+                        <font-awesome-icon icon="trash" />
                         {{ $t("Clear Data") }}
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
@@ -503,7 +503,7 @@ export default {
     computed: {
         monitor() {
             let id = this.$route.params.id;
-            return this.$root.monitorList[id];
+            return this.appStore.monitorList[id];
         },
 
         /**
@@ -514,7 +514,7 @@ export default {
             if (!this.monitor || this.monitor.type !== "group") {
                 return 0;
             }
-            const children = Object.values(this.$root.monitorList).filter((m) => m.parent === this.monitor.id);
+            const children = Object.values(this.appStore.monitorList).filter((m) => m.parent === this.monitor.id);
             return children.length;
         },
 
@@ -531,8 +531,11 @@ export default {
             // eslint-disable-next-line vue/no-side-effects-in-computed-properties
             this.cacheTime = Date.now();
 
-            if (this.monitor.id in this.$root.lastHeartbeatList && this.$root.lastHeartbeatList[this.monitor.id]) {
-                return this.$root.lastHeartbeatList[this.monitor.id];
+            if (
+                this.monitor.id in this.appStore.lastHeartbeatList &&
+                this.appStore.lastHeartbeatList[this.monitor.id]
+            ) {
+                return this.appStore.lastHeartbeatList[this.monitor.id];
             }
 
             return {
@@ -549,34 +552,34 @@ export default {
         },
 
         avgPing() {
-            if (this.$root.avgPingList[this.monitor.id] || this.$root.avgPingList[this.monitor.id] === 0) {
-                return this.$root.avgPingList[this.monitor.id];
+            if (this.appStore.avgPingList[this.monitor.id] || this.appStore.avgPingList[this.monitor.id] === 0) {
+                return this.appStore.avgPingList[this.monitor.id];
             }
 
             return this.$t("notAvailableShort");
         },
 
         status() {
-            if (this.$root.statusList[this.monitor.id]) {
-                return this.$root.statusList[this.monitor.id];
+            if (this.appStore.statusList[this.monitor.id]) {
+                return this.appStore.statusList[this.monitor.id];
             }
 
             return {};
         },
 
         tlsInfo() {
-            // Add: this.$root.tlsInfoList[this.monitor.id].certInfo
+            // Add: this.appStore.tlsInfoList[this.monitor.id].certInfo
             // Fix: TypeError: Cannot read properties of undefined (reading 'validTo')
             // Reason: TLS Info object format is changed in 1.8.0, if for some reason, it cannot connect to the site after update to 1.8.0, the object is still in the old format.
-            if (this.$root.tlsInfoList[this.monitor.id] && this.$root.tlsInfoList[this.monitor.id].certInfo) {
-                return this.$root.tlsInfoList[this.monitor.id];
+            if (this.appStore.tlsInfoList[this.monitor.id] && this.appStore.tlsInfoList[this.monitor.id].certInfo) {
+                return this.appStore.tlsInfoList[this.monitor.id];
             }
 
             return null;
         },
 
         domainInfo() {
-            return this.$root.domainInfoList[this.monitor.id] || null;
+            return this.appStore.domainInfoList[this.monitor.id] || null;
         },
 
         showCertInfoBox() {
@@ -588,7 +591,7 @@ export default {
         },
 
         pushURL() {
-            return this.$root.baseURL + "/api/push/" + this.monitor.pushToken + "?status=up&msg=OK&ping=";
+            return this.appStore.baseURL + "/api/push/" + this.monitor.pushToken + "?status=up&msg=OK&ping=";
         },
 
         screenshotURL() {
@@ -625,7 +628,7 @@ export default {
     mounted() {
         this.getImportantHeartbeatListLength();
 
-        this.$root.emitter.addEventListener("newImportantHeartbeat", this.onNewImportantHeartbeat);
+        this.appStore.emitter.on("newImportantHeartbeat", this.onNewImportantHeartbeat);
 
         if (this.monitor && this.monitor.type === "push") {
             if (this.lastHeartBeat.status === -1) {
@@ -636,7 +639,7 @@ export default {
     },
 
     beforeUnmount() {
-        this.$root.emitter.removeEventListener("newImportantHeartbeat", this.onNewImportantHeartbeat);
+        this.appStore.emitter.off("newImportantHeartbeat", this.onNewImportantHeartbeat);
     },
 
     methods: {
@@ -646,8 +649,8 @@ export default {
          * @returns {void}
          */
         testNotification() {
-            this.$root.getSocket().emit("testNotification", this.monitor.id);
-            this.$root.toastSuccess("Test notification is requested.");
+            this.appStore.getSocket().emit("testNotification", this.monitor.id);
+            this.appStore.toastSuccess("Test notification is requested.");
         },
 
         /**
@@ -663,8 +666,8 @@ export default {
          * @returns {void}
          */
         resumeMonitor() {
-            this.$root.getSocket().emit("resumeMonitor", this.monitor.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("resumeMonitor", this.monitor.id, (res) => {
+                this.appStore.toastRes(res);
             });
         },
 
@@ -673,8 +676,8 @@ export default {
          * @returns {void}
          */
         pauseMonitor() {
-            this.$root.getSocket().emit("pauseMonitor", this.monitor.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("pauseMonitor", this.monitor.id, (res) => {
+                this.appStore.toastRes(res);
             });
         },
 
@@ -715,8 +718,8 @@ export default {
          * @returns {void}
          */
         deleteMonitor() {
-            this.$root.deleteMonitor(this.monitor.id, this.deleteChildrenMonitors, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.deleteMonitor(this.monitor.id, this.deleteChildrenMonitors, (res) => {
+                this.appStore.toastRes(res);
                 if (res.ok) {
                     this.$router.push("/dashboard");
                 }
@@ -728,7 +731,7 @@ export default {
          * @returns {void}
          */
         clearEvents() {
-            this.$root.clearEvents(this.monitor.id, (res) => {
+            this.appStore.clearEvents(this.monitor.id, (res) => {
                 if (res.ok) {
                     this.getImportantHeartbeatListLength();
                 } else {
@@ -742,7 +745,7 @@ export default {
          * @returns {void}
          */
         clearHeartbeats() {
-            this.$root.clearHeartbeats(this.monitor.id, (res) => {
+            this.appStore.clearHeartbeats(this.monitor.id, (res) => {
                 if (!res.ok) {
                     toast.error(res.msg);
                 }
@@ -800,7 +803,7 @@ export default {
          */
         getImportantHeartbeatListLength() {
             if (this.monitor) {
-                this.$root.getSocket().emit("monitorImportantHeartbeatListCount", this.monitor.id, (res) => {
+                this.appStore.getSocket().emit("monitorImportantHeartbeatListCount", this.monitor.id, (res) => {
                     if (res.ok) {
                         this.importantHeartBeatListLength = res.count;
                         this.getImportantHeartbeatListPaged();
@@ -831,8 +834,7 @@ export default {
          * @param {object} heartbeat - The heartbeat object received.
          * @returns {void}
          */
-        onNewImportantHeartbeat(event) {
-            const heartbeat = event.detail;
+        onNewImportantHeartbeat(heartbeat) {
             if (heartbeat.monitorID === this.monitor?.id) {
                 if (this.page === 1) {
                     this.displayedRecords.unshift(heartbeat);
@@ -855,7 +857,7 @@ export default {
 
         loadPushExample() {
             this.pushMonitor.code = "";
-            this.$root.getSocket().emit("getPushExample", this.pushMonitor.currentExample, (res) => {
+            this.appStore.getSocket().emit("getPushExample", this.pushMonitor.currentExample, (res) => {
                 let code = res.code
                     .replace("60", this.monitor.interval)
                     .replace("https://example.com/api/push/key?status=up&msg=OK&ping=", this.pushURL);

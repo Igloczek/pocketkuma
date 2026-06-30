@@ -128,7 +128,7 @@
                             :aria-label="$t('Add a domain')"
                             @click="addDomainField"
                         >
-                            <app-icon icon="plus-circle" class="action text-primary" />
+                            <font-awesome-icon icon="plus-circle" class="action text-primary" />
                         </button>
                     </label>
 
@@ -145,7 +145,7 @@
                                 :aria-label="$t('Remove domain', [domain])"
                                 @click="removeDomain(index)"
                             >
-                                <app-icon icon="times" class="action remove ms-2 me-3 text-danger" />
+                                <font-awesome-icon icon="times" class="action remove ms-2 me-3 text-danger" />
                             </button>
                         </li>
                     </ul>
@@ -221,7 +221,7 @@
 
                 <div class="danger-zone">
                     <button class="btn btn-danger me-2" @click="deleteDialog">
-                        <app-icon icon="trash" />
+                        <font-awesome-icon icon="trash" />
                         {{ $t("Delete") }}
                     </button>
                 </div>
@@ -230,12 +230,12 @@
             <!-- Sidebar Footer -->
             <div class="sidebar-footer">
                 <button class="btn btn-success me-2" :disabled="loading" data-testid="save-button" @click="save">
-                    <app-icon icon="save" />
+                    <font-awesome-icon icon="save" />
                     {{ $t("Save") }}
                 </button>
 
                 <button class="btn btn-danger me-2" @click="discard">
-                    <app-icon icon="undo" />
+                    <font-awesome-icon icon="undo" />
                     {{ $t("Discard") }}
                 </button>
             </div>
@@ -253,10 +253,10 @@
                         class="p-0 bg-transparent border-0 small-reset-btn reset-top-left"
                         @click.stop="resetToDefaultImage"
                     >
-                        <app-icon icon="times" class="text-danger" />
+                        <font-awesome-icon icon="times" class="text-danger" />
                     </button>
                     <img :src="logoURL" alt class="logo me-2" :class="logoClass" />
-                    <app-icon v-if="enableEditMode" class="icon-upload" icon="upload" />
+                    <font-awesome-icon v-if="enableEditMode" class="icon-upload" icon="upload" />
                 </span>
 
                 <!-- Uploader -->
@@ -281,12 +281,12 @@
             <div v-if="hasToken" class="mb-2">
                 <div v-if="!enableEditMode">
                     <button class="btn btn-primary mb-2 me-2" data-testid="edit-button" @click="edit">
-                        <app-icon icon="edit" />
+                        <font-awesome-icon icon="edit" />
                         {{ $t("Edit Status Page") }}
                     </button>
 
                     <a href="/manage-status-page" class="btn btn-primary mb-2">
-                        <app-icon icon="tachometer-alt" />
+                        <font-awesome-icon icon="tachometer-alt" />
                         {{ $t("Go to Dashboard") }}
                     </a>
                 </div>
@@ -297,7 +297,7 @@
                         data-testid="create-incident-button"
                         @click="createIncident"
                     >
-                        <app-icon icon="bullhorn" />
+                        <font-awesome-icon icon="bullhorn" />
                         {{ $t("Create Incident") }}
                     </button>
                 </div>
@@ -363,18 +363,18 @@
 
                     <div v-if="editMode" class="mt-3">
                         <button class="btn btn-light me-2" @click="resolveIncident(activeIncident)">
-                            <app-icon icon="check" />
+                            <font-awesome-icon icon="check" />
                             {{ $t("Resolve") }}
                         </button>
                         <button class="btn btn-light me-2" @click="editIncident(activeIncident)">
-                            <app-icon icon="edit" />
+                            <font-awesome-icon icon="edit" />
                             {{ $t("Edit") }}
                         </button>
                         <button
                             class="btn btn-light me-2"
                             @click="$refs.incidentManageModal.showDelete(activeIncident)"
                         >
-                            <app-icon icon="unlink" />
+                            <font-awesome-icon icon="unlink" />
                             {{ $t("Delete") }}
                         </button>
                     </div>
@@ -383,34 +383,34 @@
 
             <!-- Overall Status -->
             <div class="shadow-box list p-4 overall-status mb-4">
-                <div v-if="Object.keys($root.publicMonitorList).length === 0 && loadedData">
-                    <app-icon icon="question-circle" class="ok" />
+                <div v-if="Object.keys(appStore.publicMonitorList).length === 0 && loadedData">
+                    <font-awesome-icon icon="question-circle" class="ok" />
                     {{ $t("No Services") }}
                 </div>
 
                 <template v-else>
                     <div v-if="allUp">
-                        <app-icon icon="check-circle" class="ok" />
+                        <font-awesome-icon icon="check-circle" class="ok" />
                         {{ $t("All Systems Operational") }}
                     </div>
 
                     <div v-else-if="partialDown">
-                        <app-icon icon="exclamation-circle" class="warning" />
+                        <font-awesome-icon icon="exclamation-circle" class="warning" />
                         {{ $t("Partially Degraded Service") }}
                     </div>
 
                     <div v-else-if="allDown">
-                        <app-icon icon="times-circle" class="danger" />
+                        <font-awesome-icon icon="times-circle" class="danger" />
                         {{ $t("Degraded Service") }}
                     </div>
 
                     <div v-else-if="isMaintenance">
-                        <app-icon icon="wrench" class="status-maintenance" />
+                        <font-awesome-icon icon="wrench" class="status-maintenance" />
                         {{ $t("maintenanceStatus-under-maintenance") }}
                     </div>
 
                     <div v-else>
-                        <app-icon icon="question-circle" style="color: #efefef" />
+                        <font-awesome-icon icon="question-circle" style="color: #efefef" />
                     </div>
                 </template>
             </div>
@@ -452,7 +452,7 @@
             <div v-if="editMode" class="mb-4">
                 <div>
                     <button class="btn btn-primary btn-add-group me-2" data-testid="add-group-button" @click="addGroup">
-                        <app-icon icon="plus" />
+                        <font-awesome-icon icon="plus" />
                         {{ $t("Add Group") }}
                     </button>
                 </div>
@@ -489,7 +489,7 @@
             </div>
 
             <div class="mb-4">
-                <div v-if="$root.publicGroupList.length === 0 && loadedData" class="text-center">
+                <div v-if="appStore.publicGroupList.length === 0 && loadedData" class="text-center">
                     <!-- 👀 Nothing here, please add a group or a monitor. -->
                     👀 {{ $t("statusPageNothing") }}
                 </div>
@@ -607,7 +607,7 @@
 </template>
 
 <script>
-import { fetchDevApi, getDevBaseURL } from "@/util/dev-base-url";
+import { fetchDevApi } from "@/util/dev-api-base";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { updateFaviconBadge } from "@/util/favicon-badge";
@@ -628,7 +628,7 @@ import MaintenanceTime from "@/components/MaintenanceTime.vue";
 import IncidentHistory from "@/components/IncidentHistory.vue";
 import IncidentManageModal from "@/components/IncidentManageModal.vue";
 import IncidentEditForm from "@/components/IncidentEditForm.vue";
-
+import { getDevBaseURL } from "@/util/dev-base-url";
 import {
     STATUS_PAGE_ALL_DOWN,
     STATUS_PAGE_ALL_UP,
@@ -730,9 +730,9 @@ export default {
         sortedMonitorList() {
             let result = [];
 
-            for (let id in this.$root.monitorList) {
-                if (this.$root.monitorList[id] && !(id in this.$root.publicMonitorList)) {
-                    let monitor = this.$root.monitorList[id];
+            for (let id in this.appStore.monitorList) {
+                if (this.appStore.monitorList[id] && !(id in this.appStore.publicMonitorList)) {
+                    let monitor = this.appStore.monitorList[id];
                     result.push(monitor);
                 }
             }
@@ -765,7 +765,7 @@ export default {
         },
 
         editMode() {
-            return this.enableEditMode && this.$root.socket.connected;
+            return this.enableEditMode && this.appStore.socket.connected;
         },
 
         editIncidentMode() {
@@ -794,15 +794,15 @@ export default {
         },
 
         overallStatus() {
-            if (Object.keys(this.$root.publicLastHeartbeatList).length === 0) {
+            if (Object.keys(this.appStore.publicLastHeartbeatList).length === 0) {
                 return -1;
             }
 
             let status = STATUS_PAGE_ALL_UP;
             let hasUp = false;
 
-            for (let id in this.$root.publicLastHeartbeatList) {
-                let beat = this.$root.publicLastHeartbeatList[id];
+            for (let id in this.appStore.publicLastHeartbeatList) {
+                let beat = this.appStore.publicLastHeartbeatList[id];
 
                 if (beat.status === MAINTENANCE) {
                     return STATUS_PAGE_MAINTENANCE;
@@ -900,28 +900,17 @@ export default {
     },
     watch: {
         /**
-         * If connected to the socket and logged in, request private data of this statusPage
-         * @param {boolean} loggedIn Is the client logged in?
-         * @returns {void}
-         */
-        "$root.loggedIn"(loggedIn) {
-            if (loggedIn && this.enableEditMode && !this.editableConfigReady) {
-                this.loadEditableConfig();
-            }
-        },
-
-        /**
          * Selected a monitor and add to the list.
          * @param {object} monitor Monitor to add
          * @returns {void}
          */
         selectedMonitor(monitor) {
             if (monitor) {
-                if (this.$root.publicGroupList.length === 0) {
+                if (this.appStore.publicGroupList.length === 0) {
                     this.addGroup();
                 }
 
-                const firstGroup = this.$root.publicGroupList[0];
+                const firstGroup = this.appStore.publicGroupList[0];
 
                 firstGroup.monitorList.push(monitor);
                 this.selectedMonitor = null;
@@ -937,24 +926,9 @@ export default {
         "config.title"(title) {
             document.title = title;
         },
-
-        "$root.monitorList"() {
-            let count = Object.keys(this.$root.monitorList).length;
-
-            // Since publicGroupList is getting from public rest api, monitors' tags may not present if showTags = false
-            if (count > 0) {
-                for (let group of this.$root.publicGroupList) {
-                    for (let monitor of group.monitorList) {
-                        if (monitor.tags === undefined && this.$root.monitorList[monitor.id]) {
-                            monitor.tags = this.$root.monitorList[monitor.id].tags;
-                        }
-                    }
-                }
-            }
-        },
     },
     async created() {
-        this.hasToken = "token" in this.$root.storage();
+        this.hasToken = "token" in this.appStore.storage();
 
         // Browser change page
         // https://stackoverflow.com/questions/7317273/warn-user-before-leaving-web-page-with-unsaved-changes
@@ -971,6 +945,33 @@ export default {
         this.baseURL = getDevBaseURL();
     },
     async mounted() {
+        this.$watch(
+            () => this.appStore.loggedIn,
+            (loggedIn) => {
+                if (loggedIn && this.enableEditMode && !this.editableConfigReady) {
+                    this.loadEditableConfig();
+                }
+            }
+        );
+
+        this.$watch(
+            () => this.appStore.monitorList,
+            () => {
+                const count = Object.keys(this.appStore.monitorList).length;
+
+                if (count > 0) {
+                    for (const group of this.appStore.publicGroupList) {
+                        for (const monitor of group.monitorList) {
+                            if (monitor.tags === undefined && this.appStore.monitorList[monitor.id]) {
+                                monitor.tags = this.appStore.monitorList[monitor.id].tags;
+                            }
+                        }
+                    }
+                }
+            },
+            { deep: true }
+        );
+
         this.slug = this.overrideSlug || this.$route.params.slug;
 
         if (!this.slug) {
@@ -990,7 +991,7 @@ export default {
                 }
 
                 this.maintenanceList = res.data.maintenanceList;
-                this.$root.publicGroupList = res.data.publicGroupList;
+                this.appStore.publicGroupList = res.data.publicGroupList;
 
                 this.loading = false;
 
@@ -1003,7 +1004,7 @@ export default {
 
                 this.incident = res.data.incident;
                 this.maintenanceList = res.data.maintenanceList;
-                this.$root.publicGroupList = res.data.publicGroupList;
+                this.appStore.publicGroupList = res.data.publicGroupList;
 
                 this.loading = false;
 
@@ -1074,8 +1075,8 @@ export default {
                     .then((data) => {
                         const { heartbeatList, uptimeList } = data;
 
-                        this.$root.heartbeatList = heartbeatList;
-                        this.$root.uptimeList = uptimeList;
+                        this.appStore.heartbeatList = heartbeatList;
+                        this.appStore.uptimeList = uptimeList;
 
                         const heartbeatIds = Object.keys(heartbeatList);
                         const downMonitors = heartbeatIds.reduce((downMonitorsAmount, currentId) => {
@@ -1130,7 +1131,7 @@ export default {
         async edit() {
             if (this.hasToken) {
                 this.editableConfigReady = false;
-                this.$root.initSocketIO(true);
+                this.appStore.initSocketIO(true);
                 this.clickedEditButton = true;
 
                 // Try to fix #1658
@@ -1140,7 +1141,7 @@ export default {
                     await this.loadEditableConfig();
                     this.enableEditMode = true;
                 } catch (error) {
-                    this.$root.toastError(error.message);
+                    this.appStore.toastError(error.message);
                 }
             }
         },
@@ -1150,14 +1151,14 @@ export default {
          * @returns {Promise<void>}
          */
         waitForSocketLogin() {
-            if (this.$root.loggedIn) {
+            if (this.appStore.loggedIn) {
                 return Promise.resolve();
             }
 
             return new Promise((resolve, reject) => {
                 const started = Date.now();
                 const check = () => {
-                    if (this.$root.loggedIn) {
+                    if (this.appStore.loggedIn) {
                         resolve();
                     } else if (Date.now() - started > 5000) {
                         reject(new Error("Timed out while loading status page editor."));
@@ -1178,7 +1179,7 @@ export default {
             await this.waitForSocketLogin();
 
             return new Promise((resolve, reject) => {
-                this.$root.getSocket().emit("getStatusPage", this.slug, (res) => {
+                this.appStore.getSocket().emit("getStatusPage", this.slug, (res) => {
                     if (res.ok) {
                         this.config = res.config;
 
@@ -1206,33 +1207,40 @@ export default {
 
             this.$root
                 .getSocket()
-                .emit("saveStatusPage", this.slug, this.config, this.imgDataUrl, this.$root.publicGroupList, (res) => {
-                    if (res.ok) {
-                        this.enableEditMode = false;
-                        this.$root.publicGroupList = res.publicGroupList;
+                .emit(
+                    "saveStatusPage",
+                    this.slug,
+                    this.config,
+                    this.imgDataUrl,
+                    this.appStore.publicGroupList,
+                    (res) => {
+                        if (res.ok) {
+                            this.enableEditMode = false;
+                            this.appStore.publicGroupList = res.publicGroupList;
 
-                        // Add some delay, so that the side menu animation would be better
-                        let endTime = new Date();
-                        let time = 100 - (endTime - startTime) / 1000;
+                            // Add some delay, so that the side menu animation would be better
+                            let endTime = new Date();
+                            let time = 100 - (endTime - startTime) / 1000;
 
-                        if (time < 0) {
-                            time = 0;
-                        }
-
-                        setTimeout(() => {
-                            this.loading = false;
-                            const targetPath = "/status/" + this.config.slug;
-                            if (location.pathname === targetPath && !location.search) {
-                                location.reload();
-                            } else {
-                                location.href = targetPath;
+                            if (time < 0) {
+                                time = 0;
                             }
-                        }, time);
-                    } else {
-                        this.loading = false;
-                        toast.error(res.msg);
+
+                            setTimeout(() => {
+                                this.loading = false;
+                                const targetPath = "/status/" + this.config.slug;
+                                if (location.pathname === targetPath && !location.search) {
+                                    location.reload();
+                                } else {
+                                    location.href = targetPath;
+                                }
+                            }, time);
+                        } else {
+                            this.loading = false;
+                            toast.error(res.msg);
+                        }
                     }
-                });
+                );
         },
 
         /**
@@ -1248,12 +1256,12 @@ export default {
          * @returns {void}
          */
         deleteStatusPage() {
-            this.$root.getSocket().emit("deleteStatusPage", this.slug, (res) => {
+            this.appStore.getSocket().emit("deleteStatusPage", this.slug, (res) => {
                 if (res.ok) {
                     this.enableEditMode = false;
                     location.href = "/manage-status-page";
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },
@@ -1274,11 +1282,11 @@ export default {
         addGroup() {
             let groupName = this.$t("Untitled Group");
 
-            if (this.$root.publicGroupList.length === 0) {
+            if (this.appStore.publicGroupList.length === 0) {
                 groupName = this.$t("Services");
             }
 
-            this.$root.publicGroupList.unshift({
+            this.appStore.publicGroupList.unshift({
                 name: groupName,
                 monitorList: [],
             });
@@ -1357,17 +1365,17 @@ export default {
          */
         postIncident() {
             if (this.incident.title === "" || this.incident.content === "") {
-                this.$root.toastError("Please input title and content");
+                this.appStore.toastError("Please input title and content");
                 return;
             }
 
-            this.$root.getSocket().emit("postIncident", this.slug, this.incident, (res) => {
+            this.appStore.getSocket().emit("postIncident", this.slug, this.incident, (res) => {
                 if (res.ok) {
                     this.enableEditIncidentMode = false;
                     this.incident = null;
                     this.loadIncidentHistory();
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },
@@ -1401,7 +1409,7 @@ export default {
          * @returns {void}
          */
         unpinIncident() {
-            this.$root.getSocket().emit("unpinIncident", this.slug, () => {
+            this.appStore.getSocket().emit("unpinIncident", this.slug, () => {
                 this.incident = null;
             });
         },
@@ -1467,7 +1475,7 @@ export default {
             this.incidentHistoryLoading = true;
 
             if (this.enableEditMode) {
-                this.$root.getSocket().emit("getIncidentHistory", this.slug, cursor, (res) => {
+                this.appStore.getSocket().emit("getIncidentHistory", this.slug, cursor, (res) => {
                     this.incidentHistoryLoading = false;
                     if (res.ok) {
                         if (append) {
@@ -1479,7 +1487,7 @@ export default {
                         this.incidentHistoryHasMore = res.hasMore;
                     } else {
                         console.error("Failed to load incident history:", res.msg);
-                        this.$root.toastError(res.msg);
+                        this.appStore.toastError(res.msg);
                     }
                 });
             } else {
@@ -1540,8 +1548,8 @@ export default {
          * @returns {void}
          */
         resolveIncident(incident) {
-            this.$root.getSocket().emit("resolveIncident", this.slug, incident.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("resolveIncident", this.slug, incident.id, (res) => {
+                this.appStore.toastRes(res);
                 if (res.ok) {
                     this.loadIncidentHistory();
                 }

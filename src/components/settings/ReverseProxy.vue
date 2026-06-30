@@ -166,8 +166,8 @@ export default {
         Confirm,
     },
     data() {
-        // See /src/mixins/socket.ts
-        return this.$root.cloudflared;
+        // See /src/stores/app.ts
+        return this.appStore.cloudflared;
     },
     computed: {
         settings() {
@@ -182,10 +182,10 @@ export default {
     },
     watch: {},
     created() {
-        this.$root.getSocket().emit(prefix + "join");
+        this.appStore.getSocket().emit(prefix + "join");
     },
     unmounted() {
-        this.$root.getSocket().emit(prefix + "leave");
+        this.appStore.getSocket().emit(prefix + "leave");
     },
     methods: {
         /**
@@ -193,15 +193,15 @@ export default {
          * @returns {void}
          */
         start() {
-            this.$root.getSocket().emit(prefix + "start", this.cloudflareTunnelToken);
+            this.appStore.getSocket().emit(prefix + "start", this.cloudflareTunnelToken);
         },
         /**
          * Stop the Cloudflare tunnel
          * @returns {void}
          */
         stop() {
-            this.$root.getSocket().emit(prefix + "stop", this.currentPassword, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit(prefix + "stop", this.currentPassword, (res) => {
+                this.appStore.toastRes(res);
             });
         },
         /**
@@ -209,7 +209,7 @@ export default {
          * @returns {void}
          */
         removeToken() {
-            this.$root.getSocket().emit(prefix + "removeToken");
+            this.appStore.getSocket().emit(prefix + "removeToken");
             this.cloudflareTunnelToken = "";
         },
     },

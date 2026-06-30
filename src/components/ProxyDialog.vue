@@ -203,7 +203,7 @@ export default {
             if (proxyID) {
                 this.id = proxyID;
 
-                for (let proxy of this.$root.proxyList) {
+                for (let proxy of this.appStore.proxyList) {
                     if (proxy.id === proxyID) {
                         this.proxy = proxy;
                         break;
@@ -234,7 +234,7 @@ export default {
          */
         showClone(proxyID) {
             if (proxyID) {
-                for (let proxy of this.$root.proxyList) {
+                for (let proxy of this.appStore.proxyList) {
                     if (proxy.id === proxyID) {
                         // Create a clone of the proxy data
                         this.proxy = {
@@ -265,8 +265,8 @@ export default {
          */
         submit() {
             this.processing = true;
-            this.$root.getSocket().emit("addProxy", this.proxy, this.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("addProxy", this.proxy, this.id, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok) {
@@ -286,8 +286,8 @@ export default {
          */
         deleteProxy() {
             this.processing = true;
-            this.$root.getSocket().emit("deleteProxy", this.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("deleteProxy", this.id, (res) => {
+                this.appStore.toastRes(res);
                 this.processing = false;
 
                 if (res.ok) {

@@ -542,7 +542,7 @@ export default {
         },
 
         selectedStatusPagesOptions() {
-            return Object.values(this.$root.statusPageList).map((statusPage) => {
+            return Object.values(this.appStore.statusPageList).map((statusPage) => {
                 return {
                     id: statusPage.id,
                     name: statusPage.title,
@@ -633,9 +633,9 @@ export default {
         },
     },
     mounted() {
-        this.$root.getMonitorList((res) => {
+        this.appStore.getMonitorList((res) => {
             if (res.ok) {
-                Object.values(this.$root.monitorList)
+                Object.values(this.appStore.monitorList)
                     .sort((m1, m2) => {
                         if (m1.active !== m2.active) {
                             if (m1.active === 0) {
@@ -716,7 +716,7 @@ export default {
                     timezoneOption: "SAME_AS_SERVER",
                 };
             } else if (this.isEdit || this.isClone) {
-                this.$root.getSocket().emit("getMaintenance", this.$route.params.id, (res) => {
+                this.appStore.getSocket().emit("getMaintenance", this.$route.params.id, (res) => {
                     if (res.ok) {
                         this.maintenance = res.maintenance;
 
@@ -725,7 +725,7 @@ export default {
                             this.maintenance.title = this.$t("cloneOf", [this.maintenance.title]);
                         }
 
-                        this.$root.getSocket().emit("getMonitorMaintenance", this.$route.params.id, (res) => {
+                        this.appStore.getSocket().emit("getMonitorMaintenance", this.$route.params.id, (res) => {
                             if (res.ok) {
                                 Object.values(res.monitors).map((monitor) => {
                                     this.affectedMonitors.push(
@@ -733,11 +733,11 @@ export default {
                                     );
                                 });
                             } else {
-                                this.$root.toastError(res.msg);
+                                this.appStore.toastError(res.msg);
                             }
                         });
 
-                        this.$root.getSocket().emit("getMaintenanceStatusPage", this.$route.params.id, (res) => {
+                        this.appStore.getSocket().emit("getMaintenanceStatusPage", this.$route.params.id, (res) => {
                             if (res.ok) {
                                 Object.values(res.statusPages).map((statusPage) => {
                                     this.selectedStatusPages.push({
@@ -749,11 +749,11 @@ export default {
                                 this.showOnAllPages =
                                     Object.values(res.statusPages).length === this.selectedStatusPagesOptions.length;
                             } else {
-                                this.$root.toastError(res.msg);
+                                this.appStore.toastError(res.msg);
                             }
                         });
                     } else {
-                        this.$root.toastError(res.msg);
+                        this.appStore.toastError(res.msg);
                     }
                 });
             }
@@ -785,7 +785,7 @@ export default {
          */
         setQuickDuration(minutes) {
             if (!this.maintenance.dateRange[0]) {
-                this.$root.toastError(this.$t("Please set start time first"));
+                this.appStore.toastError(this.$t("Please set start time first"));
                 return;
             }
 
@@ -822,41 +822,41 @@ export default {
             this.processing = true;
 
             if (!this.hasMonitors && !this.hasStatusPages) {
-                this.$root.toastError(this.$t("noMonitorsOrStatusPagesSelectedError"));
+                this.appStore.toastError(this.$t("noMonitorsOrStatusPagesSelectedError"));
                 this.processing = false;
                 return;
             }
 
             if (this.isAdd || this.isClone) {
-                this.$root.addMaintenance(this.maintenance, async (res) => {
+                this.appStore.addMaintenance(this.maintenance, async (res) => {
                     if (res.ok) {
                         await this.addMonitorMaintenance(res.maintenanceID, async () => {
                             await this.addMaintenanceStatusPage(res.maintenanceID, () => {
-                                this.$root.toastRes(res);
+                                this.appStore.toastRes(res);
                                 this.processing = false;
-                                this.$root.getMaintenanceList();
+                                this.appStore.getMaintenanceList();
                                 this.$router.push("/maintenance");
                             });
                         });
                     } else {
-                        this.$root.toastRes(res);
+                        this.appStore.toastRes(res);
                         this.processing = false;
                     }
                 });
             } else {
-                this.$root.getSocket().emit("editMaintenance", this.maintenance, async (res) => {
+                this.appStore.getSocket().emit("editMaintenance", this.maintenance, async (res) => {
                     if (res.ok) {
                         await this.addMonitorMaintenance(res.maintenanceID, async () => {
                             await this.addMaintenanceStatusPage(res.maintenanceID, () => {
                                 this.processing = false;
-                                this.$root.toastRes(res);
+                                this.appStore.toastRes(res);
                                 this.init();
                                 this.$router.push("/maintenance");
                             });
                         });
                     } else {
                         this.processing = false;
-                        this.$root.toastError(res.msg);
+                        this.appStore.toastError(res.msg);
                     }
                 });
             }
@@ -869,11 +869,11 @@ export default {
          * @returns {Promise<void>}
          */
         async addMonitorMaintenance(maintenanceID, callback) {
-            await this.$root.addMonitorMaintenance(maintenanceID, this.affectedMonitors, async (res) => {
+            await this.appStore.addMonitorMaintenance(maintenanceID, this.affectedMonitors, async (res) => {
                 if (!res.ok) {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 } else {
-                    this.$root.getMonitorList();
+                    this.appStore.getMonitorList();
                 }
 
                 callback();
@@ -887,14 +887,14 @@ export default {
          * @returns {void}
          */
         async addMaintenanceStatusPage(maintenanceID, callback) {
-            await this.$root.addMaintenanceStatusPage(
+            await this.appStore.addMaintenanceStatusPage(
                 maintenanceID,
                 this.showOnAllPages ? this.selectedStatusPagesOptions : this.selectedStatusPages,
                 async (res) => {
                     if (!res.ok) {
-                        this.$root.toastError(res.msg);
+                        this.appStore.toastError(res.msg);
                     } else {
-                        this.$root.getMaintenanceList();
+                        this.appStore.getMaintenanceList();
                     }
 
                     callback();

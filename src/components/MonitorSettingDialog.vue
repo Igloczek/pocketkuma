@@ -120,8 +120,8 @@ export default {
          * @returns {void}
          */
         toggleLink(groupIndex, index) {
-            this.$root.publicGroupList[groupIndex].monitorList[index].sendUrl =
-                !this.$root.publicGroupList[groupIndex].monitorList[index].sendUrl;
+            this.appStore.publicGroupList[groupIndex].monitorList[index].sendUrl =
+                !this.appStore.publicGroupList[groupIndex].monitorList[index].sendUrl;
         },
 
         /**
@@ -136,11 +136,11 @@ export default {
         showLink(monitor, ignoreSendUrl = false) {
             // We must check if there are any elements in monitorList to
             // prevent undefined errors if it hasn't been loaded yet
-            if (this.$parent.editMode && ignoreSendUrl && Object.keys(this.$root.monitorList).length) {
+            if (this.$parent.editMode && ignoreSendUrl && Object.keys(this.appStore.monitorList).length) {
                 return (
-                    this.$root.monitorList[monitor.element.id].type === "http" ||
-                    this.$root.monitorList[monitor.element.id].type === "keyword" ||
-                    this.$root.monitorList[monitor.element.id].type === "json-query"
+                    this.appStore.monitorList[monitor.element.id].type === "http" ||
+                    this.appStore.monitorList[monitor.element.id].type === "keyword" ||
+                    this.appStore.monitorList[monitor.element.id].type === "json-query"
                 );
             }
             return (
@@ -156,7 +156,7 @@ export default {
          * @returns {void}
          */
         changeUrl(groupIndex, index, value) {
-            this.$root.publicGroupList[groupIndex].monitorList[index].url = value;
+            this.appStore.publicGroupList[groupIndex].monitorList[index].url = value;
         },
     },
 };

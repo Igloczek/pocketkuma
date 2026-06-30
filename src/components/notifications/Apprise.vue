@@ -32,7 +32,7 @@ export default {
         };
     },
     mounted() {
-        this.$root.getSocket().emit("checkApprise", (installed) => {
+        this.appStore.getSocket().emit("checkApprise", (installed) => {
             this.appriseInstalled = installed;
         });
     },

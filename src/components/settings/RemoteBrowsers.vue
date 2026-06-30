@@ -1,12 +1,12 @@
 <template>
     <div>
         <div class="dockerHost-list my-4">
-            <p v-if="$root.remoteBrowserList.length === 0">
+            <p v-if="appStore.remoteBrowserList.length === 0">
                 {{ $t("Not available, please setup.") }}
             </p>
 
             <ul class="list-group mb-3" style="border-radius: 1rem">
-                <li v-for="(remoteBrowser, index) in $root.remoteBrowserList" :key="index" class="list-group-item">
+                <li v-for="(remoteBrowser, index) in appStore.remoteBrowserList" :key="index" class="list-group-item">
                     {{ remoteBrowser.name }}
                     <br />
                     <a href="#" @click="$refs.remoteBrowserDialog.show(remoteBrowser.id)">{{ $t("Edit") }}</a>

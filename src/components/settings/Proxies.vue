@@ -2,7 +2,7 @@
     <div>
         <!-- Proxies -->
         <div class="proxy-list my-4">
-            <p v-if="$root.proxyList.length === 0">
+            <p v-if="appStore.proxyList.length === 0">
                 {{ $t("Not available, please setup.") }}
             </p>
             <p v-else>
@@ -10,7 +10,7 @@
             </p>
 
             <ul class="list-group mb-3" style="border-radius: 1rem">
-                <li v-for="(proxy, index) in $root.proxyList" :key="index" class="list-group-item">
+                <li v-for="(proxy, index) in appStore.proxyList" :key="index" class="list-group-item">
                     {{ proxy.host }}:{{ proxy.port }} ({{ proxy.protocol }})
                     <span v-if="proxy.default === true" class="badge bg-primary ms-2">{{ $t("Default") }}</span>
                     <br />
