@@ -5,7 +5,7 @@
                 <slot name="status"></slot>
             </div>
             <span class="px-1">
-                <font-awesome-icon icon="angle-down" />
+                <app-icon icon="angle-down" />
             </span>
         </button>
         <ul class="filter-dropdown-menu" :class="{ open: open }">

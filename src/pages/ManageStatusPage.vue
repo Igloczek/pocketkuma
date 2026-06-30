@@ -7,7 +7,7 @@
 
             <div>
                 <router-link to="/add-status-page" class="btn btn-primary mb-3">
-                    <font-awesome-icon icon="plus" />
+                    <app-icon icon="plus" />
                     {{ $t("New Status Page") }}
                 </router-link>
             </div>
@@ -38,14 +38,14 @@
                                 class="btn btn-danger delete-status-page"
                                 @click.stop.prevent="deleteDialog(statusPage.slug)"
                             >
-                                <font-awesome-icon icon="trash" />
+                                <app-icon icon="trash" />
                                 <span>{{ $t("Delete") }}</span>
                             </button>
                         </div>
                     </a>
                 </template>
                 <div v-else class="d-flex align-items-center justify-content-center my-3 spinner">
-                    <font-awesome-icon icon="spinner" size="2x" spin />
+                    <app-icon icon="spinner" size="2x" spin />
                 </div>
             </div>
         </div>

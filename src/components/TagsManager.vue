@@ -20,7 +20,7 @@
                 data-testid="add-tag-button"
                 @click.stop="showAddDialog"
             >
-                <font-awesome-icon class="me-1" icon="plus" />
+                <app-icon class="me-1" icon="plus" />
                 {{ $t("Add") }}
             </button>
         </div>

@@ -12,7 +12,7 @@
             :aria-label="actionAriaLabel"
             @click="action()"
         >
-            <font-awesome-icon :icon="icon" aria-hidden="true" />
+            <app-icon :icon="icon" aria-hidden="true" />
         </button>
     </div>
 </template>
@@ -51,7 +51,7 @@ export default {
         },
         /**
          * The icon displayed in the right button of the select field.
-         * Accepts a Font Awesome icon string identifier.
+         * Accepts an app icon string identifier.
          * @example "plus"
          */
         icon: {

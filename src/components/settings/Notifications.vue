@@ -71,7 +71,7 @@
                         :aria-label="$t('Remove the expiry notification')"
                         @click="removeTlsExpiryNotifDay(day)"
                     >
-                        <font-awesome-icon icon="times" />
+                        <app-icon icon="times" />
                     </button>
                 </div>
             </div>
@@ -109,7 +109,7 @@
                         :aria-label="$t('Remove the expiry notification')"
                         @click="removeDomainExpiryNotifDay(day)"
                     >
-                        <font-awesome-icon icon="times" />
+                        <app-icon icon="times" />
                     </button>
                 </div>
             </div>

@@ -5,15 +5,15 @@
             <div class="mb-5" data-testid="group">
                 <!-- Group Title -->
                 <h2 class="group-title">
-                    <font-awesome-icon v-if="editMode && showGroupDrag" icon="arrows-alt-v" class="action drag me-3" />
-                    <font-awesome-icon
+                    <app-icon v-if="editMode && showGroupDrag" icon="arrows-alt-v" class="action drag me-3" />
+                    <app-icon
                         v-if="editMode"
                         icon="times"
                         class="action remove me-3"
                         @click="removeGroup(group.index)"
                     />
                     <span class="collapse-toggle" @click="toggleGroup(group.element)">
-                        <font-awesome-icon
+                        <app-icon
                             icon="chevron-down"
                             class="chevron me-2"
                             :class="{ collapsed: isGroupCollapsed(group.element) }"
@@ -50,19 +50,19 @@
                                     <div class="row">
                                         <div class="col-9 col-xl-6 small-padding">
                                             <div class="info">
-                                                <font-awesome-icon
+                                                <app-icon
                                                     v-if="editMode"
                                                     icon="arrows-alt-v"
                                                     class="action drag me-3"
                                                 />
-                                                <font-awesome-icon
+                                                <app-icon
                                                     v-if="editMode"
                                                     icon="times"
                                                     class="action remove me-3"
                                                     @click="removeMonitor(group.index, monitor.index)"
                                                 />
 
-                                                <font-awesome-icon
+                                                <app-icon
                                                     v-if="editMode"
                                                     icon="cog"
                                                     class="action me-3 ms-0"

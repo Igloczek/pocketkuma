@@ -169,11 +169,11 @@
                             <div v-if="monitor.type === 'manual'" class="mb-3">
                                 <div class="btn-group w-100 mb-3">
                                     <button class="btn btn-success" @click="monitor.manual_status = 1">
-                                        <i class="fas fa-check"></i>
+                                        <app-icon icon="check" />
                                         {{ $t("Up") }}
                                     </button>
                                     <button class="btn btn-danger" @click="monitor.manual_status = 0">
-                                        <i class="fas fa-times"></i>
+                                        <app-icon icon="times" />
                                         {{ $t("Down") }}
                                     </button>
                                 </div>
