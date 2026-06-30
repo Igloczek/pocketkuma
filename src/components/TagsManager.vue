@@ -178,6 +178,7 @@ import { Modal } from "bootstrap";
 import VueMultiselect from "vue-multiselect";
 import { colorOptions } from "@/util-frontend";
 import Tag from "@/components/Tag.vue";
+import { useTheme } from "@/composables/useTheme";
 
 /**
  * @typedef Tag
@@ -196,6 +197,9 @@ export default {
     components: {
         Tag,
         VueMultiselect,
+    },
+    setup() {
+        return useTheme();
     },
     props: {
         /**
@@ -426,7 +430,7 @@ export default {
             if (option.color) {
                 return "white";
             } else {
-                return this.$root.theme === "light" ? "var(--bs-body-color)" : "inherit";
+                return this.theme === "light" ? "var(--bs-body-color)" : "inherit";
             }
         },
         /**

@@ -346,7 +346,7 @@
                     <div class="date mt-3">
                         {{
                             $t("dateCreatedAtFromNow", {
-                                date: $root.datetime(activeIncident.createdDate),
+                                date: datetime(activeIncident.createdDate),
                                 fromNow: dateFromNow(activeIncident.createdDate),
                             })
                         }}
@@ -354,7 +354,7 @@
                         <span v-if="activeIncident.lastUpdatedDate">
                             {{
                                 $t("lastUpdatedAtFromNow", {
-                                    date: $root.datetime(activeIncident.lastUpdatedDate),
+                                    date: datetime(activeIncident.lastUpdatedDate),
                                     fromNow: dateFromNow(activeIncident.lastUpdatedDate),
                                 })
                             }}
@@ -383,7 +383,7 @@
 
             <!-- Overall Status -->
             <div class="shadow-box list p-4 overall-status mb-4">
-                <div v-if="Object.keys(appStore.publicMonitorList).length === 0 && loadedData">
+                <div v-if="Object.keys(publicMonitorList).length === 0 && loadedData">
                     <font-awesome-icon icon="question-circle" class="ok" />
                     {{ $t("No Services") }}
                 </div>
@@ -489,7 +489,7 @@
             </div>
 
             <div class="mb-4">
-                <div v-if="appStore.publicGroupList.length === 0 && loadedData" class="text-center">
+                <div v-if="publicGroupList.length === 0 && loadedData" class="text-center">
                     <!-- 👀 Nothing here, please add a group or a monitor. -->
                     👀 {{ $t("statusPageNothing") }}
                 </div>
@@ -610,7 +610,7 @@
 import { fetchDevApi } from "@/util/dev-api-base";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
-import { updateFaviconBadge } from "@/util/favicon-badge";
+import Favico from "favico.js";
 // import highlighting library (you can use any library you want just return html string)
 import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-css";
@@ -628,7 +628,7 @@ import MaintenanceTime from "@/components/MaintenanceTime.vue";
 import IncidentHistory from "@/components/IncidentHistory.vue";
 import IncidentManageModal from "@/components/IncidentManageModal.vue";
 import IncidentEditForm from "@/components/IncidentEditForm.vue";
-import { getDevBaseURL } from "@/util/dev-base-url";
+import { getResBaseURL } from "@/util-frontend";
 import {
     STATUS_PAGE_ALL_DOWN,
     STATUS_PAGE_ALL_UP,
@@ -639,6 +639,9 @@ import {
 } from "@/constants";
 import Tag from "@/components/Tag.vue";
 import VueMultiselect from "vue-multiselect";
+import { useDatetime } from "@/composables/useDatetime";
+import { usePublicApi } from "@/composables/usePublicApi";
+import { useTheme } from "@/composables/useTheme";
 
 const toast = useToast();
 dayjs.extend(duration);
@@ -648,7 +651,18 @@ const leavePageMsg = "Do you really want to leave? you have unsaved changes!";
 // eslint-disable-next-line no-unused-vars
 let feedInterval;
 
+const favicon = new Favico({
+    animation: "none",
+});
+
 export default {
+    setup() {
+        return {
+            ...useDatetime(),
+            ...usePublicApi(),
+            ...useTheme(),
+        };
+    },
     components: {
         PublicGroupList,
         ImageCropUpload,
@@ -730,9 +744,9 @@ export default {
         sortedMonitorList() {
             let result = [];
 
-            for (let id in this.appStore.monitorList) {
-                if (this.appStore.monitorList[id] && !(id in this.appStore.publicMonitorList)) {
-                    let monitor = this.appStore.monitorList[id];
+            for (let id in this.$root.monitorList) {
+                if (this.$root.monitorList[id] && !(id in this.publicMonitorList)) {
+                    let monitor = this.$root.monitorList[id];
                     result.push(monitor);
                 }
             }
@@ -765,7 +779,7 @@ export default {
         },
 
         editMode() {
-            return this.enableEditMode && this.appStore.socket.connected;
+            return this.enableEditMode && this.$root.socket.connected;
         },
 
         editIncidentMode() {
@@ -794,15 +808,15 @@ export default {
         },
 
         overallStatus() {
-            if (Object.keys(this.appStore.publicLastHeartbeatList).length === 0) {
+            if (Object.keys(this.publicLastHeartbeatList).length === 0) {
                 return -1;
             }
 
             let status = STATUS_PAGE_ALL_UP;
             let hasUp = false;
 
-            for (let id in this.appStore.publicLastHeartbeatList) {
-                let beat = this.appStore.publicLastHeartbeatList[id];
+            for (let id in this.publicLastHeartbeatList) {
+                let beat = this.publicLastHeartbeatList[id];
 
                 if (beat.status === MAINTENANCE) {
                     return STATUS_PAGE_MAINTENANCE;
@@ -861,7 +875,7 @@ export default {
         },
 
         lastUpdateTimeDisplay() {
-            return this.$root.datetime(this.lastUpdateTime);
+            return this.datetime(this.lastUpdateTime);
         },
 
         /**
@@ -900,17 +914,28 @@ export default {
     },
     watch: {
         /**
+         * If connected to the socket and logged in, request private data of this statusPage
+         * @param {boolean} loggedIn Is the client logged in?
+         * @returns {void}
+         */
+        "$root.loggedIn"(loggedIn) {
+            if (loggedIn && this.enableEditMode && !this.editableConfigReady) {
+                this.loadEditableConfig();
+            }
+        },
+
+        /**
          * Selected a monitor and add to the list.
          * @param {object} monitor Monitor to add
          * @returns {void}
          */
         selectedMonitor(monitor) {
             if (monitor) {
-                if (this.appStore.publicGroupList.length === 0) {
+                if (this.publicGroupList.length === 0) {
                     this.addGroup();
                 }
 
-                const firstGroup = this.appStore.publicGroupList[0];
+                const firstGroup = this.publicGroupList[0];
 
                 firstGroup.monitorList.push(monitor);
                 this.selectedMonitor = null;
@@ -919,16 +944,31 @@ export default {
 
         // Set Theme
         "config.theme"() {
-            this.$root.statusPageTheme = this.config.theme;
+            this.statusPageTheme = this.config.theme;
             this.loadedTheme = true;
         },
 
         "config.title"(title) {
             document.title = title;
         },
+
+        "$root.monitorList"() {
+            let count = Object.keys(this.$root.monitorList).length;
+
+            // Since publicGroupList is getting from public rest api, monitors' tags may not present if showTags = false
+            if (count > 0) {
+                for (let group of this.publicGroupList) {
+                    for (let monitor of group.monitorList) {
+                        if (monitor.tags === undefined && this.$root.monitorList[monitor.id]) {
+                            monitor.tags = this.$root.monitorList[monitor.id].tags;
+                        }
+                    }
+                }
+            }
+        },
     },
     async created() {
-        this.hasToken = "token" in this.appStore.storage();
+        this.hasToken = "token" in this.$root.storage();
 
         // Browser change page
         // https://stackoverflow.com/questions/7317273/warn-user-before-leaving-web-page-with-unsaved-changes
@@ -942,36 +982,9 @@ export default {
         });
 
         // Special handle for dev
-        this.baseURL = getDevBaseURL();
+        this.baseURL = getResBaseURL();
     },
     async mounted() {
-        this.$watch(
-            () => this.appStore.loggedIn,
-            (loggedIn) => {
-                if (loggedIn && this.enableEditMode && !this.editableConfigReady) {
-                    this.loadEditableConfig();
-                }
-            }
-        );
-
-        this.$watch(
-            () => this.appStore.monitorList,
-            () => {
-                const count = Object.keys(this.appStore.monitorList).length;
-
-                if (count > 0) {
-                    for (const group of this.appStore.publicGroupList) {
-                        for (const monitor of group.monitorList) {
-                            if (monitor.tags === undefined && this.appStore.monitorList[monitor.id]) {
-                                monitor.tags = this.appStore.monitorList[monitor.id].tags;
-                            }
-                        }
-                    }
-                }
-            },
-            { deep: true }
-        );
-
         this.slug = this.overrideSlug || this.$route.params.slug;
 
         if (!this.slug) {
@@ -991,7 +1004,7 @@ export default {
                 }
 
                 this.maintenanceList = res.data.maintenanceList;
-                this.appStore.publicGroupList = res.data.publicGroupList;
+                this.publicGroupList = res.data.publicGroupList;
 
                 this.loading = false;
 
@@ -1004,7 +1017,7 @@ export default {
 
                 this.incident = res.data.incident;
                 this.maintenanceList = res.data.maintenanceList;
-                this.appStore.publicGroupList = res.data.publicGroupList;
+                this.publicGroupList = res.data.publicGroupList;
 
                 this.loading = false;
 
@@ -1075,8 +1088,8 @@ export default {
                     .then((data) => {
                         const { heartbeatList, uptimeList } = data;
 
-                        this.appStore.heartbeatList = heartbeatList;
-                        this.appStore.uptimeList = uptimeList;
+                        this.$root.heartbeatList = heartbeatList;
+                        this.$root.uptimeList = uptimeList;
 
                         const heartbeatIds = Object.keys(heartbeatList);
                         const downMonitors = heartbeatIds.reduce((downMonitorsAmount, currentId) => {
@@ -1090,7 +1103,7 @@ export default {
                             }
                         }, 0);
 
-                        updateFaviconBadge(downMonitors);
+                        favicon.badge(downMonitors);
 
                         this.loadedData = true;
                         this.lastUpdateTime = dayjs();
@@ -1131,7 +1144,7 @@ export default {
         async edit() {
             if (this.hasToken) {
                 this.editableConfigReady = false;
-                this.appStore.initSocketIO(true);
+                this.$root.initSocketIO(true);
                 this.clickedEditButton = true;
 
                 // Try to fix #1658
@@ -1141,7 +1154,7 @@ export default {
                     await this.loadEditableConfig();
                     this.enableEditMode = true;
                 } catch (error) {
-                    this.appStore.toastError(error.message);
+                    this.$root.toastError(error.message);
                 }
             }
         },
@@ -1151,14 +1164,14 @@ export default {
          * @returns {Promise<void>}
          */
         waitForSocketLogin() {
-            if (this.appStore.loggedIn) {
+            if (this.$root.loggedIn) {
                 return Promise.resolve();
             }
 
             return new Promise((resolve, reject) => {
                 const started = Date.now();
                 const check = () => {
-                    if (this.appStore.loggedIn) {
+                    if (this.$root.loggedIn) {
                         resolve();
                     } else if (Date.now() - started > 5000) {
                         reject(new Error("Timed out while loading status page editor."));
@@ -1179,7 +1192,7 @@ export default {
             await this.waitForSocketLogin();
 
             return new Promise((resolve, reject) => {
-                this.appStore.getSocket().emit("getStatusPage", this.slug, (res) => {
+                this.$root.getSocket().emit("getStatusPage", this.slug, (res) => {
                     if (res.ok) {
                         this.config = res.config;
 
@@ -1207,40 +1220,33 @@ export default {
 
             this.$root
                 .getSocket()
-                .emit(
-                    "saveStatusPage",
-                    this.slug,
-                    this.config,
-                    this.imgDataUrl,
-                    this.appStore.publicGroupList,
-                    (res) => {
-                        if (res.ok) {
-                            this.enableEditMode = false;
-                            this.appStore.publicGroupList = res.publicGroupList;
+                .emit("saveStatusPage", this.slug, this.config, this.imgDataUrl, this.publicGroupList, (res) => {
+                    if (res.ok) {
+                        this.enableEditMode = false;
+                        this.publicGroupList = res.publicGroupList;
 
-                            // Add some delay, so that the side menu animation would be better
-                            let endTime = new Date();
-                            let time = 100 - (endTime - startTime) / 1000;
+                        // Add some delay, so that the side menu animation would be better
+                        let endTime = new Date();
+                        let time = 100 - (endTime - startTime) / 1000;
 
-                            if (time < 0) {
-                                time = 0;
-                            }
-
-                            setTimeout(() => {
-                                this.loading = false;
-                                const targetPath = "/status/" + this.config.slug;
-                                if (location.pathname === targetPath && !location.search) {
-                                    location.reload();
-                                } else {
-                                    location.href = targetPath;
-                                }
-                            }, time);
-                        } else {
-                            this.loading = false;
-                            toast.error(res.msg);
+                        if (time < 0) {
+                            time = 0;
                         }
+
+                        setTimeout(() => {
+                            this.loading = false;
+                            const targetPath = "/status/" + this.config.slug;
+                            if (location.pathname === targetPath && !location.search) {
+                                location.reload();
+                            } else {
+                                location.href = targetPath;
+                            }
+                        }, time);
+                    } else {
+                        this.loading = false;
+                        toast.error(res.msg);
                     }
-                );
+                });
         },
 
         /**
@@ -1256,12 +1262,12 @@ export default {
          * @returns {void}
          */
         deleteStatusPage() {
-            this.appStore.getSocket().emit("deleteStatusPage", this.slug, (res) => {
+            this.$root.getSocket().emit("deleteStatusPage", this.slug, (res) => {
                 if (res.ok) {
                     this.enableEditMode = false;
                     location.href = "/manage-status-page";
                 } else {
-                    this.appStore.toastError(res.msg);
+                    this.$root.toastError(res.msg);
                 }
             });
         },
@@ -1282,11 +1288,11 @@ export default {
         addGroup() {
             let groupName = this.$t("Untitled Group");
 
-            if (this.appStore.publicGroupList.length === 0) {
+            if (this.publicGroupList.length === 0) {
                 groupName = this.$t("Services");
             }
 
-            this.appStore.publicGroupList.unshift({
+            this.publicGroupList.unshift({
                 name: groupName,
                 monitorList: [],
             });
@@ -1365,17 +1371,17 @@ export default {
          */
         postIncident() {
             if (this.incident.title === "" || this.incident.content === "") {
-                this.appStore.toastError("Please input title and content");
+                this.$root.toastError("Please input title and content");
                 return;
             }
 
-            this.appStore.getSocket().emit("postIncident", this.slug, this.incident, (res) => {
+            this.$root.getSocket().emit("postIncident", this.slug, this.incident, (res) => {
                 if (res.ok) {
                     this.enableEditIncidentMode = false;
                     this.incident = null;
                     this.loadIncidentHistory();
                 } else {
-                    this.appStore.toastError(res.msg);
+                    this.$root.toastError(res.msg);
                 }
             });
         },
@@ -1409,7 +1415,7 @@ export default {
          * @returns {void}
          */
         unpinIncident() {
-            this.appStore.getSocket().emit("unpinIncident", this.slug, () => {
+            this.$root.getSocket().emit("unpinIncident", this.slug, () => {
                 this.incident = null;
             });
         },
@@ -1475,7 +1481,7 @@ export default {
             this.incidentHistoryLoading = true;
 
             if (this.enableEditMode) {
-                this.appStore.getSocket().emit("getIncidentHistory", this.slug, cursor, (res) => {
+                this.$root.getSocket().emit("getIncidentHistory", this.slug, cursor, (res) => {
                     this.incidentHistoryLoading = false;
                     if (res.ok) {
                         if (append) {
@@ -1487,7 +1493,7 @@ export default {
                         this.incidentHistoryHasMore = res.hasMore;
                     } else {
                         console.error("Failed to load incident history:", res.msg);
-                        this.appStore.toastError(res.msg);
+                        this.$root.toastError(res.msg);
                     }
                 });
             } else {
@@ -1548,8 +1554,8 @@ export default {
          * @returns {void}
          */
         resolveIncident(incident) {
-            this.appStore.getSocket().emit("resolveIncident", this.slug, incident.id, (res) => {
-                this.appStore.toastRes(res);
+            this.$root.getSocket().emit("resolveIncident", this.slug, incident.id, (res) => {
+                this.$root.toastRes(res);
                 if (res.ok) {
                     this.loadIncidentHistory();
                 }

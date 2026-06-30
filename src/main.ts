@@ -8,18 +8,15 @@ import App from "@/App.vue";
 import "@/assets/app.scss";
 import "@/assets/vue-datepicker.scss";
 import { i18n } from "@/i18n";
-import { AppIcon } from "@/icon";
-import datetime from "@/mixins/datetime";
-import mobile from "@/mixins/mobile";
-import appStoreMixin from "@/mixins/appStore";
-import theme from "@/mixins/theme";
-import lang from "@/mixins/lang";
+import { FontAwesomeIcon } from "@/icon";
+import { initLang } from "@/composables/useLang";
+import { initMobile } from "@/composables/useMobile";
+import { initTheme } from "@/composables/useTheme";
+import socket from "@/mixins/socket";
 import { router } from "@/router";
-import { createPinia } from "pinia";
-import { initAppStoreWatchers } from "@/stores/app";
 import { appName } from "@/constants";
 import dayjs from "dayjs";
-import timezone from "dayjs/plugin/timezone";
+import timezone from "@/modules/dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { loadToastSettings } from "@/util-frontend";
@@ -27,10 +24,8 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(relativeTime);
 
-const pinia = createPinia();
-
 const app = createApp({
-    mixins: [appStoreMixin, theme, mobile, datetime, lang],
+    mixins: [socket],
     data() {
         return {
             appName: appName,
@@ -39,15 +34,17 @@ const app = createApp({
     render: () => h(App),
 });
 
-app.use(pinia);
 app.use(router);
 app.use(i18n);
 
+initTheme(router);
+initMobile();
+initLang();
+
 app.use(Toast, loadToastSettings());
 app.component("Editable", contenteditable);
-app.component("AppIcon", AppIcon);
+app.component("FontAwesomeIcon", FontAwesomeIcon);
 
-initAppStoreWatchers();
 app.mount("#app");
 
 // Service Worker

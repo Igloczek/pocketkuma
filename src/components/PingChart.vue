@@ -45,6 +45,8 @@ import {
 import "chartjs-adapter-dayjs-4";
 import { Line } from "vue-chartjs";
 import { UP, DOWN, PENDING, MAINTENANCE } from "@/constants";
+import { useDatetime } from "@/composables/useDatetime";
+import { useTheme } from "@/composables/useTheme";
 
 Chart.register(
     LineController,
@@ -60,6 +62,12 @@ Chart.register(
 );
 
 export default {
+    setup() {
+        return {
+            ...useDatetime(),
+            ...useTheme(),
+        };
+    },
     components: { Line },
     props: {
         /** ID of monitor */
@@ -140,7 +148,7 @@ export default {
                             padding: 3,
                         },
                         grid: {
-                            color: this.$root.theme === "light" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.1)",
+                            color: this.theme === "light" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.1)",
                             offset: false,
                         },
                     },
@@ -151,7 +159,7 @@ export default {
                         },
                         offset: false,
                         grid: {
-                            color: this.$root.theme === "light" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.1)",
+                            color: this.theme === "light" ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.1)",
                         },
                     },
                     y1: {
@@ -171,9 +179,9 @@ export default {
                         mode: "nearest",
                         intersect: false,
                         padding: 10,
-                        backgroundColor: this.$root.theme === "light" ? "rgba(212,232,222,1.0)" : "rgba(32,42,38,1.0)",
-                        bodyColor: this.$root.theme === "light" ? "rgba(12,12,18,1.0)" : "rgba(220,220,220,1.0)",
-                        titleColor: this.$root.theme === "light" ? "rgba(12,12,18,1.0)" : "rgba(220,220,220,1.0)",
+                        backgroundColor: this.theme === "light" ? "rgba(212,232,222,1.0)" : "rgba(32,42,38,1.0)",
+                        bodyColor: this.theme === "light" ? "rgba(12,12,18,1.0)" : "rgba(220,220,220,1.0)",
+                        titleColor: this.theme === "light" ? "rgba(12,12,18,1.0)" : "rgba(220,220,220,1.0)",
                         // No longer rely solely on datasetIndex === 0; we want to hide tooltips only for the bars
                         filter: function (tooltipItem) {
                             const ds = tooltipItem?.chart?.data?.datasets?.[tooltipItem.datasetIndex];
@@ -203,7 +211,7 @@ export default {
                             }
                         },
                         labels: {
-                            color: this.$root.theme === "light" ? "rgba(12,12,18,1.0)" : "rgba(220,220,220,1.0)",
+                            color: this.theme === "light" ? "rgba(12,12,18,1.0)" : "rgba(220,220,220,1.0)",
                             // Filter to display only the lines in the legend
                             filter: function (legendItem, data) {
                                 const ds = data.datasets[legendItem.datasetIndex];
@@ -305,7 +313,7 @@ export default {
         },
         // push datapoint to chartData
         pushDatapoint(datapoint, avgPingData, minPingData, maxPingData, downData, colorData) {
-            const x = this.$root.unixToDateTime(datapoint.timestamp);
+            const x = this.unixToDateTime(datapoint.timestamp);
 
             // Show ping values if it was up in this period
             avgPingData.push({
@@ -361,7 +369,7 @@ export default {
                 (this.monitorId in this.appStore.heartbeatList && this.appStore.heartbeatList[this.monitorId]) || [];
 
             for (const beat of heartbeatList) {
-                const beatTime = this.$root.toDayjs(beat.time);
+                const beatTime = this.toDayjs(beat.time);
                 const x = beatTime.format("YYYY-MM-DD HH:mm:ss");
 
                 // Insert empty datapoint to separate big gaps
@@ -461,7 +469,7 @@ export default {
                         continue;
                     }
 
-                    const beatTime = this.$root.unixToDayjs(datapoint.timestamp);
+                    const beatTime = this.unixToDayjs(datapoint.timestamp);
 
                     // Insert empty datapoint to separate big gaps
                     if (lastHeartbeatTime && monitorInterval) {
@@ -483,7 +491,7 @@ export default {
 
                             const gapX = [
                                 lastHeartbeatTime.subtract(monitorInterval, "second").format("YYYY-MM-DD HH:mm:ss"),
-                                this.$root.unixToDateTime(datapoint.timestamp + 60),
+                                this.unixToDateTime(datapoint.timestamp + 60),
                             ];
 
                             for (const x of gapX) {

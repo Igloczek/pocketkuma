@@ -216,8 +216,12 @@
 import { Modal } from "bootstrap";
 import CopyableInput from "@/components/CopyableInput.vue";
 import { badgeConstants } from "@/constants";
+import { usePublicApi } from "@/composables/usePublicApi";
 
 export default {
+    setup() {
+        return usePublicApi();
+    },
     components: {
         CopyableInput,
     },
@@ -288,7 +292,7 @@ export default {
             if (!this.monitor.id || !this.badge.type) {
                 return;
             }
-            let badgeURL = this.appStore.baseURL + "/api/badge/" + this.monitor.id + "/" + this.badge.type;
+            let badgeURL = this.baseURL + "/api/badge/" + this.monitor.id + "/" + this.badge.type;
 
             let parameterList = {};
 

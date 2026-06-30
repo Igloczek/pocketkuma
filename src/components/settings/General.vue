@@ -6,7 +6,7 @@
                 <label for="timezone" class="form-label">
                     {{ $t("Display Timezone") }}
                 </label>
-                <select id="timezone" v-model="$root.userTimezone" class="form-select">
+                <select id="timezone" v-model="userTimezone" class="form-select">
                     <option value="auto">{{ $t("Auto") }}: {{ guessTimezone }}</option>
                     <option v-for="(timezone, index) in timezoneList" :key="index" :value="timezone.value">
                         {{ timezone.name }}
@@ -225,10 +225,15 @@
 import HiddenInput from "@/components/HiddenInput.vue";
 import dayjs from "dayjs";
 import { timezoneList } from "@/util-frontend";
+import { useDatetime } from "@/composables/useDatetime";
 
 export default {
     components: {
         HiddenInput,
+    },
+
+    setup() {
+        return useDatetime();
     },
 
     data() {
@@ -258,7 +263,7 @@ export default {
          * @returns {void}
          */
         saveGeneral() {
-            localStorage.timezone = this.$root.userTimezone;
+            localStorage.timezone = this.userTimezone;
             this.saveSettings();
         },
         /**

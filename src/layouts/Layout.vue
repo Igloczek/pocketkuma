@@ -1,9 +1,9 @@
 <template>
     <div :class="classes">
-        <div v-if="!appStore.socket.connected && !appStore.socket.firstConnect" class="lost-connection">
+        <div v-if="!$root.socket.connected && !$root.socket.firstConnect" class="lost-connection">
             <div class="container-fluid">
-                {{ appStore.connectionErrorMsg }}
-                <div v-if="appStore.showReverseProxyGuide">
+                {{ $root.connectionErrorMsg }}
+                <div v-if="$root.showReverseProxyGuide">
                     {{ $t("Using a Reverse Proxy?") }}
                     <a href="https://github.com/louislam/uptime-kuma/wiki/Reverse-Proxy" target="_blank">
                         {{ $t("Check how to config it for WebSocket") }}
@@ -13,7 +13,7 @@
         </div>
 
         <!-- Desktop header -->
-        <header v-if="!$root.isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
+        <header v-if="!isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
             <router-link
                 to="/dashboard"
                 class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none"
@@ -33,22 +33,22 @@
             </a>
 
             <ul class="nav nav-pills">
-                <li v-if="appStore.loggedIn" class="nav-item me-2">
+                <li v-if="$root.loggedIn" class="nav-item me-2">
                     <router-link to="/manage-status-page" class="nav-link">
                         <font-awesome-icon icon="stream" />
                         {{ $t("Status Pages") }}
                     </router-link>
                 </li>
-                <li v-if="appStore.loggedIn" class="nav-item me-2">
+                <li v-if="$root.loggedIn" class="nav-item me-2">
                     <router-link to="/dashboard" class="nav-link">
                         <font-awesome-icon icon="tachometer-alt" />
                         {{ $t("Dashboard") }}
                     </router-link>
                 </li>
-                <li v-if="appStore.loggedIn" class="nav-item">
+                <li v-if="$root.loggedIn" class="nav-item">
                     <div class="dropdown dropdown-profile-pic">
                         <div class="nav-link" data-bs-toggle="dropdown">
-                            <div class="profile-pic">{{ appStore.usernameFirstChar }}</div>
+                            <div class="profile-pic">{{ $root.usernameFirstChar }}</div>
                             <font-awesome-icon icon="angle-down" />
                         </div>
 
@@ -57,14 +57,14 @@
                             <!-- Username -->
                             <li>
                                 <i18n-t
-                                    v-if="appStore.username != null"
+                                    v-if="$root.username != null"
                                     tag="span"
                                     keypath="signedInDisp"
                                     class="dropdown-item-text"
                                 >
-                                    <strong>{{ appStore.username }}</strong>
+                                    <strong>{{ $root.username }}</strong>
                                 </i18n-t>
-                                <span v-if="appStore.username == null" class="dropdown-item-text">
+                                <span v-if="$root.username == null" class="dropdown-item-text">
                                     {{ $t("signedInDispDisabled") }}
                                 </span>
                             </li>
@@ -105,8 +105,8 @@
                                 </a>
                             </li>
 
-                            <li v-if="appStore.loggedIn && appStore.socket.token !== 'autoLogin'">
-                                <button class="dropdown-item" @click="appStore.logout">
+                            <li v-if="$root.loggedIn && $root.socket.token !== 'autoLogin'">
+                                <button class="dropdown-item" @click="$root.logout">
                                     <font-awesome-icon icon="sign-out-alt" />
                                     {{ $t("Logout") }}
                                 </button>
@@ -126,13 +126,13 @@
         </header>
 
         <main>
-            <router-view v-if="appStore.loggedIn" />
-            <Login v-if="!appStore.loggedIn && appStore.allowLoginDialog" />
+            <router-view v-if="$root.loggedIn" />
+            <Login v-if="!$root.loggedIn && $root.allowLoginDialog" />
         </main>
 
         <!-- Mobile Only -->
-        <div v-if="$root.isMobile" style="width: 100%; height: calc(60px + env(safe-area-inset-bottom))" />
-        <nav v-if="$root.isMobile && appStore.loggedIn" class="bottom-nav">
+        <div v-if="isMobile" style="width: 100%; height: calc(60px + env(safe-area-inset-bottom))" />
+        <nav v-if="isMobile && $root.loggedIn" class="bottom-nav">
             <router-link to="/dashboard" class="nav-link">
                 <div><font-awesome-icon icon="tachometer-alt" /></div>
                 {{ $t("Home") }}
@@ -169,11 +169,20 @@
 import Login from "@/components/Login.vue";
 import { compare as compareVersions } from "@/util/version-compare";
 import { useToast } from "vue-toastification";
+import { useMobile } from "@/composables/useMobile";
+import { useTheme } from "@/composables/useTheme";
 const toast = useToast();
 
 export default {
     components: {
         Login,
+    },
+
+    setup() {
+        return {
+            ...useMobile(),
+            ...useTheme(),
+        };
     },
 
     data() {
@@ -188,14 +197,14 @@ export default {
         // Theme or Mobile
         classes() {
             const classes = {};
-            classes[this.$root.theme] = true;
-            classes["mobile"] = this.$root.isMobile;
+            classes[this.theme] = true;
+            classes["mobile"] = this.isMobile;
             return classes;
         },
 
         hasNewVersion() {
-            if (this.appStore.info.latestVersion && this.appStore.info.version) {
-                return compareVersions(this.appStore.info.latestVersion, this.appStore.info.version, ">");
+            if (this.$root.info.latestVersion && this.$root.info.version) {
+                return compareVersions(this.$root.info.latestVersion, this.$root.info.version, ">");
             } else {
                 return false;
             }

@@ -1,7 +1,7 @@
 <template>
     <div>
         <!-- Desktop header -->
-        <header v-if="!$root.isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
+        <header v-if="!isMobile" class="d-flex flex-wrap justify-content-center py-3 mb-3 border-bottom">
             <router-link
                 to="/"
                 class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-dark text-decoration-none"
@@ -48,7 +48,12 @@
 </template>
 
 <script>
+import { useMobile } from "@/composables/useMobile";
+
 export default {
+    setup() {
+        return useMobile();
+    },
     async mounted() {},
     methods: {
         /**

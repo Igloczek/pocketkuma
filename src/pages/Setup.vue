@@ -12,7 +12,7 @@
                 </p>
 
                 <div class="form-floating">
-                    <select id="language" v-model="$root.language" class="form-select">
+                    <select id="language" v-model="language" class="form-select">
                         <option v-for="(lang, i) in $i18n.availableLocales" :key="`Lang${i}`" :value="lang">
                             {{ $i18n.messages[lang].languageName }}
                         </option>
@@ -73,7 +73,12 @@
 </template>
 
 <script>
+import { useLang } from "@/composables/useLang";
+
 export default {
+    setup() {
+        return useLang();
+    },
     data() {
         return {
             processing: false,
