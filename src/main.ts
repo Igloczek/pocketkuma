@@ -8,12 +8,14 @@ import App from "@/App.vue";
 import "@/assets/app.scss";
 import "@/assets/vue-datepicker.scss";
 import { i18n } from "@/i18n";
-import { FontAwesomeIcon } from "@/icon";
+import { AppIcon } from "@/icon";
 import { initLang } from "@/composables/useLang";
 import { initMobile } from "@/composables/useMobile";
 import { initTheme } from "@/composables/useTheme";
-import socket from "@/mixins/socket";
+import appStoreMixin from "@/mixins/appStore";
 import { router } from "@/router";
+import { createPinia } from "pinia";
+import { initAppStoreWatchers } from "@/stores/app";
 import { appName } from "@/constants";
 import dayjs from "dayjs";
 import timezone from "@/modules/dayjs/plugin/timezone";
@@ -24,8 +26,10 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(relativeTime);
 
+const pinia = createPinia();
+
 const app = createApp({
-    mixins: [socket],
+    mixins: [appStoreMixin],
     data() {
         return {
             appName: appName,
@@ -34,6 +38,7 @@ const app = createApp({
     render: () => h(App),
 });
 
+app.use(pinia);
 app.use(router);
 app.use(i18n);
 
@@ -43,8 +48,9 @@ initLang();
 
 app.use(Toast, loadToastSettings());
 app.component("Editable", contenteditable);
-app.component("FontAwesomeIcon", FontAwesomeIcon);
+app.component("AppIcon", AppIcon);
 
+initAppStoreWatchers();
 app.mount("#app");
 
 // Service Worker
