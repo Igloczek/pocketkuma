@@ -62,24 +62,24 @@
     <template v-if="$parent.notification.matrixUseTemplate">
         <div class="mb-3">
             <label class="form-label" for="message_template">{{ $t("Message Template") }}</label>
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="message_template"
                 v-model="$parent.notification.matrixTemplate"
                 :required="true"
                 :placeholder="matrixTemplatedTextareaPlaceholder"
-            ></TemplatedTextarea>
+            ></TemplatedField>
         </div>
     </template>
 </template>
 
 <script>
 import HiddenInput from "@/components/HiddenInput.vue";
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     components: {
         HiddenInput,
-        TemplatedTextarea,
+        TemplatedField,
     },
     computed: {
         matrixTemplatedTextareaPlaceholder() {

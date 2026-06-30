@@ -49,12 +49,12 @@
     <div v-show="$parent.notification.discordMessageFormat === 'custom'">
         <div class="mb-3">
             <label for="discord-message-template" class="form-label">{{ $t("discordMessageTemplate") }}</label>
-            <TemplatedTextarea
+            <TemplatedField as="textarea"
                 id="discord-message-template"
                 v-model="$parent.notification.discordMessageTemplate"
                 :required="false"
                 placeholder=""
-            ></TemplatedTextarea>
+            ></TemplatedField>
             <div class="form-text">{{ $t("discordUseMessageTemplateDescription") }}</div>
         </div>
     </div>
@@ -144,11 +144,11 @@
 </template>
 <script>
 import HiddenInput from "@/components/HiddenInput.vue";
-import TemplatedTextarea from "@/components/TemplatedTextarea.vue";
+import TemplatedField from "@/components/TemplatedField.vue";
 
 export default {
     components: {
-        TemplatedTextarea,
+        TemplatedField,
         HiddenInput,
     },
     mounted() {

@@ -27,8 +27,9 @@
     </div>
 
     <input
+        v-if="as === 'input'"
         :id="id"
-        ref="templatedInput"
+        ref="templatedField"
         v-model="model"
         type="text"
         class="form-control"
@@ -36,27 +37,45 @@
         :required="required"
         autocomplete="false"
     />
+    <textarea
+        v-else
+        :id="id"
+        ref="templatedField"
+        v-model="model"
+        class="form-control"
+        :placeholder="placeholder"
+        :required="required"
+        autocomplete="false"
+    ></textarea>
 </template>
 
 <script>
 export default {
     props: {
         /**
-         * The value of the templated input.
+         * Field element type: single-line input or multiline textarea.
+         */
+        as: {
+            type: String,
+            default: "textarea",
+            validator: (value) => ["input", "textarea"].includes(value),
+        },
+        /**
+         * The value of the templated field.
          */
         modelValue: {
             type: String,
             default: "",
         },
         /**
-         * id for the templated input.
+         * id for the templated field.
          */
         id: {
             type: String,
             required: true,
         },
         /**
-         * Whether the templated input is required.
+         * Whether the templated field is required.
          * @example true
          */
         required: {
@@ -64,7 +83,7 @@ export default {
             required: true,
         },
         /**
-         * Placeholder text for the templated input.
+         * Placeholder text for the templated field.
          */
         placeholder: {
             type: String,
@@ -87,3 +106,9 @@ export default {
     },
 };
 </script>
+
+<style lang="scss" scoped>
+textarea {
+    min-height: 150px;
+}
+</style>
