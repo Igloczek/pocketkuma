@@ -6,30 +6,14 @@
  * @param {typeof import("@/server/model/status_page").StatusPage} statusPage Status page populate HTML with
  * @returns {string} HTML script tags to inject into page
  */
-import googleAnalytics from "@/server/analytics/google-analytics";
-import umamiAnalytics from "@/server/analytics/umami-analytics";
-import plausibleAnalytics from "@/server/analytics/plausible-analytics";
-import matomoAnalytics from "@/server/analytics/matomo-analytics";
-import rybbitAnalytics from "@/server/analytics/rybbit-analytics";
+import analyticsScripts from "@/server/analytics/analytics-scripts";
 
 function getAnalyticsScript(statusPage) {
-    switch (statusPage.analyticsType) {
-        case "google":
-            return googleAnalytics.getGoogleAnalyticsScript(statusPage.analyticsId);
-        case "umami":
-            return umamiAnalytics.getUmamiAnalyticsScript(statusPage.analyticsScriptUrl, statusPage.analyticsId);
-        case "plausible":
-            return plausibleAnalytics.getPlausibleAnalyticsScript(
-                statusPage.analyticsScriptUrl,
-                statusPage.analyticsId
-            );
-        case "matomo":
-            return matomoAnalytics.getMatomoAnalyticsScript(statusPage.analyticsScriptUrl, statusPage.analyticsId);
-        case "rybbit":
-            return rybbitAnalytics.getRybbitAnalyticsScript(statusPage.analyticsScriptUrl, statusPage.analyticsId);
-        default:
-            return null;
+    const provider = analyticsScripts[statusPage.analyticsType];
+    if (!provider) {
+        return null;
     }
+    return provider.build(statusPage);
 }
 
 /**
@@ -38,17 +22,20 @@ function getAnalyticsScript(statusPage) {
  * @returns {boolean} Boolean defining if the analytics config is valid
  */
 function isValidAnalyticsConfig(statusPage) {
-    switch (statusPage.analyticsType) {
-        case "google":
-            return statusPage.analyticsId != null;
-        case "umami":
-        case "plausible":
-        case "matomo":
-        case "rybbit":
-            return statusPage.analyticsId != null && statusPage.analyticsScriptUrl != null;
-        default:
-            return false;
+    const provider = analyticsScripts[statusPage.analyticsType];
+    if (!provider) {
+        return false;
     }
+
+    if (statusPage.analyticsId == null) {
+        return false;
+    }
+
+    if (provider.requiresScriptUrl) {
+        return statusPage.analyticsScriptUrl != null;
+    }
+
+    return true;
 }
 
 export { getAnalyticsScript, isValidAnalyticsConfig };
