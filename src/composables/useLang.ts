@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { ref, watch } from "vue";
 import { currentLocale, i18n } from "@/i18n";
-import { setPageLocale, timeDurationFormatter } from "@/util-frontend";
+import { setDurationFormatLocale, setPageLocale } from "@/util-frontend";
 
 const langModules = import.meta.glob("../lang/*.json");
 
@@ -20,7 +20,7 @@ async function changeLang(lang) {
     i18n.global.locale = lang;
     localStorage.locale = lang;
     setPageLocale();
-    timeDurationFormatter.updateLocale(lang);
+    setDurationFormatLocale(lang);
 }
 
 /**
