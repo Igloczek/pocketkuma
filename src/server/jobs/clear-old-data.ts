@@ -50,9 +50,7 @@ const clearOldData = async () => {
             // stat_daily
             await R.exec("DELETE FROM stat_daily WHERE timestamp < ? ", [timestamp]);
 
-            if (Database.dbConfig.type === "sqlite") {
-                await R.exec("PRAGMA optimize;");
-            }
+            await R.exec("PRAGMA optimize;");
         } catch (e) {
             log.error("clearOldData", `Failed to clear old data: ${e.message}`);
         }

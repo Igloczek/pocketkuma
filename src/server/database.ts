@@ -50,7 +50,7 @@ class Database {
      */
     static dockerTLSDir;
 
-    static dbConfig = { type: "sqlite" };
+
 
     /**
      * Initialize the data directory
@@ -126,38 +126,16 @@ class Database {
     }
 
     /**
-     * Read the database config
-     * @throws {Error} If the config is invalid
-     * @returns {{type: "sqlite"}} Database config
-     */
-    static readDBConfig() {
-        let dbConfig;
-
-        let dbConfigString = fs.readFileSync(path.join(Database.dataDir, "db-config.json")).toString("utf-8");
-        dbConfig = JSON.parse(dbConfigString);
-
-        if (typeof dbConfig !== "object") {
-            throw new Error("Invalid db-config.json, it must be an object");
-        }
-
-        if (typeof dbConfig.type !== "string") {
-            throw new Error("Invalid db-config.json, type must be a string");
-        }
-        if (dbConfig.type !== "sqlite") {
-            throw new Error("Invalid db-config.json, uptime-buna supports SQLite only");
-        }
-        return dbConfig;
-    }
-
-    /**
-     * @param {{type: "sqlite"}} dbConfig the database configuration that should be written
+     * Remove legacy db-config.json left over from multi-backend installs.
+     * Uptime-buna is SQLite-only; the file is no longer read or written.
      * @returns {void}
      */
-    static writeDBConfig(dbConfig) {
-        if (!dbConfig || dbConfig.type !== "sqlite") {
-            throw new Error("uptime-buna supports SQLite only");
+    static removeLegacyDbConfig() {
+        const legacyPath = path.join(Database.dataDir, "db-config.json");
+        if (fs.existsSync(legacyPath)) {
+            fs.unlinkSync(legacyPath);
+            log.info("db", "Removed legacy db-config.json (SQLite-only, config file no longer used)");
         }
-        fs.writeFileSync(path.join(Database.dataDir, "db-config.json"), JSON.stringify({ type: "sqlite" }, null, 4));
     }
 
     /**
@@ -168,25 +146,7 @@ class Database {
      * @returns {Promise<void>}
      */
     static async connect(testMode = false, autoloadModels = true, noLog = false) {
-        let dbConfig;
-        try {
-            dbConfig = this.readDBConfig();
-        } catch (err) {
-            if (err.message.includes("supports SQLite only")) {
-                throw err;
-            }
-            log.warn("db", err.message);
-            dbConfig = {
-                type: "sqlite",
-            };
-            this.writeDBConfig(dbConfig);
-        }
-
-        if (dbConfig.type !== "sqlite") {
-            throw new Error("uptime-buna supports SQLite only.");
-        }
-
-        Database.dbConfig = dbConfig;
+        Database.removeLegacyDbConfig();
         log.info("db", "Database Type: sqlite (bun:sqlite)");
         await R.connect({
             sqlitePath: Database.sqlitePath,
@@ -211,9 +171,7 @@ class Database {
         log.info("db", "Closing the database");
 
         // Flush WAL to main database
-        if (Database.dbConfig.type === "sqlite") {
-            await R.exec("PRAGMA wal_checkpoint(TRUNCATE)");
-        }
+        await R.exec("PRAGMA wal_checkpoint(TRUNCATE)");
 
         await R.close();
         log.info("db", "Database closed");
@@ -224,13 +182,10 @@ class Database {
      * @returns {Promise<number>} Size of database
      */
     static async getSize() {
-        if (Database.dbConfig.type === "sqlite") {
-            log.debug("db", "Database.getSize()");
-            let stats = await fsAsync.stat(Database.sqlitePath);
-            log.debug("db", stats);
-            return stats.size;
-        }
-        return 0;
+        log.debug("db", "Database.getSize()");
+        let stats = await fsAsync.stat(Database.sqlitePath);
+        log.debug("db", stats);
+        return stats.size;
     }
 
     /**
@@ -238,9 +193,7 @@ class Database {
      * @returns {Promise<void>}
      */
     static async shrink() {
-        if (Database.dbConfig.type === "sqlite") {
-            await R.exec("VACUUM");
-        }
+        await R.exec("VACUUM");
     }
 
     /**
