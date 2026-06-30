@@ -129,7 +129,7 @@ import StatusPagePastIncidents from "@/components/status-page/StatusPagePastInci
 import StatusPageMonitorGroups from "@/components/status-page/StatusPageMonitorGroups.vue";
 import StatusPageOverallStatus from "@/components/status-page/StatusPageOverallStatus.vue";
 import StatusPageEditSidebar from "@/components/status-page/StatusPageEditSidebar.vue";
-import { getResBaseURL } from "@/util-frontend";
+import { getDevBaseURL } from "@/util/dev-base-url";
 
 const toast = useToast();
 dayjs.extend(duration);
@@ -386,7 +386,7 @@ export default {
         });
 
         // Special handle for dev
-        this.baseURL = getResBaseURL();
+        this.baseURL = getDevBaseURL();
     },
     async mounted() {
         this.slug = this.overrideSlug || this.$route.params.slug;
