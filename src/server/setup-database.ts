@@ -7,7 +7,6 @@
  * the local SQLite database path by default and rejects non-SQLite configs.
  */
 import { log } from "@/util";
-import Database from "@/server/database";
 import { printServerUrls } from "@/server/util-server";
 import { isSSL } from "@/server/config";
 import { resolveRequestPath } from "@/server/bun-http-server";
@@ -37,20 +36,6 @@ class SetupDatabase {
      */
     constructor(args, server) {
         this.server = server;
-
-        try {
-            const dbConfig = Database.readDBConfig();
-            if (dbConfig.type !== "sqlite") {
-                throw new Error("Only SQLite is supported.");
-            }
-        } catch (e) {
-            if (e.message.includes("supports SQLite only") || e.message.includes("Only SQLite is supported")) {
-                throw e;
-            }
-            log.info("setup-database", `Using SQLite as the application database: ${e.message}`);
-            Database.writeDBConfig({ type: "sqlite" });
-        }
-
         this.needSetup = false;
     }
 
@@ -140,15 +125,12 @@ class SetupDatabase {
                         this.runningSetup = true;
 
                         try {
-                            const { dbConfig = { type: "sqlite" } } = await request.json();
-                            if (typeof dbConfig !== "object") {
-                                throw new Error("Invalid dbConfig");
-                            }
-                            if (dbConfig.type && dbConfig.type !== "sqlite") {
+                            const body = await request.json().catch(() => ({}));
+                            const dbConfig = body?.dbConfig;
+                            if (dbConfig?.type && dbConfig.type !== "sqlite") {
                                 throw new Error("Only SQLite is supported");
                             }
 
-                            Database.writeDBConfig({ type: "sqlite" });
                             this.needSetup = false;
                         } catch (e) {
                             this.runningSetup = false;

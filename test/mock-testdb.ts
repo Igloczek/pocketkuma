@@ -10,10 +10,6 @@ class TestDB {
 
     async create() {
         Database.initDataDir({ "data-dir": this.dataDir });
-        Database.dbConfig = {
-            type: "sqlite",
-        };
-        Database.writeDBConfig(Database.dbConfig);
         await Database.connect(true);
     }
 
