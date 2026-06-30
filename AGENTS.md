@@ -48,6 +48,14 @@ Preferred Bun targets when the relevant task calls for them:
 
 Use the command set that matches the changed area.
 
+Git hooks (once per clone):
+
+```bash
+bun run hooks:install
+```
+
+The pre-commit hook formats staged files with `oxfmt` before each commit. It formats whole files and re-stages them, so partial staging (`git add -p`) is not preserved. Requires Bun (auto-discovered), `perl`, and paths excluded in `.oxfmtrc.json` `ignorePatterns` to stay aligned with the hook’s pre-filter. If a Git GUI strips the environment, set `BUN_BIN` to the absolute path of your `bun` executable.
+
 Current Bun checks:
 
 ```bash
