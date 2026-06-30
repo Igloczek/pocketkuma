@@ -2,10 +2,10 @@
 
 import { checkLogin, setSetting, setting, doubleCheckPassword } from "@/server/util-server";
 import { CloudflaredTunnel } from "node-cloudflared-tunnel";
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { log } from "@/util";
 
-const io = UptimeKumaServer.getInstance().io;
+const io = PocketKumaServer.getInstance().io;
 
 const prefix = "cloudflared_";
 const cloudflared = new CloudflaredTunnel();

@@ -10,10 +10,10 @@
  */
 import { TimeLogger } from "@/util";
 import { R } from "@/server/bun-sqlite-store";
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { setting } from "@/server/util-server";
 
-const server = UptimeKumaServer.getInstance();
+const server = PocketKumaServer.getInstance();
 const io = server.io;
 import * as checkVersion from "@/server/check-version";
 import { getRuntimeInfo } from "@/server/runtime";
@@ -212,7 +212,7 @@ async function sendRemoteBrowserList(socket) {
  * @returns {Promise<void>}
  */
 async function sendMonitorTypeList(socket) {
-    const result = Object.entries(UptimeKumaServer.monitorTypeList).map(([key, type]) => {
+    const result = Object.entries(PocketKumaServer.monitorTypeList).map(([key, type]) => {
         return [
             key,
             {

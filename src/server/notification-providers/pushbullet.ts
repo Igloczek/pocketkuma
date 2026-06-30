@@ -25,7 +25,7 @@ class Pushbullet extends NotificationProvider {
             if (heartbeatJSON == null) {
                 let data = {
                     type: "note",
-                    title: "Uptime Kuma Alert",
+                    title: "PocketKuma Alert",
                     body: msg,
                 };
                 await httpClient.post(url, data, config);

@@ -19,7 +19,7 @@ class Pumble extends NotificationProvider {
                 let data = {
                     attachments: [
                         {
-                            title: "Uptime Kuma Alert",
+                            title: "PocketKuma Alert",
                             text: msg,
                             color: "#5BDD8B",
                         },

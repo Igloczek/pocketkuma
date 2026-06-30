@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "uptime-buna",
+      "name": "pocketkuma",
       "dependencies": {
         "@grpc/grpc-js": "~1.8.22",
         "badge-maker": "~3.3.1",

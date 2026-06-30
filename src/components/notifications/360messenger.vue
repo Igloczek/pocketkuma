@@ -84,7 +84,8 @@
     <template v-if="$parent.notification.Whatsapp360messengerUseTemplate">
         <div class="mb-3">
             <label class="form-label" for="360messenger-template">{{ $t("360messengerMessageTemplate") }}</label>
-            <TemplatedField as="textarea"
+            <TemplatedField
+                as="textarea"
                 id="360messenger-template"
                 v-model="$parent.notification.Whatsapp360messengerTemplate"
                 :required="true"
@@ -117,7 +118,7 @@ export default {
         Whatsapp360messengerTemplatedTextareaPlaceholder() {
             return this.$t("Example:", [
                 `
-Uptime Kuma Alert{% if monitorJSON %} - {{ monitorJSON['name'] }}{% endif %}
+PocketKuma Alert{% if monitorJSON %} - {{ monitorJSON['name'] }}{% endif %}
 
 {{ msg }}
                 `,

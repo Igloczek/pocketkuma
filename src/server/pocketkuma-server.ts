@@ -1,10 +1,10 @@
 // @ts-nocheck
 
-// DO NOT IMPORT HERE IF THE MODULES USED `UptimeKumaServer.getInstance()`, put at the bottom of this file instead.
+// DO NOT IMPORT HERE IF THE MODULES USED `PocketKumaServer.getInstance()`, put at the bottom of this file instead.
 
 /**
  * `module.exports` (alias: `server`) should be inside this class, in order to avoid circular dependency issue.
- * @type {UptimeKumaServer}
+ * @type {PocketKumaServer}
  */
 import fs from "fs";
 import { R } from "@/server/bun-sqlite-store";
@@ -23,10 +23,10 @@ import packageJson from "@/package-meta";
 import { isCompiledBinary } from "@/server/app-paths";
 import { getEmbeddedAssetRef } from "@/server/generated/embedded-assets";
 
-class UptimeKumaServer {
+class PocketKumaServer {
     /**
      * Current server instance
-     * @type {UptimeKumaServer}
+     * @type {PocketKumaServer}
      */
     static instance = null;
 
@@ -67,13 +67,13 @@ class UptimeKumaServer {
     /**
      * Get the current instance of the server if it exists, otherwise
      * create a new instance.
-     * @returns {UptimeKumaServer} Server instance
+     * @returns {PocketKumaServer} Server instance
      */
     static getInstance() {
-        if (UptimeKumaServer.instance == null) {
-            UptimeKumaServer.instance = new UptimeKumaServer();
+        if (PocketKumaServer.instance == null) {
+            PocketKumaServer.instance = new PocketKumaServer();
         }
-        return UptimeKumaServer.instance;
+        return PocketKumaServer.instance;
     }
 
     /**
@@ -110,7 +110,7 @@ class UptimeKumaServer {
         }
 
         // Metadata only. Optional monitor implementations are loaded by getMonitorType() when a monitor runs.
-        UptimeKumaServer.monitorTypeList = createMonitorTypeList();
+        PocketKumaServer.monitorTypeList = createMonitorTypeList();
     }
 
     /**
@@ -485,5 +485,5 @@ class UptimeKumaServer {
     }
 }
 
-export { UptimeKumaServer };
+export { PocketKumaServer };
 // Must be at the end to avoid circular dependencies

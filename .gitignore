@@ -2,8 +2,8 @@ node_modules
 .DS_Store
 dist
 dist-ssr
-/uptime-buna
-/uptime-buna.exe
+/pocketkuma
+/pocketkuma.exe
 *.local
 .idea
 

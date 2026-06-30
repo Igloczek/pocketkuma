@@ -4,7 +4,7 @@ import readline from "readline";
 import TwoFA from "@/server/2fa";
 import { args } from "@/server/args";
 
-console.log("== Uptime Kuma Remove 2FA Tool ==");
+console.log("== PocketKuma Remove 2FA Tool ==");
 console.log("Loading the database");
 
 const rl = readline.createInterface({

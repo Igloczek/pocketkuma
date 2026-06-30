@@ -1,11 +1,11 @@
 {
-    "name": "uptime-buna",
+    "name": "pocketkuma",
     "version": "2.4.0",
     "type": "module",
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "https://github.com/igloczek/uptime-buna.git"
+        "url": "https://github.com/Igloczek/pocketkuma.git"
     },
     "engines": {
         "bun": ">= 1.2.0"

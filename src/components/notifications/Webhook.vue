@@ -50,7 +50,8 @@
             </template>
         </i18n-t>
         <template v-else-if="$parent.notification.webhookContentType == 'custom'">
-            <TemplatedField as="textarea"
+            <TemplatedField
+                as="textarea"
                 id="customBody"
                 v-model="$parent.notification.webhookCustomBody"
                 :required="true"
@@ -99,7 +100,7 @@ export default {
         customBodyPlaceholder() {
             return this.$t("Example:", [
                 `{
-    "Title": "Uptime Kuma Alert{% if monitorJSON %} - {{ monitorJSON['name'] }}{% endif %}",
+    "Title": "PocketKuma Alert{% if monitorJSON %} - {{ monitorJSON['name'] }}{% endif %}",
     "Body": "{{ msg }}"
 }`,
             ]);

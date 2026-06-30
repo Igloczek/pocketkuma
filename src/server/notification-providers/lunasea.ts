@@ -19,7 +19,7 @@ class LunaSea extends NotificationProvider {
             const target = this.getTarget(notification);
             if (heartbeatJSON == null) {
                 let testdata = {
-                    title: "Uptime Kuma Alert",
+                    title: "PocketKuma Alert",
                     body: msg,
                 };
                 await httpClient.post(`${url}/custom/${target}`, testdata, config);

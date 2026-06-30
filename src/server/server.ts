@@ -1,6 +1,6 @@
 // @ts-nocheck
 /*
- * Uptime Kuma Server
+ * PocketKuma Server
  * bun "src/server/server.ts"
  * DO NOT require("./server") in other modules, it likely creates circular dependency!
  */
@@ -50,7 +50,7 @@ function passwordStrength(password) {
     return { value };
 }
 import { verify as verifyTotp, encodeSecretForUri } from "@/server/totp";
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { listenWithBunServe } from "@/server/bun-http-server";
 import Monitor from "@/server/model/monitor";
 import User from "@/server/model/user";
@@ -102,7 +102,7 @@ import { Settings } from "@/server/settings";
 import { clearResponseCache } from "@/server/bun-response";
 import { chartSocketHandler } from "@/server/socket-handlers/chart-socket-handler";
 
-console.log("Welcome to Uptime Kuma");
+console.log("Welcome to PocketKuma");
 
 // As the log function need to use dayjs, it should be very top
 dayjs.extend(utc);
@@ -110,13 +110,13 @@ dayjs.extend(timezone);
 dayjs.extend(customParseFormat);
 
 if (!isBunRuntime()) {
-    console.error("Error: uptime-buna now requires Bun. Start it with `bun src/server/server.ts`.");
+    console.error("Error: pocketkuma now requires Bun. Start it with `bun src/server/server.ts`.");
     process.exit(1);
 }
 const runtimeInfo = getRuntimeInfo();
 console.log(`Your ${runtimeInfo.name} version: ${runtimeInfo.version}`);
 
-process.title = "uptime-kuma";
+process.title = "pocketkuma";
 
 log.debug("server", "Arguments");
 log.debug("server", args);
@@ -140,14 +140,14 @@ if (process.env.UPTIME_KUMA_DEBUG_INSPECTOR === "1") {
     log.warn("server", "UPTIME_KUMA_DEBUG_INSPECTOR is not supported under Bun. Start Bun with --inspect instead.");
 }
 
-log.info("server", "Uptime Kuma Version:", checkVersion.version);
+log.info("server", "PocketKuma Version:", checkVersion.version);
 
 log.info("server", "Loading modules");
 
 log.debug("server", "Importing database bean facade");
 log.debug("server", "Importing 2FA Modules");
 
-const server = UptimeKumaServer.getInstance();
+const server = PocketKumaServer.getInstance();
 export const io = server.io;
 
 log.debug("server", "Importing Monitor");
@@ -530,7 +530,7 @@ let needSetup = false;
 
                 if ((await R.count("user")) !== 0) {
                     throw new Error(
-                        "Uptime Kuma has been initialized. If you want to run setup again, please delete the database."
+                        "PocketKuma has been initialized. If you want to run setup again, please delete the database."
                     );
                 }
 
@@ -1696,7 +1696,7 @@ async function initDatabase(testMode = false) {
         log.debug("server", "Load JWT secret from database.");
     }
 
-    // If there is no record in user table, it is a new Uptime Kuma instance, need to setup
+    // If there is no record in user table, it is a new PocketKuma instance, need to setup
     if ((await R.count("user")) === 0) {
         log.info("server", "No user, need setup");
         needSetup = true;
@@ -1832,8 +1832,8 @@ process.once("SIGTERM", async () => {
 // Catch unexpected errors here
 let unexpectedErrorHandler = (error, promise) => {
     console.trace(error);
-    UptimeKumaServer.errorLog(error, false);
-    console.error("If you keep encountering errors, please report to https://github.com/louislam/uptime-kuma/issues");
+    PocketKumaServer.errorLog(error, false);
+    console.error("If you keep encountering errors, please report to https://github.com/Igloczek/pocketkuma/issues");
 };
 process.addListener("unhandledRejection", unexpectedErrorHandler);
 process.addListener("uncaughtException", unexpectedErrorHandler);

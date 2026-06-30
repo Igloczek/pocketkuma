@@ -5,7 +5,7 @@ import { parseTimeObject, parseTimeFromTimeObject, log, SQL_DATETIME_FORMAT } fr
 import { R } from "@/server/bun-sqlite-store";
 import dayjs from "dayjs";
 import Cron from "croner";
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { clearResponseCache } from "@/server/bun-response";
 
 class Maintenance extends BeanModel {
@@ -235,7 +235,7 @@ class Maintenance extends BeanModel {
         } else if (this.strategy === "single") {
             this.beanMeta.job = new Cron(this.start_date, { timezone: await this.getTimezone() }, () => {
                 log.info("maintenance", "Maintenance id: " + this.id + " is under maintenance now");
-                UptimeKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
+                PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
                 clearResponseCache();
             });
         } else if (this.cron != null) {
@@ -253,12 +253,12 @@ class Maintenance extends BeanModel {
 
                     let duration = this.inferDuration(customDuration);
 
-                    UptimeKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
+                    PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
 
                     this.beanMeta.durationTimeout = setTimeout(() => {
                         // End of maintenance for this timeslot
                         this.beanMeta.status = "scheduled";
-                        UptimeKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
+                        PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
                     }, duration);
 
                     // Set last start date to current time
@@ -403,7 +403,7 @@ class Maintenance extends BeanModel {
      */
     async getTimezone() {
         if (!this.timezone || this.timezone === "SAME_AS_SERVER") {
-            return await UptimeKumaServer.getInstance().getTimezone();
+            return await PocketKumaServer.getInstance().getTimezone();
         }
         return this.timezone;
     }

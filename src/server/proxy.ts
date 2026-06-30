@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { R } from "@/server/bun-sqlite-store";
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 
 class Proxy {
     static SUPPORTED_PROXY_PROTOCOLS = ["http", "https", "socks", "socks5", "socks5h", "socks4"];
@@ -82,7 +82,7 @@ class Proxy {
      * @returns {Promise<void>}
      */
     static async reloadProxy() {
-        const server = UptimeKumaServer.getInstance();
+        const server = PocketKumaServer.getInstance();
 
         let updatedList = await R.getAssoc("SELECT id, proxy_id FROM monitor");
 

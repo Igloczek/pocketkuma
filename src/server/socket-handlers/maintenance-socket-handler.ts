@@ -4,10 +4,10 @@ import { checkLogin } from "@/server/util-server";
 import { log } from "@/util";
 import { R } from "@/server/bun-sqlite-store";
 import { clearResponseCache } from "@/server/bun-response";
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 import Maintenance from "@/server/model/maintenance";
 
-const server = UptimeKumaServer.getInstance();
+const server = PocketKumaServer.getInstance();
 
 /**
  * Handlers for Maintenance

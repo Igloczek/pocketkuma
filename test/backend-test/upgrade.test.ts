@@ -50,7 +50,7 @@ describe("Upstream Kuma upgrade", () => {
     let store;
 
     beforeEach(async () => {
-        dir = fs.mkdtempSync(path.join(os.tmpdir(), "uptime-buna-upgrade-"));
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-upgrade-"));
         const dbPath = path.join(dir, "kuma.db");
         const sql = fs.readFileSync(baselineFixturePath, "utf8");
         loadSqlFixture(dbPath, sql);
@@ -114,7 +114,7 @@ describe("Upstream Kuma Knex end-state", () => {
     let store;
 
     beforeEach(async () => {
-        dir = fs.mkdtempSync(path.join(os.tmpdir(), "uptime-buna-knex-endstate-"));
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-knex-endstate-"));
         const dbPath = path.join(dir, "kuma.db");
         const sql = fs.readFileSync(knexEndstateFixturePath, "utf8");
         loadSqlFixture(dbPath, sql);
@@ -161,7 +161,7 @@ describe("Fresh Buna template", () => {
     let store;
 
     beforeEach(() => {
-        dir = fs.mkdtempSync(path.join(os.tmpdir(), "uptime-buna-fresh-"));
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-fresh-"));
     });
 
     afterEach(async () => {

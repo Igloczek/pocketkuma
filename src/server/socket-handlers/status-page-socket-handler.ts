@@ -14,7 +14,7 @@ import ImageDataURI from "@/server/image-data-uri";
 import Database from "@/server/database";
 import { clearResponseCache } from "@/server/bun-response";
 import StatusPage from "@/server/model/status_page";
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { Settings } from "@/server/settings";
 
 function validateIncident(incident) {
@@ -410,7 +410,7 @@ export const statusPageSocketHandler = (socket) => {
                 await R.exec(`DELETE FROM \`group\` WHERE id NOT IN (${slots}) AND status_page_id = ?`, data);
             }
 
-            const server = UptimeKumaServer.getInstance();
+            const server = PocketKumaServer.getInstance();
 
             // Also change entry page to new slug if it is the default one, and slug is changed.
             if (server.entryPage === "statusPage-" + slug && statusPage.slug !== slug) {
@@ -482,7 +482,7 @@ export const statusPageSocketHandler = (socket) => {
 
     // Delete a status page
     socket.on("deleteStatusPage", async (slug, callback) => {
-        const server = UptimeKumaServer.getInstance();
+        const server = PocketKumaServer.getInstance();
 
         try {
             checkLogin(socket);

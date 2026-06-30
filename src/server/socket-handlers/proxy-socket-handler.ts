@@ -3,9 +3,9 @@
 import { checkLogin } from "@/server/util-server";
 import { Proxy } from "@/server/proxy";
 import { sendProxyList } from "@/server/client";
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 
-const server = UptimeKumaServer.getInstance();
+const server = PocketKumaServer.getInstance();
 
 /**
  * Handlers for proxy

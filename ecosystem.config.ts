@@ -1,7 +1,7 @@
 export default {
     apps: [
         {
-            name: "uptime-kuma",
+            name: "pocketkuma",
             script: "./src/server/server.ts",
             interpreter: "bun",
         },

@@ -15,7 +15,7 @@ const analyze = process.env.ANALYZE === "1" || process.env.ANALYZE === "true";
 
 function serviceWorkerDevRoute() {
     return {
-        name: "uptime-buna-service-worker",
+        name: "pocketkuma-service-worker",
         configureServer(server) {
             server.middlewares.use(async (request, response, next) => {
                 const pathname = new URL(request.url || "/", "http://localhost").pathname;

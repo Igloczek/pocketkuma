@@ -10,7 +10,7 @@ Date: 2026-06-29
 
 ## Runtime Defaults
 
-- Root `compose.yaml` builds local image `uptime-buna:local`.
+- Root `compose.yaml` builds local image `pocketkuma:local`.
 - Root `compose.yaml` uses root `Dockerfile`.
 - Package Docker scripts now expose one local image build script: `bun run build-docker`.
 - Release helper default Dockerfile path is `Dockerfile`.
@@ -21,7 +21,7 @@ Date: 2026-06-29
 bun run build
 docker compose config
 docker compose build --progress=plain
-docker image inspect uptime-buna:bun-final --format '{{.Size}}'
+docker image inspect pocketkuma:bun-final --format '{{.Size}}'
 ```
 
 Results:
@@ -36,18 +36,18 @@ Results:
 Command:
 
 ```bash
-UPTIME_BUNA_PORT=3012 UPTIME_BUNA_DATA_DIR=/tmp/uptime-buna-root-docker-smoke docker compose -p uptime-buna-root-smoke up -d --force-recreate
+POCKETKUMA_PORT=3012 POCKETKUMA_DATA_DIR=/tmp/pocketkuma-root-docker-smoke docker compose -p pocketkuma-root-smoke up -d --force-recreate
 ```
 
 Results:
 
-- Container started from `uptime-buna:bun-final`.
+- Container started from `pocketkuma:bun-final`.
 - Container status: `Up ... (healthy)`.
 - Logs showed `Server Type: Bun.serve HTTP`.
 - HTTP check passed: `http://127.0.0.1:3012/setup` returned `200`.
 - Browser smoke passed: setup page rendered, admin user was created, and dashboard loaded.
-- Smoke project was stopped with `docker compose -p uptime-buna-root-smoke down --volumes --remove-orphans`.
-- Temporary data directory `/tmp/uptime-buna-root-docker-smoke` was removed.
+- Smoke project was stopped with `docker compose -p pocketkuma-root-smoke down --volumes --remove-orphans`.
+- Temporary data directory `/tmp/pocketkuma-root-docker-smoke` was removed.
 
 ## Remaining Docker Exceptions
 

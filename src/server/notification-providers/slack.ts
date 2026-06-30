@@ -39,7 +39,7 @@ class Slack extends NotificationProvider {
 
     /**
      * Builds the actions available in the slack message
-     * @param {string} baseURL Uptime Kuma base URL
+     * @param {string} baseURL PocketKuma base URL
      * @param {object} monitorJSON The monitor config
      * @returns {Array} The relevant action objects
      */
@@ -51,7 +51,7 @@ class Slack extends NotificationProvider {
                 type: "button",
                 text: {
                     type: "plain_text",
-                    text: "Visit Uptime Kuma",
+                    text: "Visit PocketKuma",
                 },
                 value: "Uptime-Kuma",
                 url: baseURL + getMonitorRelativeURL(monitorJSON.id),
@@ -80,7 +80,7 @@ class Slack extends NotificationProvider {
 
     /**
      * Builds the different blocks the Slack message consists of.
-     * @param {string} baseURL Uptime Kuma base URL
+     * @param {string} baseURL PocketKuma base URL
      * @param {object} monitorJSON The monitor object
      * @param {object} heartbeatJSON The heartbeat object
      * @param {string} title The message title
@@ -194,7 +194,7 @@ class Slack extends NotificationProvider {
             const groupPath =
                 includeGroupName && monitorJSON?.path?.length > 1 ? monitorJSON.path.slice(0, -1).join(" / ") : "";
 
-            const title = monitorJSON?.name || "Uptime Kuma Alert";
+            const title = monitorJSON?.name || "PocketKuma Alert";
             let data = {
                 text: msg,
                 channel: notification.slackchannel,

@@ -32,6 +32,6 @@ jobs:
               run: |
                   bun scripts/build/build-binary.ts \
                     --target=bun-linux-x64 \
-                    --outfile=dist/releases/uptime-buna-linux-x64
-                  test -f dist/releases/uptime-buna-linux-x64
-                  ls -lh dist/releases/uptime-buna-linux-x64
+                    --outfile=dist/releases/pocketkuma-linux-x64
+                  test -f dist/releases/pocketkuma-linux-x64
+                  ls -lh dist/releases/pocketkuma-linux-x64

@@ -3,7 +3,7 @@
 import { BeanModel } from "@/server/bun-sqlite-store";
 import { R } from "@/server/bun-sqlite-store";
 import { load as loadHtml } from "cheerio";
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { escapeJsString, escapeJsJson } from "@/util/escape";
 import analytics from "@/server/analytics/analytics";
 import { marked } from "marked";
@@ -99,7 +99,7 @@ class StatusPage extends BeanModel {
 
         return {
             status: 404,
-            body: UptimeKumaServer.getInstance().indexHTML,
+            body: PocketKumaServer.getInstance().indexHTML,
         };
     }
 
@@ -124,7 +124,7 @@ class StatusPage extends BeanModel {
 
         return {
             status: 404,
-            body: UptimeKumaServer.getInstance().indexHTML,
+            body: PocketKumaServer.getInstance().indexHTML,
             contentType: "text/html; charset=utf-8",
         };
     }
@@ -139,7 +139,7 @@ class StatusPage extends BeanModel {
         const { incidents, heartbeats, statusDescription } = await StatusPage.getRSSPageData(statusPage);
 
         // Use custom RSS title if set, otherwise fall back to status page title
-        let feedTitle = "Uptime Kuma RSS Feed";
+        let feedTitle = "PocketKuma RSS Feed";
         if (statusPage.rss_title) {
             feedTitle = statusPage.rss_title;
         } else if (statusPage.title) {
@@ -637,7 +637,7 @@ class StatusPage extends BeanModel {
             );
 
             for (const maintenanceID of maintenanceIDList) {
-                let maintenance = UptimeKumaServer.getInstance().getMaintenance(maintenanceID);
+                let maintenance = PocketKumaServer.getInstance().getMaintenance(maintenanceID);
                 if (maintenance && (await maintenance.isUnderMaintenance())) {
                     publicMaintenanceList.push(await maintenance.toPublicJSON());
                 }

@@ -42,7 +42,7 @@ async function getGameList() {
 /**
  * Handler for general events
  * @param {Socket} socket Socket.io instance
- * @param {UptimeKumaServer} server Uptime Kuma server
+ * @param {PocketKumaServer} server PocketKuma server
  * @returns {void}
  */
 export const generalSocketHandler = (socket, server) => {

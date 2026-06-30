@@ -2,7 +2,7 @@
 
 ## Repository Identity
 
-Uptime Buna is a performance-focused fork of Uptime Kuma. It is not an official Uptime Kuma project and is not intended to operate as a public open-source community project.
+PocketKuma is a performance-focused fork of Uptime Kuma. It is not an official Uptime Kuma project and is not intended to operate as a public open-source community project.
 
 The repository is published "as is": no formal support process, no issue triage process, no release promise, and no community governance files.
 
@@ -21,7 +21,7 @@ The repository is published "as is": no formal support process, no issue triage 
 - Use native Bun APIs where they reduce memory, dependencies, or runtime complexity.
 - Keep the application recognizable; do not rewrite the product from scratch.
 - Prefer SQLite and a lightweight runtime. Do not add app-database backends only for upstream parity.
-- Ship Uptime Buna as a single executable. Do not add Docker, compose, or parallel distribution paths unless explicitly requested.
+- Ship PocketKuma as a single executable. Do not add Docker, compose, or parallel distribution paths unless explicitly requested.
 
 Preferred Bun targets when the relevant task calls for them:
 
@@ -69,7 +69,7 @@ bun run test-e2e
 Current backend smoke start:
 
 ```bash
-./uptime-buna --port=3001 --data-dir=./data/smoke
+./pocketkuma --port=3001 --data-dir=./data/smoke
 ```
 
 Development smoke start:

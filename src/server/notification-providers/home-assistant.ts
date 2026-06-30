@@ -27,13 +27,13 @@ class HomeAssistant extends NotificationProvider {
             await httpClient.post(
                 `${notification.homeAssistantUrl.trim().replace(/\/*$/, "")}/api/services/notify/${notificationService}`,
                 {
-                    title: "Uptime Kuma",
+                    title: "PocketKuma",
                     message: msg,
                     ...(notificationService !== "persistent_notification" && {
                         data: {
                             name: monitorJSON?.name,
                             status: heartbeatJSON?.status,
-                            channel: "Uptime Kuma",
+                            channel: "PocketKuma",
                             icon_url: "https://github.com/louislam/uptime-kuma/blob/master/public/icon.png?raw=true",
                         },
                     }),

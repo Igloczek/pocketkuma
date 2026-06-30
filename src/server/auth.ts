@@ -138,7 +138,7 @@ function unauthorizedResponse(disableFrameSameOrigin) {
         status: 401,
         disableFrameSameOrigin,
         headers: {
-            "WWW-Authenticate": 'Basic realm="Uptime Kuma"',
+            "WWW-Authenticate": 'Basic realm="PocketKuma"',
         },
     });
 }

@@ -2,7 +2,7 @@
     <div class="d-flex justify-content-center align-items-center">
         <div class="logo d-flex flex-column justify-content-center align-items-center">
             <object class="my-4" width="200" height="200" data="/icon.svg" />
-            <div class="fs-4 fw-bold">Uptime Kuma</div>
+            <div class="fs-4 fw-bold">PocketKuma</div>
             <div>{{ $t("versionIs", { version: appStore.info.version }) }}</div>
             <div class="frontend-version">{{ $t("frontendVersionIs", { version: appStore.frontendVersion }) }}</div>
 
@@ -11,7 +11,7 @@
             </div>
 
             <div class="my-3 update-link">
-                <a href="https://github.com/louislam/uptime-kuma/releases" target="_blank" rel="noopener">
+                <a href="https://github.com/Igloczek/pocketkuma/releases" target="_blank" rel="noopener">
                     {{ $t("Check Update On GitHub") }}
                 </a>
             </div>

@@ -62,7 +62,8 @@
     <template v-if="$parent.notification.matrixUseTemplate">
         <div class="mb-3">
             <label class="form-label" for="message_template">{{ $t("Message Template") }}</label>
-            <TemplatedField as="textarea"
+            <TemplatedField
+                as="textarea"
                 id="message_template"
                 v-model="$parent.notification.matrixTemplate"
                 :required="true"
@@ -85,7 +86,7 @@ export default {
         matrixTemplatedTextareaPlaceholder() {
             return this.$t("Example:", [
                 `
-Uptime Kuma Alert{% if monitorJSON %} - {{ monitorJSON['name'] }}{% endif %}
+PocketKuma Alert{% if monitorJSON %} - {{ monitorJSON['name'] }}{% endif %}
 
 {{ msg }}
                 `,

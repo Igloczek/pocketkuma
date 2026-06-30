@@ -11,7 +11,7 @@ export let latestVersion = null;
 
 // How much time in ms to wait between update checks
 const UPDATE_CHECKER_INTERVAL_MS = 1000 * 60 * 60 * 48;
-const UPDATE_CHECKER_LATEST_VERSION_URL = "https://uptime.kuma.pet/version";
+const UPDATE_CHECKER_LATEST_VERSION_URL = "https://api.github.com/repos/Igloczek/pocketkuma/releases/latest";
 
 let interval;
 
@@ -28,20 +28,12 @@ export const startInterval = () => {
 
             // For debug
             if (process.env.TEST_CHECK_VERSION === "1") {
-                res.data.slow = "1000.0.0";
+                res.data.tag_name = "v1000.0.0";
             }
 
-            let checkBeta = await setting("checkBeta");
-
-            if (checkBeta && res.data.beta) {
-                if (Bun.semver.order(res.data.beta, res.data.slow) > 0) {
-                    latestVersion = res.data.beta;
-                    return;
-                }
-            }
-
-            if (res.data.slow) {
-                latestVersion = res.data.slow;
+            const tagName = res.data?.tag_name;
+            if (typeof tagName === "string") {
+                latestVersion = tagName.replace(/^v/, "");
             }
         } catch (_) {
             log.info("update-checker", "Failed to check for new versions");

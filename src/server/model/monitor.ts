@@ -44,7 +44,7 @@ import { R } from "@/server/bun-sqlite-store";
 import { BeanModel } from "@/server/bun-sqlite-store";
 import { Notification } from "@/server/notification";
 import { demoMode } from "@/server/config";
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { DockerHost } from "@/server/docker";
 import jwt from "@/server/jwt";
 import crypto from "crypto";
@@ -112,7 +112,7 @@ class Monitor extends BeanModel {
         let screenshot = null;
 
         if (this.type === "real-browser") {
-            screenshot = "/screenshots/" + jwt.sign(this.id, UptimeKumaServer.getInstance().jwtSecret) + ".png";
+            screenshot = "/screenshots/" + jwt.sign(this.id, PocketKumaServer.getInstance().jwtSecret) + ".png";
         }
 
         const path = preloadData.paths.get(this.id) || [];
@@ -767,13 +767,13 @@ class Monitor extends BeanModel {
                     bean.msg = resp.code;
                     bean.status = UP;
                     bean.ping = dayjs().valueOf() - startTime;
-                } else if (this.type in UptimeKumaServer.monitorTypeList) {
+                } else if (this.type in PocketKumaServer.monitorTypeList) {
                     let startTime = dayjs().valueOf();
-                    const monitorType = await UptimeKumaServer.getInstance().getMonitorType(this.type);
+                    const monitorType = await PocketKumaServer.getInstance().getMonitorType(this.type);
                     if (!monitorType) {
                         throw new Error("Unknown Monitor Type");
                     }
-                    await monitorType.check(this, bean, UptimeKumaServer.getInstance());
+                    await monitorType.check(this, bean, PocketKumaServer.getInstance());
 
                     if (!monitorType.allowCustomStatus && bean.status !== UP) {
                         throw new Error(
@@ -886,7 +886,7 @@ class Monitor extends BeanModel {
                 log.debug("monitor", `[${this.name}] response cache clear`);
                 clearResponseCache();
 
-                await UptimeKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
+                await PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
             } else {
                 bean.important = false;
 
@@ -997,8 +997,8 @@ class Monitor extends BeanModel {
                 await beat();
             } catch (e) {
                 console.trace(e);
-                UptimeKumaServer.errorLog(e, false);
-                log.error("monitor", "Please report to https://github.com/louislam/uptime-kuma/issues");
+                PocketKumaServer.errorLog(e, false);
+                log.error("monitor", "Please report to https://github.com/Igloczek/pocketkuma/issues");
 
                 if (!this.isStop) {
                     log.info("monitor", "Try to restart the monitor");
@@ -1397,8 +1397,8 @@ class Monitor extends BeanModel {
             }
 
             // Also provide the time in server timezone
-            heartbeatJSON["timezone"] = await UptimeKumaServer.getInstance().getTimezone();
-            heartbeatJSON["timezoneOffset"] = UptimeKumaServer.getInstance().getTimezoneOffset();
+            heartbeatJSON["timezone"] = await PocketKumaServer.getInstance().getTimezone();
+            heartbeatJSON["timezoneOffset"] = PocketKumaServer.getInstance().getTimezoneOffset();
             heartbeatJSON["localDateTime"] = dayjs
                 .utc(heartbeatJSON["time"])
                 .tz(heartbeatJSON["timezone"])
@@ -1529,7 +1529,7 @@ class Monitor extends BeanModel {
         );
 
         for (const maintenanceID of maintenanceIDList) {
-            const maintenance = await UptimeKumaServer.getInstance().getMaintenance(maintenanceID);
+            const maintenance = await PocketKumaServer.getInstance().getMaintenance(maintenanceID);
             if (maintenance && (await maintenance.isUnderMaintenance())) {
                 return true;
             }
@@ -1902,7 +1902,7 @@ class Monitor extends BeanModel {
      * @returns {Promise<void>}
      */
     static async deleteMonitor(monitorID, userID) {
-        const server = UptimeKumaServer.getInstance();
+        const server = PocketKumaServer.getInstance();
 
         // Stop the monitor if it's running
         if (monitorID in server.monitorList) {

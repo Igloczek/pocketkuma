@@ -3,7 +3,7 @@
 // Shared constants for frontend and backend
 */
 
-export const appName = "Uptime Kuma";
+export const appName = "PocketKuma";
 export const DOWN = 0;
 export const UP = 1;
 export const PENDING = 2;

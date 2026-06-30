@@ -29,13 +29,13 @@ class RocketChat extends NotificationProvider {
             }
 
             let data = {
-                text: "Uptime Kuma Alert",
+                text: "PocketKuma Alert",
                 channel: notification.rocketchannel,
                 username: notification.rocketusername,
                 icon_emoji: notification.rocketiconemo,
                 attachments: [
                     {
-                        title: `Uptime Kuma Alert *Time (${heartbeatJSON["timezone"]})*\n${heartbeatJSON["localDateTime"]}`,
+                        title: `PocketKuma Alert *Time (${heartbeatJSON["timezone"]})*\n${heartbeatJSON["localDateTime"]}`,
                         text: "*Message*\n" + msg,
                     },
                 ],

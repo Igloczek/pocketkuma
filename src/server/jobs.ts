@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { UptimeKumaServer } from "@/server/uptime-kuma-server";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { clearOldData } from "@/server/jobs/clear-old-data";
 import { incrementalVacuum } from "@/server/jobs/incremental-vacuum";
 import Cron from "croner";
@@ -25,7 +25,7 @@ const jobs = [
  * @returns {Promise<void>}
  */
 const initBackgroundJobs = async function () {
-    const timezone = await UptimeKumaServer.getInstance().getTimezone();
+    const timezone = await PocketKumaServer.getInstance().getTimezone();
 
     for (const job of jobs) {
         const cornerJob = new Cron(
