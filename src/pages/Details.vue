@@ -453,7 +453,8 @@ import { getMonitorRelativeURL } from "@/util-shared";
 
 import DOMPurify from "dompurify";
 import { marked } from "marked";
-import { getResBaseURL, timeDurationFormatter } from "@/util-frontend";
+import { getDevBaseURL } from "@/util/dev-base-url";
+import { timeDurationFormatter } from "@/util-frontend";
 import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-clike";
 import "prismjs/components/prism-javascript";
@@ -594,7 +595,7 @@ export default {
         },
 
         screenshotURL() {
-            return getResBaseURL() + this.monitor.screenshot + "?time=" + this.cacheTime;
+            return getDevBaseURL() + this.monitor.screenshot + "?time=" + this.cacheTime;
         },
 
         descriptionHTML() {
@@ -642,7 +643,7 @@ export default {
     },
 
     methods: {
-        getResBaseURL,
+        getDevBaseURL,
         /**
          * Request a test notification be sent for this monitor
          * @returns {void}
