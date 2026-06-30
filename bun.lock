@@ -6,7 +6,6 @@
       "name": "uptime-buna",
       "dependencies": {
         "@grpc/grpc-js": "~1.8.22",
-        "@vvo/tzdb": "~6.198.0",
         "badge-maker": "~3.3.1",
         "chardet": "~1.4.0",
         "cheerio": "~1.0.0",
@@ -609,8 +608,6 @@
     "@vue/shared": ["@vue/shared@3.4.38", "", {}, "sha512-q0xCiLkuWWQLzVrecPb0RMsNWyxICOjPrcrwxTUEHb1fsnvni4dcuyG7RT/Ie7VPTvnjzIaWzRMUBsrqNj/hhw=="],
 
     "@vuepic/vue-datepicker": ["@vuepic/vue-datepicker@3.4.8", "", { "dependencies": { "date-fns": "^2.29.2" }, "peerDependencies": { "vue": ">=3.2.0" } }, "sha512-nbuMA7IgjtT99LqcjSTSUcl7omTZSB+7vYSWQ9gQm31Frm/1wn54fT1Q0HaRD9nHXX982AACbqeND4K80SKONw=="],
-
-    "@vvo/tzdb": ["@vvo/tzdb@6.198.0", "", {}, "sha512-bNRWBhWYl0edVgyX6AYbhoCM2tk2lXJjGCyO2VDc2xn6Dw8dLd7WGj2DDXkVOkmOIQTNjEAcxrEpIzz5pWVwFg=="],
 
     "abort-controller": ["abort-controller@3.0.0", "", { "dependencies": { "event-target-shim": "^5.0.0" } }, "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg=="],
 
