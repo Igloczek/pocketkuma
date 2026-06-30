@@ -1,6 +1,24 @@
 import { defineAsyncComponent } from "vue";
 
+import { createGenericNotificationForm } from "@/components/notifications/create-generic-notification-form";
+
 const notificationModules = import.meta.glob("./*.vue");
+
+/** Providers using schema-driven generic form (no dedicated .vue file). */
+const genericNotificationProviders: Record<string, string> = {
+    GrafanaOncall: "GrafanaOncall",
+    Keep: "Keep",
+    FlashDuty: "FlashDuty",
+    pumble: "Pumble",
+    PushDeer: "PushDeer",
+    PushPlus: "PushPlus",
+    SIGNL4: "SIGNL4",
+    squadcast: "Squadcast",
+    stackfield: "stackfield",
+    SpugPush: "SpugPush",
+    GoAlert: "GoAlert",
+    ZohoCliq: "ZohoCliq",
+};
 
 /**
  * Provider type string -> Vue filename (without extension).
@@ -29,10 +47,8 @@ const notificationComponentFiles: Record<string, string> = {
     GoogleSheets: "GoogleSheets",
     gorush: "Gorush",
     gotify: "Gotify",
-    GrafanaOncall: "GrafanaOncall",
     HomeAssistant: "HomeAssistant",
     HeiiOnCall: "HeiiOnCall",
-    Keep: "Keep",
     Kook: "Kook",
     line: "Line",
     lunasea: "LunaSea",
@@ -48,27 +64,20 @@ const notificationComponentFiles: Record<string, string> = {
     Opsgenie: "Opsgenie",
     JiraServiceManagement: "JiraServiceManagement",
     PagerDuty: "PagerDuty",
-    FlashDuty: "FlashDuty",
     PagerTree: "PagerTree",
     promosms: "PromoSMS",
-    pumble: "Pumble",
     pushbullet: "Pushbullet",
     PushByTechulus: "TechulusPush",
-    PushDeer: "PushDeer",
     pushover: "Pushover",
-    PushPlus: "PushPlus",
     pushy: "Pushy",
     "rocket.chat": "RocketChat",
     serwersms: "SerwerSMS",
     signal: "Signal",
-    SIGNL4: "SIGNL4",
     SMSManager: "SMSManager",
     SMSPartner: "SMSPartner",
     slack: "Slack",
-    squadcast: "Squadcast",
     SMSEagle: "SMSEagle",
     smtp: "SMTP",
-    stackfield: "Stackfield",
     teams: "Teams",
     telegram: "Telegram",
     Teltonika: "Teltonika",
@@ -76,12 +85,9 @@ const notificationComponentFiles: Record<string, string> = {
     threema: "Threema",
     twilio: "Twilio",
     Splunk: "Splunk",
-    SpugPush: "SpugPush",
     webhook: "Webhook",
     WeCom: "WeCom",
-    GoAlert: "GoAlert",
     ServerChan: "ServerChan",
-    ZohoCliq: "ZohoCliq",
     SevenIO: "SevenIO",
     whapi: "Whapi",
     evolution: "Evolution",
@@ -103,22 +109,29 @@ const notificationComponentFiles: Record<string, string> = {
     VKTeams: "VKTeams",
 };
 
+const lazyLoadedEntries = Object.entries(notificationComponentFiles).map(([providerType, fileName]) => {
+    const path = `./${fileName}.vue`;
+    const loader = notificationModules[path];
+
+    if (!loader) {
+        throw new Error(`Missing notification form module: ${path} (provider: ${providerType})`);
+    }
+
+    return [providerType, defineAsyncComponent(loader)];
+});
+
+const genericEntries = Object.entries(genericNotificationProviders).map(([providerType, schemaId]) => {
+    return [providerType, createGenericNotificationForm(schemaId)];
+});
+
 /**
- * Manage all notification forms (lazy-loaded per provider).
+ * Manage all notification forms (lazy-loaded per provider, generic schema forms inline).
  */
-const NotificationFormList = Object.fromEntries(
-    Object.entries(notificationComponentFiles).map(([providerType, fileName]) => {
-        const path = `./${fileName}.vue`;
-        const loader = notificationModules[path];
+const NotificationFormList = Object.fromEntries([...lazyLoadedEntries, ...genericEntries]);
 
-        if (!loader) {
-            throw new Error(`Missing notification form module: ${path} (provider: ${providerType})`);
-        }
-
-        return [providerType, defineAsyncComponent(loader)];
-    })
-);
-
-export const notificationProviderTypes = Object.keys(notificationComponentFiles);
+export const notificationProviderTypes = [
+    ...Object.keys(notificationComponentFiles),
+    ...Object.keys(genericNotificationProviders),
+];
 
 export default NotificationFormList;
