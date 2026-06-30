@@ -7,7 +7,7 @@ import fs from "fs";
 import { R } from "@/server/redbean-compat";
 
 const fsAsync = fs.promises;
-import { log, sleep, isDev } from "@/util";
+import { log, isDev } from "@/util";
 import { runCommandSync } from "@/server/process-helper";
 import path from "path";
 import kumaDbTemplate from "@/db/kuma.db" with { type: "file" };
@@ -49,8 +49,6 @@ class Database {
      * @type {string}
      */
     static dockerTLSDir;
-
-    static noReject = true;
 
     static dbConfig = { type: "sqlite" };
 
@@ -207,24 +205,9 @@ class Database {
     }
 
     /**
-     * Legacy patch hook retained for startup compatibility.
-     * Schema upgrades run during connect() via runPendingUpgrades().
-     * @returns {Promise<void>}
-     */
-    static async patch() {
-        log.debug("db", "Schema upgrades are applied during database connect");
-    }
-
-    /**
-     * Special handle, because tarn.js throw a promise reject that cannot be caught
      * @returns {Promise<void>}
      */
     static async close() {
-        const listener = (_reason, _promise) => {
-            Database.noReject = false;
-        };
-        process.addListener("unhandledRejection", listener);
-
         log.info("db", "Closing the database");
 
         // Flush WAL to main database
@@ -232,20 +215,8 @@ class Database {
             await R.exec("PRAGMA wal_checkpoint(TRUNCATE)");
         }
 
-        while (true) {
-            Database.noReject = true;
-            await R.close();
-            await sleep(2000);
-
-            if (Database.noReject) {
-                break;
-            } else {
-                log.info("db", "Waiting to close the database");
-            }
-        }
+        await R.close();
         log.info("db", "Database closed");
-
-        process.removeListener("unhandledRejection", listener);
     }
 
     /**
