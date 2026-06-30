@@ -1,13 +1,7 @@
 // @ts-nocheck
 
 import { R } from "@/server/redbean-compat";
-import { HttpProxyAgent } from "http-proxy-agent";
-import { HttpsProxyAgent } from "https-proxy-agent";
-import { SocksProxyAgent } from "socks-proxy-agent";
-import { debug } from "@/util";
 import { UptimeKumaServer } from "@/server/uptime-kuma-server";
-import { CookieJar } from "tough-cookie";
-import { createCookieAgent } from "http-cookie-agent/http";
 
 class Proxy {
     static SUPPORTED_PROXY_PROTOCOLS = ["http", "https", "socks", "socks5", "socks5h", "socks4"];
@@ -81,82 +75,6 @@ class Proxy {
 
         // Delete proxy from list
         await R.trash(bean);
-    }
-
-    /**
-     * Create HTTP and HTTPS agents related with given proxy bean object
-     * @param {object} proxy proxy bean object
-     * @param {object} options http and https agent options
-     * @returns {{httpAgent: Agent, httpsAgent: Agent}} New HTTP and HTTPS agents
-     * @throws Proxy protocol is unsupported
-     */
-    static createAgents(proxy, options) {
-        const { httpAgentOptions, httpsAgentOptions } = options || {};
-        let agent;
-        let httpAgent;
-        let httpsAgent;
-
-        let jar = new CookieJar();
-
-        const proxyOptions = {
-            cookies: { jar },
-        };
-
-        const proxyUrl = new URL(`${proxy.protocol}://${proxy.host}:${proxy.port}`);
-
-        if (proxy.auth) {
-            proxyUrl.username = proxy.username;
-            proxyUrl.password = proxy.password;
-        }
-
-        debug(`Proxy URL: ${proxyUrl.toString()}`);
-        debug(`HTTP Agent Options: ${JSON.stringify(httpAgentOptions)}`);
-        debug(`HTTPS Agent Options: ${JSON.stringify(httpsAgentOptions)}`);
-
-        switch (proxy.protocol) {
-            case "http":
-            case "https":
-                // eslint-disable-next-line no-case-declarations
-                const HttpCookieProxyAgent = createCookieAgent(HttpProxyAgent);
-                // eslint-disable-next-line no-case-declarations
-                const HttpsCookieProxyAgent = createCookieAgent(HttpsProxyAgent);
-
-                httpAgent = new HttpCookieProxyAgent(proxyUrl.toString(), {
-                    ...(httpAgentOptions || {}),
-                    ...proxyOptions,
-                });
-                httpsAgent = new HttpsCookieProxyAgent(proxyUrl.toString(), {
-                    ...(httpsAgentOptions || {}),
-                    ...proxyOptions,
-                });
-
-                break;
-            case "socks":
-            case "socks5":
-            case "socks5h":
-            case "socks4":
-                // eslint-disable-next-line no-case-declarations
-                const SocksCookieProxyAgent = createCookieAgent(SocksProxyAgent);
-                agent = new SocksCookieProxyAgent(proxyUrl.toString(), {
-                    ...httpAgentOptions,
-                    ...httpsAgentOptions,
-                    tls: {
-                        rejectUnauthorized: httpsAgentOptions.rejectUnauthorized,
-                    },
-                });
-
-                httpAgent = agent;
-                httpsAgent = agent;
-                break;
-
-            default:
-                throw new Error(`Unsupported proxy protocol provided. ${proxy.protocol}`);
-        }
-
-        return {
-            httpAgent,
-            httpsAgent,
-        };
     }
 
     /**
