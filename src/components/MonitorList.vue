@@ -100,7 +100,7 @@
             :style="monitorListStyle"
             data-testid="monitor-list"
         >
-            <div v-if="Object.keys($root.monitorList).length === 0" class="text-center mt-3">
+            <div v-if="Object.keys(appStore.monitorList).length === 0" class="text-center mt-3">
                 {{ $t("No Monitors, please") }}
                 <router-link to="/add">{{ $t("add one") }}</router-link>
             </div>
@@ -187,7 +187,7 @@ export default {
          * @returns {Array} The sorted list of monitors.
          */
         sortedMonitorList() {
-            let result = Object.values(this.$root.monitorList);
+            let result = Object.values(this.appStore.monitorList);
 
             result = result.filter((monitor) => {
                 // The root list does not show children
@@ -245,7 +245,7 @@ export default {
          * @returns {Array} Array of group monitors with children
          */
         groupMonitors() {
-            const monitors = Object.values(this.$root.monitorList);
+            const monitors = Object.values(this.appStore.monitorList);
             return monitors.filter((m) => m.type === "group" && monitors.some((child) => child.parent === m.id));
         },
 
@@ -369,16 +369,16 @@ export default {
             // If collapsing all and currently viewing a nested group, navigate to root parent
             if (shouldCollapse) {
                 const currentMonitorId = parseInt(this.$route.params.id);
-                const currentMonitor = this.$root.monitorList[currentMonitorId];
+                const currentMonitor = this.appStore.monitorList[currentMonitorId];
 
                 if (currentMonitor && currentMonitor.parent !== null) {
                     // Find the root parent by traversing up the hierarchy
                     let rootParentId = currentMonitor.parent;
-                    let rootParent = this.$root.monitorList[rootParentId];
+                    let rootParent = this.appStore.monitorList[rootParentId];
 
                     while (rootParent && rootParent.parent !== null) {
                         rootParentId = rootParent.parent;
-                        rootParent = this.$root.monitorList[rootParentId];
+                        rootParent = this.appStore.monitorList[rootParentId];
                     }
 
                     // Navigate to the root parent, then increment collapseKey to force re-render
@@ -439,16 +439,18 @@ export default {
                 return;
             }
 
-            const activeMonitors = Object.keys(this.selectedMonitors).filter((id) => this.$root.monitorList[id].active);
+            const activeMonitors = Object.keys(this.selectedMonitors).filter(
+                (id) => this.appStore.monitorList[id].active
+            );
 
             if (activeMonitors.length === 0) {
-                this.$root.toastError(this.$t("noMonitorsPausedMsg"));
+                this.appStore.toastError(this.$t("noMonitorsPausedMsg"));
                 return;
             }
 
             this.bulkActionInProgress = true;
-            activeMonitors.forEach((id) => this.$root.getSocket().emit("pauseMonitor", id, () => {}));
-            this.$root.toastSuccess(this.$t("pausedMonitorsMsg", activeMonitors.length));
+            activeMonitors.forEach((id) => this.appStore.getSocket().emit("pauseMonitor", id, () => {}));
+            this.appStore.toastSuccess(this.$t("pausedMonitorsMsg", activeMonitors.length));
             this.bulkActionInProgress = false;
             this.cancelSelectMode();
         },
@@ -462,17 +464,17 @@ export default {
             }
 
             const inactiveMonitors = Object.keys(this.selectedMonitors).filter(
-                (id) => !this.$root.monitorList[id].active
+                (id) => !this.appStore.monitorList[id].active
             );
 
             if (inactiveMonitors.length === 0) {
-                this.$root.toastError(this.$t("noMonitorsResumedMsg"));
+                this.appStore.toastError(this.$t("noMonitorsResumedMsg"));
                 return;
             }
 
             this.bulkActionInProgress = true;
-            inactiveMonitors.forEach((id) => this.$root.getSocket().emit("resumeMonitor", id, () => {}));
-            this.$root.toastSuccess(this.$t("resumedMonitorsMsg", inactiveMonitors.length));
+            inactiveMonitors.forEach((id) => this.appStore.getSocket().emit("resumeMonitor", id, () => {}));
+            this.appStore.toastSuccess(this.$t("resumedMonitorsMsg", inactiveMonitors.length));
             this.bulkActionInProgress = false;
             this.cancelSelectMode();
         },
@@ -494,7 +496,7 @@ export default {
             for (const id of monitorIds) {
                 try {
                     await new Promise((resolve, reject) => {
-                        this.$root.getSocket().emit("deleteMonitor", id, false, (res) => {
+                        this.appStore.getSocket().emit("deleteMonitor", id, false, (res) => {
                             if (res.ok) {
                                 successCount++;
                                 resolve();
@@ -512,10 +514,10 @@ export default {
             this.bulkActionInProgress = false;
 
             if (successCount > 0) {
-                this.$root.toastSuccess(this.$t("deletedMonitorsMsg", successCount));
+                this.appStore.toastSuccess(this.$t("deletedMonitorsMsg", successCount));
             }
             if (errorCount > 0) {
-                this.$root.toastError(this.$t("bulkDeleteErrorMsg", errorCount));
+                this.appStore.toastError(this.$t("bulkDeleteErrorMsg", errorCount));
             }
 
             this.cancelSelectMode();
@@ -528,7 +530,7 @@ export default {
         filterFunc(monitor) {
             // Group monitors bypass filter if at least 1 of children matched
             if (monitor.type === "group") {
-                const children = Object.values(this.$root.monitorList).filter((m) => m.parent === monitor.id);
+                const children = Object.values(this.appStore.monitorList).filter((m) => m.parent === monitor.id);
                 if (children.some((child, index, children) => this.filterFunc(child))) {
                     return true;
                 }
@@ -551,8 +553,8 @@ export default {
             // filter by status
             let statusMatch = true;
             if (this.filterState.status != null && this.filterState.status.length > 0) {
-                if (monitor.id in this.$root.lastHeartbeatList && this.$root.lastHeartbeatList[monitor.id]) {
-                    monitor.status = this.$root.lastHeartbeatList[monitor.id].status;
+                if (monitor.id in this.appStore.lastHeartbeatList && this.appStore.lastHeartbeatList[monitor.id]) {
+                    monitor.status = this.appStore.lastHeartbeatList[monitor.id].status;
                 }
                 statusMatch = this.filterState.status.includes(monitor.status);
             }

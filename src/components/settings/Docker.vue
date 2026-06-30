@@ -1,12 +1,12 @@
 <template>
     <div>
         <div class="dockerHost-list my-4">
-            <p v-if="$root.dockerHostList.length === 0">
+            <p v-if="appStore.dockerHostList.length === 0">
                 {{ $t("Not available, please setup.") }}
             </p>
 
             <ul class="list-group mb-3" style="border-radius: 1rem">
-                <li v-for="(dockerHost, index) in $root.dockerHostList" :key="index" class="list-group-item">
+                <li v-for="(dockerHost, index) in appStore.dockerHostList" :key="index" class="list-group-item">
                     {{ dockerHost.name }}
                     <br />
                     <a href="#" @click="$refs.dockerHostDialog.show(dockerHost.id)">{{ $t("Edit") }}</a>

@@ -1,9 +1,9 @@
 <template>
     <div :class="classes">
-        <div v-if="!$root.socket.connected && !$root.socket.firstConnect" class="lost-connection">
+        <div v-if="!appStore.socket.connected && !appStore.socket.firstConnect" class="lost-connection">
             <div class="container-fluid">
-                {{ $root.connectionErrorMsg }}
-                <div v-if="$root.showReverseProxyGuide">
+                {{ appStore.connectionErrorMsg }}
+                <div v-if="appStore.showReverseProxyGuide">
                     {{ $t("Using a Reverse Proxy?") }}
                     <a href="https://github.com/louislam/uptime-kuma/wiki/Reverse-Proxy" target="_blank">
                         {{ $t("Check how to config it for WebSocket") }}
@@ -28,28 +28,28 @@
                 href="https://github.com/louislam/uptime-kuma/releases"
                 class="btn btn-primary me-3"
             >
-                <app-icon icon="arrow-alt-circle-up" />
+                <font-awesome-icon icon="arrow-alt-circle-up" />
                 {{ $t("New Update") }}
             </a>
 
             <ul class="nav nav-pills">
-                <li v-if="$root.loggedIn" class="nav-item me-2">
+                <li v-if="appStore.loggedIn" class="nav-item me-2">
                     <router-link to="/manage-status-page" class="nav-link">
-                        <app-icon icon="stream" />
+                        <font-awesome-icon icon="stream" />
                         {{ $t("Status Pages") }}
                     </router-link>
                 </li>
-                <li v-if="$root.loggedIn" class="nav-item me-2">
+                <li v-if="appStore.loggedIn" class="nav-item me-2">
                     <router-link to="/dashboard" class="nav-link">
-                        <app-icon icon="tachometer-alt" />
+                        <font-awesome-icon icon="tachometer-alt" />
                         {{ $t("Dashboard") }}
                     </router-link>
                 </li>
-                <li v-if="$root.loggedIn" class="nav-item">
+                <li v-if="appStore.loggedIn" class="nav-item">
                     <div class="dropdown dropdown-profile-pic">
                         <div class="nav-link" data-bs-toggle="dropdown">
-                            <div class="profile-pic">{{ $root.usernameFirstChar }}</div>
-                            <app-icon icon="angle-down" />
+                            <div class="profile-pic">{{ appStore.usernameFirstChar }}</div>
+                            <font-awesome-icon icon="angle-down" />
                         </div>
 
                         <!-- Header's Dropdown Menu -->
@@ -57,14 +57,14 @@
                             <!-- Username -->
                             <li>
                                 <i18n-t
-                                    v-if="$root.username != null"
+                                    v-if="appStore.username != null"
                                     tag="span"
                                     keypath="signedInDisp"
                                     class="dropdown-item-text"
                                 >
-                                    <strong>{{ $root.username }}</strong>
+                                    <strong>{{ appStore.username }}</strong>
                                 </i18n-t>
-                                <span v-if="$root.username == null" class="dropdown-item-text">
+                                <span v-if="appStore.username == null" class="dropdown-item-text">
                                     {{ $t("signedInDispDisabled") }}
                                 </span>
                             </li>
@@ -78,7 +78,7 @@
                                     class="dropdown-item"
                                     :class="{ active: $route.path.includes('manage-maintenance') }"
                                 >
-                                    <app-icon icon="wrench" />
+                                    <font-awesome-icon icon="wrench" />
                                     {{ $t("Maintenance") }}
                                 </router-link>
                             </li>
@@ -89,7 +89,7 @@
                                     class="dropdown-item"
                                     :class="{ active: $route.path.includes('settings') }"
                                 >
-                                    <app-icon icon="cog" />
+                                    <font-awesome-icon icon="cog" />
                                     {{ $t("Settings") }}
                                 </router-link>
                             </li>
@@ -100,14 +100,14 @@
                                     class="dropdown-item"
                                     target="_blank"
                                 >
-                                    <app-icon icon="info-circle" />
+                                    <font-awesome-icon icon="info-circle" />
                                     {{ $t("Help") }}
                                 </a>
                             </li>
 
-                            <li v-if="$root.loggedIn && $root.socket.token !== 'autoLogin'">
-                                <button class="dropdown-item" @click="$root.logout">
-                                    <app-icon icon="sign-out-alt" />
+                            <li v-if="appStore.loggedIn && appStore.socket.token !== 'autoLogin'">
+                                <button class="dropdown-item" @click="appStore.logout">
+                                    <font-awesome-icon icon="sign-out-alt" />
                                     {{ $t("Logout") }}
                                 </button>
                             </li>
@@ -126,30 +126,30 @@
         </header>
 
         <main>
-            <router-view v-if="$root.loggedIn" />
-            <Login v-if="!$root.loggedIn && $root.allowLoginDialog" />
+            <router-view v-if="appStore.loggedIn" />
+            <Login v-if="!appStore.loggedIn && appStore.allowLoginDialog" />
         </main>
 
         <!-- Mobile Only -->
         <div v-if="$root.isMobile" style="width: 100%; height: calc(60px + env(safe-area-inset-bottom))" />
-        <nav v-if="$root.isMobile && $root.loggedIn" class="bottom-nav">
+        <nav v-if="$root.isMobile && appStore.loggedIn" class="bottom-nav">
             <router-link to="/dashboard" class="nav-link">
-                <div><app-icon icon="tachometer-alt" /></div>
+                <div><font-awesome-icon icon="tachometer-alt" /></div>
                 {{ $t("Home") }}
             </router-link>
 
             <router-link to="/list" class="nav-link">
-                <div><app-icon icon="list" /></div>
+                <div><font-awesome-icon icon="list" /></div>
                 {{ $t("List") }}
             </router-link>
 
             <router-link to="/add" class="nav-link">
-                <div><app-icon icon="plus" /></div>
+                <div><font-awesome-icon icon="plus" /></div>
                 {{ $t("Add") }}
             </router-link>
 
             <router-link to="/settings" class="nav-link">
-                <div><app-icon icon="cog" /></div>
+                <div><font-awesome-icon icon="cog" /></div>
                 {{ $t("Settings") }}
             </router-link>
         </nav>
@@ -160,55 +160,15 @@
             class="btn btn-normal clear-all-toast-btn"
             @click="clearToasts"
         >
-            <app-icon icon="times" />
+            <font-awesome-icon icon="times" />
         </button>
     </div>
 </template>
 
 <script>
 import Login from "@/components/Login.vue";
+import { compare as compareVersions } from "@/util/version-compare";
 import { useToast } from "vue-toastification";
-
-function isVersionGreaterThan(latest, current) {
-    const parse = (version) => {
-        const prereleaseIndex = String(version).indexOf("-");
-        const main = prereleaseIndex === -1 ? String(version) : String(version).slice(0, prereleaseIndex);
-        const prerelease = prereleaseIndex === -1 ? null : String(version).slice(prereleaseIndex + 1);
-        return {
-            parts: main.split(".").map((part) => Number.parseInt(part, 10) || 0),
-            prerelease,
-        };
-    };
-
-    const left = parse(latest);
-    const right = parse(current);
-    const length = Math.max(left.parts.length, right.parts.length);
-
-    for (let i = 0; i < length; i++) {
-        const leftPart = left.parts[i] || 0;
-        const rightPart = right.parts[i] || 0;
-        if (leftPart > rightPart) {
-            return true;
-        }
-        if (leftPart < rightPart) {
-            return false;
-        }
-    }
-
-    if (!left.prerelease && !right.prerelease) {
-        return false;
-    }
-
-    if (!left.prerelease) {
-        return true;
-    }
-
-    if (!right.prerelease) {
-        return false;
-    }
-
-    return left.prerelease > right.prerelease;
-}
 const toast = useToast();
 
 export default {
@@ -234,8 +194,8 @@ export default {
         },
 
         hasNewVersion() {
-            if (this.$root.info.latestVersion && this.$root.info.version) {
-                return isVersionGreaterThan(this.$root.info.latestVersion, this.$root.info.version);
+            if (this.appStore.info.latestVersion && this.appStore.info.version) {
+                return compareVersions(this.appStore.info.latestVersion, this.appStore.info.version, ">");
             } else {
                 return false;
             }

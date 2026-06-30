@@ -32,8 +32,8 @@ export default {
 
             let key = this.monitor.id + "_" + this.type;
 
-            if (this.$root.uptimeList[key] !== undefined) {
-                let result = Math.round(this.$root.uptimeList[key] * 10000) / 100;
+            if (this.appStore.uptimeList[key] !== undefined) {
+                let result = Math.round(this.appStore.uptimeList[key] * 10000) / 100;
                 // Only perform sanity check on status page. See louislam/uptime-kuma#2628
                 if (this.$route.path.startsWith("/status") && result > 100) {
                     return "100%";
@@ -66,8 +66,11 @@ export default {
         },
 
         lastHeartBeat() {
-            if (this.monitor.id in this.$root.lastHeartbeatList && this.$root.lastHeartbeatList[this.monitor.id]) {
-                return this.$root.lastHeartbeatList[this.monitor.id];
+            if (
+                this.monitor.id in this.appStore.lastHeartbeatList &&
+                this.appStore.lastHeartbeatList[this.monitor.id]
+            ) {
+                return this.appStore.lastHeartbeatList[this.monitor.id];
             }
 
             return {

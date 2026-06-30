@@ -233,7 +233,7 @@ export default {
             // eslint-disable-next-line eqeqeq
             if (newPeriod == "0") {
                 this.heartbeatList = null;
-                this.$root.storage()["chart-period"] = newPeriod;
+                this.appStore.storage()["chart-period"] = newPeriod;
             } else {
                 this.loading = true;
 
@@ -245,19 +245,19 @@ export default {
                     period = 24;
                 }
 
-                this.$root.getMonitorChartData(this.monitorId, period, (res) => {
+                this.appStore.getMonitorChartData(this.monitorId, period, (res) => {
                     if (!res.ok) {
-                        this.$root.toastError(res.msg);
+                        this.appStore.toastError(res.msg);
                     } else {
                         this.chartRawData = res.data;
-                        this.$root.storage()["chart-period"] = newPeriod;
+                        this.appStore.storage()["chart-period"] = newPeriod;
                     }
                     this.loading = false;
                 });
 
                 this.chartDataFetchInterval = setInterval(
                     () => {
-                        this.$root.getMonitorChartData(this.monitorId, period, (res) => {
+                        this.appStore.getMonitorChartData(this.monitorId, period, (res) => {
                             if (res.ok) {
                                 this.chartRawData = res.data;
                             }
@@ -270,7 +270,7 @@ export default {
     },
     created() {
         // Load chart period from storage if saved
-        let period = this.$root.storage()["chart-period"];
+        let period = this.appStore.storage()["chart-period"];
         if (period != null) {
             // Has this ever been not a string?
             if (typeof period !== "string") {
@@ -352,13 +352,13 @@ export default {
         getChartDatapointsFromHeartbeatList() {
             // Render chart using heartbeatList
             let lastHeartbeatTime;
-            const monitorInterval = this.$root.monitorList[this.monitorId]?.interval;
+            const monitorInterval = this.appStore.monitorList[this.monitorId]?.interval;
             let pingData = []; // Ping Data for Line Chart, y-axis contains ping time
             let downData = []; // Down Data for Bar Chart, y-axis is 1 if target is down (red color), under maintenance (blue color) or pending (orange color), 0 if target is up
             let colorData = []; // Color Data for Bar Chart
 
             let heartbeatList =
-                (this.monitorId in this.$root.heartbeatList && this.$root.heartbeatList[this.monitorId]) || [];
+                (this.monitorId in this.appStore.heartbeatList && this.appStore.heartbeatList[this.monitorId]) || [];
 
             for (const beat of heartbeatList) {
                 const beatTime = this.$root.toDayjs(beat.time);
@@ -441,7 +441,7 @@ export default {
         getChartDatapointsFromStats() {
             // Render chart using UptimeCalculator data
             let lastHeartbeatTime;
-            const monitorInterval = this.$root.monitorList[this.monitorId]?.interval;
+            const monitorInterval = this.appStore.monitorList[this.monitorId]?.interval;
 
             let avgPingData = []; // Ping Data for Line Chart, y-axis contains ping time
             let minPingData = []; // Ping Data for Line Chart, y-axis contains ping time

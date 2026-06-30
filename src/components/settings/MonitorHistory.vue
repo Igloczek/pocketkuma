@@ -24,7 +24,7 @@
             </button>
         </div>
         <div class="my-4">
-            <div v-if="$root.info.dbType === 'sqlite'" class="my-3">
+            <div v-if="appStore.info.dbType === 'sqlite'" class="my-3">
                 <button class="btn btn-outline-info me-2" @click="shrinkDatabase">
                     {{ $t("Shrink Database") }} ({{ databaseSizeDisplay }})
                 </button>
@@ -93,7 +93,7 @@ export default {
          */
         loadDatabaseSize() {
             console.debug("monitorhistory", "load database size");
-            this.$root.getSocket().emit("getDatabaseSize", (res) => {
+            this.appStore.getSocket().emit("getDatabaseSize", (res) => {
                 if (res.ok) {
                     this.databaseSize = res.size;
                     console.debug("monitorhistory", "database size: " + res.size);
@@ -108,10 +108,10 @@ export default {
          * @returns {void}
          */
         shrinkDatabase() {
-            this.$root.getSocket().emit("shrinkDatabase", (res) => {
+            this.appStore.getSocket().emit("shrinkDatabase", (res) => {
                 if (res.ok) {
                     this.loadDatabaseSize();
-                    this.$root.toastSuccess("Done");
+                    this.appStore.toastSuccess("Done");
                 } else {
                     console.debug("monitorhistory", res);
                 }
@@ -131,11 +131,11 @@ export default {
          * @returns {void}
          */
         clearStatistics() {
-            this.$root.clearStatistics((res) => {
+            this.appStore.clearStatistics((res) => {
                 if (res.ok) {
                     this.$router.go();
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },

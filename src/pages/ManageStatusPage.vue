@@ -13,9 +13,9 @@
             </div>
 
             <div class="shadow-box">
-                <template v-if="$root.statusPageListLoaded">
+                <template v-if="appStore.statusPageListLoaded">
                     <span
-                        v-if="Object.keys($root.statusPageList).length === 0"
+                        v-if="Object.keys(appStore.statusPageList).length === 0"
                         class="d-flex align-items-center justify-content-center my-3"
                     >
                         {{ $t("No status pages") }}
@@ -23,7 +23,7 @@
 
                     <!-- use <a> instead of <router-link>, because the heartbeat won't load. -->
                     <a
-                        v-for="statusPage in $root.statusPageList"
+                        v-for="statusPage in appStore.statusPageList"
                         :key="statusPage.slug"
                         :href="'/status/' + statusPage.slug"
                         class="item"
@@ -94,12 +94,12 @@ export default {
             this.$refs.confirmDelete.show();
         },
         deleteStatusPage() {
-            this.$root.getSocket().emit("deleteStatusPage", this.$data.selectedStatusSlug, (res) => {
+            this.appStore.getSocket().emit("deleteStatusPage", this.$data.selectedStatusSlug, (res) => {
                 if (res.ok) {
-                    this.$root.toastSuccess(this.$t("successDeleted"));
+                    this.appStore.toastSuccess(this.$t("successDeleted"));
                     window.location.reload();
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },

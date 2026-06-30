@@ -29,11 +29,7 @@
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-fill" style="min-width: 0">
                             <span v-if="hasChildren" class="collapse-padding" @click.prevent="changeCollapsed">
-                                <app-icon
-                                    icon="chevron-down"
-                                    class="animated"
-                                    :class="{ collapsed: isCollapsed }"
-                                />
+                                <app-icon icon="chevron-down" class="animated" :class="{ collapsed: isCollapsed }" />
                             </span>
                             <div class="flex-fill text-truncate" style="min-width: 0">
                                 <div class="text-truncate">{{ monitor.name }}</div>
@@ -148,7 +144,7 @@ export default {
     },
     computed: {
         sortedChildMonitorList() {
-            let result = Object.values(this.$root.monitorList);
+            let result = Object.values(this.appStore.monitorList);
 
             // Get children
             result = result.filter((childMonitor) => childMonitor.parent === this.monitor.id);
@@ -271,7 +267,7 @@ export default {
                 return;
             }
 
-            const draggedMonitor = this.$root.monitorList[draggedMonitorId];
+            const draggedMonitor = this.appStore.monitorList[draggedMonitorId];
             if (!draggedMonitor) {
                 return;
             }
@@ -284,27 +280,27 @@ export default {
             monitorToSave.parent = this.monitor.id;
 
             // Optimistically update local state so UI updates immediately
-            this.$root.monitorList[draggedMonitorId].parent = this.monitor.id;
+            this.appStore.monitorList[draggedMonitorId].parent = this.monitor.id;
 
             // Send updated monitor state via socket
             try {
-                this.$root.getSocket().emit("editMonitor", monitorToSave, (res) => {
+                this.appStore.getSocket().emit("editMonitor", monitorToSave, (res) => {
                     if (!res || !res.ok) {
                         // Revert local change on error
-                        if (this.$root.monitorList[draggedMonitorId]) {
-                            this.$root.monitorList[draggedMonitorId].parent = originalParent;
+                        if (this.appStore.monitorList[draggedMonitorId]) {
+                            this.appStore.monitorList[draggedMonitorId].parent = originalParent;
                         }
                         if (res && res.msg) {
-                            this.$root.toastError(res.msg);
+                            this.appStore.toastError(res.msg);
                         }
                     } else {
-                        this.$root.toastRes(res);
+                        this.appStore.toastRes(res);
                     }
                 });
             } catch (e) {
                 // revert on exception
-                if (this.$root.monitorList[draggedMonitorId]) {
-                    this.$root.monitorList[draggedMonitorId].parent = originalParent;
+                if (this.appStore.monitorList[draggedMonitorId]) {
+                    this.appStore.monitorList[draggedMonitorId].parent = originalParent;
                 }
             }
         },

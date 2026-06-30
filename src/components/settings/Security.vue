@@ -8,9 +8,9 @@
                         v-if="!settings.disableAuth"
                         id="logout-btn"
                         class="btn btn-danger ms-4 me-2 mb-2"
-                        @click="$root.logout"
+                        @click="appStore.logout"
                     >
-                        {{ $t("logoutCurrentUser", { username: $root.username }) }}
+                        {{ $t("logoutCurrentUser", { username: appStore.username }) }}
                     </button>
                 </p>
 
@@ -191,8 +191,8 @@ export default {
             if (this.password.newPassword !== this.password.repeatNewPassword) {
                 this.invalidPassword = true;
             } else {
-                this.$root.getSocket().emit("changePassword", this.password, (res) => {
-                    this.$root.toastRes(res);
+                this.appStore.getSocket().emit("changePassword", this.password, (res) => {
+                    this.appStore.toastRes(res);
                     if (res.ok) {
                         this.password.currentPassword = "";
                         this.password.newPassword = "";
@@ -200,8 +200,8 @@ export default {
 
                         // Update token of the current session
                         if (res.token) {
-                            this.$root.storage().token = res.token;
-                            this.$root.socket.token = res.token;
+                            this.appStore.storage().token = res.token;
+                            this.appStore.socket.token = res.token;
                         }
                     }
                 });
@@ -219,8 +219,8 @@ export default {
             // Set it to empty if done
             this.saveSettings(() => {
                 this.password.currentPassword = "";
-                this.$root.username = null;
-                this.$root.socket.token = "autoLogin";
+                this.appStore.username = null;
+                this.appStore.socket.token = "autoLogin";
             }, this.password.currentPassword);
         },
 
@@ -231,7 +231,7 @@ export default {
         enableAuth() {
             this.settings.disableAuth = false;
             this.saveSettings();
-            this.$root.storage().removeItem("token");
+            this.appStore.storage().removeItem("token");
             location.reload();
         },
 

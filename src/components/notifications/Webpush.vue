@@ -50,7 +50,7 @@ export default {
 
             try {
                 const publicKey = await new Promise((resolve, reject) => {
-                    this.$root.getSocket().emit("getWebpushVapidPublicKey", (resp) => {
+                    this.appStore.getSocket().emit("getWebpushVapidPublicKey", (resp) => {
                         if (!resp.ok) {
                             reject(new Error(resp.msg));
                         }
@@ -61,7 +61,7 @@ export default {
 
                 const permission = await Notification.requestPermission();
                 if (permission !== "granted") {
-                    this.$root.toastRes({
+                    this.appStore.toastRes({
                         ok: false,
                         msg: this.$t("Unable to get permission to notify"),
                     });
@@ -82,7 +82,7 @@ export default {
                 this.btnText = this.$t("Notifications Enabled");
             } catch (error) {
                 console.error("Subscription failed:", error);
-                this.$root.toastRes({
+                this.appStore.toastRes({
                     ok: false,
                     msg: error,
                 });

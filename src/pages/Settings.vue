@@ -26,9 +26,9 @@
 
                     <!-- Logout Button -->
                     <a
-                        v-if="$root.isMobile && $root.loggedIn && $root.socket.token !== 'autoLogin'"
+                        v-if="$root.isMobile && appStore.loggedIn && appStore.socket.token !== 'autoLogin'"
                         class="logout"
-                        @click.prevent="$root.logout"
+                        @click.prevent="appStore.logout"
                     >
                         <div class="menu-item">
                             <app-icon icon="sign-out-alt" />
@@ -153,7 +153,7 @@ export default {
          * @returns {void}
          */
         loadSettings() {
-            this.$root.getSocket().emit("getSettings", (res) => {
+            this.appStore.getSocket().emit("getSettings", (res) => {
                 this.settings = res.data;
 
                 if (this.settings.checkUpdate === undefined) {
@@ -208,8 +208,8 @@ export default {
         saveSettings(callback, currentPassword) {
             let valid = this.validateSettings();
             if (valid.success) {
-                this.$root.getSocket().emit("setSettings", this.settings, currentPassword, (res) => {
-                    this.$root.toastRes(res);
+                this.appStore.getSocket().emit("setSettings", this.settings, currentPassword, (res) => {
+                    this.appStore.toastRes(res);
                     this.loadSettings();
 
                     if (callback) {
@@ -217,7 +217,7 @@ export default {
                     }
                 });
             } else {
-                this.$root.toastError(valid.msg);
+                this.appStore.toastError(valid.msg);
             }
         },
 

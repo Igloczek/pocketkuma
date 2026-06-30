@@ -146,7 +146,7 @@ export default {
             const trimmedMobile = mobile.trim();
             const chinaMobileRegex = /^1[3-9]\d{9}$/;
             if (!chinaMobileRegex.test(trimmedMobile)) {
-                this.$root.toastError(this.$t("Invalid mobile", { mobile: trimmedMobile }));
+                this.appStore.toastError(this.$t("Invalid mobile", { mobile: trimmedMobile }));
                 return;
             }
             this.mobileOpts.push(mobile);
@@ -161,7 +161,7 @@ export default {
             const trimmedUserId = userId.trim();
             const userIdRegex = /^[a-zA-Z0-9]+$/;
             if (!userIdRegex.test(trimmedUserId)) {
-                this.$root.toastError(this.$t("Invalid userId", { userId: trimmedUserId }));
+                this.appStore.toastError(this.$t("Invalid userId", { userId: trimmedUserId }));
                 return;
             }
             this.userIdOpts.push(trimmedUserId);

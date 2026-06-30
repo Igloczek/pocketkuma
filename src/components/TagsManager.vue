@@ -393,11 +393,11 @@ export default {
          * @returns {void}
          */
         getExistingTags() {
-            this.$root.getSocket().emit("getTags", (res) => {
+            this.appStore.getSocket().emit("getTags", (res) => {
                 if (res.ok) {
                     this.existingTags = res.tags;
                 } else {
-                    this.$root.toastError(res.msg);
+                    this.appStore.toastError(res.msg);
                 }
             });
         },
@@ -449,7 +449,7 @@ export default {
          */
         addTagAsync(newTag) {
             return new Promise((resolve) => {
-                this.$root.getSocket().emit("addTag", newTag, resolve);
+                this.appStore.getSocket().emit("addTag", newTag, resolve);
             });
         },
         /**
@@ -461,7 +461,7 @@ export default {
          */
         addMonitorTagAsync(tagId, monitorId, value) {
             return new Promise((resolve) => {
-                this.$root.getSocket().emit("addMonitorTag", tagId, monitorId, value, resolve);
+                this.appStore.getSocket().emit("addMonitorTag", tagId, monitorId, value, resolve);
             });
         },
         /**
@@ -473,7 +473,7 @@ export default {
          */
         deleteMonitorTagAsync(tagId, monitorId, value) {
             return new Promise((resolve) => {
-                this.$root.getSocket().emit("deleteMonitorTag", tagId, monitorId, value, resolve);
+                this.appStore.getSocket().emit("deleteMonitorTag", tagId, monitorId, value, resolve);
             });
         },
         /**
@@ -501,7 +501,7 @@ export default {
                     let newTagResult;
                     await this.addTagAsync(newTag).then((res) => {
                         if (!res.ok) {
-                            this.$root.toastError(res.msg);
+                            this.appStore.toastError(res.msg);
                             newTagResult = false;
                         }
                         newTagResult = res.tag;
@@ -526,7 +526,7 @@ export default {
                 // Assign tag to monitor
                 await this.addMonitorTagAsync(tagId, monitorId, newTag.value).then((res) => {
                     if (!res.ok) {
-                        this.$root.toastError(res.msg);
+                        this.appStore.toastError(res.msg);
                         newMonitorTagResult = false;
                     }
                     newMonitorTagResult = true;
@@ -543,7 +543,7 @@ export default {
                 await this.deleteMonitorTagAsync(deleteTag.tag_id, deleteTag.monitor_id, deleteTag.value).then(
                     (res) => {
                         if (!res.ok) {
-                            this.$root.toastError(res.msg);
+                            this.appStore.toastError(res.msg);
                             deleteMonitorTagResult = false;
                         }
                         deleteMonitorTagResult = true;

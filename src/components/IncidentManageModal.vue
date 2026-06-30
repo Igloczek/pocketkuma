@@ -153,20 +153,20 @@ export default {
          */
         submit() {
             if (!this.form.title || this.form.title.trim() === "") {
-                this.$root.toastError(this.$t("Please input title"));
+                this.appStore.toastError(this.$t("Please input title"));
                 return;
             }
 
             if (!this.form.content || this.form.content.trim() === "") {
-                this.$root.toastError(this.$t("Please input content"));
+                this.appStore.toastError(this.$t("Please input content"));
                 return;
             }
 
             this.processing = true;
 
-            this.$root.getSocket().emit("editIncident", this.slug, this.incidentId, this.form, (res) => {
+            this.appStore.getSocket().emit("editIncident", this.slug, this.incidentId, this.form, (res) => {
                 this.processing = false;
-                this.$root.toastRes(res);
+                this.appStore.toastRes(res);
                 if (res.ok) {
                     this.modal.hide();
                     this.$emit("incident-updated");
@@ -183,8 +183,8 @@ export default {
                 return;
             }
 
-            this.$root.getSocket().emit("deleteIncident", this.slug, this.pendingDeleteIncident.id, (res) => {
-                this.$root.toastRes(res);
+            this.appStore.getSocket().emit("deleteIncident", this.slug, this.pendingDeleteIncident.id, (res) => {
+                this.appStore.toastRes(res);
                 if (res.ok) {
                     this.$emit("incident-updated");
                 }

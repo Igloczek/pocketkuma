@@ -11,11 +11,12 @@ import { i18n } from "@/i18n";
 import { AppIcon } from "@/icon";
 import datetime from "@/mixins/datetime";
 import mobile from "@/mixins/mobile";
-import publicMixin from "@/mixins/public";
-import socket from "@/mixins/socket";
+import appStoreMixin from "@/mixins/appStore";
 import theme from "@/mixins/theme";
 import lang from "@/mixins/lang";
 import { router } from "@/router";
+import { createPinia } from "pinia";
+import { initAppStoreWatchers } from "@/stores/app";
 import { appName } from "@/constants";
 import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
@@ -26,8 +27,10 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.extend(relativeTime);
 
+const pinia = createPinia();
+
 const app = createApp({
-    mixins: [socket, theme, mobile, datetime, publicMixin, lang],
+    mixins: [appStoreMixin, theme, mobile, datetime, lang],
     data() {
         return {
             appName: appName,
@@ -36,6 +39,7 @@ const app = createApp({
     render: () => h(App),
 });
 
+app.use(pinia);
 app.use(router);
 app.use(i18n);
 
@@ -43,6 +47,7 @@ app.use(Toast, loadToastSettings());
 app.component("Editable", contenteditable);
 app.component("AppIcon", AppIcon);
 
+initAppStoreWatchers();
 app.mount("#app");
 
 // Service Worker
