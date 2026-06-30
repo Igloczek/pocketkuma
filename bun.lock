@@ -28,7 +28,6 @@
         "mysql2": "~3.11.5",
         "net-snmp": "~3.26.1",
         "node-cloudflared-tunnel": "~1.0.10",
-        "node-radius-utils": "~1.2.0",
         "nodemailer": "~7.0.13",
         "nostr-tools": "~2.20.0",
         "openid-client": "~5.7.1",
@@ -1246,8 +1245,6 @@
     "net-snmp": ["net-snmp@3.26.3", "", { "dependencies": { "asn1-ber": "^1.2.1", "smart-buffer": "^4.1.0" } }, "sha512-DTnzoz8Bk5Vz+7WWflo2VgSXMguadFMvsPmSOrknv+YTdA65lLUL1WZhYj6ZA/7pJvKscLJPOeU4LoEd6A1EZg=="],
 
     "node-cloudflared-tunnel": ["node-cloudflared-tunnel@1.0.10", "", { "dependencies": { "command-exists": "^1.2.9" } }, "sha512-QBTH4bcTePgiwYdK5vYZhZl7GNr3Pqnj5V3Tg1w5HvnK4VhLZe5BUuhqKvzzCA604yhoD2I1ATdnOl6axSJu/w=="],
-
-    "node-radius-utils": ["node-radius-utils@1.2.0", "", {}, "sha512-i3Sf6khnenl0aXumo0whAlfPWTaBqHxEnVBBxpu3dZ7q69NkPPv71rvPjlDZ5wkeKCTNNUTECljerS5kcYQxRw=="],
 
     "nodemailer": ["nodemailer@7.0.13", "", {}, "sha512-PNDFSJdP+KFgdsG3ZzMXCgquO7I6McjY2vlqILjtJd0hy8wEvtugS9xKRF2NWlPNGxvLCXlTNIae4serI7dinw=="],
 
