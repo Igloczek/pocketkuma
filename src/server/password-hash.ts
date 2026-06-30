@@ -6,16 +6,11 @@
  * @returns {Promise<string>} Hash
  */
 import crypto from "node:crypto";
-import { isBunRuntime } from "@/server/runtime";
 
 export async function generate(password) {
-    if (isBunRuntime()) {
-        return await Bun.password.hash(password, {
-            algorithm: "argon2id",
-        });
-    }
-
-    return generateScrypt(password);
+    return await Bun.password.hash(password, {
+        algorithm: "argon2id",
+    });
 }
 
 /**
@@ -29,15 +24,11 @@ export async function verify(password, hash) {
         return verifyLegacySHA1(password, hash);
     }
 
-    if (isBunRuntime()) {
-        try {
-            return await Bun.password.verify(password, hash);
-        } catch (e) {
-            return false;
-        }
+    try {
+        return await Bun.password.verify(password, hash);
+    } catch (e) {
+        return false;
     }
-
-    return verifyScrypt(password, hash);
 }
 
 function verifyLegacySHA1(password, hash) {
@@ -67,25 +58,6 @@ function makeLegacySHA1BackwardCompatible(hash) {
     return hash;
 }
 
-function generateScrypt(password) {
-    const salt = crypto.randomBytes(16).toString("hex");
-    const key = crypto.scryptSync(password, salt, 64).toString("hex");
-    return `scrypt$${salt}$${key}`;
-}
-
-function verifyScrypt(password, hash) {
-    if (typeof hash !== "string" || !hash.startsWith("scrypt$")) {
-        return false;
-    }
-
-    const [, salt, key] = hash.split("$");
-    const candidate = crypto.scryptSync(password, salt, 64).toString("hex");
-    if (candidate.length !== key.length) {
-        return false;
-    }
-    return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(key));
-}
-
 /**
  * Is the hash a SHA1 hash
  * @param {string} hash Hash to check
@@ -101,7 +73,7 @@ function isSHA1(hash) {
  * @returns {boolean} Needs to be rehashed?
  */
 export function needRehash(hash) {
-    return isBunRuntime() ? !isBunPasswordHash(hash) : isSHA1(hash);
+    return !isBunPasswordHash(hash);
 }
 
 function isBunPasswordHash(hash) {

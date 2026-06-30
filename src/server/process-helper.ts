@@ -2,8 +2,6 @@
 "use strict";
 
 import fs from "fs";
-import { isBunRuntime } from "@/server/runtime";
-import childProcess from "node:child_process";
 
 function toText(output) {
     return output ? output.toString("utf8") : "";
@@ -17,57 +15,28 @@ async function readBunStream(stream) {
 }
 
 async function runCommand(command, args = [], options = {}) {
-    if (isBunRuntime()) {
-        const subprocess = Bun.spawn([command, ...args], {
-            cwd: options.cwd,
-            env: options.env ? { ...process.env, ...options.env } : process.env,
-            stdout: "pipe",
-            stderr: "pipe",
-        });
+    const subprocess = Bun.spawn([command, ...args], {
+        cwd: options.cwd,
+        env: options.env ? { ...process.env, ...options.env } : process.env,
+        stdout: "pipe",
+        stderr: "pipe",
+    });
 
-        let timeout;
-        if (options.timeout) {
-            timeout = setTimeout(() => subprocess.kill(), options.timeout);
-        }
-
-        try {
-            const [stdout, stderr, code] = await Promise.all([
-                readBunStream(subprocess.stdout),
-                readBunStream(subprocess.stderr),
-                subprocess.exited,
-            ]);
-            return { code, signal: null, stdout, stderr };
-        } finally {
-            clearTimeout(timeout);
-        }
+    let timeout;
+    if (options.timeout) {
+        timeout = setTimeout(() => subprocess.kill(), options.timeout);
     }
 
-    return await new Promise((resolve, reject) => {
-        const child = childProcess.spawn(command, args, {
-            cwd: options.cwd,
-            env: options.env ? { ...process.env, ...options.env } : process.env,
-        });
-        const stdout = [];
-        const stderr = [];
-        let timeout;
-
-        if (options.timeout) {
-            timeout = setTimeout(() => child.kill(), options.timeout);
-        }
-
-        child.stdout.on("data", (data) => stdout.push(data));
-        child.stderr.on("data", (data) => stderr.push(data));
-        child.on("error", reject);
-        child.on("close", (code, signal) => {
-            clearTimeout(timeout);
-            resolve({
-                code,
-                signal,
-                stdout: toText(Buffer.concat(stdout)),
-                stderr: toText(Buffer.concat(stderr)),
-            });
-        });
-    });
+    try {
+        const [stdout, stderr, code] = await Promise.all([
+            readBunStream(subprocess.stdout),
+            readBunStream(subprocess.stderr),
+            subprocess.exited,
+        ]);
+        return { code, signal: null, stdout, stderr };
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 async function runCommandChecked(command, args = [], options = {}) {
@@ -81,47 +50,26 @@ async function runCommandChecked(command, args = [], options = {}) {
 }
 
 function runCommandSync(command, args = [], options = {}) {
-    if (isBunRuntime()) {
-        const result = Bun.spawnSync([command, ...args], {
-            cwd: options.cwd,
-            env: options.env ? { ...process.env, ...options.env } : process.env,
-            stdout: "pipe",
-            stderr: "pipe",
-        });
-        return {
-            code: result.exitCode,
-            signal: null,
-            stdout: toText(result.stdout),
-            stderr: toText(result.stderr),
-        };
-    }
-
-    const result = childProcess.spawnSync(command, args, {
+    const result = Bun.spawnSync([command, ...args], {
         cwd: options.cwd,
         env: options.env ? { ...process.env, ...options.env } : process.env,
-        encoding: "utf8",
+        stdout: "pipe",
+        stderr: "pipe",
     });
     return {
-        code: result.status,
-        signal: result.signal,
-        stdout: result.stdout || "",
-        stderr: result.stderr || "",
+        code: result.exitCode,
+        signal: null,
+        stdout: toText(result.stdout),
+        stderr: toText(result.stderr),
     };
 }
 
 function startProcess(command, args = [], options = {}) {
-    if (isBunRuntime()) {
-        return Bun.spawn([command, ...args], {
-            cwd: options.cwd,
-            env: options.env ? { ...process.env, ...options.env } : process.env,
-            stdout: "pipe",
-            stderr: "pipe",
-        });
-    }
-
-    return childProcess.spawn(command, args, {
+    return Bun.spawn([command, ...args], {
         cwd: options.cwd,
         env: options.env ? { ...process.env, ...options.env } : process.env,
+        stdout: "pipe",
+        stderr: "pipe",
     });
 }
 
