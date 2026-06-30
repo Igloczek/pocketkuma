@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import httpClient from "@/server/http-client";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import Database from "@/server/database";
 import { axiosAbortSignal, fsExists } from "@/server/util-server";
 import fs from "fs";

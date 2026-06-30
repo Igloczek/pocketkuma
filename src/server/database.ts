@@ -4,7 +4,7 @@
  * Database & App Data Folder
  */
 import fs from "fs";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 
 const fsAsync = fs.promises;
 import { log, isDev } from "@/util";

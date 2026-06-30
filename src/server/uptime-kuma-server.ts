@@ -7,7 +7,7 @@
  * @type {UptimeKumaServer}
  */
 import fs from "fs";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
 import Database from "@/server/database";
 import util from "util";
