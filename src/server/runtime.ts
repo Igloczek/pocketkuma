@@ -2,18 +2,9 @@
 "use strict";
 
 function getRuntimeInfo() {
-    if (typeof Bun !== "undefined") {
-        return {
-            name: "bun",
-            version: Bun.version,
-            platform: process.platform,
-            arch: process.arch,
-        };
-    }
-
     return {
-        name: "node",
-        version: process.versions.node,
+        name: "bun",
+        version: Bun.version,
         platform: process.platform,
         arch: process.arch,
     };
