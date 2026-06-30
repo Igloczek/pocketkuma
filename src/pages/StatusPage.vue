@@ -628,7 +628,7 @@ import MaintenanceTime from "@/components/MaintenanceTime.vue";
 import IncidentHistory from "@/components/IncidentHistory.vue";
 import IncidentManageModal from "@/components/IncidentManageModal.vue";
 import IncidentEditForm from "@/components/IncidentEditForm.vue";
-import { getResBaseURL } from "@/util-frontend";
+import { getDevBaseURL } from "@/util/dev-base-url";
 import {
     STATUS_PAGE_ALL_DOWN,
     STATUS_PAGE_ALL_UP,
@@ -942,7 +942,7 @@ export default {
         });
 
         // Special handle for dev
-        this.baseURL = getResBaseURL();
+        this.baseURL = getDevBaseURL();
     },
     async mounted() {
         this.$watch(
