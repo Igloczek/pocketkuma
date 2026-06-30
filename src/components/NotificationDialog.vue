@@ -13,81 +13,13 @@
                         <div class="mb-3">
                             <label for="notification-type" class="form-label">{{ $t("Notification Type") }}</label>
                             <select id="notification-type" v-model="notification.type" class="form-select">
-                                <optgroup :label="$t('notificationUniversal')">
+                                <optgroup
+                                    v-for="category in notificationCategories"
+                                    :key="category.id"
+                                    :label="$t(category.labelKey)"
+                                >
                                     <option
-                                        v-for="(name, type) in notificationNameList.universal"
-                                        :key="type"
-                                        :value="type"
-                                    >
-                                        {{ name }}
-                                    </option>
-                                </optgroup>
-                                <optgroup :label="$t('notificationChatPlatforms')">
-                                    <option
-                                        v-for="(name, type) in notificationNameList.chatPlatforms"
-                                        :key="type"
-                                        :value="type"
-                                    >
-                                        {{ name }}
-                                    </option>
-                                </optgroup>
-                                <optgroup :label="$t('notificationPushServices')">
-                                    <option
-                                        v-for="(name, type) in notificationNameList.pushServices"
-                                        :key="type"
-                                        :value="type"
-                                    >
-                                        {{ name }}
-                                    </option>
-                                </optgroup>
-                                <optgroup :label="$t('notificationSmsServices')">
-                                    <option
-                                        v-for="(name, type) in notificationNameList.smsServices"
-                                        :key="type"
-                                        :value="type"
-                                    >
-                                        {{ name }}
-                                    </option>
-                                </optgroup>
-                                <optgroup :label="$t('notificationEmail')">
-                                    <option
-                                        v-for="(name, type) in notificationNameList.email"
-                                        :key="type"
-                                        :value="type"
-                                    >
-                                        {{ name }}
-                                    </option>
-                                </optgroup>
-                                <optgroup :label="$t('notificationIncidentManagement')">
-                                    <option
-                                        v-for="(name, type) in notificationNameList.incidentManagement"
-                                        :key="type"
-                                        :value="type"
-                                    >
-                                        {{ name }}
-                                    </option>
-                                </optgroup>
-                                <optgroup :label="$t('notificationHomeAutomation')">
-                                    <option
-                                        v-for="(name, type) in notificationNameList.homeAutomation"
-                                        :key="type"
-                                        :value="type"
-                                    >
-                                        {{ name }}
-                                    </option>
-                                </optgroup>
-                                <optgroup :label="$t('notificationOther')">
-                                    <option
-                                        v-for="(name, type) in notificationNameList.other"
-                                        :key="type"
-                                        :value="type"
-                                    >
-                                        {{ name }}
-                                    </option>
-                                </optgroup>
-                                <optgroup :label="$t('notificationRegional')">
-                                    <option
-                                        v-for="(name, type) in notificationNameList.regional"
+                                        v-for="(name, type) in notificationNameList[category.id]"
                                         :key="type"
                                         :value="type"
                                     >
@@ -177,6 +109,10 @@ import { Modal } from "bootstrap";
 
 import Confirm from "@/components/Confirm.vue";
 import NotificationFormList, { notificationProviderTypes } from "@/components/notifications";
+import {
+    NOTIFICATION_PROVIDER_CATEGORIES,
+    buildNotificationNameList,
+} from "@/notification-provider-metadata";
 
 export default {
     components: {
@@ -210,168 +146,12 @@ export default {
             return NotificationFormList[this.notification.type];
         },
 
+        notificationCategories() {
+            return NOTIFICATION_PROVIDER_CATEGORIES;
+        },
+
         notificationNameList() {
-            // Universal - Adapters and multi-service wrapper libraries
-            let universal = {
-                apprise: this.$t("apprise"),
-                webhook: "Webhook",
-            };
-
-            // Chat Platforms - Messaging apps and team communication tools
-            let chatPlatforms = {
-                bale: "Bale",
-                Bitrix24: "Bitrix24",
-                discord: "Discord",
-                max: this.$t("maxMessenger"),
-                fluxer: "Fluxer",
-                GoogleChat: "Google Chat (Google Workspace)",
-                gorush: "Gorush",
-                gotify: "Gotify",
-                GrafanaOncall: "Grafana Oncall",
-                HaloPSA: "Halo PSA",
-                HeiiOnCall: "Heii On-Call",
-                HomeAssistant: "Home Assistant",
-                Keep: "Keep",
-                Kook: "Kook",
-                line: "LINE Messenger",
-                matrix: "Matrix",
-                mattermost: "Mattermost",
-                nextcloudtalk: "Nextcloud Talk",
-                nostr: "Nostr",
-                OneChat: "OneChat",
-                OneBot: "OneBot",
-                pumble: "Pumble",
-                "rocket.chat": "Rocket.Chat",
-                signal: "Signal",
-                slack: "Slack",
-                stackfield: "Stackfield",
-                teams: "Microsoft Teams",
-                telegram: "Telegram",
-                threema: "Threema",
-                ZohoCliq: "ZohoCliq",
-                CallMeBot: "CallMeBot (WhatsApp, Telegram Call, Facebook Messenger)",
-                whapi: "WhatsApp (Whapi)",
-                evolution: "WhatsApp (Evolution)",
-                waha: "WhatsApp (WAHA)",
-                Whatsapp360messenger: "WhatsApp (360messenger)",
-            };
-
-            // Push Services - Push notification services
-            let pushServices = {
-                Bark: "Bark",
-                gorush: "Gorush",
-                gotify: "Gotify",
-                lunasea: "LunaSea",
-                notifery: "Notifery",
-                ntfy: "Ntfy",
-                pushbullet: "Pushbullet",
-                PushByTechulus: "Push by Techulus",
-                pushover: "Pushover",
-                pushy: "Pushy",
-                Webpush: "Webpush",
-            };
-
-            // SMS Services - SMS and voice call providers
-            let smsServices = {
-                clicksendsms: "ClickSend SMS",
-                Elks: "46elks",
-                Cellsynt: "Cellsynt",
-                gtxmessaging: "GtxMessaging",
-                octopush: "Octopush",
-                Onesender: "Onesender",
-                SevenIO: "SevenIO",
-                SMSEagle: "SMSEagle",
-                SMSPartner: "SMS Partner",
-                telnyx: "Telnyx",
-                Teltonika: this.$t("Teltonika SMS Gateway"),
-                twilio: "Twilio",
-            };
-
-            // Email - Email services
-            let email = {
-                Brevo: "Brevo",
-                Resend: "Resend",
-                SendGrid: "SendGrid",
-                smtp: this.$t("smtp"),
-            };
-
-            // Incident Management - On-call and alerting platforms
-            let incidentManagement = {
-                alerta: "Alerta",
-                AlertNow: "AlertNow",
-                GoAlert: "GoAlert",
-                GrafanaOncall: "Grafana Oncall",
-                HeiiOnCall: "Heii On-Call",
-                Keep: "Keep",
-                Opsgenie: "Opsgenie",
-                JiraServiceManagement: this.$t("Jira Service Management"),
-                PagerDuty: "PagerDuty",
-                PagerTree: "PagerTree",
-                SIGNL4: "SIGNL4",
-                Splunk: "Splunk",
-                squadcast: "SquadCast",
-            };
-
-            // Home Automation - Smart home and IoT platforms
-            let homeAutomation = {
-                HomeAssistant: "Home Assistant",
-            };
-
-            // Other Integrations
-            let other = {
-                GoogleSheets: "Google Sheets",
-            };
-
-            // Regional - Not supported in most regions or documentation is not in English
-            let regional = {
-                AliyunSMS: "AliyunSMS (阿里云短信服务)",
-                egosms: "EgoSMS (Uganda)",
-                DingDing: "DingDing (钉钉自定义机器人)",
-                Feishu: "Feishu (飞书)",
-                FlashDuty: "FlashDuty (快猫星云)",
-                FreeMobile: "FreeMobile (mobile.free.fr)",
-                PushDeer: "PushDeer",
-                promosms: "PromoSMS",
-                serwersms: "SerwerSMS.pl",
-                SMSManager: "SmsManager (smsmanager.cz)",
-                WeCom: "WeCom (企业微信群机器人)",
-                ServerChan: "ServerChan (Server酱)",
-                PushPlus: "PushPlus (推送加)",
-                SpugPush: "SpugPush（Spug推送助手）",
-                smsc: "SMSC",
-                smsir: "SMS.IR",
-                WPush: "WPush(wpush.cn)",
-                YZJ: "YZJ (云之家自定义机器人)",
-                SMSPlanet: "SMSPlanet.pl",
-                VK: "VK",
-                VKTeams: "VKTeams",
-            };
-
-            // Sort by notification name alphabetically
-            // https://stackoverflow.com/questions/1069666/sorting-object-property-by-values
-            let sort = (list2) => {
-                return Object.entries(list2)
-                    .sort(([, a], [, b]) => a.localeCompare(b))
-                    .reduce(
-                        (r, [k, v]) => ({
-                            ...r,
-                            [k]: v,
-                        }),
-                        {}
-                    );
-            };
-
-            return {
-                universal: sort(universal),
-                chatPlatforms: sort(chatPlatforms),
-                pushServices: sort(pushServices),
-                smsServices: sort(smsServices),
-                email: sort(email),
-                incidentManagement: sort(incidentManagement),
-                homeAutomation: sort(homeAutomation),
-                other: sort(other),
-                regional: sort(regional),
-            };
+            return buildNotificationNameList(this.$t.bind(this));
         },
 
         notificationFullNameList() {
