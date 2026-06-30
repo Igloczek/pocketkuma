@@ -54,7 +54,6 @@
         "chardet": "~1.4.0",
         "cheerio": "~1.0.0",
         "chroma-js": "~2.4.2",
-        "country-flag-emoji-polyfill": "~0.1.8",
         "croner": "~8.1.2",
         "dayjs": "~1.11.19",
         "feed": "~4.2.2",
