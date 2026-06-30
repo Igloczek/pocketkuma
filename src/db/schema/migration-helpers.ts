@@ -1,7 +1,7 @@
+import type { Database } from "bun:sqlite";
 import { resolveColumnType } from "./column-metadata.js";
-import type { MigrationStore } from "./store-types.js";
 
-type SqliteDatabase = MigrationStore["db"];
+type SqliteDatabase = Database;
 
 export function columnExists(db: SqliteDatabase, table: string, column: string) {
     return (db.query(`PRAGMA table_info("${table}")`).all() as Array<{ name: string }>).some(
