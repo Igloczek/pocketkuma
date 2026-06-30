@@ -3,7 +3,7 @@ import { describe, test, expect, beforeAll, afterAll, spyOn } from "bun:test";
 import DomainExpiry from "@/server/model/domain_expiry";
 import mockWebhook from "./notification-providers/mock-webhook";
 import TestDB from "../mock-testdb";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { Notification } from "@/server/notification";
 import { Settings } from "@/server/settings";
 import { setSetting } from "@/server/util-server";

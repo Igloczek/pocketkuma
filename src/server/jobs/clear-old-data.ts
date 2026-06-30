@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
 import Database from "@/server/database";
 import { Settings } from "@/server/settings";

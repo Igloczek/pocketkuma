@@ -1,8 +1,8 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/redbean-compat";
+import { BeanModel } from "@/server/bun-sqlite-store";
 import passwordHash from "@/server/password-hash";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import jwt from "@/server/jwt";
 import { shake256, SHAKE256_LENGTH } from "@/server/util-server";
 

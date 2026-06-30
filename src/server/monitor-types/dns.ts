@@ -3,7 +3,7 @@
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { UP, log } from "@/util";
 import dayjs from "dayjs";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import { ConditionVariable } from "@/server/monitor-conditions/variables";
 import { defaultStringOperators } from "@/server/monitor-conditions/operators";
 import { ConditionExpressionGroup } from "@/server/monitor-conditions/expression";

@@ -2,7 +2,7 @@
 
 import PrometheusClient from "prom-client";
 import { log } from "@/util";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 
 let monitorCertDaysRemaining = null;
 let monitorCertIsValid = null;

@@ -11,7 +11,7 @@ import { filterStoreRow } from "@/db/schema/column-metadata";
 import { addColumnIfMissing as addSchemaColumnIfMissing, runPendingUpgrades } from "@/server/db-migrations";
 
 // Bun-only hybrid: lazy require() avoids top-level model imports that would create
-// circular dependencies with redbean-compat. Node CJS/ESM resolution does not support
+// circular dependencies with the R singleton. Node CJS/ESM resolution does not support
 // require("./model/*.ts") the same way; this store is only used under Bun.
 const require = createRequire(import.meta.url);
 const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");

@@ -13,7 +13,7 @@ import { args } from "@/server/args";
 import { sleep, log, getRandomInt, genSecret } from "@/util";
 import config from "@/server/config";
 import * as checkVersion from "@/server/check-version";
-import { R } from "@/server/redbean-compat";
+import { R } from "@/server/bun-sqlite-store";
 import jwt from "@/server/jwt";
 import { passwordStrength } from "@/util/password-strength";
 import TranslatableError from "@/server/translatable-error";
