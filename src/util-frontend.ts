@@ -121,44 +121,6 @@ export function setPageLocale() {
 }
 
 /**
- * Get the base URL
- * Mainly used for dev, because the backend and the frontend are in different ports.
- * @returns {string} Base URL
- */
-export function getResBaseURL() {
-    const env = process.env.NODE_ENV;
-    if (env === "development" && isDevContainer()) {
-        return location.protocol + "//" + getDevContainerServerHostname();
-    } else if (env === "development" || localStorage.dev === "dev") {
-        return location.protocol + "//" + location.hostname + ":3001";
-    } else {
-        return "";
-    }
-}
-
-/**
- * Are we currently running in a dev container?
- * @returns {boolean} Running in dev container?
- */
-export function isDevContainer() {
-    // eslint-disable-next-line no-undef
-    return typeof DEVCONTAINER === "string" && DEVCONTAINER === "1";
-}
-
-/**
- * Supports GitHub Codespaces only currently
- * @returns {string} Dev container server hostname
- */
-export function getDevContainerServerHostname() {
-    if (!isDevContainer()) {
-        return "";
-    }
-
-    // eslint-disable-next-line no-undef
-    return CODESPACE_NAME + "-3001." + GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
-}
-
-/**
  * Get the tag color options
  * Shared between components
  * @param {any} self Component

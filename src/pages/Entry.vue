@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import { fetchDevApi } from "@/util/dev-api-base";
+import { fetchDevApi } from "@/util/dev-base-url";
 import StatusPage from "@/pages/StatusPage.vue";
 
 export default {
