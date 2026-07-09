@@ -57,7 +57,8 @@ async function sendHeartbeatList(socket, monitorID, toUser = false, overwrite = 
         [monitorID]
     );
 
-    let result = list.reverse();
+    // Normalize DB rows to the same shape as live heartbeat events (monitorID, etc.).
+    let result = R.convertToBeans("heartbeat", list.reverse()).map((bean) => bean.toJSON());
 
     if (toUser) {
         io.to(socket.userID).emit("heartbeatList", monitorID, result, overwrite);

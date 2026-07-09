@@ -1660,8 +1660,11 @@ async function afterLogin(socket, user) {
 
     await StatusPage.sendStatusPageList(io, socket);
 
+    // Push recent heartbeat history + stats so the dashboard/bars/charts are populated
+    // immediately on login, not only after the next live check arrives.
     const monitorPromises = [];
     for (let monitorID in monitorList) {
+        monitorPromises.push(sendHeartbeatList(socket, monitorID));
         monitorPromises.push(Monitor.sendStats(io, monitorID, user.id));
     }
 
