@@ -138,8 +138,8 @@ class UptimeCalculator {
                 up: bean.up,
                 down: bean.down,
                 avgPing: bean.ping,
-                minPing: bean.pingMin,
-                maxPing: bean.pingMax,
+                minPing: bean.pingMin ?? bean.ping_min,
+                maxPing: bean.pingMax ?? bean.ping_max,
             };
 
             if (bean.extras != null) {
@@ -164,8 +164,8 @@ class UptimeCalculator {
                 up: bean.up,
                 down: bean.down,
                 avgPing: bean.ping,
-                minPing: bean.pingMin,
-                maxPing: bean.pingMax,
+                minPing: bean.pingMin ?? bean.ping_min,
+                maxPing: bean.pingMax ?? bean.ping_max,
             };
 
             if (bean.extras != null) {
@@ -189,8 +189,8 @@ class UptimeCalculator {
                 up: bean.up,
                 down: bean.down,
                 avgPing: bean.ping,
-                minPing: bean.pingMin,
-                maxPing: bean.pingMax,
+                minPing: bean.pingMin ?? bean.ping_min,
+                maxPing: bean.pingMax ?? bean.ping_max,
             };
 
             if (bean.extras != null) {

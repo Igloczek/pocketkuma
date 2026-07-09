@@ -12,25 +12,21 @@ import { exists } from "fs";
  * @returns {number} Total clients in room
  */
 export const getTotalClientInRoom = (io, roomName) => {
-    const sockets = io.sockets;
+    // BunRealtimeAdapter exposes rooms either via sockets.adapter.rooms or top-level rooms.
+    const rooms = io?.sockets?.adapter?.rooms || io?.rooms;
 
-    if (!sockets) {
+    if (!rooms || typeof rooms.get !== "function") {
         return 0;
     }
 
-    const adapter = sockets.adapter;
-
-    if (!adapter) {
-        return 0;
-    }
-
-    const room = adapter.rooms.get(roomName);
+    // Room keys may be numbers (user.id) or strings depending on join path.
+    const room = rooms.get(roomName) || rooms.get(String(roomName)) || rooms.get(Number(roomName));
 
     if (room) {
         return room.size;
-    } else {
-        return 0;
     }
+
+    return 0;
 };
 
 /**
