@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/bun-sqlite-store";
+import { BeanModel } from "@/server/bean-model";
 import { parseTimeObject, parseTimeFromTimeObject, log, SQL_DATETIME_FORMAT } from "@/util";
 import { R } from "@/server/bun-sqlite-store";
 import dayjs from "dayjs";

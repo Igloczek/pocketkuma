@@ -5,7 +5,6 @@
  * @type {import ("playwright-core").Browser}
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { chromium } from "playwright-core";
 import { UP, log } from "@/util";
 import { Settings } from "@/server/settings";
 import path from "path";
@@ -17,6 +16,24 @@ import { commandExists } from "@/server/util-server";
 import { runCommand, runCommandChecked } from "@/server/process-helper";
 
 let browser = null;
+let chromiumPromise = null;
+
+/**
+ * Lazy-load playwright-core only when a real-browser check actually runs.
+ * Keeps the compiled single binary bootable without shipping playwright next to it.
+ * @returns {Promise<import("playwright-core").ChromiumBrowserType>}
+ */
+async function getChromium() {
+    if (!chromiumPromise) {
+        chromiumPromise = import("playwright-core")
+            .then((mod) => mod.chromium)
+            .catch((error) => {
+                chromiumPromise = null;
+                throw new Error(`playwright-core is required for real-browser monitors: ${error.message}`);
+            });
+    }
+    return await chromiumPromise;
+}
 
 let allowedList = [];
 let lastAutoDetectChromeExecutable = null;
@@ -85,6 +102,7 @@ async function getBrowser() {
 
         executablePath = await prepareChromeExecutable(executablePath);
 
+        const chromium = await getChromium();
         browser = await chromium.launch({
             //headless: false,
             executablePath,
@@ -103,6 +121,7 @@ async function getBrowser() {
 async function getRemoteBrowser(remoteBrowserID, userId) {
     let remoteBrowser = await RemoteBrowser.get(remoteBrowserID, userId);
     log.debug("chromium", `Using remote browser: ${remoteBrowser.name} (${remoteBrowser.id})`);
+    const chromium = await getChromium();
     browser = await chromium.connect(remoteBrowser.url);
     return browser;
 }
@@ -215,6 +234,7 @@ async function testChrome(executablePath) {
 
         log.info("chromium", "Testing Chromium executable: " + executablePath);
 
+        const chromium = await getChromium();
         const browser = await chromium.launch({
             executablePath,
         });
@@ -232,6 +252,7 @@ async function testChrome(executablePath) {
  */
 async function testRemoteBrowser(remoteBrowserURL) {
     try {
+        const chromium = await getChromium();
         const browser = await chromium.connect(remoteBrowserURL);
         browser.version();
         await browser.close();

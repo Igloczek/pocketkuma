@@ -41,7 +41,7 @@ import {
     checkCertExpiryNotifications,
 } from "@/server/util-server";
 import { R } from "@/server/bun-sqlite-store";
-import { BeanModel } from "@/server/bun-sqlite-store";
+import { BeanModel } from "@/server/bean-model";
 import { Notification } from "@/server/notification";
 import { demoMode } from "@/server/config";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
@@ -54,6 +54,7 @@ import { promisify } from "node:util";
 import DomainExpiry from "@/server/model/domain_expiry";
 import packageJson from "@/package-meta";
 import { clearResponseCache } from "@/server/bun-response";
+import { inspectRemoteCertificate } from "@/server/tls-cert";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const version = packageJson.version;
@@ -566,6 +567,27 @@ class Monitor extends BeanModel {
 
                     bean.msg = `${res.status} - ${res.statusText}`;
                     bean.ping = dayjs().valueOf() - startTime;
+
+                    // Bun fetch does not expose peer certificates, so inspect TLS separately when needed.
+                    if (this.isEnabledExpiryNotification()) {
+                        try {
+                            const target = new URL(this.url);
+                            if (target.protocol === "https:") {
+                                const port = target.port ? Number(target.port) : 443;
+                                const inspected = await inspectRemoteCertificate(
+                                    target.hostname,
+                                    port,
+                                    this.timeout * 1000
+                                );
+                                if (inspected) {
+                                    tlsInfo = inspected;
+                                    await this.handleTlsInfo(tlsInfo);
+                                }
+                            }
+                        } catch (error) {
+                            log.debug("monitor", `[${this.name}] TLS certificate inspection skipped: ${error.message}`);
+                        }
+                    }
 
                     // in the frontend, the save response is only shown if the saveErrorResponse is set
                     if (this.getSaveResponse() && this.getSaveErrorResponse()) {
@@ -1089,9 +1111,7 @@ class Monitor extends BeanModel {
             throw new Error("Forced IP family selection is not supported by the Bun fetch HTTP client");
         }
 
-        if (this.isEnabledExpiryNotification()) {
-            throw new Error("TLS certificate expiry inspection is not supported by the Bun fetch HTTP client");
-        }
+        // TLS cert expiry is handled by a separate inspectRemoteCertificate() pass.
 
         if (this.proxy_id) {
             const proxy = await R.load("proxy", this.proxy_id);

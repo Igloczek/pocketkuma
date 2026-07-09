@@ -9,7 +9,6 @@ import { sendRemoteBrowserList } from "@/server/client";
 import { checkLogin } from "@/server/util-server";
 import { RemoteBrowser } from "@/server/remote-browser";
 import { log } from "@/util";
-import { testRemoteBrowser } from "@/server/monitor-types/real-browser-monitor-type";
 
 export const remoteBrowserSocketHandler = (socket) => {
     socket.on("addRemoteBrowser", async (remoteBrowser, remoteBrowserID, callback) => {
@@ -57,6 +56,7 @@ export const remoteBrowserSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
+            const { testRemoteBrowser } = await import("@/server/monitor-types/real-browser-monitor-type");
             let check = await testRemoteBrowser(remoteBrowser.url);
             log.info("remoteBrowser", "Tested remote browser: " + check);
             let msg;

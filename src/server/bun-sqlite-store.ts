@@ -1,10 +1,8 @@
 // @ts-nocheck
 "use strict";
 
-import { createRequire } from "node:module";
 import fs from "fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { BeanModel } from "@/server/bean-model";
 import { Database as BunDatabase } from "bun:sqlite";
 import dayjs from "dayjs";
 import {
@@ -14,84 +12,73 @@ import {
     normalizeBoolean,
     normalizeMonitorColumnValue,
 } from "@/db/schema/column-metadata";
+import { expectedTableColumns } from "@/db/schema/expected-schema";
 import { addColumnIfMissing as addSchemaColumnIfMissing, runPendingUpgrades } from "@/server/db-migrations";
+import DomainExpiry from "@/server/model/domain_expiry";
+import Group from "@/server/model/group";
+import Heartbeat from "@/server/model/heartbeat";
+import Incident from "@/server/model/incident";
+import Monitor from "@/server/model/monitor";
+import StatusPage from "@/server/model/status_page";
+import User from "@/server/model/user";
 
-// Bun-only hybrid: lazy require() avoids top-level model imports that would create
-// circular dependencies with the R singleton. Node CJS/ESM resolution does not support
-// require("./model/*.ts") the same way; this store is only used under Bun.
-const require = createRequire(import.meta.url);
-const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-function resolveImportPath(modulePath) {
-    if (modulePath.startsWith("@/")) {
-        const resolved = path.join(srcDir, modulePath.slice(2));
-        if (!path.extname(resolved)) {
-            return `${resolved}.ts`;
-        }
-        return resolved;
-    }
-    return modulePath;
-}
-
-class BeanModel {
-    import(data) {
-        if (!data || typeof data !== "object") {
-            return this;
-        }
-
-        for (const [key, value] of Object.entries(data)) {
-            if (typeof value !== "function") {
-                this[key] = value;
-            }
-        }
-        return this;
-    }
-
-    export() {
-        const result = {};
-        for (const [key, value] of Object.entries(this)) {
-            if (!key.startsWith("__") && typeof value !== "function") {
-                result[key] = value;
-            }
-        }
-        return result;
-    }
-
-    toJSON() {
-        return this.export();
-    }
-}
-
-function loadModel(modulePath) {
-    const module = require(resolveImportPath(modulePath));
-    return module.default ?? module;
-}
-
-// Tables with model classes that expose instance methods (e.g. getExpiryDate) must be listed here.
-// All other tables fall back to plain BeanModel in beanForTable().
+// Static model map keeps compiled binaries working (no runtime .ts require paths).
+// Models import BeanModel/R from this module; ESM cycle resolves after this file finishes evaluating.
 const modelMap = {
-    group: () => loadModel("@/server/model/group"),
-    heartbeat: () => loadModel("@/server/model/heartbeat"),
-    incident: () => loadModel("@/server/model/incident"),
-    monitor: () => loadModel("@/server/model/monitor"),
-    status_page: () => loadModel("@/server/model/status_page"),
-    user: () => loadModel("@/server/model/user"),
-    domain_expiry: () => loadModel("@/server/model/domain_expiry"),
+    group: Group,
+    heartbeat: Heartbeat,
+    incident: Incident,
+    monitor: Monitor,
+    status_page: StatusPage,
+    user: User,
+    domain_expiry: DomainExpiry,
 };
 
 const monitorMappedProperties = new Set(Object.keys(monitorPropertyColumns));
+
+// Generic camelCase -> snake_case aliases for tables that use BeanModel fields in camelCase.
+const tablePropertyColumns = {
+    monitor: monitorPropertyColumns,
+    stat_daily: {
+        pingMin: "ping_min",
+        pingMax: "ping_max",
+        monitorId: "monitor_id",
+    },
+    stat_hourly: {
+        pingMin: "ping_min",
+        pingMax: "ping_max",
+        monitorId: "monitor_id",
+    },
+    stat_minutely: {
+        pingMin: "ping_min",
+        pingMax: "ping_max",
+        monitorId: "monitor_id",
+    },
+    status_page: {
+        analyticsId: "analytics_id",
+        analyticsScriptUrl: "analytics_script_url",
+        analyticsType: "analytics_type",
+        autoRefreshInterval: "auto_refresh_interval",
+        rssTitle: "rss_title",
+        showCertificateExpiry: "show_certificate_expiry",
+        showOnlyLastHeartbeat: "show_only_last_heartbeat",
+        searchEngineIndex: "search_engine_index",
+        showTags: "show_tags",
+        footerText: "footer_text",
+        customCss: "custom_css",
+        showPoweredBy: "show_powered_by",
+        createdDate: "created_date",
+        modifiedDate: "modified_date",
+    },
+};
 
 function normalizeSql(sql) {
     return sql.replace(/`/g, '"');
 }
 
 function resolveMonitorField(row, property, column, { forStore = false } = {}) {
-    const hasColumn = forStore
-        ? row[column] !== undefined
-        : row[column] !== undefined && row[column] !== null;
-    const hasProperty = forStore
-        ? row[property] !== undefined
-        : row[property] !== undefined && row[property] !== null;
+    const hasColumn = forStore ? row[column] !== undefined : row[column] !== undefined && row[column] !== null;
+    const hasProperty = forStore ? row[property] !== undefined : row[property] !== undefined && row[property] !== null;
 
     if (!hasColumn && !hasProperty) {
         return undefined;
@@ -130,25 +117,63 @@ function normalizeMonitorRow(row) {
     return result;
 }
 
+function camelToSnake(key) {
+    return key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
 function normalizeRowForStore(table, row) {
-    if (table !== "monitor") {
-        return row;
+    // Drop internal bean fields used only for serialization helpers.
+    const cleaned = Object.fromEntries(Object.entries(row).filter(([key]) => !key.startsWith("_")));
+
+    if (table === "monitor") {
+        const result = Object.fromEntries(Object.entries(cleaned).filter(([key]) => !monitorMappedProperties.has(key)));
+
+        for (const [property, column] of Object.entries(monitorPropertyColumns)) {
+            const value = resolveMonitorField(cleaned, property, column, { forStore: true });
+            if (value !== undefined) {
+                result[column] = value;
+            }
+        }
+
+        return result;
     }
 
-    const result = Object.fromEntries(Object.entries(row).filter(([key]) => !monitorMappedProperties.has(key)));
+    const propertyColumns = tablePropertyColumns[table] || {};
+    const allowed = expectedTableColumns[table];
+    const result = {};
 
-    for (const [property, column] of Object.entries(monitorPropertyColumns)) {
-        const value = resolveMonitorField(row, property, column, { forStore: true });
-        if (value !== undefined) {
-            result[column] = value;
+    for (const [key, value] of Object.entries(cleaned)) {
+        if (propertyColumns[key]) {
+            const column = propertyColumns[key];
+            if (result[column] === undefined) {
+                result[column] = value;
+            }
+            continue;
         }
+
+        if (!allowed || allowed.includes(key)) {
+            result[key] = value;
+            continue;
+        }
+
+        // Generic camelCase -> snake_case fallback for BeanModel fields.
+        const snake = camelToSnake(key);
+        if (allowed.includes(snake)) {
+            if (result[snake] === undefined) {
+                result[snake] = value;
+            }
+            continue;
+        }
+
+        // Keep unknown keys so filterStoreRow can fail loudly.
+        result[key] = value;
     }
 
     return result;
 }
 
 function beanForTable(table, row = {}) {
-    const Model = modelMap[table] ? modelMap[table]() : BeanModel;
+    const Model = modelMap[table] || BeanModel;
     const bean = new Model();
     Object.assign(bean, table === "monitor" ? normalizeMonitorRow(row) : row);
     if (table === "heartbeat") {
@@ -190,7 +215,9 @@ class BunSQLiteRedbean {
         this.sqlitePath = sqlitePath;
         this.dbConfig = { type: "sqlite" };
         if (!fs.existsSync(sqlitePath)) {
-            fs.copyFileSync(templatePath, sqlitePath);
+            // Bun compiled binaries expose embedded files under `/$bunfs/...`.
+            // `fs.copyFileSync` fails there with ENOENT; read+write works.
+            fs.writeFileSync(sqlitePath, fs.readFileSync(templatePath));
         }
 
         this.db = new BunDatabase(sqlitePath, { create: true, strict: true });
@@ -234,9 +261,10 @@ class BunSQLiteRedbean {
 
         let row = {};
         for (const [key, value] of Object.entries(bean)) {
-            if (key !== "id" && typeof value !== "function") {
-                row[key] = value;
+            if (key === "id" || key.startsWith("_") || typeof value === "function") {
+                continue;
             }
+            row[key] = value;
         }
         row = normalizeRowForStore(table, row);
         row = filterStoreRow(table, row);

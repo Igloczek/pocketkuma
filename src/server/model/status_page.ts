@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/bun-sqlite-store";
+import { BeanModel } from "@/server/bean-model";
 import { R } from "@/server/bun-sqlite-store";
 import { load as loadHtml } from "cheerio";
 import { PocketKumaServer } from "@/server/pocketkuma-server";

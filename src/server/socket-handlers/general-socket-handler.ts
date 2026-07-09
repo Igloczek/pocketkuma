@@ -6,7 +6,6 @@ import { sendInfo } from "@/server/client";
 import { checkLogin } from "@/server/util-server";
 import fs from "fs";
 import path from "path";
-import { testChrome } from "@/server/monitor-types/real-browser-monitor-type";
 
 const fsAsync = fs.promises;
 const pushExamplesDir = path.join(import.meta.dirname, "../assets/push-examples");
@@ -76,8 +75,9 @@ export const generalSocketHandler = (socket, server) => {
     socket.on("testChrome", (executable, callback) => {
         try {
             checkLogin(socket);
-            // Use a pure promise so this slow probe does not block the realtime handler.
-            testChrome(executable)
+            // Lazy-load real-browser helpers so the binary boots without playwright-core.
+            import("@/server/monitor-types/real-browser-monitor-type")
+                .then(({ testChrome }) => testChrome(executable))
                 .then((version) => {
                     callback({
                         ok: true,

@@ -40,9 +40,71 @@ PocketKuma keeps the same product surface — monitors, notifications, status pa
 Download the binary for your platform from [Releases](https://github.com/Igloczek/pocketkuma/releases), then:
 
 ```bash
-./pocketkuma
+chmod +x pocketkuma-linux-x64   # or the asset for your OS/arch
+./pocketkuma-linux-x64
 ```
 
 Open `http://localhost:3001` and complete the setup wizard on first visit.
 
-Optional flags: `--port=3001`, `--data-dir=/path/to/data`.
+Optional flags: `--port=3001`, `--host=0.0.0.0`, `--data-dir=/path/to/data`.
+
+By default the process listens on all interfaces and stores data in `./data` next to the executable (`kuma.db`, `upload/`, `screenshots/`).
+
+### systemd example (Linux)
+
+```bash
+sudo install -d /opt/pocketkuma
+sudo install -m 0755 pocketkuma-linux-x64 /opt/pocketkuma/pocketkuma
+
+sudo tee /etc/systemd/system/pocketkuma.service >/dev/null <<'EOF'
+[Unit]
+Description=PocketKuma
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/pocketkuma
+ExecStart=/opt/pocketkuma/pocketkuma --port=3001 --data-dir=/opt/pocketkuma/data
+Restart=on-failure
+RestartSec=3
+Environment=NODE_ENV=production
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now pocketkuma.service
+```
+
+### Migrate from Uptime Kuma (SQLite)
+
+PocketKuma can open an existing Uptime Kuma SQLite data directory.
+
+1. Stop Uptime Kuma.
+2. Copy the data directory (at least `kuma.db`; include `upload/` and `screenshots/` if present).
+3. Start PocketKuma with `--data-dir` pointing at that directory.
+
+On first start PocketKuma upgrades the upstream schema automatically (`buna_schema_version`) and keeps existing users, monitors, notifications, and heartbeats. Existing bcrypt password hashes continue to work.
+
+If the source instance is still running, export a consistent SQLite copy first:
+
+```bash
+python3 - <<'PY'
+import sqlite3
+src = sqlite3.connect("file:/path/to/uptime-kuma/data/kuma.db?mode=ro", uri=True)
+dst = sqlite3.connect("/tmp/kuma.db")
+with dst:
+    src.backup(dst)
+src.close(); dst.close()
+print("exported /tmp/kuma.db")
+PY
+```
+
+Then place that `kuma.db` into the PocketKuma data directory before starting the service.
+
+### Notes for real-browser monitors
+
+`real-browser` monitors use Chromium via `playwright-core`. That package is optional and loaded only when such a monitor runs. Regular HTTP/keyword/redis monitors do not need it.
