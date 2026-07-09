@@ -94,7 +94,10 @@ async function waitForApp(url) {
     const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
         if (appProcess.exitCode !== null) {
-            throw new Error(`PocketKuma exited before becoming ready (exit ${appProcess.exitCode})`);
+            const stderr = appProcess.stderr ? await new Response(appProcess.stderr).text() : "";
+            throw new Error(
+                `PocketKuma exited before becoming ready (exit ${appProcess.exitCode})${stderr ? `: ${stderr.trim()}` : ""}`
+            );
         }
         try {
             const response = await fetch(url);
@@ -105,6 +108,34 @@ async function waitForApp(url) {
         await Bun.sleep(100);
     }
     throw new Error("PocketKuma did not become ready within 30 seconds");
+}
+
+async function startApp() {
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const appPort = reservePort();
+        appProcess = Bun.spawn([binaryPath, `--port=${appPort}`, "--host=127.0.0.1", `--data-dir=${dataDir}`], {
+            cwd: projectRoot,
+            env: {
+                ...process.env,
+                NODE_ENV: "production",
+                UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
+            },
+            stdout: "ignore",
+            stderr: "pipe",
+        });
+
+        try {
+            await waitForApp(`http://127.0.0.1:${appPort}`);
+            return appPort;
+        } catch (error) {
+            const retry = appProcess.exitCode !== null && /EADDRINUSE/.test(error.message) && attempt < 2;
+            if (!retry) {
+                throw error;
+            }
+            await appProcess.exited;
+            appProcess = undefined;
+        }
+    }
 }
 
 async function connectRealtime(url) {
@@ -181,23 +212,10 @@ describe("compiled notification provider loading", () => {
         expect(fs.existsSync(binaryPath)).toBe(true);
 
         dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-compiled-smtp-"));
-        const appPort = reservePort();
         const smtp = startSMTPServer();
         smtpServer = smtp.server;
 
-        appProcess = Bun.spawn([binaryPath, `--port=${appPort}`, "--host=127.0.0.1", `--data-dir=${dataDir}`], {
-            cwd: projectRoot,
-            env: {
-                ...process.env,
-                NODE_ENV: "production",
-                UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
-            },
-            stdout: "ignore",
-            stderr: "ignore",
-        });
-
-        const appURL = `http://127.0.0.1:${appPort}`;
-        await waitForApp(appURL);
+        const appPort = await startApp();
 
         const realtime = await connectRealtime(`ws://127.0.0.1:${appPort}/ws`);
         realtimeSocket = realtime.socket;
