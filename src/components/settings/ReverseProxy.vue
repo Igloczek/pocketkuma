@@ -165,10 +165,6 @@ export default {
         HiddenInput,
         Confirm,
     },
-    data() {
-        // See /src/stores/app.ts
-        return this.appStore.cloudflared;
-    },
     computed: {
         settings() {
             return this.$parent.$parent.$parent.settings;
@@ -179,8 +175,42 @@ export default {
         settingsLoaded() {
             return this.$parent.$parent.$parent.settingsLoaded;
         },
+        // Proxy cloudflared store fields. They cannot be returned from data()
+        // because appStore is a mixin computed and is unavailable during data().
+        cloudflareTunnelToken: {
+            get() {
+                return this.appStore.cloudflared.cloudflareTunnelToken;
+            },
+            set(value) {
+                this.appStore.cloudflared.cloudflareTunnelToken = value;
+            },
+        },
+        installed() {
+            return this.appStore.cloudflared.installed;
+        },
+        running() {
+            return this.appStore.cloudflared.running;
+        },
+        message() {
+            return this.appStore.cloudflared.message;
+        },
+        errorMessage: {
+            get() {
+                return this.appStore.cloudflared.errorMessage;
+            },
+            set(value) {
+                this.appStore.cloudflared.errorMessage = value;
+            },
+        },
+        currentPassword: {
+            get() {
+                return this.appStore.cloudflared.currentPassword;
+            },
+            set(value) {
+                this.appStore.cloudflared.currentPassword = value;
+            },
+        },
     },
-    watch: {},
     created() {
         this.appStore.getSocket().emit(prefix + "join");
     },
