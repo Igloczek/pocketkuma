@@ -35,3 +35,6 @@ jobs:
                     --outfile=dist/releases/pocketkuma-linux-x64
                   test -f dist/releases/pocketkuma-linux-x64
                   ls -lh dist/releases/pocketkuma-linux-x64
+
+            - name: Test compiled SMTP provider loading
+              run: POCKETKUMA_BINARY=dist/releases/pocketkuma-linux-x64 bun run test:notification-provider-binary

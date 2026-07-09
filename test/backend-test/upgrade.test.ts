@@ -13,6 +13,8 @@ const projectRoot = path.join(import.meta.dirname, "../..");
 const baselineFixturePath = path.join(import.meta.dirname, "fixtures/upstream-kuma-baseline.sql");
 const knexEndstateFixturePath = path.join(import.meta.dirname, "fixtures/upstream-kuma-knex-endstate.sql");
 const templatePath = path.join(projectRoot, "src/db/kuma.db");
+const smtpConfig =
+    '{"type":"smtp","smtpHost":"mail.example.invalid","smtpPort":2525,"smtpSecure":false,"smtpFrom":"sender@example.invalid","smtpTo":"recipient@example.invalid"}';
 
 function loadSqlFixture(dbPath, sql) {
     if (fs.existsSync(dbPath)) {
@@ -95,11 +97,25 @@ describe("Upstream Kuma upgrade", () => {
         ]);
         expect(refreshInterval).toBe(120);
 
-        const lineNotifyCount = await store.count("notification");
-        expect(lineNotifyCount).toBe(0);
-
-        const monitorNotificationCount = await store.count("monitor_notification");
-        expect(monitorNotificationCount).toBe(0);
+        expect(
+            await store.getAll("SELECT id, name, active, user_id, is_default, config FROM notification ORDER BY id")
+        ).toEqual([
+            {
+                id: 4,
+                name: "Existing SMTP",
+                active: 1,
+                user_id: null,
+                is_default: 0,
+                config: smtpConfig,
+            },
+        ]);
+        expect(
+            await store.getAll(
+                `SELECT id, monitor_id, notification_id
+                 FROM monitor_notification
+                 ORDER BY id`
+            )
+        ).toEqual([{ id: 4, monitor_id: 1, notification_id: 4 }]);
 
         const domainExpiryDisabled = await store.getCell(
             "SELECT domain_expiry_notification FROM monitor WHERE name = ?",

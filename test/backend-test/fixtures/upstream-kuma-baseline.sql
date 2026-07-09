@@ -82,8 +82,12 @@ VALUES ('Legacy LINE', 1, '{"lineNotifyAccessToken":"legacy-token"}');
 INSERT INTO notification (name, active, config)
 VALUES ('Underscore LINE', 1, '{"type":"line_notify"}');
 
+INSERT INTO notification (name, active, config)
+VALUES ('Existing SMTP', 1, '{"type":"smtp","smtpHost":"mail.example.invalid","smtpPort":2525,"smtpSecure":false,"smtpFrom":"sender@example.invalid","smtpTo":"recipient@example.invalid"}');
+
 INSERT INTO monitor_notification (monitor_id, notification_id) VALUES (1, 1);
 INSERT INTO monitor_notification (monitor_id, notification_id) VALUES (1, 2);
 INSERT INTO monitor_notification (monitor_id, notification_id) VALUES (1, 3);
+INSERT INTO monitor_notification (monitor_id, notification_id) VALUES (1, 4);
 
 PRAGMA foreign_keys = ON;
