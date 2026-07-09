@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/bun-sqlite-store";
+import { BeanModel } from "@/server/bean-model";
 import passwordHash from "@/server/password-hash";
 import { R } from "@/server/bun-sqlite-store";
 import jwt from "@/server/jwt";

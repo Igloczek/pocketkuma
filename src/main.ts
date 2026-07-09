@@ -39,6 +39,8 @@ const app = createApp({
 });
 
 app.use(pinia);
+// Child components still access `appStore` / `$root.*` from the Pinia bridge mixin.
+app.mixin(appStoreMixin);
 app.use(router);
 app.use(i18n);
 

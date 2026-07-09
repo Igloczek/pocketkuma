@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/bun-sqlite-store";
+import { BeanModel } from "@/server/bean-model";
 import { R } from "@/server/bun-sqlite-store";
 import { log, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/util";
 import { parse as parseTld } from "tldts";

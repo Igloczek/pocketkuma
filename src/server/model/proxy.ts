@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { BeanModel } from "@/server/bun-sqlite-store";
+import { BeanModel } from "@/server/bean-model";
 
 class Proxy extends BeanModel {
     /**

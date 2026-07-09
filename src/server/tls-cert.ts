@@ -114,6 +114,67 @@ export function checkCertificate(socket) {
 }
 
 /**
+ * Inspect TLS certificate chain for a hostname:port using a dedicated TLS socket.
+ * Used by the Bun fetch HTTP path, which cannot attach cert data to the request.
+ * @param {string} hostname Target host
+ * @param {number} [port=443] Target port
+ * @param {number} [timeoutMs=10000] Socket timeout
+ * @returns {Promise<{valid: boolean, certInfo: object}|null>}
+ */
+export function inspectRemoteCertificate(hostname, port = 443, timeoutMs = 10000) {
+    return new Promise((resolve) => {
+        if (!hostname) {
+            resolve(null);
+            return;
+        }
+
+        let settled = false;
+        const finish = (value) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            resolve(value);
+        };
+
+        let socket;
+        try {
+            socket = tls.connect(
+                {
+                    host: hostname,
+                    port,
+                    servername: hostname,
+                    rejectUnauthorized: false,
+                },
+                () => {
+                    try {
+                        finish(checkCertificate(socket));
+                    } catch (error) {
+                        log.debug("cert", `Certificate inspection failed for ${hostname}:${port}: ${error.message}`);
+                        finish(null);
+                    } finally {
+                        socket.end();
+                    }
+                }
+            );
+        } catch (error) {
+            log.debug("cert", `Certificate connect failed for ${hostname}:${port}: ${error.message}`);
+            finish(null);
+            return;
+        }
+
+        socket.setTimeout(timeoutMs, () => {
+            socket.destroy();
+            finish(null);
+        });
+        socket.on("error", (error) => {
+            log.debug("cert", `Certificate socket error for ${hostname}:${port}: ${error.message}`);
+            finish(null);
+        });
+    });
+}
+
+/**
  * Checks if the certificate is valid for the provided hostname.
  * Defaults to true if feature `X509Certificate` is not available, or input is not valid.
  * @param {Buffer} certBuffer - The certificate buffer.

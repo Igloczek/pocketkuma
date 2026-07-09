@@ -3,9 +3,18 @@ import path from "path";
 
 /**
  * True when running as a Bun-compiled standalone executable.
+ *
+ * Bun virtualizes the entrypoint under `/$bunfs/root/...` while `process.execPath`
+ * remains the real binary path on disk, so a direct path equality check is wrong.
  */
 function isCompiledBinary() {
-    return import.meta.path === process.execPath;
+    const metaPath = String(import.meta.path || "");
+    if (metaPath.includes("$bunfs")) {
+        return true;
+    }
+
+    // Fallback for older Bun versions that exposed the real binary path.
+    return metaPath === process.execPath;
 }
 
 /**
