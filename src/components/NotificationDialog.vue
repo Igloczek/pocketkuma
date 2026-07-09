@@ -1,18 +1,23 @@
 <template>
     <form @submit.prevent="submit">
-        <div ref="modal" class="modal fade" tabindex="-1" data-bs-backdrop="static">
+        <div ref="modal" class="modal fade" tabindex="-1" data-bs-backdrop="static" @keydown.esc.stop="hide">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 id="exampleModalLabel" class="modal-title">
                             {{ $t("Setup Notification") }}
                         </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" :aria-label="$t('Close')" />
+                        <button type="button" class="btn-close" :aria-label="$t('Close')" @click="hide" />
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
                             <label for="notification-type" class="form-label">{{ $t("Notification Type") }}</label>
-                            <select id="notification-type" v-model="notification.type" class="form-select">
+                            <select
+                                id="notification-type"
+                                ref="firstInput"
+                                v-model="notification.type"
+                                class="form-select"
+                            >
                                 <optgroup
                                     v-for="category in notificationCategories"
                                     :key="category.id"
@@ -42,7 +47,7 @@
 
                         <!-- form body -->
                         <Suspense v-if="currentForm">
-                            <component :is="currentForm" />
+                            <component :is="currentForm" :notification="notification" />
                             <template #fallback>
                                 <div class="d-flex justify-content-center py-3">
                                     <div class="spinner-border spinner-border-sm" role="status"></div>
@@ -109,10 +114,7 @@ import { Modal } from "bootstrap";
 
 import Confirm from "@/components/Confirm.vue";
 import NotificationFormList, { notificationProviderTypes } from "@/components/notifications";
-import {
-    NOTIFICATION_PROVIDER_CATEGORIES,
-    buildNotificationNameList,
-} from "@/notification-provider-metadata";
+import { NOTIFICATION_PROVIDER_CATEGORIES, buildNotificationNameList } from "@/notification-provider-metadata";
 
 export default {
     components: {
@@ -182,6 +184,8 @@ export default {
     },
     mounted() {
         this.modal = new Modal(this.$refs.modal);
+        this.$refs.modal.addEventListener("shown.bs.modal", this.focusFirstInput);
+        this.$refs.modal.addEventListener("hidden.bs.modal", this.restoreFocus);
     },
     beforeUnmount() {
         this.cleanupModal();
@@ -202,6 +206,8 @@ export default {
          * @returns {void}
          */
         show(notificationID) {
+            this.returnFocus = document.activeElement;
+
             if (notificationID) {
                 this.id = notificationID;
 
@@ -225,6 +231,19 @@ export default {
             }
 
             this.modal.show();
+        },
+
+        hide() {
+            this.modal.hide();
+        },
+
+        focusFirstInput() {
+            this.$refs.firstInput?.focus();
+        },
+
+        restoreFocus() {
+            this.returnFocus?.focus();
+            this.returnFocus = null;
         },
 
         /**
@@ -298,6 +317,9 @@ export default {
          * @returns {void}
          */
         cleanupModal() {
+            this.$refs.modal?.removeEventListener("shown.bs.modal", this.focusFirstInput);
+            this.$refs.modal?.removeEventListener("hidden.bs.modal", this.restoreFocus);
+
             if (this.modal) {
                 try {
                     this.modal.hide();

@@ -91,6 +91,25 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(domain).toBe("status.example.com");
     });
 
+    test("trash deletes stored beans, clears their identity, and ignores unsaved beans", async () => {
+        const notification = store.dispense("notification");
+        notification.name = "Trash regression";
+        notification.config = "{}";
+        const id = await store.store(notification);
+
+        expect(await store.load("notification", id)).not.toBeNull();
+
+        await store.trash(notification);
+
+        expect(notification.id).toBe(0);
+        expect(await store.load("notification", id)).toBeNull();
+        await expect(store.trash(notification)).resolves.toBeUndefined();
+
+        const unsaved = store.dispense("notification");
+        await expect(store.trash(unsaved)).resolves.toBeUndefined();
+        await expect(store.trash({ id })).rejects.toThrow("Cannot trash bean without table metadata");
+    });
+
     test("serializes freshly dispensed heartbeat beans for live socket events", async () => {
         const heartbeat = store.dispense("heartbeat");
         heartbeat.monitor_id = 7;

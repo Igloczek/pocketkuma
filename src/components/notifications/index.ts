@@ -1,9 +1,16 @@
 import { defineAsyncComponent } from "vue";
 
-import { createGenericNotificationForm } from "@/components/notifications/create-generic-notification-form";
+import {
+    createGenericNotificationForm,
+    createNotificationForm,
+} from "@/components/notifications/create-generic-notification-form";
 import { genericNotificationFormTypes } from "@/components/notifications/notification-form-schemas";
 
-const notificationModules = import.meta.glob(["./*.vue", "!./GenericNotificationForm.vue"]);
+const notificationModules = import.meta.glob([
+    "./*.vue",
+    "!./GenericNotificationForm.vue",
+    "!./GenericNotificationField.vue",
+]);
 
 /**
  * Provider type string -> Vue filename (without extension).
@@ -79,7 +86,13 @@ const lazyNotificationForms = Object.fromEntries(
             throw new Error(`Missing notification form module: ${path} (provider: ${providerType})`);
         }
 
-        return [providerType, defineAsyncComponent(loader)];
+        return [
+            providerType,
+            defineAsyncComponent(async () => {
+                const module = await loader();
+                return createNotificationForm(module.default);
+            }),
+        ];
     })
 );
 

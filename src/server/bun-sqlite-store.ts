@@ -325,6 +325,17 @@ class BunSQLiteRedbean {
         return bean.id;
     }
 
+    async trash(bean) {
+        const table = bean.__table;
+        if (!table) {
+            throw new Error("Cannot trash bean without table metadata");
+        }
+        if (bean.id) {
+            await this.exec(`DELETE FROM "${table}" WHERE id = ?`, [bean.id]);
+            bean.id = 0;
+        }
+    }
+
     async exec(sql, params = []) {
         this.db.query(normalizeSql(sql)).run(...params);
     }
