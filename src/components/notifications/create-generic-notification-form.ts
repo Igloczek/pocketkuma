@@ -6,6 +6,20 @@ import {
     type NotificationFormSchema,
 } from "@/components/notifications/notification-form-schemas";
 
+export function createNotificationForm(component, props = {}) {
+    return defineComponent({
+        props: {
+            notification: {
+                type: Object,
+                required: true,
+            },
+        },
+        render() {
+            return h(component, props);
+        },
+    });
+}
+
 export function createGenericNotificationForm(schemaId: string) {
     const schema = notificationFormSchemas[schemaId] as NotificationFormSchema | undefined;
 
@@ -13,10 +27,7 @@ export function createGenericNotificationForm(schemaId: string) {
         throw new Error(`Unknown notification form schema: ${schemaId}`);
     }
 
-    return defineComponent({
-        name: `GenericNotificationForm_${schemaId}`,
-        render() {
-            return h(GenericNotificationForm, { schema });
-        },
-    });
+    const form = createNotificationForm(GenericNotificationForm, { schema });
+    form.name = `GenericNotificationForm_${schemaId}`;
+    return form;
 }
