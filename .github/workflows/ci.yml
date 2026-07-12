@@ -31,6 +31,12 @@ jobs:
             - name: Backend tests
               run: bun run test:backend
 
+            - name: Install Playwright Chromium
+              run: bunx playwright install --with-deps chromium
+
+            - name: End-to-end tests
+              run: bun run test-e2e
+
             - name: Compile linux x64 binary
               run: |
                   bun scripts/build/build-binary.ts \

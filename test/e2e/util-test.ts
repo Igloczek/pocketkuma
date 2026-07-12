@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { url as serverUrl } from "../../config/playwright.config.ts";
 
+export { serverUrl };
+
 /**
  * @param {TestInfo} testInfo Test info
  * @param {Page} page Page

@@ -21,7 +21,8 @@ async function* walk(dir) {
     }
 }
 
-const UPSTREAM_EN_JSON = "https://raw.githubusercontent.com/louislam/uptime-kuma/refs/heads/master/src/lang/en.json";
+// Digest of sorted [translation key, placeholders] entries; update only for an intentional contract change.
+const EN_PLACEHOLDER_CONTRACT_SHA256 = "0c35ecd8cd6425bfb09c65d4f95a8cac9cb343d6f6f5d98fdc3b2f302c396798";
 
 /**
  * Extract `{placeholders}` from a translation string.
@@ -140,38 +141,13 @@ describe("Check Translations", () => {
     });
 
     test("en.json translations must not change placeholder parameters", async () => {
-        // Load local reference (the one translators are synced against)
         const enTranslations = JSON.parse(await fs.readFile("src/lang/en.json", "utf-8"));
+        const contract = Object.entries(enTranslations)
+            .map(([key, value]) => [key, [...extractParams(value)].sort()])
+            .filter(([, params]) => params.length > 0)
+            .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+        const digest = new Bun.CryptoHasher("sha256").update(JSON.stringify(contract)).digest("hex");
 
-        // Fetch upstream version
-        const res = await fetch(UPSTREAM_EN_JSON);
-        expect(res.ok).toBe(true);
-
-        const upstreamEn = await res.json();
-
-        for (const [key, upstreamValue] of Object.entries(upstreamEn)) {
-            if (!(key in enTranslations)) {
-                // deleted keys are fine
-                continue;
-            }
-
-            const localParams = extractParams(enTranslations[key]);
-            const upstreamParams = extractParams(upstreamValue);
-
-            const message = [
-                `Translation key "${key}" changed placeholder parameters.`,
-                `This is a breaking change for existing translations.`,
-                `Please rename the translation key instead of changing placeholders.`,
-                ``,
-                `your version: ${[...localParams].join(", ")}`,
-                `on master:    ${[...upstreamParams].join(", ")}`,
-            ].join("\n");
-
-            try {
-                expect(localParams).toEqual(upstreamParams);
-            } catch {
-                throw new Error(message);
-            }
-        }
+        expect(digest).toBe(EN_PLACEHOLDER_CONTRACT_SHA256);
     });
 });

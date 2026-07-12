@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { expect, test } from "@playwright/test";
-import { login, restoreSqliteSnapshot, screenshot } from "../util-test";
+import { login, restoreSqliteSnapshot, screenshot, serverUrl } from "../util-test";
 
 test.describe("Example Spec", () => {
     test.beforeEach(async ({ page }) => {
@@ -19,12 +19,12 @@ test.describe("Example Spec", () => {
 
         await expect(page.getByTestId("monitor-type-select")).toBeVisible();
         await page.getByTestId("monitor-type-select").selectOption("http");
-        await page.getByTestId("friendly-name-input").fill("example.com");
-        await page.getByTestId("url-input").fill("https://www.example.com/");
+        await page.getByTestId("friendly-name-input").fill("Local PocketKuma");
+        await page.getByTestId("url-input").fill(serverUrl);
         await page.getByTestId("save-button").click();
         await page.waitForURL("/dashboard/*"); // wait for the monitor to be created
 
-        await expect(page.getByTestId("monitor-list")).toContainText("example.com");
+        await expect(page.getByTestId("monitor-list")).toContainText("Local PocketKuma");
         await screenshot(testInfo, page);
     });
 
@@ -32,7 +32,7 @@ test.describe("Example Spec", () => {
         await page.goto("./dashboard");
         await login(page);
 
-        await expect(page.getByTestId("monitor-list")).not.toContainText("example.com");
+        await expect(page.getByTestId("monitor-list")).not.toContainText("Local PocketKuma");
         await screenshot(testInfo, page);
     });
 });

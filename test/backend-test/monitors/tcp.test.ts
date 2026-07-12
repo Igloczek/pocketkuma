@@ -6,6 +6,8 @@ import { UP, PENDING } from "@/util";
 import net from "net";
 import { parseTlsAlertNumber, getTlsAlertName } from "@/server/monitor-types/tcp";
 
+const publicNetworkTest = process.env.POCKETKUMA_PUBLIC_NETWORK_TESTS ? test : test.skip;
+
 describe("TCP Monitor", () => {
     /**
      * Retries a test function with exponential backoff for external service reliability
@@ -96,7 +98,8 @@ describe("TCP Monitor", () => {
         await expect(tcpMonitor.check(monitor, heartbeat, {})).rejects.toEqual(new Error("Connection failed"));
     });
 
-    test("check() rejects when TLS certificate is expired or invalid", async () => {
+    // Opt-in until Chat 4 replaces these public endpoints with local TLS fixtures.
+    publicNetworkTest("check() rejects when TLS certificate is expired or invalid", async () => {
         const tcpMonitor = new TCPMonitorType();
 
         const monitor = {
@@ -120,7 +123,7 @@ describe("TCP Monitor", () => {
         await expect(tcpMonitor.check(monitor, heartbeat, {})).rejects.toThrow(regex);
     });
 
-    test("check() sets status to UP when TLS certificate is valid (SSL)", async () => {
+    publicNetworkTest("check() sets status to UP when TLS certificate is valid (SSL)", async () => {
         const tcpMonitor = new TCPMonitorType();
 
         const monitor = {
@@ -144,7 +147,7 @@ describe("TCP Monitor", () => {
         expect(heartbeat.status).toBe(UP);
     });
 
-    test("check() sets status to UP when TLS certificate is valid (STARTTLS)", async () => {
+    publicNetworkTest("check() sets status to UP when TLS certificate is valid (STARTTLS)", async () => {
         const tcpMonitor = new TCPMonitorType();
 
         const monitor = {
@@ -168,7 +171,7 @@ describe("TCP Monitor", () => {
         expect(heartbeat.status).toBe(UP);
     });
 
-    test("check() rejects when TLS certificate hostname does not match (STARTTLS)", async () => {
+    publicNetworkTest("check() rejects when TLS certificate hostname does not match (STARTTLS)", async () => {
         const tcpMonitor = new TCPMonitorType();
 
         const monitor = {
@@ -190,7 +193,7 @@ describe("TCP Monitor", () => {
 
         await expect(tcpMonitor.check(monitor, heartbeat, {})).rejects.toThrow(regex);
     });
-    test("check() sets status to UP for XMPP server with valid certificate (STARTTLS)", async () => {
+    publicNetworkTest("check() sets status to UP for XMPP server with valid certificate (STARTTLS)", async () => {
         const tcpMonitor = new TCPMonitorType();
 
         const monitor = {
@@ -215,7 +218,7 @@ describe("TCP Monitor", () => {
     });
 
     // TLS Alert checking tests
-    test("check() rejects when expecting TLS alert but connection succeeds", async () => {
+    publicNetworkTest("check() rejects when expecting TLS alert but connection succeeds", async () => {
         const tcpMonitor = new TCPMonitorType();
 
         const monitor = {
