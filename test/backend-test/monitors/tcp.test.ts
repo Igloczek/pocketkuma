@@ -6,7 +6,8 @@ import { UP, PENDING } from "@/util";
 import net from "net";
 import { parseTlsAlertNumber, getTlsAlertName } from "@/server/monitor-types/tcp";
 
-const publicNetworkTest = process.env.POCKETKUMA_PUBLIC_NETWORK_TESTS ? test : test.skip;
+const isPublicNetworkTestsEnabled = (value) => value === "1";
+const publicNetworkTest = isPublicNetworkTestsEnabled(process.env.POCKETKUMA_PUBLIC_NETWORK_TESTS) ? test : test.skip;
 
 describe("TCP Monitor", () => {
     /**
@@ -37,15 +38,14 @@ describe("TCP Monitor", () => {
         throw lastError;
     }
     /**
-     * Creates a TCP server on a specified port
-     * @param {number} port - The port number to listen on
+     * Creates a TCP server on an ephemeral loopback port
      * @returns {Promise<net.Server>} A promise that resolves with the created server
      */
-    async function createTCPServer(port) {
+    async function createTCPServer() {
         return new Promise((resolve, reject) => {
             const server = net.createServer();
 
-            server.listen(port, () => {
+            server.listen({ host: "127.0.0.1", port: 0 }, () => {
                 resolve(server);
             });
 
@@ -55,15 +55,19 @@ describe("TCP Monitor", () => {
         });
     }
 
+    test("public network gate enables only the exact value 1", () => {
+        expect([undefined, "0", "false", "1"].map(isPublicNetworkTestsEnabled)).toEqual([false, false, false, true]);
+    });
+
     test("check() sets status to UP when TCP server is reachable", async () => {
-        const port = 12345;
-        const server = await createTCPServer(port);
+        const server = await createTCPServer();
+        const port = server.address().port;
 
         try {
             const tcpMonitor = new TCPMonitorType();
 
             const monitor = {
-                hostname: "localhost",
+                hostname: "127.0.0.1",
                 port: port,
                 isEnabledExpiryNotification: () => false,
             };
@@ -77,7 +81,7 @@ describe("TCP Monitor", () => {
 
             expect(heartbeat.status).toBe(UP);
         } finally {
-            server.close();
+            await new Promise((resolve) => server.close(resolve));
         }
     });
 
@@ -85,8 +89,8 @@ describe("TCP Monitor", () => {
         const tcpMonitor = new TCPMonitorType();
 
         const monitor = {
-            hostname: "localhost",
-            port: 54321,
+            hostname: "127.0.0.1",
+            port: 0,
             isEnabledExpiryNotification: () => false,
         };
 
