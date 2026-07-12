@@ -13,12 +13,17 @@ let appProcess;
 let appPort;
 let dataDir;
 let proxyServer;
-let proxyUrl;
+let envProxyServer;
+let envProxyUrl;
 let targetServer;
 let targetUrl;
 let realtime;
 const proxyRequests = [];
+const envProxyRequests = [];
 const targetRequests = [];
+const parentProxyEnv = Object.fromEntries(
+    ["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"].map((name) => [name, process.env[name]])
+);
 
 function withTimeout(promise, timeout, message) {
     let timeoutID;
@@ -135,6 +140,14 @@ function startProxyServer() {
     });
 }
 
+function startRejectingEnvProxyServer() {
+    return http.createServer((req, res) => {
+        envProxyRequests.push(req.url);
+        res.writeHead(502);
+        res.end("environment proxy must not receive assigned monitor traffic");
+    });
+}
+
 async function waitForApp() {
     const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
@@ -160,8 +173,8 @@ async function startApp() {
             env: {
                 ...process.env,
                 NODE_ENV: "production",
-                HTTP_PROXY: proxyUrl,
-                HTTPS_PROXY: proxyUrl,
+                HTTP_PROXY: envProxyUrl,
+                HTTPS_PROXY: envProxyUrl,
                 NO_PROXY: "",
                 UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
             },
@@ -306,7 +319,9 @@ beforeAll(async () => {
     targetUrl = `http://127.0.0.1:${targetServer.address().port}`;
     proxyServer = startProxyServer();
     await listen(proxyServer);
-    proxyUrl = `http://127.0.0.1:${proxyServer.address().port}`;
+    envProxyServer = startRejectingEnvProxyServer();
+    await listen(envProxyServer);
+    envProxyUrl = `http://127.0.0.1:${envProxyServer.address().port}`;
     await startApp();
     await login({ setup: true });
 });
@@ -315,7 +330,11 @@ afterAll(async () => {
     await stopApp();
     await new Promise((resolve) => targetServer.close(resolve));
     await new Promise((resolve) => proxyServer.close(resolve));
+    await new Promise((resolve) => envProxyServer.close(resolve));
     fs.rmSync(dataDir, { recursive: true, force: true });
+    expect(
+        Object.fromEntries(["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"].map((name) => [name, process.env[name]]))
+    ).toEqual(parentProxyEnv);
 });
 
 describe("monitor lifecycle over the production WebSocket transport", () => {
@@ -333,6 +352,7 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
         const monitorID = created.monitorID;
         await realtime.waitFor("heartbeat", heartbeatFor(monitorID, 1));
         expect(proxyRequests.some((url) => url.endsWith("/first"))).toBe(true);
+        expect(envProxyRequests.some((url) => url?.endsWith("/first"))).toBe(false);
 
         const loaded = await realtime.request("getMonitor", monitorID);
         expect(loaded.ok).toBe(true);
@@ -441,19 +461,23 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
         expect((await realtime.request("resumeMonitor", monitorID)).ok).toBe(true);
         await realtime.waitFor("heartbeat", heartbeatFor(monitorID, 1), mark);
 
-        const requestsBeforeReload = targetRequests.length;
-        await stopApp();
-        await startApp();
-        await login();
-        await withTimeout(
-            (async () => {
-                while (targetRequests.length === requestsBeforeReload) {
-                    await Bun.sleep(25);
-                }
-            })(),
-            5_000,
-            "active monitor did not resume after reload"
-        );
+        for (let restart = 0; restart < 3; restart++) {
+            const requestsBeforeReload = targetRequests.length;
+            await stopApp();
+            await startApp();
+            await login();
+            await withTimeout(
+                (async () => {
+                    while (targetRequests.length === requestsBeforeReload) {
+                        await Bun.sleep(25);
+                    }
+                })(),
+                5_000,
+                `active monitor did not resume after reload ${restart + 1}`
+            );
+            expect(proxyRequests.some((url) => url.endsWith("/edited"))).toBe(true);
+            expect(envProxyRequests.some((url) => url?.endsWith("/edited"))).toBe(false);
+        }
         const persisted = await realtime.request("getMonitor", monitorID);
         expect(persisted.ok).toBe(true);
         expect(persisted.monitor).toMatchObject({
@@ -472,4 +496,43 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
         expect(targetRequests.length).toBe(requestsAfterDelete);
         expect((await realtime.request("getMonitor", monitorID)).ok).toBe(false);
     }, 60_000);
+
+    test("persisted SOCKS assignment stays stored and fails redacted before fetch", async () => {
+        const username = "socks-user%@:/żółw";
+        const password = "socks-password%@:/密碼";
+        const encodedPassword = encodeURIComponent(password);
+        const proxy = await realtime.request(
+            "addProxy",
+            {
+                protocol: "socks5h",
+                host: "127.0.0.1",
+                port: 1080,
+                auth: true,
+                username,
+                password,
+                active: true,
+            },
+            null
+        );
+        expect(proxy.ok).toBe(true);
+
+        const created = await realtime.request("add", monitorPayload({ proxyId: proxy.id }));
+        expect(created.ok).toBe(true);
+        const [heartbeat] = await realtime.waitFor("heartbeat", heartbeatFor(created.monitorID, 0));
+        expect(heartbeat.msg).toMatch(/SOCKS proxy.*not supported.*Bun fetch/i);
+        expect(heartbeat.msg).not.toContain(username);
+        expect(heartbeat.msg).not.toContain(password);
+        expect(heartbeat.msg).not.toContain(encodedPassword);
+
+        await stopApp();
+        await startApp();
+        await login();
+        const persisted = await realtime.request("getMonitor", created.monitorID);
+        expect(persisted.ok).toBe(true);
+        expect(persisted.monitor.proxyId).toBe(proxy.id);
+        const proxyList = realtime.events.find((item) => item.event === "proxyList")?.args?.[0] ?? [];
+        expect(proxyList.some((item) => item.id === proxy.id && item.protocol === "socks5h")).toBe(true);
+
+        expect((await realtime.request("deleteMonitor", created.monitorID, false)).ok).toBe(true);
+    }, 30_000);
 });

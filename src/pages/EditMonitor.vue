@@ -1474,11 +1474,11 @@
                                 "
                             >
                                 <h2 class="mt-5 mb-2">{{ $t("Proxy") }}</h2>
-                                <p v-if="$root.proxyList.length === 0">
+                                <p v-if="supportedHttpProxyList.length === 0">
                                     {{ $t("Not available, please setup.") }}
                                 </p>
 
-                                <div v-if="$root.proxyList.length > 0" class="form-check my-3">
+                                <div v-if="supportedHttpProxyList.length > 0" class="form-check my-3">
                                     <input
                                         id="proxy-disable"
                                         v-model="monitor.proxyId"
@@ -1490,7 +1490,7 @@
                                     <label class="form-check-label" for="proxy-disable">{{ $t("No Proxy") }}</label>
                                 </div>
 
-                                <div v-for="proxy in $root.proxyList" :key="proxy.id" class="form-check my-3">
+                                <div v-for="proxy in supportedHttpProxyList" :key="proxy.id" class="form-check my-3">
                                     <input
                                         :id="`proxy-${proxy.id}`"
                                         v-model="monitor.proxyId"
@@ -1498,6 +1498,7 @@
                                         name="proxy"
                                         class="form-check-input"
                                         type="radio"
+                                        :disabled="monitor.ignoreTls && proxy.protocol === 'https'"
                                     />
 
                                     <label class="form-check-label" :for="`proxy-${proxy.id}`">
@@ -1508,6 +1509,21 @@
                                     <span v-if="proxy.default === true" class="badge bg-primary ms-2">
                                         {{ $t("default") }}
                                     </span>
+                                </div>
+
+                                <div v-if="unsupportedHttpProxy" class="form-text text-warning">
+                                    {{ $t("socksProxyHttpUnsupported") }}
+                                </div>
+                                <div
+                                    v-if="
+                                        monitor.ignoreTls &&
+                                        supportedHttpProxyList.some(
+                                            (proxy) => proxy.id === monitor.proxyId && proxy.protocol === 'https'
+                                        )
+                                    "
+                                    class="form-text text-warning"
+                                >
+                                    {{ $t("httpsProxyIgnoreTlsUnsupported") }}
                                 </div>
 
                                 <button class="btn btn-primary me-2" type="button" @click="$refs.proxyDialog.show()">
@@ -2207,6 +2223,16 @@ message HealthCheckResponse {
             return this.$root.monitorTypeList[this.monitor.type]?.supportsConditions || false;
         },
 
+        supportedHttpProxyList() {
+            return (this.$root.proxyList || []).filter((proxy) => ["http", "https"].includes(proxy.protocol));
+        },
+
+        unsupportedHttpProxy() {
+            return (this.$root.proxyList || []).find(
+                (proxy) => proxy.id === this.monitor.proxyId && !["http", "https"].includes(proxy.protocol)
+            );
+        },
+
         conditionVariables() {
             return this.$root.monitorTypeList[this.monitor.type]?.conditionVariables || [];
         },
@@ -2215,7 +2241,7 @@ message HealthCheckResponse {
         "$root.proxyList"() {
             if (this.isAdd) {
                 if (this.$root.proxyList && !this.monitor.proxyId) {
-                    const proxy = this.$root.proxyList.find((proxy) => proxy.default);
+                    const proxy = this.supportedHttpProxyList.find((proxy) => proxy.default);
 
                     if (proxy) {
                         this.monitor.proxyId = proxy.id;
@@ -2526,7 +2552,7 @@ message HealthCheckResponse {
                 };
 
                 if (this.$root.proxyList && !this.monitor.proxyId) {
-                    const proxy = this.$root.proxyList.find((proxy) => proxy.default);
+                    const proxy = this.supportedHttpProxyList.find((proxy) => proxy.default);
 
                     if (proxy) {
                         this.monitor.proxyId = proxy.id;
@@ -2913,7 +2939,9 @@ message HealthCheckResponse {
          * @returns {void}
          */
         addedProxy(id) {
-            this.monitor.proxyId = id;
+            if (this.supportedHttpProxyList.some((proxy) => proxy.id === id)) {
+                this.monitor.proxyId = id;
+            }
         },
 
         /**

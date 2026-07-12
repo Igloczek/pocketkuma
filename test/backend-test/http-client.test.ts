@@ -3,18 +3,45 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import fs from "node:fs";
 import http from "node:http";
+import https from "node:https";
+import net from "node:net";
 import path from "node:path";
 import httpClient from "@/server/http-client";
 import { R } from "@/server/bun-sqlite-store";
+
+let ipv6ProxyServer;
+let ipv6SkipReason = "";
+try {
+    ipv6ProxyServer = Bun.serve({
+        hostname: "::1",
+        port: 0,
+        fetch: async (request) => {
+            const target = new URL(request.url);
+            if (target.hostname !== "127.0.0.1") {
+                return new Response("public network disabled by fixture", { status: 502 });
+            }
+            return fetch(target);
+        },
+    });
+} catch (error) {
+    ipv6SkipReason = `IPv6 loopback unavailable: ${error.message}`;
+}
 
 describe("fetch HTTP client", () => {
     let server;
     let baseUrl;
     let proxyServer;
     let proxyUrl;
+    let authenticatedProxyServer;
+    let httpsProxyServer;
+    let httpsProxyUrl;
     let tlsServer;
     let tlsUrl;
     const proxyRequests = [];
+    const proxyAuthorizationHeaders = [];
+    const proxyUsername = "u%@:/żółw";
+    const proxyPassword = "p%@:/密碼";
+    const expectedProxyAuthorization = `Basic ${Buffer.from(`${proxyUsername}:${proxyPassword}`).toString("base64")}`;
 
     beforeAll(async () => {
         server = http.createServer((req, res) => {
@@ -105,8 +132,43 @@ describe("fetch HTTP client", () => {
             res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
             res.end(await response.arrayBuffer());
         });
+        proxyServer.on("connect", (req, clientSocket, head) => {
+            const [hostname, port] = req.url.split(":");
+            if (hostname !== "127.0.0.1") {
+                clientSocket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n");
+                return;
+            }
+            const targetSocket = net.connect(Number(port), hostname, () => {
+                clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+                if (head.length > 0) {
+                    targetSocket.write(head);
+                }
+                targetSocket.pipe(clientSocket);
+                clientSocket.pipe(targetSocket);
+            });
+            targetSocket.on("error", () => clientSocket.destroy());
+        });
         await new Promise((resolve) => proxyServer.listen(0, "127.0.0.1", resolve));
         proxyUrl = `http://127.0.0.1:${proxyServer.address().port}`;
+
+        authenticatedProxyServer = http.createServer(async (req, res) => {
+            proxyAuthorizationHeaders.push(req.headers["proxy-authorization"] ?? null);
+            if (req.headers["proxy-authorization"] !== expectedProxyAuthorization) {
+                res.writeHead(407, { "Proxy-Authenticate": 'Basic realm="fixture"' });
+                res.end("proxy authentication required");
+                return;
+            }
+            const target = new URL(req.url);
+            if (target.hostname !== "127.0.0.1") {
+                res.writeHead(502);
+                res.end("public network disabled by fixture");
+                return;
+            }
+            const response = await fetch(target);
+            res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
+            res.end(await response.arrayBuffer());
+        });
+        await new Promise((resolve) => authenticatedProxyServer.listen(0, "127.0.0.1", resolve));
 
         const certDir = path.join(process.cwd(), "test/manual-test-radius-tls/certs");
         tlsServer = Bun.serve({
@@ -119,10 +181,33 @@ describe("fetch HTTP client", () => {
             fetch: () => new Response("self-signed-ok"),
         });
         tlsUrl = `https://127.0.0.1:${tlsServer.port}`;
+
+        httpsProxyServer = https.createServer(
+            {
+                cert: fs.readFileSync(path.join(certDir, "redis.crt")),
+                key: fs.readFileSync(path.join(certDir, "redis.key")),
+            },
+            async (req, res) => {
+                const target = new URL(req.url);
+                if (target.hostname !== "127.0.0.1") {
+                    res.writeHead(502);
+                    res.end("public network disabled by fixture");
+                    return;
+                }
+                const response = await fetch(target);
+                res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
+                res.end(await response.arrayBuffer());
+            }
+        );
+        await new Promise((resolve) => httpsProxyServer.listen(0, "127.0.0.1", resolve));
+        httpsProxyUrl = `https://127.0.0.1:${httpsProxyServer.address().port}`;
     });
 
     afterAll(async () => {
+        ipv6ProxyServer?.stop(true);
         tlsServer.stop(true);
+        await new Promise((resolve) => httpsProxyServer.close(resolve));
+        await new Promise((resolve) => authenticatedProxyServer.close(resolve));
         await new Promise((resolve) => proxyServer.close(resolve));
         await new Promise((resolve) => server.close(resolve));
     });
@@ -266,6 +351,17 @@ describe("fetch HTTP client", () => {
         await expect(monitor.assertFetchHttpTransportSupported()).rejects.toThrow(
             /mTLS monitor authentication is not supported/
         );
+
+        monitor.auth_method = "ntlm";
+        await expect(monitor.assertFetchHttpTransportSupported()).rejects.toThrow(
+            /NTLM monitor authentication is not supported/
+        );
+
+        const component = fs.readFileSync(
+            path.join(process.cwd(), "src/components/edit-monitor/EditMonitorHttpOptions.vue"),
+            "utf8"
+        );
+        expect(component).toContain("NTLM authentication is no longer supported");
     });
 
     test("Bun HTTP client routes requests through a local proxy", async () => {
@@ -301,6 +397,182 @@ describe("fetch HTTP client", () => {
         }
     });
 
+    test("monitor sends exact Basic proxy auth for reserved characters and Unicode", async () => {
+        const monitor = R.convertToBean("monitor", {
+            auth_method: null,
+            proxy_id: 8,
+            ignore_tls: 0,
+            ip_family: null,
+        });
+        const originalLoad = R.load;
+        let loadedPassword = proxyPassword;
+        R.load = async () => ({
+            active: true,
+            protocol: "http",
+            host: "127.0.0.1",
+            port: authenticatedProxyServer.address().port,
+            auth: true,
+            username: proxyUsername,
+            password: loadedPassword,
+        });
+
+        try {
+            const options = { url: `${baseUrl}/ok` };
+            await monitor.assertFetchHttpTransportSupported(options);
+            const response = await monitor.makeHttpMonitorRequest(options);
+
+            expect(response.data).toEqual({ ok: true });
+            expect(proxyAuthorizationHeaders.at(-1)).toBe(expectedProxyAuthorization);
+            expect(JSON.stringify(options.proxy)).not.toContain(proxyUsername);
+            expect(JSON.stringify(options.proxy)).not.toContain(proxyPassword);
+
+            loadedPassword = `${proxyPassword}-rejected`;
+            const rejectedOptions = { url: `${baseUrl}/ok` };
+            await monitor.assertFetchHttpTransportSupported(rejectedOptions);
+            const rejection = await monitor.makeHttpMonitorRequest(rejectedOptions).catch((error) => error);
+            const rejectedAuthorization = `Basic ${Buffer.from(`${proxyUsername}:${loadedPassword}`).toString("base64")}`;
+            const serializedError = `${rejection.stack}\n${JSON.stringify(rejection)}`;
+            expect(rejection).toBeInstanceOf(Error);
+            expect(serializedError).not.toContain(proxyUsername);
+            expect(serializedError).not.toContain(loadedPassword);
+            expect(serializedError).not.toContain(rejectedAuthorization);
+        } finally {
+            R.load = originalLoad;
+        }
+    });
+
+    test("persisted SOCKS proxy is rejected before fetch without exposing credentials", async () => {
+        const monitor = R.convertToBean("monitor", {
+            auth_method: null,
+            proxy_id: 9,
+            ignore_tls: 0,
+            ip_family: null,
+        });
+        const originalLoad = R.load;
+        const secret = "socks-secret%@:/密碼";
+        R.load = async () => ({
+            active: true,
+            protocol: "socks5h",
+            host: "127.0.0.1",
+            port: 1080,
+            auth: true,
+            username: "socks-user",
+            password: secret,
+        });
+
+        try {
+            const error = await monitor.assertFetchHttpTransportSupported({ url: `${baseUrl}/ok` }).catch((e) => e);
+            expect(error).toBeInstanceOf(Error);
+            expect(error.message).toMatch(/SOCKS proxy.*not supported.*Bun fetch/i);
+            expect(error.message).not.toContain("socks-user");
+            expect(error.message).not.toContain(secret);
+            expect(monitor.proxy_id).toBe(9);
+        } finally {
+            R.load = originalLoad;
+        }
+    });
+
+    test.skipIf(!ipv6ProxyServer)(
+        `monitor brackets a raw IPv6 proxy host${ipv6SkipReason ? ` (${ipv6SkipReason})` : ""}`,
+        async () => {
+            const monitor = R.convertToBean("monitor", {
+                auth_method: null,
+                proxy_id: 10,
+                ignore_tls: 0,
+                ip_family: null,
+            });
+            const originalLoad = R.load;
+            R.load = async () => ({
+                active: true,
+                protocol: "http",
+                host: "::1",
+                port: ipv6ProxyServer.port,
+                auth: false,
+            });
+
+            try {
+                const options = { url: `${baseUrl}/ok` };
+                await monitor.assertFetchHttpTransportSupported(options);
+                expect(options.proxy).toBe(`http://[::1]:${ipv6ProxyServer.port}/`);
+                expect((await monitor.makeHttpMonitorRequest(options)).data).toEqual({ ok: true });
+            } finally {
+                R.load = originalLoad;
+            }
+        }
+    );
+
+    test("Bun cannot scope rejectUnauthorized to the target instead of an HTTPS proxy", async () => {
+        await expect(httpClient.get(`${baseUrl}/ok`, { proxy: httpsProxyUrl })).rejects.toThrow();
+        expect(
+            (await httpClient.get(`${baseUrl}/ok`, { proxy: httpsProxyUrl, rejectUnauthorized: false })).data
+        ).toEqual({
+            ok: true,
+        });
+    });
+
+    test("monitor rejects ignoreTls with an HTTPS proxy instead of weakening proxy validation", async () => {
+        const monitor = R.convertToBean("monitor", {
+            auth_method: null,
+            proxy_id: 11,
+            ignore_tls: 1,
+            ip_family: null,
+        });
+        const originalLoad = R.load;
+        R.load = async () => ({
+            active: true,
+            protocol: "https",
+            host: "127.0.0.1",
+            port: httpsProxyServer.address().port,
+            auth: false,
+        });
+
+        try {
+            await expect(monitor.assertFetchHttpTransportSupported({ url: `${baseUrl}/ok` })).rejects.toThrow(
+                /ignore TLS.*HTTPS proxy.*not supported/i
+            );
+        } finally {
+            R.load = originalLoad;
+        }
+    });
+
+    test("monitor keeps ignoreTls working for a self-signed target through an HTTP proxy", async () => {
+        const monitor = R.convertToBean("monitor", {
+            auth_method: null,
+            proxy_id: 12,
+            ignore_tls: 1,
+            ip_family: null,
+        });
+        const originalLoad = R.load;
+        R.load = async () => ({
+            active: true,
+            protocol: "http",
+            host: "127.0.0.1",
+            port: proxyServer.address().port,
+            auth: false,
+        });
+
+        try {
+            const options = { url: tlsUrl };
+            await monitor.assertFetchHttpTransportSupported(options);
+            expect((await monitor.makeHttpMonitorRequest(options)).data).toBe("self-signed-ok");
+        } finally {
+            R.load = originalLoad;
+        }
+    });
+
+    test("core HTTP UI only lists HTTP(S) proxy records", () => {
+        const component = fs.readFileSync(path.join(process.cwd(), "src/pages/EditMonitor.vue"), "utf8");
+
+        expect(component).toContain('v-for="proxy in supportedHttpProxyList"');
+        expect(component).toContain('["http", "https"].includes(proxy.protocol)');
+    });
+
+    test("monitor debug logging never serializes fetch options containing proxy credentials", () => {
+        const source = fs.readFileSync(path.join(process.cwd(), "src/server/model/monitor.ts"), "utf8");
+
+        expect(source).not.toContain("Fetch Options: ${JSON.stringify(options)}");
+    });
+
     test("monitor honors ignoreTls against a deterministic self-signed TLS fixture", async () => {
         const monitor = R.convertToBean("monitor");
         monitor.auth_method = null;
@@ -324,6 +596,18 @@ describe("fetch HTTP client", () => {
 
         expect(component).not.toContain('<option value="ipv4">IPv4</option>');
         expect(component).not.toContain('<option value="ipv6">IPv6</option>');
+    });
+
+    test("Globalping keeps its separately supported IP family UI", () => {
+        const page = fs.readFileSync(path.join(process.cwd(), "src/pages/EditMonitor.vue"), "utf8");
+        const globalpingSection = page.slice(
+            page.indexOf("<!-- Globalping -->"),
+            page.indexOf("<!-- Port -->", page.indexOf("<!-- Globalping -->"))
+        );
+
+        expect(globalpingSection).toContain('<option value="ipv4">IPv4</option>');
+        expect(globalpingSection).toContain('<option value="ipv6">IPv6</option>');
+        expect(globalpingSection).toContain("GlobalpingIpFamilyInfo");
     });
 
     test("persisted forced HTTP IP family remains explicitly rejected", async () => {
