@@ -251,6 +251,51 @@ test.describe("Status Page", () => {
         expect(await page.locator("head").innerHTML()).toContain(matomoSiteId);
     });
 
+    test("loads heartbeat and uptime data after a public reload", async ({ page }) => {
+        const monitorName = "Public Push Monitor";
+
+        await page.goto("./add");
+        await login(page);
+        await page.getByTestId("monitor-type-select").selectOption("push");
+        await page.getByTestId("friendly-name-input").fill(monitorName);
+
+        const pushUrl = await page.locator("#push-url").inputValue();
+        await page.getByTestId("save-button").click();
+        await page.waitForURL("/dashboard/*");
+
+        const monitorId = Number(new URL(page.url()).pathname.split("/").at(-1));
+        const pushResponse = await page.request.get(`${pushUrl}12`);
+        expect(pushResponse.ok()).toBe(true);
+
+        await page.goto("./add-status-page");
+        await page.getByTestId("name-input").fill("Public Data");
+        await page.getByTestId("slug-input").fill("public-data");
+        await page.getByTestId("submit-button").click();
+        await page.waitForURL("/status/public-data?edit");
+        await waitForStatusPageEditor(page);
+
+        await page.getByTestId("add-group-button").click();
+        await page.getByTestId("monitor-select").click();
+        await page.getByTestId("monitor-select").getByRole("option", { name: monitorName }).click();
+
+        const iconClasses = (await page.getByTestId("monitor-settings").getAttribute("class")).split(/\s+/);
+        expect(new Set(iconClasses).size).toBe(iconClasses.length);
+
+        const heartbeatResponse = page.waitForResponse(
+            (response) => response.url().endsWith("/api/status-page/heartbeat/public-data") && response.ok()
+        );
+        await saveStatusPage(page);
+
+        const publicData = await (await heartbeatResponse).json();
+        expect(publicData.heartbeatList[monitorId]).toHaveLength(1);
+        const uptime = publicData.uptimeList[`${monitorId}_24`];
+        expect(Number.isFinite(uptime)).toBe(true);
+        await expect.soft(page.getByText(`${Math.round(uptime * 10000) / 100}%`, { exact: true })).toBeVisible();
+        await expect
+            .soft(page.locator(".heartbeat-canvas"))
+            .toHaveAttribute("aria-label", "Heartbeat history: 1 checks, 1 up, 0 down");
+    });
+
     // @todo Test certificate expiry
     // @todo Test domain names
 

@@ -479,8 +479,8 @@ export default {
                     .then((data) => {
                         const { heartbeatList, uptimeList } = data;
 
-                        this.$root.heartbeatList = heartbeatList;
-                        this.$root.uptimeList = uptimeList;
+                        this.appStore.heartbeatList = heartbeatList;
+                        this.appStore.uptimeList = uptimeList;
 
                         const heartbeatIds = Object.keys(heartbeatList);
                         const downMonitors = heartbeatIds.reduce((downMonitorsAmount, currentId) => {
