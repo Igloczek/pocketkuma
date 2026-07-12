@@ -377,6 +377,8 @@
     "setAsDefault": "Set As Default",
     "deleteProxyMsg": "Are you sure want to delete this proxy for all monitors?",
     "proxyDescription": "Proxies must be assigned to a monitor to function.",
+    "socksProxyHttpUnsupported": "The assigned SOCKS proxy is preserved, but core HTTP monitors only support HTTP and HTTPS proxies.",
+    "httpsProxyIgnoreTlsUnsupported": "Ignore TLS cannot be combined with an HTTPS proxy because Bun cannot limit disabled certificate validation to the target.",
     "enableProxyDescription": "This proxy will not effect on monitor requests until it is activated. You can control temporarily disable the proxy from all monitors by activation status.",
     "setAsDefaultProxyDescription": "This proxy will be enabled by default for new monitors. You can still disable the proxy separately for each monitor.",
     "Certificate Chain:": "Certificate Chain:",

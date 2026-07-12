@@ -49,6 +49,7 @@ import { DockerHost } from "@/server/docker";
 import jwt from "@/server/jwt";
 import { UptimeCalculator } from "@/server/uptime-calculator";
 import zlib from "node:zlib";
+import { isIP } from "node:net";
 import { promisify } from "node:util";
 import DomainExpiry from "@/server/model/domain_expiry";
 import packageJson from "@/package-meta";
@@ -558,7 +559,7 @@ class Monitor extends BeanModel {
                     log.debug("monitor", `[${this.name}] Prepare Options for fetch`);
                     await this.assertFetchHttpTransportSupported(options);
 
-                    log.debug("monitor", `[${this.name}] Fetch Options: ${JSON.stringify(options)}`);
+                    log.debug("monitor", `[${this.name}] Fetch Options prepared (proxy: ${Boolean(options.proxy)})`);
                     log.debug("monitor", `[${this.name}] Fetch Request`);
 
                     // Make Request
@@ -1103,10 +1104,6 @@ class Monitor extends BeanModel {
             throw new Error("mTLS monitor authentication is not supported by the Bun fetch HTTP client");
         }
 
-        if (this.getIgnoreTls()) {
-            options.rejectUnauthorized = false;
-        }
-
         if (this.ipFamily === "ipv4" || this.ipFamily === "ipv6") {
             throw new Error("Forced IP family selection is not supported by the Bun fetch HTTP client");
         }
@@ -1116,13 +1113,32 @@ class Monitor extends BeanModel {
         if (this.proxy_id) {
             const proxy = await R.load("proxy", this.proxy_id);
             if (proxy && proxy.active) {
-                const proxyUrl = new URL(`${proxy.protocol}://${proxy.host}:${proxy.port}`);
-                if (proxy.auth) {
-                    proxyUrl.username = proxy.username;
-                    proxyUrl.password = proxy.password;
+                const protocol = String(proxy.protocol).toLowerCase();
+                if (!["http", "https"].includes(protocol)) {
+                    throw new Error(`SOCKS proxy protocol "${protocol}" is not supported by the Bun fetch HTTP client`);
                 }
-                options.proxy = proxyUrl.toString();
+                if (this.getIgnoreTls() && protocol === "https") {
+                    throw new Error("Ignore TLS with an HTTPS proxy is not supported by the Bun fetch HTTP client");
+                }
+
+                const proxyUrl = new URL(`${protocol}://localhost`);
+                proxyUrl.hostname = isIP(proxy.host) === 6 ? `[${proxy.host}]` : proxy.host;
+                proxyUrl.port = String(proxy.port);
+                if (proxy.auth) {
+                    options.proxy = {
+                        url: proxyUrl.toString(),
+                        headers: {
+                            "Proxy-Authorization": "Basic " + encodeBase64(proxy.username, proxy.password),
+                        },
+                    };
+                } else {
+                    options.proxy = proxyUrl.toString();
+                }
             }
+        }
+
+        if (this.getIgnoreTls()) {
+            options.rejectUnauthorized = false;
         }
     }
 
