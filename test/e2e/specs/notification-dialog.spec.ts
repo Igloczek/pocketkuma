@@ -22,7 +22,8 @@ async function waitForModalToClose(page, modal) {
 }
 
 async function startSmtpSink() {
-    let receivedMessages = 0;
+    const messages = [];
+    const protocolErrors = [];
     const sockets = new Set();
     const server = createServer((socket) => {
         sockets.add(socket);
@@ -31,6 +32,14 @@ async function startSmtpSink() {
 
         let buffer = "";
         let receivingData = false;
+        let state = "ehlo";
+        let mailFrom;
+        const rcptTo = [];
+
+        function rejectCommand(command) {
+            protocolErrors.push(`Unexpected SMTP command in ${state}: ${command}`);
+            socket.write("503 Bad sequence of commands\r\n");
+        }
 
         socket.on("data", (chunk) => {
             buffer += chunk;
@@ -42,10 +51,17 @@ async function startSmtpSink() {
                         return;
                     }
 
-                    receivedMessages++;
+                    const data = buffer.slice(0, end);
                     buffer = buffer.slice(end + 5);
                     receivingData = false;
-                    socket.write("250 Message accepted\r\n");
+                    if (!data.trim()) {
+                        protocolErrors.push("Empty SMTP DATA");
+                        socket.write("554 Empty message rejected\r\n");
+                    } else {
+                        messages.push({ mailFrom, rcptTo: [...rcptTo], data });
+                        state = "quit";
+                        socket.write("250 Message accepted\r\n");
+                    }
                     continue;
                 }
 
@@ -57,18 +73,32 @@ async function startSmtpSink() {
                 const command = buffer.slice(0, lineEnd);
                 buffer = buffer.slice(lineEnd + 2);
 
-                if (/^EHLO\b/i.test(command)) {
-                    socket.write("250-pocketkuma-e2e\r\n250 PIPELINING\r\n");
-                } else if (/^DATA$/i.test(command)) {
+                const mail = command.match(/^MAIL FROM:<([^>]+)>$/i);
+                const recipient = command.match(/^RCPT TO:<([^>]+)>$/i);
+
+                if (state === "ehlo" && /^EHLO\b/i.test(command)) {
+                    state = "mail";
+                    socket.write("250 pocketkuma-e2e\r\n");
+                } else if (state === "mail" && mail) {
+                    mailFrom = mail[1];
+                    state = "rcpt";
+                    socket.write("250 Sender accepted\r\n");
+                } else if ((state === "rcpt" || state === "data") && recipient) {
+                    rcptTo.push(recipient[1]);
+                    state = "data";
+                    socket.write("250 Recipient accepted\r\n");
+                } else if (state === "data" && /^DATA$/i.test(command)) {
                     receivingData = true;
                     socket.write("354 End data with <CR><LF>.<CR><LF>\r\n");
-                } else if (/^QUIT$/i.test(command)) {
+                } else if (state === "quit" && /^QUIT$/i.test(command)) {
+                    state = "closed";
                     socket.end("221 Bye\r\n");
                 } else {
-                    socket.write("250 OK\r\n");
+                    rejectCommand(command);
                 }
             }
         });
+        socket.on("error", (error) => protocolErrors.push(error.message));
         socket.on("close", () => sockets.delete(socket));
     });
 
@@ -79,7 +109,8 @@ async function startSmtpSink() {
 
     return {
         port: server.address().port,
-        receivedMessages: () => receivedMessages,
+        messages: () => messages,
+        protocolErrors: () => protocolErrors,
         close: () =>
             new Promise((resolve) => {
                 for (const socket of sockets) {
@@ -106,6 +137,8 @@ test.describe("Notification dialog", () => {
         const providerFields = [
             ["telegram", ["#telegram-bot-token", "#telegram-chat-id"]],
             ["smtp", ["#hostname", "#port", "#from-email", "#to-email"]],
+            ["pumble", ["#pumble-webhook-url"]],
+            ["squadcast", ["#squadcast-webhook-url"]],
             ["Resend", ["#resend-api-key", "#resend-from-email", "#resend-to-email"]],
             ["SendGrid", ["#sendgrid-api-key", "#sendgrid-from-email", "#sendgrid-to-email"]],
             ["discord", ["#discord-webhook-url", "#discord-message-type"]],
@@ -175,7 +208,14 @@ test.describe("Notification dialog", () => {
 
             await modal.getByRole("button", { name: "Test" }).click();
             await expect(page.getByText("Sent Successfully.", { exact: true }).last()).toBeVisible();
-            await expect.poll(smtpSink.receivedMessages).toBe(1);
+            await expect.poll(() => smtpSink.messages().length).toBe(1);
+            expect(smtpSink.protocolErrors()).toEqual([]);
+            expect(smtpSink.messages()[0]).toMatchObject({
+                mailFrom: "sender@example.invalid",
+                rcptTo: ["recipient@example.invalid"],
+            });
+            expect(smtpSink.messages()[0].data).toContain("Subject: Local SMTP E2E Testing");
+            expect(smtpSink.messages()[0].data).toMatch(/\r\n\r\nLocal SMTP E2E Testing$/);
 
             await modal.getByRole("button", { name: "Save" }).click();
             await waitForModalToClose(page, modal);

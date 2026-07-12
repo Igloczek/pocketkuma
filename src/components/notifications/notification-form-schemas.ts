@@ -399,7 +399,7 @@ export const notificationFormSchemas: Record<string, NotificationFormSchema> = {
         ],
         { defaults: { webhookURL: "" } }
     ),
-    Squadcast: schema("Squadcast", [urlField("squadcast-webhook-url", "squadcastWebhookURL", "Post URL")]),
+    squadcast: schema("squadcast", [urlField("squadcast-webhook-url", "squadcastWebhookURL", "Post URL")]),
     SIGNL4: schema("SIGNL4", [
         urlField("signl4-webhook-url", "webhookURL", "SIGNL4 Webhook URL", {
             helpLink: {
@@ -409,7 +409,7 @@ export const notificationFormSchemas: Record<string, NotificationFormSchema> = {
             },
         }),
     ]),
-    Pumble: schema("Pumble", [
+    pumble: schema("pumble", [
         urlField("pumble-webhook-url", "webhookURL", "Webhook URL", {
             requiredMarker: true,
             documentationLink: {

@@ -2,6 +2,10 @@
 
 import { describe, test, expect } from "bun:test";
 import {
+    genericNotificationFormTypes,
+    notificationFormSchemas,
+} from "@/components/notifications/notification-form-schemas";
+import {
     NOTIFICATION_PROVIDER_CATEGORIES,
     NOTIFICATION_PROVIDER_REGISTRY,
     buildNotificationNameList,
@@ -18,6 +22,17 @@ describe("notification provider metadata", () => {
         expect(registryKeys).toEqual(serverKeys);
         expect(registryKeys).toEqual(moduleMapKeys);
         // notifications/index.ts maps the same provider keys (lazy-loaded); verified at build time.
+    });
+
+    test("schema-driven form IDs use canonical provider IDs", () => {
+        const metadataKeys = new Set(Object.keys(NOTIFICATION_PROVIDER_REGISTRY));
+        const serverKeys = new Set(OPTIONAL_NOTIFICATION_PROVIDERS);
+
+        expect(
+            Object.entries(notificationFormSchemas).filter(([providerID, schema]) => schema.id !== providerID)
+        ).toEqual([]);
+        expect(genericNotificationFormTypes.filter((providerID) => !metadataKeys.has(providerID))).toEqual([]);
+        expect(genericNotificationFormTypes.filter((providerID) => !serverKeys.has(providerID))).toEqual([]);
     });
 
     test("every provider has a display label and at least one category", () => {
