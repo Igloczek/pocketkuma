@@ -152,8 +152,11 @@ test.describe("Status Page", () => {
 
         // Add a group
         await page.getByTestId("add-group-button").click();
-        await page.getByTestId("group-name").isEditable();
-        await page.getByTestId("group-name").fill(groupName);
+        const newGroupName = page.getByTestId("group-name");
+        await expect(newGroupName).toBeVisible();
+        await expect(newGroupName).toBeEditable();
+        await expect(newGroupName).toHaveText("Services");
+        await newGroupName.fill(groupName);
 
         // Add the monitor
         await page.getByTestId("monitor-select").click(); // Vue-Multiselect component

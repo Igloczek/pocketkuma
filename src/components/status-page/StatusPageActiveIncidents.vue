@@ -23,7 +23,7 @@
             <div class="date mt-3">
                 {{
                     $t("dateCreatedAtFromNow", {
-                        date: $root.datetime(activeIncident.createdDate),
+                        date: datetime(activeIncident.createdDate),
                         fromNow: dateFromNow(activeIncident.createdDate),
                     })
                 }}
@@ -31,7 +31,7 @@
                 <span v-if="activeIncident.lastUpdatedDate">
                     {{
                         $t("lastUpdatedAtFromNow", {
-                            date: $root.datetime(activeIncident.lastUpdatedDate),
+                            date: datetime(activeIncident.lastUpdatedDate),
                             fromNow: dateFromNow(activeIncident.lastUpdatedDate),
                         })
                     }}
@@ -59,9 +59,14 @@
 <script>
 import dayjs from "dayjs";
 import IncidentEditForm from "@/components/IncidentEditForm.vue";
+import { useDatetime } from "@/composables/useDatetime";
 import { sanitizeMarkdown } from "@/util/markdown-sanitize";
 
 export default {
+    setup() {
+        return useDatetime();
+    },
+
     components: {
         IncidentEditForm,
     },

@@ -1,6 +1,7 @@
 <template>
     <svg
         v-if="iconData"
+        v-bind="$attrs"
         xmlns="http://www.w3.org/2000/svg"
         :viewBox="`0 0 ${iconData.width} ${iconData.height}`"
         class="app-icon"

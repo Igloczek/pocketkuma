@@ -32,6 +32,18 @@ test.describe("Incident History", () => {
     test("active pinned incidents are shown at top and not in past incidents", async ({ page }, testInfo) => {
         test.setTimeout(60000);
 
+        const datetimeRenderErrors = [];
+        page.on("console", (message) => {
+            if (/\$root\.datetime is not a function/.test(message.text())) {
+                datetimeRenderErrors.push(message.text());
+            }
+        });
+        page.on("pageerror", (error) => {
+            if (/\$root\.datetime is not a function/.test(error.message)) {
+                datetimeRenderErrors.push(error.message);
+            }
+        });
+
         await page.goto("./add");
         await login(page);
         await expect(page.getByTestId("monitor-type-select")).toBeVisible();
@@ -48,6 +60,8 @@ test.describe("Incident History", () => {
         await page.getByTestId("post-incident-button").click();
 
         await page.waitForTimeout(500);
+
+        expect(datetimeRenderErrors).toEqual([]);
 
         await page.getByTestId("save-button").click();
         await expect(page.getByTestId("edit-sidebar")).toHaveCount(0);
