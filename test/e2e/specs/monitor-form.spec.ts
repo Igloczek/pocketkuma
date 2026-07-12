@@ -1,6 +1,34 @@
 // @ts-nocheck
 import { expect, test } from "@playwright/test";
-import { login, restoreSqliteSnapshot, screenshot } from "../util-test";
+import dns2 from "dns2";
+import { login, restoreSqliteSnapshot, screenshot, serverUrl } from "../util-test";
+
+async function startDnsFixture() {
+    const server = dns2.createServer({
+        udp: true,
+        handle(request, send) {
+            const response = dns2.Packet.createResponseFromRequest(request);
+            const [{ name }] = request.questions;
+            for (const ns of ["ns1.fixture.test", "ns2.fixture.test"]) {
+                response.answers.push({
+                    name,
+                    type: dns2.Packet.TYPE.NS,
+                    class: dns2.Packet.CLASS.IN,
+                    ttl: 60,
+                    ns,
+                });
+            }
+            send(response);
+        },
+    });
+
+    await new Promise((resolve) => {
+        server.once("listening", resolve);
+        server.listen({ udp: { port: 0, address: "127.0.0.1", type: "udp4" } });
+    });
+
+    return server;
+}
 
 /**
  * Selects the monitor type from the dropdown.
@@ -18,8 +46,18 @@ async function selectMonitorType(page, monitorType = "dns") {
 }
 
 test.describe("Monitor Form", () => {
+    let dnsFixture;
+
     test.beforeEach(async ({ page }) => {
         await restoreSqliteSnapshot(page);
+        dnsFixture = await startDnsFixture();
+    });
+
+    test.afterEach(async () => {
+        await new Promise((resolve) => {
+            dnsFixture.once("close", resolve);
+            dnsFixture.close();
+        });
     });
 
     test("condition ui", async ({ page }, testInfo) => {
@@ -54,7 +92,9 @@ test.describe("Monitor Form", () => {
 
         const friendlyName = "Example DNS NS";
         await page.getByTestId("friendly-name-input").fill(friendlyName);
-        await page.getByTestId("hostname-input").fill("kuma.pet");
+        await page.getByTestId("hostname-input").fill("fixture.test");
+        await page.locator("#dns_resolve_server").fill("127.0.0.1");
+        await page.locator("#port").fill(String(dnsFixture.addresses().udp.port));
 
         const resolveTypeSelect = page.getByTestId("resolve-type-select");
         await resolveTypeSelect.click();
@@ -66,9 +106,9 @@ test.describe("Monitor Form", () => {
         await page.getByTestId("add-condition-button").click();
         expect(await page.getByTestId("condition").count()).toEqual(2); // 2 explicitly added
 
-        await page.getByTestId("condition-value").nth(0).fill("carl.ns.cloudflare.com");
+        await page.getByTestId("condition-value").nth(0).fill("ns1.fixture.test");
         await page.getByTestId("condition-and-or").nth(0).selectOption("or");
-        await page.getByTestId("condition-value").nth(1).fill("jean.ns.cloudflare.com");
+        await page.getByTestId("condition-value").nth(1).fill("ns2.fixture.test");
 
         await screenshot(testInfo, page);
         await page.getByTestId("save-button").click();
@@ -87,7 +127,9 @@ test.describe("Monitor Form", () => {
 
         const friendlyName = "Example DNS NS";
         await page.getByTestId("friendly-name-input").fill(friendlyName);
-        await page.getByTestId("hostname-input").fill("kuma.pet");
+        await page.getByTestId("hostname-input").fill("fixture.test");
+        await page.locator("#dns_resolve_server").fill("127.0.0.1");
+        await page.locator("#port").fill(String(dnsFixture.addresses().udp.port));
 
         const resolveTypeSelect = page.getByTestId("resolve-type-select");
         await resolveTypeSelect.click();
@@ -114,7 +156,7 @@ test.describe("Monitor Form", () => {
 
         const friendlyName = "Example HTTP Save Response";
         await page.getByTestId("friendly-name-input").fill(friendlyName);
-        await page.getByTestId("url-input").fill("https://www.example.com/");
+        await page.getByTestId("url-input").fill(serverUrl);
 
         // Expect error response save enabled by default
         await expect(page.getByLabel("Save HTTP Error Response for Notifications")).toBeChecked();

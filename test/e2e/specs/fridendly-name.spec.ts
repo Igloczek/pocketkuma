@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { expect, test } from "@playwright/test";
-import { login, restoreSqliteSnapshot, screenshot } from "../util-test";
+import { login, restoreSqliteSnapshot, screenshot, serverUrl } from "../util-test";
 
 test.describe("Friendly Name Tests", () => {
     test.beforeEach(async ({ page }) => {
@@ -8,19 +8,20 @@ test.describe("Friendly Name Tests", () => {
     });
 
     test("hostname", async ({ page }, testInfo) => {
-        // Test DNS monitor with hostname
+        // Test a local port monitor with hostname
         await page.goto("./add");
         await login(page);
         await screenshot(testInfo, page);
 
-        await page.getByTestId("monitor-type-select").selectOption("dns");
-        await page.getByTestId("hostname-input").fill("example.com");
+        await page.getByTestId("monitor-type-select").selectOption("port");
+        await page.getByTestId("hostname-input").fill("localhost");
+        await page.locator("#port").fill(new URL(serverUrl).port);
         await screenshot(testInfo, page);
 
         await page.getByTestId("save-button").click();
         await page.waitForURL("/dashboard/*");
 
-        expect(page.getByTestId("monitor-list")).toContainText("example.com");
+        await expect(page.getByTestId("monitor-list")).toContainText("localhost");
         await screenshot(testInfo, page);
     });
 
@@ -31,13 +32,13 @@ test.describe("Friendly Name Tests", () => {
         await screenshot(testInfo, page);
 
         await page.getByTestId("monitor-type-select").selectOption("http");
-        await page.getByTestId("url-input").fill("https://www.example.com/");
+        await page.getByTestId("url-input").fill(serverUrl);
         await screenshot(testInfo, page);
 
         await page.getByTestId("save-button").click();
         await page.waitForURL("/dashboard/*");
 
-        expect(page.getByTestId("monitor-list")).toContainText("www.example.com");
+        await expect(page.getByTestId("monitor-list")).toContainText("localhost");
         await screenshot(testInfo, page);
     });
 
@@ -48,11 +49,11 @@ test.describe("Friendly Name Tests", () => {
         await screenshot(testInfo, page);
 
         await page.getByTestId("monitor-type-select").selectOption("http");
-        await page.getByTestId("url-input").fill("https://www.example.com/");
+        await page.getByTestId("url-input").fill(serverUrl);
 
         // Check if the friendly name placeholder is set to the hostname
         const friendlyNameInput = page.getByTestId("friendly-name-input");
-        expect(friendlyNameInput).toHaveAttribute("placeholder", "www.example.com");
+        await expect(friendlyNameInput).toHaveAttribute("placeholder", "localhost");
         await screenshot(testInfo, page);
 
         const customName = "Example Monitor";
@@ -62,7 +63,7 @@ test.describe("Friendly Name Tests", () => {
         await page.getByTestId("save-button").click();
         await page.waitForURL("/dashboard/*");
 
-        expect(page.getByTestId("monitor-list")).toContainText(customName);
+        await expect(page.getByTestId("monitor-list")).toContainText(customName);
         await screenshot(testInfo, page);
     });
 
@@ -78,7 +79,7 @@ test.describe("Friendly Name Tests", () => {
         await page.getByTestId("save-button").click();
         await page.waitForURL("/dashboard/*");
 
-        expect(page.getByTestId("monitor-list")).toContainText("New Monitor");
+        await expect(page.getByTestId("monitor-list")).toContainText("New Monitor");
         await screenshot(testInfo, page);
     });
 });

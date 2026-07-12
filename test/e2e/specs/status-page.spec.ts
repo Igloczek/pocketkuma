@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { expect, test } from "@playwright/test";
-import { login, restoreSqliteSnapshot, screenshot } from "../util-test";
+import { login, restoreSqliteSnapshot, screenshot, serverUrl } from "../util-test";
 
 async function saveStatusPage(page) {
     const navigation = page
@@ -71,19 +71,19 @@ test.describe("Status Page", () => {
         const tagValue = "Acme Inc";
         const tagName2 = "Project"; // Add second tag name
         const tagValue2 = "Phoenix"; // Add second tag value
-        const monitorUrl = "https://www.example.com/status";
-        const monitorCustomUrl = "https://www.example.com";
+        const monitorUrl = `${serverUrl}/status`;
+        const monitorCustomUrl = `${serverUrl}/dashboard`;
 
         // Status Page
         const footerText = "This is footer text.";
         const refreshInterval = 30;
         const theme = "dark";
         const googleAnalyticsId = "G-123";
-        const umamiAnalyticsScriptUrl = "https://umami.example.com/script.js";
+        const umamiAnalyticsScriptUrl = `${serverUrl}/umami-script.js`;
         const umamiAnalyticsWebsiteId = "606487e2-bc25-45f9-9132-fa8b065aad46";
-        const plausibleAnalyticsScriptUrl = "https://plausible.example.com/js/script.js";
+        const plausibleAnalyticsScriptUrl = `${serverUrl}/plausible-script.js`;
         const plausibleAnalyticsDomainsUrls = "one.com,two.com";
-        const matomoUrl = "https://matomoto.example.com";
+        const matomoUrl = serverUrl;
         const matomoSiteId = "123456789";
         const customCss = "body { background: rgb(0, 128, 128) !important; }";
         const descriptionText = "This is an example status page.";
@@ -94,6 +94,7 @@ test.describe("Status Page", () => {
         // Set up a monitor that can be added to the Status Page
         await page.goto("./add");
         await login(page);
+        await page.route("https://www.googletagmanager.com/**", (route) => route.fulfill({ body: "" }));
         await expect(page.getByTestId("monitor-type-select")).toBeVisible();
         await page.getByTestId("monitor-type-select").selectOption("http");
         await page.getByTestId("friendly-name-input").fill(monitorName);
@@ -318,25 +319,28 @@ test.describe("Status Page", () => {
         await expect(page.getByTestId("monitor-type-select")).toBeVisible();
         await page.getByTestId("monitor-type-select").selectOption("http");
         await page.getByTestId("friendly-name-input").fill(maliciousMonitorName1);
-        await page.getByTestId("url-input").fill("https://malicious1.example.com");
+        await page.getByTestId("url-input").fill(`${serverUrl}/status/malicious-1`);
         await page.getByTestId("save-button").click();
         await page.waitForURL("/dashboard/*");
+        await expect(page.getByTestId("monitor-status")).toHaveText("down", { ignoreCase: true });
 
         // Create second monitor with title breakout payload
         await page.goto("./add");
         await page.getByTestId("monitor-type-select").selectOption("http");
         await page.getByTestId("friendly-name-input").fill(maliciousMonitorName2);
-        await page.getByTestId("url-input").fill("https://malicious2.example.com");
+        await page.getByTestId("url-input").fill(`${serverUrl}/status/malicious-2`);
         await page.getByTestId("save-button").click();
         await page.waitForURL("/dashboard/*");
+        await expect(page.getByTestId("monitor-status")).toHaveText("down", { ignoreCase: true });
 
         // Create third monitor with normal name
         await page.goto("./add");
         await page.getByTestId("monitor-type-select").selectOption("http");
         await page.getByTestId("friendly-name-input").fill(normalMonitorName);
-        await page.getByTestId("url-input").fill("https://normal.example.com");
+        await page.getByTestId("url-input").fill(`${serverUrl}/status/normal`);
         await page.getByTestId("save-button").click();
         await page.waitForURL("/dashboard/*");
+        await expect(page.getByTestId("monitor-status")).toHaveText("down", { ignoreCase: true });
 
         // Create a status page
         await page.goto("./add-status-page");
