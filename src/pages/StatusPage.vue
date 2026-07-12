@@ -129,6 +129,8 @@ import StatusPagePastIncidents from "@/components/status-page/StatusPagePastInci
 import StatusPageMonitorGroups from "@/components/status-page/StatusPageMonitorGroups.vue";
 import StatusPageOverallStatus from "@/components/status-page/StatusPageOverallStatus.vue";
 import StatusPageEditSidebar from "@/components/status-page/StatusPageEditSidebar.vue";
+import { useDatetime } from "@/composables/useDatetime";
+import { useTheme } from "@/composables/useTheme";
 import { getDevBaseURL } from "@/util/dev-base-url";
 
 const toast = useToast();
@@ -140,6 +142,13 @@ const leavePageMsg = "Do you really want to leave? you have unsaved changes!";
 let feedInterval;
 
 export default {
+    setup() {
+        return {
+            ...useDatetime(),
+            ...useTheme(),
+        };
+    },
+
     components: {
         Confirm,
         IncidentManageModal,
@@ -279,7 +288,7 @@ export default {
         },
 
         lastUpdateTimeDisplay() {
-            return this.$root.datetime(this.lastUpdateTime);
+            return this.datetime(this.lastUpdateTime);
         },
 
         /**
@@ -348,7 +357,7 @@ export default {
 
         // Set Theme
         "config.theme"() {
-            this.$root.statusPageTheme = this.config.theme;
+            this.statusPageTheme = this.config.theme;
             this.loadedTheme = true;
         },
 
@@ -408,7 +417,7 @@ export default {
                 }
 
                 this.maintenanceList = res.data.maintenanceList;
-                this.$root.publicGroupList = res.data.publicGroupList;
+                this.appStore.publicGroupList = res.data.publicGroupList;
 
                 this.incident = res.data.incident;
                 this.loading = false;
@@ -605,7 +614,7 @@ export default {
                 .emit("saveStatusPage", this.slug, this.config, this.imgDataUrl, this.$root.publicGroupList, (res) => {
                     if (res.ok) {
                         this.enableEditMode = false;
-                        this.$root.publicGroupList = res.publicGroupList;
+                        this.appStore.publicGroupList = res.publicGroupList;
 
                         // Add some delay, so that the side menu animation would be better
                         let endTime = new Date();
