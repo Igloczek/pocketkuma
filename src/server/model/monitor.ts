@@ -47,7 +47,6 @@ import { demoMode } from "@/server/config";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { DockerHost } from "@/server/docker";
 import jwt from "@/server/jwt";
-import crypto from "crypto";
 import { UptimeCalculator } from "@/server/uptime-calculator";
 import zlib from "node:zlib";
 import { promisify } from "node:util";
@@ -505,9 +504,6 @@ class Monitor extends BeanModel {
                         }
                     }
 
-                    log.debug("monitor", `[${this.name}] Prepare Options for fetch`);
-                    await this.assertFetchHttpTransportSupported();
-
                     let contentType = null;
                     let bodyValue = null;
 
@@ -558,6 +554,9 @@ class Monitor extends BeanModel {
                             uptime_kuma_cachebuster: cacheBust,
                         };
                     }
+
+                    log.debug("monitor", `[${this.name}] Prepare Options for fetch`);
+                    await this.assertFetchHttpTransportSupported(options);
 
                     log.debug("monitor", `[${this.name}] Fetch Options: ${JSON.stringify(options)}`);
                     log.debug("monitor", `[${this.name}] Fetch Request`);
@@ -1091,10 +1090,11 @@ class Monitor extends BeanModel {
     }
 
     /**
-     * Fail loudly for advanced Axios transport options that native fetch does not support here.
+     * Apply supported Bun fetch transport options and fail loudly for unsupported legacy options.
+     * @param {object} options HTTP request options
      * @returns {Promise<void>}
      */
-    async assertFetchHttpTransportSupported() {
+    async assertFetchHttpTransportSupported(options = {}) {
         if (this.auth_method === "ntlm") {
             throw new Error("NTLM monitor authentication is not supported by the Bun fetch HTTP client");
         }
@@ -1104,7 +1104,7 @@ class Monitor extends BeanModel {
         }
 
         if (this.getIgnoreTls()) {
-            throw new Error("Ignoring TLS verification is not supported by the Bun fetch HTTP client");
+            options.rejectUnauthorized = false;
         }
 
         if (this.ipFamily === "ipv4" || this.ipFamily === "ipv6") {
@@ -1116,7 +1116,12 @@ class Monitor extends BeanModel {
         if (this.proxy_id) {
             const proxy = await R.load("proxy", this.proxy_id);
             if (proxy && proxy.active) {
-                throw new Error("Proxy configuration is not supported by the Bun fetch HTTP client");
+                const proxyUrl = new URL(`${proxy.protocol}://${proxy.host}:${proxy.port}`);
+                if (proxy.auth) {
+                    proxyUrl.username = proxy.username;
+                    proxyUrl.password = proxy.password;
+                }
+                options.proxy = proxyUrl.toString();
             }
         }
     }
