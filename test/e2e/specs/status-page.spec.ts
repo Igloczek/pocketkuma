@@ -251,8 +251,9 @@ test.describe("Status Page", () => {
         expect(await page.locator("head").innerHTML()).toContain(matomoSiteId);
     });
 
-    test("loads heartbeat and uptime data after a public reload", async ({ page }) => {
+    test("loads heartbeat and uptime data after a public reload", async ({ page }, testInfo) => {
         const monitorName = "Public Push Monitor";
+        const slug = `public-data-${testInfo.project.name}-${testInfo.workerIndex}-${testInfo.retry}-${testInfo.repeatEachIndex}`;
 
         await page.goto("./add");
         await login(page);
@@ -269,9 +270,9 @@ test.describe("Status Page", () => {
 
         await page.goto("./add-status-page");
         await page.getByTestId("name-input").fill("Public Data");
-        await page.getByTestId("slug-input").fill("public-data");
+        await page.getByTestId("slug-input").fill(slug);
         await page.getByTestId("submit-button").click();
-        await page.waitForURL("/status/public-data?edit");
+        await page.waitForURL(`/status/${slug}?edit`);
         await waitForStatusPageEditor(page);
 
         await page.getByTestId("add-group-button").click();
@@ -281,10 +282,13 @@ test.describe("Status Page", () => {
         const iconClasses = (await page.getByTestId("monitor-settings").getAttribute("class")).split(/\s+/);
         expect(new Set(iconClasses).size).toBe(iconClasses.length);
 
-        const heartbeatResponse = page.waitForResponse(
-            (response) => response.url().endsWith("/api/status-page/heartbeat/public-data") && response.ok()
-        );
         await saveStatusPage(page);
+        await page.waitForLoadState("networkidle");
+
+        const heartbeatResponse = page.waitForResponse(
+            (response) => response.url().endsWith(`/api/status-page/heartbeat/${slug}`) && response.ok()
+        );
+        await page.reload();
 
         const publicData = await (await heartbeatResponse).json();
         expect(publicData.heartbeatList[monitorId]).toHaveLength(1);
