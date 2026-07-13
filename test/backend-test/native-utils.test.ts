@@ -167,18 +167,25 @@ describe("native password hashes", () => {
 
 describe("token bucket rate limiter", () => {
     test("depletes tokens and refills over time", () => {
-        const bucket = new TokenBucket({
-            tokensPerInterval: 2,
-            interval: 1000,
-            fireImmediately: true,
-        });
+        const realNow = Date.now;
+        let now = 10_000;
+        Date.now = () => now;
+        try {
+            const bucket = new TokenBucket({
+                tokensPerInterval: 2,
+                interval: 1000,
+                fireImmediately: true,
+            });
 
-        expect(bucket.removeTokens(1)).toBe(1);
-        expect(bucket.removeTokens(1)).toBeLessThan(0.01);
-        expect(bucket.removeTokens(1)).toBe(-1);
+            expect(bucket.removeTokens(1)).toBe(1);
+            expect(bucket.removeTokens(1)).toBe(0);
+            expect(bucket.removeTokens(1)).toBe(-1);
 
-        bucket.lastRefill = Date.now() - 2000;
-        expect(bucket.removeTokens(1)).toBe(1);
+            now += 2000;
+            expect(bucket.removeTokens(1)).toBe(1);
+        } finally {
+            Date.now = realNow;
+        }
     });
 
     test("isolates keys and resets a successful identity", async () => {
