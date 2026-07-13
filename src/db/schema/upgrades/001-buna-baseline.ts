@@ -1,17 +1,11 @@
 import { gameDig4to5IdMap } from "../gamedig-v4-to-v5-map.js";
 import { expectedIndexes } from "../expected-schema.js";
 import type { BunSQLiteRedbean } from "../../../server/bun-sqlite-store.js";
+import type { SchemaMigration } from "@/server/db-migrations";
 import { parse as parseTld } from "tldts";
 import rdapDnsData from "../../../server/assets/rdap-dns.json" with { type: "json" };
-import { addColumnIfMissing, columnExists, createIndexIfMissing, tableExists } from "../migration-helpers.js";
 
-const LINE_NOTIFY_TYPE_VARIANTS = new Set([
-    "linenotify",
-    "line-notify",
-    "line_notify",
-    "line notify",
-    "line",
-]);
+const LINE_NOTIFY_TYPE_VARIANTS = new Set(["linenotify", "line-notify", "line_notify", "line notify", "line"]);
 
 const coreIndexTables = {
     domain_expiry_domain_unique: "domain_expiry",
@@ -43,12 +37,10 @@ const coreIndexStatements = {
     domain_expiry_domain_unique:
         'CREATE UNIQUE INDEX IF NOT EXISTS "domain_expiry_domain_unique" ON "domain_expiry" ("domain")',
     fk: 'CREATE INDEX IF NOT EXISTS "fk" ON "monitor_group" ("monitor_id", "group_id")',
-    good_index:
-        'CREATE INDEX IF NOT EXISTS "good_index" ON "notification_sent_history" ("type", "monitor_id", "days")',
+    good_index: 'CREATE INDEX IF NOT EXISTS "good_index" ON "notification_sent_history" ("type", "monitor_id", "days")',
     heartbeat_important_index:
         'CREATE INDEX IF NOT EXISTS "heartbeat_important_index" ON "heartbeat" ("important") WHERE important = 1',
-    heartbeat_monitor_id_index:
-        'CREATE INDEX IF NOT EXISTS "heartbeat_monitor_id_index" ON "heartbeat" ("monitor_id")',
+    heartbeat_monitor_id_index: 'CREATE INDEX IF NOT EXISTS "heartbeat_monitor_id_index" ON "heartbeat" ("monitor_id")',
     maintenance_active_index: 'CREATE INDEX IF NOT EXISTS "maintenance_active_index" ON "maintenance" ("active")',
     maintenance_id_index2:
         'CREATE INDEX IF NOT EXISTS "maintenance_id_index2" ON "monitor_maintenance" ("maintenance_id")',
@@ -99,7 +91,7 @@ const TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD = {
 };
 
 const monitorColumnUpgrades = {
-    accepted_statuscodes_json: 'TEXT NOT NULL DEFAULT \'["200-299"]\'',
+    accepted_statuscodes_json: "TEXT NOT NULL DEFAULT '[\"200-299\"]'",
     auth_domain: "TEXT",
     auth_method: "TEXT",
     auth_workstation: "TEXT",
@@ -220,9 +212,7 @@ function hasRdapSupport(target, supportedTlds) {
     return supportedTlds.has(rootTld);
 }
 
-async function ensureCoreTables(store: BunSQLiteRedbean) {
-    const db = store.db;
-
+async function ensureCoreTables(migration: SchemaMigration) {
     const tableStatements = [
         'CREATE TABLE IF NOT EXISTS "docker_host" ("id" INTEGER PRIMARY KEY AUTOINCREMENT, "user_id" INTEGER NOT NULL, "docker_daemon" TEXT, "docker_type" TEXT, "name" TEXT)',
         'CREATE TABLE IF NOT EXISTS "group" ("id" INTEGER PRIMARY KEY AUTOINCREMENT, "name" TEXT NOT NULL, "created_date" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "public" BOOLEAN NOT NULL DEFAULT 0, "active" BOOLEAN NOT NULL DEFAULT 1, "weight" INTEGER NOT NULL DEFAULT 1000, "status_page_id" INTEGER)',
@@ -247,74 +237,70 @@ async function ensureCoreTables(store: BunSQLiteRedbean) {
     ];
 
     for (const statement of tableStatements) {
-        db.run(statement);
+        migration.exec(statement);
     }
 }
 
-async function ensureMonitorColumns(store: BunSQLiteRedbean) {
-    const db = store.db;
-    if (!tableExists(db, "monitor")) {
+async function ensureMonitorColumns(migration: SchemaMigration) {
+    if (!migration.hasTable("monitor")) {
         return;
     }
 
     for (const [column, type] of Object.entries(monitorColumnUpgrades)) {
-        addColumnIfMissing(db, "monitor", column, type);
+        migration.addColumnIfMissing("monitor", column, type);
     }
 }
 
-async function ensureStatusPageColumns(store: BunSQLiteRedbean) {
-    const db = store.db;
-    if (!tableExists(db, "status_page")) {
+async function ensureStatusPageColumns(migration: SchemaMigration) {
+    if (!migration.hasTable("status_page")) {
         return;
     }
 
-    addColumnIfMissing(db, "status_page", "analytics_id", "TEXT");
-    addColumnIfMissing(db, "status_page", "analytics_script_url", "TEXT");
-    addColumnIfMissing(db, "status_page", "analytics_type", "TEXT");
-    addColumnIfMissing(db, "status_page", "auto_refresh_interval", "INTEGER");
-    addColumnIfMissing(db, "status_page", "show_certificate_expiry", "BOOLEAN NOT NULL DEFAULT 0");
-    addColumnIfMissing(db, "status_page", "show_only_last_heartbeat", "BOOLEAN NOT NULL DEFAULT 0");
-    addColumnIfMissing(db, "status_page", "rss_title", "TEXT");
+    migration.addColumnIfMissing("status_page", "analytics_id", "TEXT");
+    migration.addColumnIfMissing("status_page", "analytics_script_url", "TEXT");
+    migration.addColumnIfMissing("status_page", "analytics_type", "TEXT");
+    migration.addColumnIfMissing("status_page", "auto_refresh_interval", "INTEGER");
+    migration.addColumnIfMissing("status_page", "show_certificate_expiry", "BOOLEAN NOT NULL DEFAULT 0");
+    migration.addColumnIfMissing("status_page", "show_only_last_heartbeat", "BOOLEAN NOT NULL DEFAULT 0");
+    migration.addColumnIfMissing("status_page", "rss_title", "TEXT");
 
     // Legacy upstream columns are copied forward but intentionally not dropped.
     // SQLite cannot drop columns cheaply; a future table-rebuild upgrade can remove them.
-    if (columnExists(db, "status_page", "google_analytics_tag_id")) {
-        await store.exec(
-            'UPDATE status_page SET analytics_id = google_analytics_tag_id WHERE analytics_id IS NULL AND google_analytics_tag_id IS NOT NULL'
+    if (migration.hasColumn("status_page", "google_analytics_tag_id")) {
+        migration.exec(
+            "UPDATE status_page SET analytics_id = google_analytics_tag_id WHERE analytics_id IS NULL AND google_analytics_tag_id IS NOT NULL"
         );
-        await store.exec(
+        migration.exec(
             "UPDATE status_page SET analytics_type = 'google' WHERE analytics_type IS NULL AND analytics_id IS NOT NULL"
         );
     }
 
-    if (columnExists(db, "status_page", "autoRefreshInterval")) {
-        await store.exec(
+    if (migration.hasColumn("status_page", "autoRefreshInterval")) {
+        migration.exec(
             "UPDATE status_page SET auto_refresh_interval = autoRefreshInterval WHERE auto_refresh_interval IS NULL AND autoRefreshInterval IS NOT NULL"
         );
     }
 
-    await store.exec("UPDATE status_page SET auto_refresh_interval = 300 WHERE auto_refresh_interval IS NULL");
+    migration.exec("UPDATE status_page SET auto_refresh_interval = 300 WHERE auto_refresh_interval IS NULL");
 }
 
-async function ensureUserColumns(store: BunSQLiteRedbean) {
-    const db = store.db;
-    if (!tableExists(db, "user")) {
+async function ensureUserColumns(migration: SchemaMigration) {
+    if (!migration.hasTable("user")) {
         return;
     }
 
-    addColumnIfMissing(db, "user", "twofa_secret", "TEXT");
-    addColumnIfMissing(db, "user", "twofa_status", "INTEGER NOT NULL DEFAULT 0");
-    addColumnIfMissing(db, "user", "twofa_last_token", "TEXT");
+    migration.addColumnIfMissing("user", "twofa_secret", "TEXT");
+    migration.addColumnIfMissing("user", "twofa_status", "INTEGER NOT NULL DEFAULT 0");
+    migration.addColumnIfMissing("user", "twofa_last_token", "TEXT");
 }
 
-async function ensureIncidentColumns(store: BunSQLiteRedbean) {
-    const db = store.db;
-    if (!tableExists(db, "incident")) {
+async function ensureIncidentColumns(migration: SchemaMigration) {
+    if (!migration.hasTable("incident")) {
         return;
     }
 
-    addColumnIfMissing(db, "incident", "pin", "BOOLEAN NOT NULL DEFAULT 1");
-    addColumnIfMissing(db, "incident", "active", "BOOLEAN NOT NULL DEFAULT 1");
+    migration.addColumnIfMissing("incident", "pin", "BOOLEAN NOT NULL DEFAULT 1");
+    migration.addColumnIfMissing("incident", "active", "BOOLEAN NOT NULL DEFAULT 1");
 }
 
 async function migrateGameDigIds(store: BunSQLiteRedbean) {
@@ -322,10 +308,9 @@ async function migrateGameDigIds(store: BunSQLiteRedbean) {
         return;
     }
 
-    const monitors = await store.getAll(
-        'SELECT id, game FROM monitor WHERE type = ? AND game IS NOT NULL',
-        ["gamedig"]
-    );
+    const monitors = await store.getAll("SELECT id, game FROM monitor WHERE type = ? AND game IS NOT NULL", [
+        "gamedig",
+    ]);
 
     for (const monitor of monitors) {
         const row = monitor as { id: number; game: string };
@@ -341,7 +326,7 @@ async function migrateSnmpJsonPathOperator(store: BunSQLiteRedbean) {
         return;
     }
 
-    await store.exec('UPDATE monitor SET json_path_operator = ? WHERE json_path_operator IS NULL', ["=="]);
+    await store.exec("UPDATE monitor SET json_path_operator = ? WHERE json_path_operator IS NULL", ["=="]);
 }
 
 async function migrateStatusPageAnalytics(store: BunSQLiteRedbean) {
@@ -428,32 +413,34 @@ async function disableUnsupportedDomainExpiryNotifications(store: BunSQLiteRedbe
 
     if (idsToDisable.length > 0) {
         const placeholders = idsToDisable.map(() => "?").join(", ");
-        await store.exec(`UPDATE monitor SET domain_expiry_notification = 0 WHERE id IN (${placeholders})`, idsToDisable);
+        await store.exec(
+            `UPDATE monitor SET domain_expiry_notification = 0 WHERE id IN (${placeholders})`,
+            idsToDisable
+        );
     }
 }
 
-async function ensureCoreIndexes(store: BunSQLiteRedbean) {
-    const db = store.db;
+async function ensureCoreIndexes(migration: SchemaMigration) {
     for (const indexName of expectedIndexes) {
         const requiredTable = coreIndexTables[indexName];
-        if (requiredTable && !tableExists(db, requiredTable)) {
+        if (requiredTable && !migration.hasTable(requiredTable)) {
             continue;
         }
 
         const sql = coreIndexStatements[indexName];
         if (sql) {
-            createIndexIfMissing(db, sql, indexName);
+            migration.createIndexIfMissing(sql, indexName);
         }
     }
 }
 
-export async function upgrade001BunaBaselineSchema(store: BunSQLiteRedbean) {
-    await ensureCoreTables(store);
-    await ensureUserColumns(store);
-    await ensureMonitorColumns(store);
-    await ensureStatusPageColumns(store);
-    await ensureIncidentColumns(store);
-    await ensureCoreIndexes(store);
+export async function upgrade001BunaBaselineSchema(migration: SchemaMigration) {
+    await ensureCoreTables(migration);
+    await ensureUserColumns(migration);
+    await ensureMonitorColumns(migration);
+    await ensureStatusPageColumns(migration);
+    await ensureIncidentColumns(migration);
+    await ensureCoreIndexes(migration);
 }
 
 export async function upgrade001BunaBaselineData(store: BunSQLiteRedbean) {
@@ -462,9 +449,4 @@ export async function upgrade001BunaBaselineData(store: BunSQLiteRedbean) {
     await migrateSnmpJsonPathOperator(store);
     await removeLineNotifyNotifications(store);
     await disableUnsupportedDomainExpiryNotifications(store);
-}
-
-export async function upgrade001BunaBaseline(store: BunSQLiteRedbean) {
-    await upgrade001BunaBaselineSchema(store);
-    await upgrade001BunaBaselineData(store);
 }

@@ -449,11 +449,9 @@ class StatusPage extends BeanModel {
             throw new Error("Invalid array");
         }
 
-        let trx = await R.begin();
-
-        await trx.exec("DELETE FROM status_page_cname WHERE status_page_id = ?", [this.id]);
-
+        const trx = await R.begin();
         try {
+            await trx.exec("DELETE FROM status_page_cname WHERE status_page_id = ?", [this.id]);
             for (let domain of domainNameList) {
                 if (typeof domain !== "string") {
                     throw new Error("Invalid domain");

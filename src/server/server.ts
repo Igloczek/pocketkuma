@@ -1902,7 +1902,7 @@ async function shutdownFunction(signal) {
         await monitor.stop();
     }
     await sleep(2000);
-    if (R.db) {
+    if (R.isOpen()) {
         await Database.close();
     }
 

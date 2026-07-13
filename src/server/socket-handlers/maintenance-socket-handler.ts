@@ -155,8 +155,8 @@ export const maintenanceSocketHandler = (socket) => {
             const relationIDs = await validateRelations(relations, socket.userID);
             draft = await Maintenance.jsonToBean(R.dispense("maintenance").import(bean.export()), maintenance);
             const transaction = await R.begin();
-            bean.stop();
             try {
+                bean.stop();
                 await transaction.store(draft);
                 if (relationIDs) {
                     await writeRelations(
