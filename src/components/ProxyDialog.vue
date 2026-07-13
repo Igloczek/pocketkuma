@@ -34,7 +34,7 @@
                                     :placeholder="$t('Server Address')"
                                 />
                                 <input
-                                    v-model="proxy.port"
+                                    v-model.number="proxy.port"
                                     type="number"
                                     class="form-control ms-2"
                                     style="width: 100px"

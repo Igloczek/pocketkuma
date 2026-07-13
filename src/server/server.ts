@@ -94,6 +94,7 @@ import {
     stop as cloudflaredStop,
 } from "@/server/socket-handlers/cloudflared-socket-handler";
 import { proxySocketHandler } from "@/server/socket-handlers/proxy-socket-handler";
+import { resolveCoreHttpProxy } from "@/server/proxy-validation";
 import { dockerSocketHandler } from "@/server/socket-handlers/docker-socket-handler";
 import { maintenanceSocketHandler } from "@/server/socket-handlers/maintenance-socket-handler";
 import { apiKeySocketHandler } from "@/server/socket-handlers/api-key-socket-handler";
@@ -563,6 +564,7 @@ let needSetup = false;
         socket.on("add", async (monitor, callback) => {
             try {
                 checkLogin(socket);
+                await resolveCoreHttpProxy(monitor.type, monitor.proxyId, socket.userID, monitor.ignoreTls);
                 let bean = R.dispense("monitor");
 
                 let notificationIDList = monitor.notificationIDList;
@@ -645,6 +647,7 @@ let needSetup = false;
                 if (bean.user_id !== socket.userID) {
                     throw new Error("Permission denied.");
                 }
+                await resolveCoreHttpProxy(monitor.type, monitor.proxyId, socket.userID, monitor.ignoreTls);
 
                 // Check if Parent is Descendant (would cause endless loop)
                 if (monitor.parent !== null) {

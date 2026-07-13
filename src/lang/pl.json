@@ -398,6 +398,8 @@
     "setAsDefault": "Ustaw jako domyślny",
     "deleteProxyMsg": "Jesteś pewien, że chcesz usunąć proxy ze wszystkich monitorów?",
     "proxyDescription": "Proxy muszą być przypisane do monitora, aby działały.",
+    "socksProxyHttpUnsupported": "Przypisane proxy SOCKS pozostaje zapisane, ale podstawowe monitory HTTP obsługują tylko proxy HTTP i HTTPS.",
+    "httpsProxyIgnoreTlsUnsupported": "Opcji ignorowania błędów TLS nie można łączyć z proxy HTTPS, ponieważ Bun nie potrafi ograniczyć wyłączonej walidacji certyfikatu wyłącznie do celu.",
     "enableProxyDescription": "Ten serwer proxy nie będzie miał wpływu na żądania monitorów, dopóki nie zostanie aktywowany. Możesz kontrolować tymczasowe wyłączenie serwera proxy ze wszystkich monitorów za pomocą statusu aktywacji.",
     "setAsDefaultProxyDescription": "Ten serwer proxy będzie domyślnie włączony dla nowych monitorów. Można go jednak wyłączyć osobno dla każdego monitora.",
     "Certificate Chain": "Łańcuch certyfikatów",

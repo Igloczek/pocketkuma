@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { Database as BunDatabase } from "bun:sqlite";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
@@ -21,6 +22,8 @@ let realtime;
 const proxyRequests = [];
 const envProxyRequests = [];
 const targetRequests = [];
+const appLogs = [];
+let appLogReaders = [];
 const parentProxyEnv = Object.fromEntries(
     ["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"].map((name) => [name, process.env[name]])
 );
@@ -50,6 +53,22 @@ function listen(server) {
     return new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 }
 
+function closeServer(server) {
+    if (!server?.listening) {
+        return Promise.resolve();
+    }
+    return new Promise((resolve) => server.close(resolve));
+}
+
+async function collectProcessOutput(stream) {
+    if (!stream) {
+        return;
+    }
+    for await (const chunk of stream) {
+        appLogs.push(Buffer.from(chunk).toString());
+    }
+}
+
 function startTargetServer() {
     return http.createServer((req, res) => {
         const chunks = [];
@@ -61,6 +80,7 @@ function startTargetServer() {
                 method: req.method,
                 body,
                 authorization: req.headers.authorization,
+                proxyAuthorization: req.headers["proxy-authorization"],
                 contentType: req.headers["content-type"],
                 lifecycleHeader: req.headers["x-lifecycle"],
             });
@@ -114,7 +134,10 @@ function startProxyServer() {
             return;
         }
 
-        proxyRequests.push(target.toString());
+        proxyRequests.push({
+            url: target.toString(),
+            proxyAuthorization: req.headers["proxy-authorization"] ?? null,
+        });
         if (target.hostname !== "127.0.0.1") {
             res.writeHead(502);
             res.end("public network disabled by fixture");
@@ -127,6 +150,7 @@ function startProxyServer() {
             const headers = new Headers(req.headers);
             headers.delete("host");
             headers.delete("proxy-connection");
+            headers.delete("proxy-authorization");
             headers.delete("content-length");
             const body = Buffer.concat(chunks);
             const response = await fetch(target, {
@@ -172,16 +196,18 @@ async function startApp() {
             cwd: projectRoot,
             env: {
                 ...process.env,
-                NODE_ENV: "production",
+                NODE_ENV: "development",
                 HTTP_PROXY: envProxyUrl,
                 HTTPS_PROXY: envProxyUrl,
                 NO_PROXY: "",
                 UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
+                UPTIME_KUMA_LOG_FORMAT: "json",
             },
-            stdout: "ignore",
-            stderr: "ignore",
+            stdout: "pipe",
+            stderr: "pipe",
         }
     );
+    appLogReaders = [collectProcessOutput(appProcess.stdout), collectProcessOutput(appProcess.stderr)];
     await waitForApp();
 }
 
@@ -198,6 +224,8 @@ async function stopApp() {
         appProcess.kill("SIGKILL");
         await appProcess.exited;
     }
+    await Promise.allSettled(appLogReaders);
+    appLogReaders = [];
 }
 
 async function connectRealtime() {
@@ -273,6 +301,41 @@ async function login({ setup = false } = {}) {
     ).toBe(true);
 }
 
+async function reconnectAndGetProxyList() {
+    realtime?.close();
+    realtime = null;
+    await login();
+    return realtime.events.filter((item) => item.event === "proxyList").at(-1)?.args?.[0] ?? [];
+}
+
+function updateMonitorAssignment(monitorID, proxyID, { ignoreTls = false } = {}) {
+    const db = new BunDatabase(path.join(dataDir, "kuma.db"), { strict: true });
+    try {
+        db.exec("PRAGMA foreign_keys = OFF");
+        db.run("UPDATE monitor SET proxy_id = ?, ignore_tls = ? WHERE id = ?", [proxyID, ignoreTls ? 1 : 0, monitorID]);
+    } finally {
+        db.close();
+    }
+}
+
+function insertForeignProxy(port) {
+    const db = new BunDatabase(path.join(dataDir, "kuma.db"), { strict: true });
+    try {
+        db.run("INSERT OR IGNORE INTO user (username, password, active) VALUES (?, ?, 1)", [
+            "foreign-proxy-owner",
+            "not-used",
+        ]);
+        const userID = db.query("SELECT id FROM user WHERE username = ?").get("foreign-proxy-owner").id;
+        const proxy = db.run(
+            "INSERT INTO proxy (user_id, protocol, host, port, auth, username, password, active, `default`) VALUES (?, 'http', '127.0.0.1', ?, 1, ?, ?, 1, 0)",
+            [userID, port, "foreign-user%@:/żółw", "foreign-password%@:/密碼"]
+        );
+        return Number(proxy.lastInsertRowid);
+    } finally {
+        db.close();
+    }
+}
+
 function monitorPayload(overrides = {}) {
     return {
         type: "http",
@@ -328,10 +391,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
     await stopApp();
-    await new Promise((resolve) => targetServer.close(resolve));
-    await new Promise((resolve) => proxyServer.close(resolve));
-    await new Promise((resolve) => envProxyServer.close(resolve));
-    fs.rmSync(dataDir, { recursive: true, force: true });
+    await Promise.all([closeServer(targetServer), closeServer(proxyServer), closeServer(envProxyServer)]);
+    if (dataDir) {
+        fs.rmSync(dataDir, { recursive: true, force: true });
+    }
     expect(
         Object.fromEntries(["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"].map((name) => [name, process.env[name]]))
     ).toEqual(parentProxyEnv);
@@ -351,7 +414,7 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
         expect(created.ok).toBe(true);
         const monitorID = created.monitorID;
         await realtime.waitFor("heartbeat", heartbeatFor(monitorID, 1));
-        expect(proxyRequests.some((url) => url.endsWith("/first"))).toBe(true);
+        expect(proxyRequests.some(({ url }) => url.endsWith("/first"))).toBe(true);
         expect(envProxyRequests.some((url) => url?.endsWith("/first"))).toBe(false);
 
         const loaded = await realtime.request("getMonitor", monitorID);
@@ -462,21 +525,27 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
         await realtime.waitFor("heartbeat", heartbeatFor(monitorID, 1), mark);
 
         for (let restart = 0; restart < 3; restart++) {
-            const requestsBeforeReload = targetRequests.length;
+            const requestsBeforeReload = {
+                assigned: proxyRequests.length,
+                env: envProxyRequests.length,
+                target: targetRequests.length,
+            };
             await stopApp();
             await startApp();
             await login();
             await withTimeout(
                 (async () => {
-                    while (targetRequests.length === requestsBeforeReload) {
+                    while (proxyRequests.length === requestsBeforeReload.assigned) {
                         await Bun.sleep(25);
                     }
                 })(),
                 5_000,
                 `active monitor did not resume after reload ${restart + 1}`
             );
-            expect(proxyRequests.some((url) => url.endsWith("/edited"))).toBe(true);
-            expect(envProxyRequests.some((url) => url?.endsWith("/edited"))).toBe(false);
+            expect(proxyRequests.length).toBeGreaterThan(requestsBeforeReload.assigned);
+            expect(envProxyRequests.length).toBe(requestsBeforeReload.env);
+            expect(targetRequests.length).toBeGreaterThan(requestsBeforeReload.target);
+            expect(proxyRequests.at(-1).url.endsWith("/edited")).toBe(true);
         }
         const persisted = await realtime.request("getMonitor", monitorID);
         expect(persisted.ok).toBe(true);
@@ -497,42 +566,321 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
         expect((await realtime.request("getMonitor", monitorID)).ok).toBe(false);
     }, 60_000);
 
-    test("persisted SOCKS assignment stays stored and fails redacted before fetch", async () => {
-        const username = "socks-user%@:/żółw";
-        const password = "socks-password%@:/密碼";
-        const encodedPassword = encodeURIComponent(password);
-        const proxy = await realtime.request(
+    test("proxy saves validate endpoints and authentication without mutating rejected updates", async () => {
+        const validCases = [
+            ["http", "proxy.example"],
+            ["https", "127.0.0.1"],
+            ["socks", "::1"],
+            ["socks5", "[2001:db8::1]"],
+            ["socks5h", "localhost"],
+            ["socks4", "proxy.internal"],
+        ];
+        const validIDs = [];
+        for (const [protocol, host] of validCases) {
+            const response = await realtime.request(
+                "addProxy",
+                { protocol, host, port: 1080, auth: false, active: true, default: false },
+                null
+            );
+            expect(response.ok).toBe(true);
+            validIDs.push(response.id);
+        }
+
+        let proxyList = await reconnectAndGetProxyList();
+        expect(proxyList.find((proxy) => proxy.id === validIDs[2]).host).toBe("::1");
+        expect(proxyList.find((proxy) => proxy.id === validIDs[3]).host).toBe("2001:db8::1");
+
+        for (const protocol of [null, "HTTP", "ftp"]) {
+            const response = await realtime.request(
+                "addProxy",
+                { protocol, host: "proxy.example", port: 8080, auth: false, active: true },
+                null
+            );
+            expect(response.ok).toBe(false);
+            expect(response.msg).toMatch(/unsupported proxy protocol/i);
+        }
+
+        for (const host of [
+            "",
+            " proxy.example",
+            "proxy.example ",
+            "proxy host",
+            "http://proxy.example",
+            "proxy.example/path",
+            "user@proxy.example",
+            "proxy.example:8080",
+            "bad:host",
+            "bad..host",
+            "[not-ipv6]",
+        ]) {
+            const response = await realtime.request(
+                "addProxy",
+                { protocol: "http", host, port: 8080, auth: false, active: true },
+                null
+            );
+            expect(response.ok).toBe(false);
+            expect(response.msg).toMatch(/proxy host/i);
+        }
+
+        for (const port of [null, "8080", 0, -1, 1.5, 65536]) {
+            const response = await realtime.request(
+                "addProxy",
+                { protocol: "http", host: "proxy.example", port, auth: false, active: true },
+                null
+            );
+            expect(response.ok).toBe(false);
+            expect(response.msg).toMatch(/proxy port/i);
+        }
+
+        for (const [username, password] of [
+            ["", "secret"],
+            ["user", ""],
+            [null, "secret"],
+            ["user", null],
+        ]) {
+            const response = await realtime.request(
+                "addProxy",
+                { protocol: "http", host: "proxy.example", port: 8080, auth: true, username, password, active: true },
+                null
+            );
+            expect(response.ok).toBe(false);
+            expect(response.msg).toMatch(/username and password/i);
+        }
+
+        const inactive = await realtime.request(
+            "addProxy",
+            {
+                protocol: "http",
+                host: "inactive.example",
+                port: 8080,
+                auth: false,
+                username: "stale-user",
+                password: "stale-password",
+                active: false,
+            },
+            null
+        );
+        expect(inactive.ok).toBe(true);
+        proxyList = await reconnectAndGetProxyList();
+        expect(proxyList.find((proxy) => proxy.id === inactive.id)).toMatchObject({
+            active: 0,
+            username: null,
+            password: null,
+        });
+
+        const authenticated = await realtime.request(
+            "addProxy",
+            {
+                protocol: "http",
+                host: "auth.example",
+                port: 8080,
+                auth: true,
+                username: "u%@:/żółw",
+                password: "p%@:/密碼",
+                active: true,
+            },
+            null
+        );
+        expect(authenticated.ok).toBe(true);
+        proxyList = await reconnectAndGetProxyList();
+        expect(proxyList.find((proxy) => proxy.id === authenticated.id)).toMatchObject({
+            username: "u%@:/żółw",
+            password: "p%@:/密碼",
+        });
+
+        const unchanged = await realtime.request(
+            "addProxy",
+            { protocol: "http", host: "unchanged.example", port: 8080, auth: false, active: true },
+            null
+        );
+        expect(unchanged.ok).toBe(true);
+        const rejectedUpdate = await realtime.request(
+            "addProxy",
+            { protocol: "http", host: "http://mutated.example", port: 3128, auth: false, active: false },
+            unchanged.id
+        );
+        expect(rejectedUpdate.ok).toBe(false);
+        proxyList = await reconnectAndGetProxyList();
+        expect(proxyList.find((proxy) => proxy.id === unchanged.id)).toMatchObject({
+            host: "unchanged.example",
+            port: 8080,
+            active: 1,
+        });
+    }, 30_000);
+
+    test("core HTTP monitor saves reject unavailable proxies before persistence", async () => {
+        const activeHttp = await realtime.request(
+            "addProxy",
+            { protocol: "http", host: "127.0.0.1", port: proxyServer.address().port, auth: false, active: true },
+            null
+        );
+        const inactiveHttp = await realtime.request(
+            "addProxy",
+            { protocol: "http", host: "127.0.0.1", port: proxyServer.address().port, auth: false, active: false },
+            null
+        );
+        const socks = await realtime.request(
             "addProxy",
             {
                 protocol: "socks5h",
                 host: "127.0.0.1",
                 port: 1080,
                 auth: true,
-                username,
-                password,
+                username: "socks-user%@:/żółw",
+                password: "socks-password%@:/密碼",
                 active: true,
             },
             null
         );
-        expect(proxy.ok).toBe(true);
+        const httpsProxy = await realtime.request(
+            "addProxy",
+            { protocol: "https", host: "127.0.0.1", port: 8443, auth: false, active: true },
+            null
+        );
+        for (const response of [activeHttp, inactiveHttp, socks, httpsProxy]) {
+            expect(response.ok).toBe(true);
+        }
+        const foreignProxyID = insertForeignProxy(proxyServer.address().port);
+        const missingProxyID = 2_147_483_646;
+        const networkBefore = [proxyRequests.length, envProxyRequests.length, targetRequests.length];
 
-        const created = await realtime.request("add", monitorPayload({ proxyId: proxy.id }));
+        for (const type of ["http", "keyword", "json-query"]) {
+            for (const [proxyId, message] of [
+                [missingProxyID, /proxy.*unavailable/i],
+                [foreignProxyID, /proxy.*unavailable/i],
+                [inactiveHttp.id, /proxy.*inactive/i],
+                [socks.id, /SOCKS.*not supported/i],
+            ]) {
+                const response = await realtime.request("add", monitorPayload({ type, proxyId, active: false }));
+                expect(response.ok).toBe(false);
+                expect(response.msg).toMatch(message);
+            }
+            const tlsResponse = await realtime.request(
+                "add",
+                monitorPayload({ type, proxyId: httpsProxy.id, ignoreTls: true, active: false })
+            );
+            expect(tlsResponse.ok).toBe(false);
+            expect(tlsResponse.msg).toMatch(/ignore TLS.*HTTPS proxy.*not supported/i);
+        }
+
+        const created = await realtime.request("add", monitorPayload({ proxyId: activeHttp.id, active: false }));
         expect(created.ok).toBe(true);
-        const [heartbeat] = await realtime.waitFor("heartbeat", heartbeatFor(created.monitorID, 0));
-        expect(heartbeat.msg).toMatch(/SOCKS proxy.*not supported.*Bun fetch/i);
-        expect(heartbeat.msg).not.toContain(username);
-        expect(heartbeat.msg).not.toContain(password);
-        expect(heartbeat.msg).not.toContain(encodedPassword);
-
-        await stopApp();
-        await startApp();
-        await login();
-        const persisted = await realtime.request("getMonitor", created.monitorID);
-        expect(persisted.ok).toBe(true);
-        expect(persisted.monitor.proxyId).toBe(proxy.id);
-        const proxyList = realtime.events.find((item) => item.event === "proxyList")?.args?.[0] ?? [];
-        expect(proxyList.some((item) => item.id === proxy.id && item.protocol === "socks5h")).toBe(true);
-
+        const before = (await realtime.request("getMonitor", created.monitorID)).monitor;
+        for (const [type, proxyId, ignoreTls, message] of [
+            ["http", missingProxyID, false, /proxy.*unavailable/i],
+            ["keyword", foreignProxyID, false, /proxy.*unavailable/i],
+            ["json-query", inactiveHttp.id, false, /proxy.*inactive/i],
+            ["http", socks.id, false, /SOCKS.*not supported/i],
+            ["http", httpsProxy.id, true, /ignore TLS.*HTTPS proxy.*not supported/i],
+        ]) {
+            const response = await realtime.request("editMonitor", {
+                ...before,
+                type,
+                proxyId,
+                ignoreTls,
+            });
+            expect(response.ok).toBe(false);
+            expect(response.msg).toMatch(message);
+            expect((await realtime.request("getMonitor", created.monitorID)).monitor).toMatchObject({
+                type: before.type,
+                proxyId: before.proxyId,
+                ignoreTls: before.ignoreTls,
+                url: before.url,
+            });
+        }
+        expect([proxyRequests.length, envProxyRequests.length, targetRequests.length]).toEqual(networkBefore);
         expect((await realtime.request("deleteMonitor", created.monitorID, false)).ok).toBe(true);
     }, 30_000);
+
+    test("invalid existing assignments stay stored and fail redacted without direct fallback", async () => {
+        const activeHttp = await realtime.request(
+            "addProxy",
+            { protocol: "http", host: "127.0.0.1", port: proxyServer.address().port, auth: false, active: true },
+            null
+        );
+        const inactiveHttp = await realtime.request(
+            "addProxy",
+            { protocol: "http", host: "127.0.0.1", port: proxyServer.address().port, auth: false, active: false },
+            null
+        );
+        const socks = await realtime.request(
+            "addProxy",
+            {
+                protocol: "socks5h",
+                host: "127.0.0.1",
+                port: 1080,
+                auth: true,
+                username: "socks-user%@:/żółw",
+                password: "socks-password%@:/密碼",
+                active: true,
+            },
+            null
+        );
+        const httpsProxy = await realtime.request(
+            "addProxy",
+            { protocol: "https", host: "127.0.0.1", port: 8443, auth: false, active: true },
+            null
+        );
+        for (const response of [activeHttp, inactiveHttp, socks, httpsProxy]) {
+            expect(response.ok).toBe(true);
+        }
+        const foreignProxyID = insertForeignProxy(proxyServer.address().port);
+        const missingProxyID = 2_147_483_645;
+        const created = await realtime.request("add", monitorPayload({ proxyId: activeHttp.id }));
+        expect(created.ok).toBe(true);
+        await realtime.waitFor("heartbeat", heartbeatFor(created.monitorID, 1));
+        await stopApp();
+
+        const cases = [
+            [socks.id, false, /SOCKS.*not supported/i],
+            [inactiveHttp.id, false, /proxy.*inactive/i],
+            [missingProxyID, false, /proxy.*unavailable/i],
+            [foreignProxyID, false, /proxy.*unavailable/i],
+            [httpsProxy.id, true, /ignore TLS.*HTTPS proxy.*not supported/i],
+        ];
+        for (const [proxyID, ignoreTls, message] of cases) {
+            updateMonitorAssignment(created.monitorID, proxyID, { ignoreTls });
+            const before = {
+                assigned: proxyRequests.length,
+                env: envProxyRequests.length,
+                target: targetRequests.length,
+                logs: appLogs.length,
+            };
+            await startApp();
+            await login();
+            const [heartbeat] = await realtime.waitFor("heartbeat", heartbeatFor(created.monitorID, 0));
+            expect(heartbeat.msg).toMatch(message);
+            expect((await realtime.request("getMonitor", created.monitorID)).monitor.proxyId).toBe(proxyID);
+            expect(proxyRequests.length).toBe(before.assigned);
+            expect(envProxyRequests.length).toBe(before.env);
+            expect(targetRequests.length).toBe(before.target);
+            await Bun.sleep(50);
+            const phaseLogs = appLogs.slice(before.logs).join("");
+            expect(phaseLogs).toMatch(message);
+            for (const secret of [
+                "socks-user%@:/żółw",
+                "socks-password%@:/密碼",
+                encodeURIComponent("socks-password%@:/密碼"),
+                "foreign-user%@:/żółw",
+                "foreign-password%@:/密碼",
+                Buffer.from("foreign-user%@:/żółw:foreign-password%@:/密碼").toString("base64"),
+            ]) {
+                expect(phaseLogs).not.toContain(secret);
+            }
+            await stopApp();
+        }
+
+        updateMonitorAssignment(created.monitorID, null);
+        await startApp();
+        await login();
+        expect((await realtime.request("deleteMonitor", created.monitorID, false)).ok).toBe(true);
+        const allLogs = appLogs.join("");
+        expect(allLogs).toContain("Fetch Options prepared (proxy: true)");
+        for (const basicValue of [
+            `Basic ${Buffer.from("socks-user%@:/żółw:socks-password%@:/密碼").toString("base64")}`,
+            `Basic ${Buffer.from("foreign-user%@:/żółw:foreign-password%@:/密碼").toString("base64")}`,
+        ]) {
+            expect(allLogs).not.toContain(basicValue);
+        }
+    }, 60_000);
 });
