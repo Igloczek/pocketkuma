@@ -2818,6 +2818,13 @@ message HealthCheckResponse {
                 return;
             }
 
+            const selectedProxy = this.supportedHttpProxyList.find((proxy) => proxy.id === this.monitor.proxyId);
+            if (this.monitor.ignoreTls && selectedProxy?.protocol === "https") {
+                this.$root.toastError(this.$t("httpsProxyIgnoreTlsUnsupported"));
+                this.processing = false;
+                return;
+            }
+
             this.lowIntervalConfirmation.confirmed = false;
             this.lowIntervalConfirmation.editedValue = false;
 

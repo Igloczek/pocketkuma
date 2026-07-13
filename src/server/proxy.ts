@@ -2,9 +2,10 @@
 
 import { R } from "@/server/bun-sqlite-store";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
+import { SUPPORTED_PROXY_PROTOCOLS, validateProxyDefinition } from "@/server/proxy-validation";
 
 class Proxy {
-    static SUPPORTED_PROXY_PROTOCOLS = ["http", "https", "socks", "socks5", "socks5h", "socks4"];
+    static SUPPORTED_PROXY_PROTOCOLS = SUPPORTED_PROXY_PROTOCOLS;
 
     /**
      * Saves and updates given proxy entity
@@ -14,6 +15,7 @@ class Proxy {
      * @returns {Promise<Bean>} Updated proxy
      */
     static async save(proxy, proxyID, userID) {
+        const validated = validateProxyDefinition(proxy);
         let bean;
 
         if (proxyID) {
@@ -26,27 +28,13 @@ class Proxy {
             bean = R.dispense("proxy");
         }
 
-        // Make sure given proxy protocol is supported
-        if (!this.SUPPORTED_PROXY_PROTOCOLS.includes(proxy.protocol)) {
-            throw new Error(`
-                Unsupported proxy protocol "${proxy.protocol}.
-                Supported protocols are ${this.SUPPORTED_PROXY_PROTOCOLS.join(", ")}."`);
-        }
-
         // When proxy is default update deactivate old default proxy
-        if (proxy.default) {
-            await R.exec("UPDATE proxy SET `default` = 0 WHERE `default` = 1");
+        if (validated.default) {
+            await R.exec("UPDATE proxy SET `default` = 0 WHERE `default` = 1 AND user_id = ?", [userID]);
         }
 
         bean.user_id = userID;
-        bean.protocol = proxy.protocol;
-        bean.host = proxy.host;
-        bean.port = proxy.port;
-        bean.auth = proxy.auth;
-        bean.username = proxy.username;
-        bean.password = proxy.password;
-        bean.active = proxy.active || true;
-        bean.default = proxy.default || false;
+        Object.assign(bean, validated);
 
         await R.store(bean);
 

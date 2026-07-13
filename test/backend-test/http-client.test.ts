@@ -30,6 +30,8 @@ try {
 describe("fetch HTTP client", () => {
     let server;
     let baseUrl;
+    let redirectTargetServer;
+    let redirectTargetUrl;
     let proxyServer;
     let proxyUrl;
     let authenticatedProxyServer;
@@ -39,12 +41,17 @@ describe("fetch HTTP client", () => {
     let tlsUrl;
     const proxyRequests = [];
     const proxyAuthorizationHeaders = [];
+    const authenticatedProxyRequests = [];
+    const targetProxyAuthorizationHeaders = [];
+    const redirectTargetProxyAuthorizationHeaders = [];
+    const tlsTargetProxyAuthorizationHeaders = [];
     const proxyUsername = "u%@:/żółw";
     const proxyPassword = "p%@:/密碼";
     const expectedProxyAuthorization = `Basic ${Buffer.from(`${proxyUsername}:${proxyPassword}`).toString("base64")}`;
 
     beforeAll(async () => {
         server = http.createServer((req, res) => {
+            targetProxyAuthorizationHeaders.push(req.headers["proxy-authorization"] ?? null);
             if (req.url === "/ok") {
                 res.writeHead(200, { "Content-Type": "application/json" });
                 res.end(JSON.stringify({ ok: true }));
@@ -67,6 +74,12 @@ describe("fetch HTTP client", () => {
 
             if (req.url === "/redirect") {
                 res.writeHead(302, { Location: "/ok" });
+                res.end();
+                return;
+            }
+
+            if (req.url === "/cross-origin-redirect") {
+                res.writeHead(302, { Location: `${redirectTargetUrl}/redirect-target` });
                 res.end();
                 return;
             }
@@ -126,6 +139,14 @@ describe("fetch HTTP client", () => {
         await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
         baseUrl = `http://127.0.0.1:${server.address().port}`;
 
+        redirectTargetServer = http.createServer((req, res) => {
+            redirectTargetProxyAuthorizationHeaders.push(req.headers["proxy-authorization"] ?? null);
+            res.writeHead(200, { "Content-Type": "text/plain" });
+            res.end("redirect-target-ok");
+        });
+        await new Promise((resolve) => redirectTargetServer.listen(0, "127.0.0.1", resolve));
+        redirectTargetUrl = `http://127.0.0.1:${redirectTargetServer.address().port}`;
+
         proxyServer = http.createServer(async (req, res) => {
             proxyRequests.push(req.url);
             const response = await fetch(req.url);
@@ -153,6 +174,7 @@ describe("fetch HTTP client", () => {
 
         authenticatedProxyServer = http.createServer(async (req, res) => {
             proxyAuthorizationHeaders.push(req.headers["proxy-authorization"] ?? null);
+            authenticatedProxyRequests.push({ method: req.method, url: req.url });
             if (req.headers["proxy-authorization"] !== expectedProxyAuthorization) {
                 res.writeHead(407, { "Proxy-Authenticate": 'Basic realm="fixture"' });
                 res.end("proxy authentication required");
@@ -168,6 +190,30 @@ describe("fetch HTTP client", () => {
             res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
             res.end(await response.arrayBuffer());
         });
+        authenticatedProxyServer.on("connect", (req, clientSocket, head) => {
+            proxyAuthorizationHeaders.push(req.headers["proxy-authorization"] ?? null);
+            authenticatedProxyRequests.push({ method: "CONNECT", url: req.url });
+            if (req.headers["proxy-authorization"] !== expectedProxyAuthorization) {
+                clientSocket.end(
+                    'HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="fixture"\r\n\r\n'
+                );
+                return;
+            }
+            const [hostname, port] = req.url.split(":");
+            if (hostname !== "127.0.0.1") {
+                clientSocket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n");
+                return;
+            }
+            const targetSocket = net.connect(Number(port), hostname, () => {
+                clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+                if (head.length > 0) {
+                    targetSocket.write(head);
+                }
+                targetSocket.pipe(clientSocket);
+                clientSocket.pipe(targetSocket);
+            });
+            targetSocket.on("error", () => clientSocket.destroy());
+        });
         await new Promise((resolve) => authenticatedProxyServer.listen(0, "127.0.0.1", resolve));
 
         const certDir = path.join(process.cwd(), "test/manual-test-radius-tls/certs");
@@ -178,7 +224,10 @@ describe("fetch HTTP client", () => {
                 cert: fs.readFileSync(path.join(certDir, "redis.crt")),
                 key: fs.readFileSync(path.join(certDir, "redis.key")),
             },
-            fetch: () => new Response("self-signed-ok"),
+            fetch: (request) => {
+                tlsTargetProxyAuthorizationHeaders.push(request.headers.get("proxy-authorization"));
+                return new Response("self-signed-ok");
+            },
         });
         tlsUrl = `https://127.0.0.1:${tlsServer.port}`;
 
@@ -209,6 +258,7 @@ describe("fetch HTTP client", () => {
         await new Promise((resolve) => httpsProxyServer.close(resolve));
         await new Promise((resolve) => authenticatedProxyServer.close(resolve));
         await new Promise((resolve) => proxyServer.close(resolve));
+        await new Promise((resolve) => redirectTargetServer.close(resolve));
         await new Promise((resolve) => server.close(resolve));
     });
 
@@ -373,13 +423,15 @@ describe("fetch HTTP client", () => {
 
     test("monitor maps an active persisted proxy to Bun fetch options", async () => {
         const monitor = R.convertToBean("monitor", {
+            type: "http",
+            user_id: 1,
             auth_method: null,
             proxy_id: 7,
             ignore_tls: 0,
             ip_family: null,
         });
-        const originalLoad = R.load;
-        R.load = async () => ({
+        const originalFindOne = R.findOne;
+        R.findOne = async () => ({
             active: true,
             protocol: "http",
             host: "127.0.0.1",
@@ -393,20 +445,22 @@ describe("fetch HTTP client", () => {
             expect(options.proxy).toBe(`${proxyUrl}/`);
             expect((await monitor.makeHttpMonitorRequest(options)).data).toEqual({ ok: true });
         } finally {
-            R.load = originalLoad;
+            R.findOne = originalFindOne;
         }
     });
 
-    test("monitor sends exact Basic proxy auth for reserved characters and Unicode", async () => {
+    test("monitor scopes exact Basic proxy auth to a compliant proxy across targets and redirects", async () => {
         const monitor = R.convertToBean("monitor", {
+            type: "http",
+            user_id: 1,
             auth_method: null,
             proxy_id: 8,
             ignore_tls: 0,
             ip_family: null,
         });
-        const originalLoad = R.load;
+        const originalFindOne = R.findOne;
         let loadedPassword = proxyPassword;
-        R.load = async () => ({
+        R.findOne = async () => ({
             active: true,
             protocol: "http",
             host: "127.0.0.1",
@@ -417,6 +471,11 @@ describe("fetch HTTP client", () => {
         });
 
         try {
+            const proxyHeaderStart = proxyAuthorizationHeaders.length;
+            const proxyRequestStart = authenticatedProxyRequests.length;
+            const targetHeaderStart = targetProxyAuthorizationHeaders.length;
+            const redirectHeaderStart = redirectTargetProxyAuthorizationHeaders.length;
+            const tlsHeaderStart = tlsTargetProxyAuthorizationHeaders.length;
             const options = { url: `${baseUrl}/ok` };
             await monitor.assertFetchHttpTransportSupported(options);
             const response = await monitor.makeHttpMonitorRequest(options);
@@ -425,6 +484,26 @@ describe("fetch HTTP client", () => {
             expect(proxyAuthorizationHeaders.at(-1)).toBe(expectedProxyAuthorization);
             expect(JSON.stringify(options.proxy)).not.toContain(proxyUsername);
             expect(JSON.stringify(options.proxy)).not.toContain(proxyPassword);
+
+            const redirectOptions = { url: `${baseUrl}/cross-origin-redirect`, maxRedirects: 1 };
+            await monitor.assertFetchHttpTransportSupported(redirectOptions);
+            expect((await monitor.makeHttpMonitorRequest(redirectOptions)).data).toBe("redirect-target-ok");
+
+            const tlsOptions = { url: tlsUrl };
+            await monitor.assertFetchHttpTransportSupported(tlsOptions);
+            tlsOptions.rejectUnauthorized = false;
+            expect((await monitor.makeHttpMonitorRequest(tlsOptions)).data).toBe("self-signed-ok");
+
+            expect(
+                proxyAuthorizationHeaders.slice(proxyHeaderStart).every((value) => value === expectedProxyAuthorization)
+            ).toBe(true);
+            expect(authenticatedProxyRequests.slice(proxyRequestStart)).toContainEqual({
+                method: "CONNECT",
+                url: `127.0.0.1:${tlsServer.port}`,
+            });
+            expect(targetProxyAuthorizationHeaders.slice(targetHeaderStart)).toEqual([null, null]);
+            expect(redirectTargetProxyAuthorizationHeaders.slice(redirectHeaderStart)).toEqual([null]);
+            expect(tlsTargetProxyAuthorizationHeaders.slice(tlsHeaderStart)).toEqual([null]);
 
             loadedPassword = `${proxyPassword}-rejected`;
             const rejectedOptions = { url: `${baseUrl}/ok` };
@@ -437,20 +516,22 @@ describe("fetch HTTP client", () => {
             expect(serializedError).not.toContain(loadedPassword);
             expect(serializedError).not.toContain(rejectedAuthorization);
         } finally {
-            R.load = originalLoad;
+            R.findOne = originalFindOne;
         }
     });
 
     test("persisted SOCKS proxy is rejected before fetch without exposing credentials", async () => {
         const monitor = R.convertToBean("monitor", {
+            type: "http",
+            user_id: 1,
             auth_method: null,
             proxy_id: 9,
             ignore_tls: 0,
             ip_family: null,
         });
-        const originalLoad = R.load;
+        const originalFindOne = R.findOne;
         const secret = "socks-secret%@:/密碼";
-        R.load = async () => ({
+        R.findOne = async () => ({
             active: true,
             protocol: "socks5h",
             host: "127.0.0.1",
@@ -468,7 +549,7 @@ describe("fetch HTTP client", () => {
             expect(error.message).not.toContain(secret);
             expect(monitor.proxy_id).toBe(9);
         } finally {
-            R.load = originalLoad;
+            R.findOne = originalFindOne;
         }
     });
 
@@ -476,13 +557,15 @@ describe("fetch HTTP client", () => {
         `monitor brackets a raw IPv6 proxy host${ipv6SkipReason ? ` (${ipv6SkipReason})` : ""}`,
         async () => {
             const monitor = R.convertToBean("monitor", {
+                type: "http",
+                user_id: 1,
                 auth_method: null,
                 proxy_id: 10,
                 ignore_tls: 0,
                 ip_family: null,
             });
-            const originalLoad = R.load;
-            R.load = async () => ({
+            const originalFindOne = R.findOne;
+            R.findOne = async () => ({
                 active: true,
                 protocol: "http",
                 host: "::1",
@@ -496,7 +579,7 @@ describe("fetch HTTP client", () => {
                 expect(options.proxy).toBe(`http://[::1]:${ipv6ProxyServer.port}/`);
                 expect((await monitor.makeHttpMonitorRequest(options)).data).toEqual({ ok: true });
             } finally {
-                R.load = originalLoad;
+                R.findOne = originalFindOne;
             }
         }
     );
@@ -512,13 +595,15 @@ describe("fetch HTTP client", () => {
 
     test("monitor rejects ignoreTls with an HTTPS proxy instead of weakening proxy validation", async () => {
         const monitor = R.convertToBean("monitor", {
+            type: "http",
+            user_id: 1,
             auth_method: null,
             proxy_id: 11,
             ignore_tls: 1,
             ip_family: null,
         });
-        const originalLoad = R.load;
-        R.load = async () => ({
+        const originalFindOne = R.findOne;
+        R.findOne = async () => ({
             active: true,
             protocol: "https",
             host: "127.0.0.1",
@@ -531,19 +616,21 @@ describe("fetch HTTP client", () => {
                 /ignore TLS.*HTTPS proxy.*not supported/i
             );
         } finally {
-            R.load = originalLoad;
+            R.findOne = originalFindOne;
         }
     });
 
     test("monitor keeps ignoreTls working for a self-signed target through an HTTP proxy", async () => {
         const monitor = R.convertToBean("monitor", {
+            type: "http",
+            user_id: 1,
             auth_method: null,
             proxy_id: 12,
             ignore_tls: 1,
             ip_family: null,
         });
-        const originalLoad = R.load;
-        R.load = async () => ({
+        const originalFindOne = R.findOne;
+        R.findOne = async () => ({
             active: true,
             protocol: "http",
             host: "127.0.0.1",
@@ -556,7 +643,7 @@ describe("fetch HTTP client", () => {
             await monitor.assertFetchHttpTransportSupported(options);
             expect((await monitor.makeHttpMonitorRequest(options)).data).toBe("self-signed-ok");
         } finally {
-            R.load = originalLoad;
+            R.findOne = originalFindOne;
         }
     });
 
@@ -565,6 +652,23 @@ describe("fetch HTTP client", () => {
 
         expect(component).toContain('v-for="proxy in supportedHttpProxyList"');
         expect(component).toContain('["http", "https"].includes(proxy.protocol)');
+    });
+
+    test("core HTTP UI blocks an HTTPS proxy with ignore TLS using a localized error", () => {
+        const component = fs.readFileSync(path.join(process.cwd(), "src/pages/EditMonitor.vue"), "utf8");
+        const english = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src/lang/en.json"), "utf8"));
+        const polish = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src/lang/pl.json"), "utf8"));
+
+        const submit = component.slice(
+            component.indexOf("async submit()"),
+            component.indexOf("async startParentGroupMonitor")
+        );
+        expect(submit).toContain("httpsProxyIgnoreTlsUnsupported");
+        expect(submit).toContain("this.$root.toastError");
+        expect(submit).toContain("this.processing = false");
+        expect(submit).toContain("return;");
+        expect(english.httpsProxyIgnoreTlsUnsupported).toMatch(/Ignore TLS.*HTTPS proxy/i);
+        expect(polish.httpsProxyIgnoreTlsUnsupported).toBeTruthy();
     });
 
     test("monitor debug logging never serializes fetch options containing proxy credentials", () => {

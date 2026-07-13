@@ -49,12 +49,12 @@ import { DockerHost } from "@/server/docker";
 import jwt from "@/server/jwt";
 import { UptimeCalculator } from "@/server/uptime-calculator";
 import zlib from "node:zlib";
-import { isIP } from "node:net";
 import { promisify } from "node:util";
 import DomainExpiry from "@/server/model/domain_expiry";
 import packageJson from "@/package-meta";
 import { clearResponseCache } from "@/server/bun-response";
 import { inspectRemoteCertificate } from "@/server/tls-cert";
+import { buildProxyFetchOption, resolveCoreHttpProxy } from "@/server/proxy-validation";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const version = packageJson.version;
@@ -1110,31 +1110,9 @@ class Monitor extends BeanModel {
 
         // TLS cert expiry is handled by a separate inspectRemoteCertificate() pass.
 
-        if (this.proxy_id) {
-            const proxy = await R.load("proxy", this.proxy_id);
-            if (proxy && proxy.active) {
-                const protocol = String(proxy.protocol).toLowerCase();
-                if (!["http", "https"].includes(protocol)) {
-                    throw new Error(`SOCKS proxy protocol "${protocol}" is not supported by the Bun fetch HTTP client`);
-                }
-                if (this.getIgnoreTls() && protocol === "https") {
-                    throw new Error("Ignore TLS with an HTTPS proxy is not supported by the Bun fetch HTTP client");
-                }
-
-                const proxyUrl = new URL(`${protocol}://localhost`);
-                proxyUrl.hostname = isIP(proxy.host) === 6 ? `[${proxy.host}]` : proxy.host;
-                proxyUrl.port = String(proxy.port);
-                if (proxy.auth) {
-                    options.proxy = {
-                        url: proxyUrl.toString(),
-                        headers: {
-                            "Proxy-Authorization": "Basic " + encodeBase64(proxy.username, proxy.password),
-                        },
-                    };
-                } else {
-                    options.proxy = proxyUrl.toString();
-                }
-            }
+        const proxy = await resolveCoreHttpProxy(this.type, this.proxy_id, this.user_id, this.getIgnoreTls());
+        if (proxy) {
+            options.proxy = buildProxyFetchOption(proxy);
         }
 
         if (this.getIgnoreTls()) {
