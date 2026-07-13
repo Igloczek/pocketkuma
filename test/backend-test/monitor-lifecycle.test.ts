@@ -19,6 +19,7 @@ let envProxyUrl;
 let targetServer;
 let targetUrl;
 let realtime;
+let targetBarrier;
 const proxyRequests = [];
 const envProxyRequests = [];
 const targetRequests = [];
@@ -73,7 +74,7 @@ function startTargetServer() {
     return http.createServer((req, res) => {
         const chunks = [];
         req.on("data", (chunk) => chunks.push(chunk));
-        req.on("end", () => {
+        req.on("end", async () => {
             const body = Buffer.concat(chunks).toString();
             targetRequests.push({
                 url: req.url,
@@ -88,6 +89,13 @@ function startTargetServer() {
             if (req.url === "/first") {
                 res.writeHead(200, { "Content-Type": "text/plain" });
                 res.end("first target");
+                return;
+            }
+            if (req.url === "/barrier") {
+                targetBarrier?.arrive();
+                await targetBarrier?.wait;
+                res.writeHead(200, { "Content-Type": "text/plain" });
+                res.end("released target");
                 return;
             }
             if (req.url === "/edited") {
@@ -121,6 +129,19 @@ function startTargetServer() {
             res.end("not found");
         });
     });
+}
+
+function armTargetBarrier() {
+    let arrive;
+    let release;
+    const arrived = new Promise((resolve) => {
+        arrive = resolve;
+    });
+    const wait = new Promise((resolve) => {
+        release = resolve;
+    });
+    targetBarrier = { arrive, arrived, release, wait };
+    return targetBarrier;
 }
 
 function startProxyServer() {
@@ -401,6 +422,43 @@ afterAll(async () => {
 });
 
 describe("monitor lifecycle over the production WebSocket transport", () => {
+    test("delete waits for an in-flight heartbeat and prevents stale writes", async () => {
+        const barrier = armTargetBarrier();
+        const logMark = appLogs.length;
+        const eventMark = realtime.mark();
+        const proxy = await realtime.request(
+            "addProxy",
+            { protocol: "http", host: "127.0.0.1", port: proxyServer.address().port, auth: false, active: true },
+            null
+        );
+        const created = await realtime.request(
+            "add",
+            monitorPayload({ url: `${targetUrl}/barrier`, proxyId: proxy.id })
+        );
+        let deletion;
+        try {
+            expect(created.ok).toBe(true);
+            await withTimeout(barrier.arrived, 5_000, "barrier heartbeat did not start");
+
+            deletion = realtime.request("deleteMonitor", created.monitorID, false);
+            expect((await realtime.request("getMonitor", created.monitorID)).ok).toBe(true);
+        } finally {
+            barrier.release();
+        }
+
+        expect((await deletion).ok).toBe(true);
+        expect((await realtime.request("getMonitor", created.monitorID)).ok).toBe(false);
+        expect(
+            realtime.events
+                .slice(eventMark)
+                .some((item) => item.event === "heartbeat" && item.args[0].monitorID === created.monitorID)
+        ).toBe(false);
+        expect(appLogs.slice(logMark).join("")).not.toMatch(
+            /SQLITE_CONSTRAINT_FOREIGNKEY|FOREIGN KEY constraint failed/
+        );
+        targetBarrier = null;
+    }, 15_000);
+
     test("create, heartbeat, edit, HTTP contracts, pause/resume, reload, and delete", async () => {
         const proxy = await realtime.request(
             "addProxy",

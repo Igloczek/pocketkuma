@@ -629,7 +629,7 @@ export default {
     mounted() {
         this.getImportantHeartbeatListLength();
 
-        this.$root.emitter.addEventListener("newImportantHeartbeat", this.onNewImportantHeartbeat);
+        this.$root.emitter.on("newImportantHeartbeat", this.onNewImportantHeartbeat);
 
         if (this.monitor && this.monitor.type === "push") {
             if (this.lastHeartBeat.status === -1) {
@@ -640,7 +640,7 @@ export default {
     },
 
     beforeUnmount() {
-        this.$root.emitter.removeEventListener("newImportantHeartbeat", this.onNewImportantHeartbeat);
+        this.$root.emitter.off("newImportantHeartbeat", this.onNewImportantHeartbeat);
     },
 
     methods: {
@@ -835,9 +835,8 @@ export default {
          * @param {object} heartbeat - The heartbeat object received.
          * @returns {void}
          */
-        onNewImportantHeartbeat(event) {
-            const heartbeat = event.detail;
-            if (heartbeat.monitorID === this.monitor?.id) {
+        onNewImportantHeartbeat(heartbeat) {
+            if (heartbeat?.monitorID === this.monitor?.id) {
                 if (this.page === 1) {
                     this.displayedRecords.unshift(heartbeat);
                     if (this.displayedRecords.length > this.perPage) {

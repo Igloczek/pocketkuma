@@ -406,9 +406,12 @@ class Monitor extends BeanModel {
     async start(io) {
         this.clearHeartbeatTimer();
         this.isStop = false;
+        const generation = (this.heartbeatGeneration || 0) + 1;
+        this.heartbeatGeneration = generation;
 
         let previousBeat = null;
         let retries = 0;
+        const isStale = () => this.isStop || this.heartbeatGeneration !== generation;
 
         this.rootCertificates = rootCertificates;
 
@@ -419,6 +422,9 @@ class Monitor extends BeanModel {
         }
 
         const beat = async () => {
+            if (isStale()) {
+                return;
+            }
             let beatInterval = this.interval;
 
             if (!beatInterval) {
@@ -883,6 +889,10 @@ class Monitor extends BeanModel {
 
             bean.retries = retries;
 
+            if (isStale()) {
+                return;
+            }
+
             log.debug("monitor", `[${this.name}] Check isImportant`);
             let isImportant = Monitor.isImportantBeat(isFirstBeat, previousBeat?.status, bean.status);
 
@@ -928,6 +938,10 @@ class Monitor extends BeanModel {
                 }
             }
 
+            if (isStale()) {
+                return;
+            }
+
             if (bean.status !== MAINTENANCE && Boolean(this.domainExpiryNotification)) {
                 try {
                     const supportInfo = await DomainExpiry.checkSupport(this);
@@ -951,6 +965,10 @@ class Monitor extends BeanModel {
                         );
                     }
                 }
+            }
+
+            if (isStale()) {
+                return;
             }
 
             if (bean.status === UP) {
@@ -980,6 +998,10 @@ class Monitor extends BeanModel {
             let endTimeDayjs = await uptimeCalculator.update(bean.status, parseFloat(bean.ping));
             bean.end_time = R.isoDateTimeMillis(endTimeDayjs);
 
+            if (isStale()) {
+                return;
+            }
+
             // Send to frontend
             log.debug("monitor", `[${this.name}] Send to socket`);
             io.to(this.user_id).emit("heartbeat", bean.toJSON());
@@ -997,7 +1019,7 @@ class Monitor extends BeanModel {
 
             previousBeat = bean;
 
-            if (!this.isStop) {
+            if (!isStale()) {
                 log.debug("monitor", `[${this.name}] SetTimeout for next check.`);
 
                 let intervalRemainingMs = Math.max(1, beatInterval * 1000 - dayjs().diff(dayjs.utc(bean.time)));
@@ -1014,19 +1036,30 @@ class Monitor extends BeanModel {
          * Get a heartbeat and handle errors7
          * @returns {void}
          */
-        const safeBeat = async () => {
-            try {
-                await beat();
-            } catch (e) {
-                console.trace(e);
-                PocketKumaServer.errorLog(e, false);
-                log.error("monitor", "Please report to https://github.com/Igloczek/pocketkuma/issues");
+        const safeBeat = () => {
+            const activeHeartbeat = (async () => {
+                try {
+                    await beat();
+                } catch (e) {
+                    if (isStale()) {
+                        return;
+                    }
+                    console.trace(e);
+                    PocketKumaServer.errorLog(e, false);
+                    log.error("monitor", "Please report to https://github.com/Igloczek/pocketkuma/issues");
 
-                if (!this.isStop) {
-                    log.info("monitor", "Try to restart the monitor");
-                    this.scheduleHeartbeat(safeBeat, this.interval * 1000);
+                    if (!isStale()) {
+                        log.info("monitor", "Try to restart the monitor");
+                        this.scheduleHeartbeat(safeBeat, this.interval * 1000);
+                    }
                 }
-            }
+            })();
+            this.activeHeartbeat = activeHeartbeat;
+            return activeHeartbeat.finally(() => {
+                if (this.activeHeartbeat === activeHeartbeat) {
+                    this.activeHeartbeat = null;
+                }
+            });
         };
 
         // Delay Push Type
@@ -1156,6 +1189,11 @@ class Monitor extends BeanModel {
     async stop() {
         this.clearHeartbeatTimer();
         this.isStop = true;
+        this.heartbeatGeneration = (this.heartbeatGeneration || 0) + 1;
+
+        if (this.activeHeartbeat) {
+            await this.activeHeartbeat;
+        }
 
         this.prometheus?.remove();
     }
