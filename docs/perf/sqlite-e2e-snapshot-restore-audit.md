@@ -116,8 +116,11 @@ false stop; that duration is governed by the monitor request and its configured 
 
 ## Residual limits
 
-- An in-flight protocol check that does not finish immediately can delay pause, delete, shutdown, or E2E restore up
-  to its existing monitor timeout. No cross-protocol abort layer was added.
+- An in-flight protocol check can still delay pause, delete, shutdown, or E2E restore until its configured timeout or
+  finite phase bounds are reached and cleanup finishes. As of `2045324b`, provider-specific deadlines and cleanup
+  prevent the audited network/process operations from waiting without a bound; see the
+  [monitor provider deadline and cleanup audit](./monitor-provider-deadline-audit.md). This does not change the
+  historical snapshot measurements above.
 - Snapshot restore is test harness behavior. It is neither exposed by the production executable nor a replacement
   for an operator-managed SQLite backup and restore procedure.
 - Restoring an older snapshot also restores its session rows and JWT secret. A browser holding a newer session must
