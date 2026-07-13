@@ -39,11 +39,6 @@ export async function login(username, password) {
 
     let user = await R.findOne("user", "TRIM(username) = ? AND active = 1 ", [username.trim()]);
 
-    if (user) {
-        if (process.env.POCKETKUMA_AUTH_HASH_TRACE === "1") {
-            console.log("auth-password-verify");
-        }
-    }
     if (user && (await passwordHash.verify(password, user.password))) {
         // Upgrade legacy or non-native password hashes after successful login.
         if (passwordHash.needRehash(user.password)) {
@@ -79,9 +74,6 @@ async function verifyAPIKey(key) {
         return null;
     }
 
-    if (process.env.POCKETKUMA_AUTH_HASH_TRACE === "1") {
-        console.log("auth-api-key-verify");
-    }
     return (await passwordHash.verify(parsed.secret, hash.key)) ? hash : null;
 }
 
@@ -91,10 +83,10 @@ async function verifyAPIKey(key) {
  * @param {string} password Password to login with
  * @returns {Promise<number|null>} User ID when authorized
  */
-async function authorizeUser(username, password) {
+async function authorizeUser(username, password, source) {
     const rateLimitKey = typeof username === "string" ? username.trim().toLowerCase() : "invalid";
     // Login Rate Limit
-    const pass = await loginRateLimiter.pass(null, 1, rateLimitKey);
+    const pass = await loginRateLimiter.pass(null, 1, rateLimitKey, source);
     if (!pass) {
         log.warn("basic-auth", "Failed basic auth attempt: rate limit exceeded");
         return null;
@@ -115,10 +107,10 @@ async function authorizeUser(username, password) {
  * @param {string} password API key from the password field
  * @returns {Promise<number|null>} API key owner ID when authorized
  */
-async function authorizeAPIKey(password) {
+async function authorizeAPIKey(password, source) {
     const parsed = parseAPIKey(password);
     const rateLimitKey = parsed ? `api-key:${parsed.id}` : "invalid";
-    const pass = await apiRateLimiter.pass(null, 1, rateLimitKey);
+    const pass = await apiRateLimiter.pass(null, 1, rateLimitKey, source);
     if (!pass) {
         log.warn("api-auth", "Failed API auth attempt: rate limit exceeded");
         return null;
@@ -127,6 +119,8 @@ async function authorizeAPIKey(password) {
     const key = await verifyAPIKey(password);
     if (!key) {
         log.warn("api-auth", "Failed API auth attempt: invalid API Key");
+    } else {
+        apiRateLimiter.reset(rateLimitKey);
     }
     // Only allow a set number of api requests per minute (currently set to 60).
     return key?.user_id ?? null;
@@ -198,9 +192,9 @@ export async function authenticateBasicAuthRequest(request, options = {}) {
 
     let userID;
     if (options.apiKeys && (await Settings.get("apiKeysEnabled"))) {
-        userID = await authorizeAPIKey(credentials.password);
+        userID = await authorizeAPIKey(credentials.password, options.source);
     } else {
-        userID = await authorizeUser(credentials.username, credentials.password);
+        userID = await authorizeUser(credentials.username, credentials.password, options.source);
     }
 
     return userID === null

@@ -315,7 +315,7 @@ let needSetup = false;
 
             const rateLimitKey = typeof data.username === "string" ? data.username.trim().toLowerCase() : "invalid";
             // Login Rate Limit
-            if (!(await loginRateLimiter.pass(callback, 1, rateLimitKey))) {
+            if (!(await loginRateLimiter.pass(callback, 1, rateLimitKey, clientIP))) {
                 log.info("auth", `Too many failed requests for user ${data.username}. IP=${clientIP}`);
                 return;
             }
@@ -616,9 +616,6 @@ let needSetup = false;
                         );
                     }
 
-                    if (process.env.POCKETKUMA_SETUP_HASH_TRACE === "1") {
-                        console.log("setup-password-hash");
-                    }
                     const hashedPassword = await passwordHash.generate(password);
                     const inserted = await R.getRow(
                         `

@@ -163,6 +163,7 @@ export default {
     data() {
         return {
             model: null,
+            modalShowing: false,
             processing: false,
             id: null,
             proxy: {
@@ -180,6 +181,8 @@ export default {
     },
     mounted() {
         this.modal = new Modal(this.$refs.modal);
+        this.$refs.modal.addEventListener("show.bs.modal", () => (this.modalShowing = true));
+        this.$refs.modal.addEventListener("shown.bs.modal", () => (this.modalShowing = false));
     },
     beforeUnmount() {
         this.cleanupModal();
@@ -270,7 +273,7 @@ export default {
                 this.processing = false;
 
                 if (res.ok) {
-                    this.modal.hide();
+                    this.hideModal();
 
                     // Emit added event, doesn't emit edit.
                     if (!this.id) {
@@ -291,23 +294,34 @@ export default {
                 this.processing = false;
 
                 if (res.ok) {
-                    this.modal.hide();
+                    this.hideModal();
                 }
             });
         },
 
         /**
-         * Clean up modal and restore scroll behavior
+         * Hide a modal after an in-progress show transition has completed.
+         * @returns {void}
+         */
+        hideModal() {
+            if (!this.modal) {
+                return;
+            }
+
+            if (this.modalShowing) {
+                this.$refs.modal.addEventListener("shown.bs.modal", () => this.modal.hide(), { once: true });
+            } else {
+                this.modal.hide();
+            }
+        },
+
+        /**
+         * Dispose the Bootstrap instance when this component is removed.
          * @returns {void}
          */
         cleanupModal() {
-            if (this.modal) {
-                try {
-                    this.modal.hide();
-                } catch (e) {
-                    console.warn("Modal hide failed:", e);
-                }
-            }
+            this.hideModal();
+            this.modal?.dispose();
         },
     },
 };

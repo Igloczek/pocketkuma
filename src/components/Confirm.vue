@@ -53,9 +53,12 @@ export default {
     emits: ["yes", "no"],
     data: () => ({
         modal: null,
+        modalShowing: false,
     }),
     mounted() {
         this.modal = new Modal(this.$refs.modal);
+        this.$refs.modal.addEventListener("show.bs.modal", () => (this.modalShowing = true));
+        this.$refs.modal.addEventListener("shown.bs.modal", () => (this.modalShowing = false));
     },
     beforeUnmount() {
         if (this.modal) {
@@ -104,7 +107,7 @@ export default {
                 { once: true }
             );
 
-            if (this.modal._isTransitioning) {
+            if (this.modalShowing) {
                 this.$refs.modal.addEventListener("shown.bs.modal", hide, { once: true });
             } else {
                 hide();

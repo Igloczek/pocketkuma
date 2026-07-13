@@ -6,7 +6,7 @@ import net from "node:net";
 import jwt from "@/server/jwt";
 import passwordHash from "@/server/password-hash";
 import { verify as verifyTotp, encodeSecretForUri } from "@/server/totp";
-import { KumaRateLimiter, TokenBucket } from "@/server/rate-limiter";
+import { CredentialRateLimiter, KumaRateLimiter, TokenBucket } from "@/server/rate-limiter";
 
 const PASSWORD_DIVERSITY_PATTERNS = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/];
 const PASSWORD_STRENGTH_LEVELS = [
@@ -240,8 +240,95 @@ describe("token bucket rate limiter", () => {
         }
         expect(bounded.rateLimiters.size).toBe(100);
         expect(bounded.rateLimiters.has("overflow")).toBe(false);
-        bounded.reset("identity-149");
+        bounded.reset("identity-0");
         expect(bounded.rateLimiters.size).toBe(99);
+    });
+
+    test("keeps a rate-limited identity through adversarial identity churn", async () => {
+        const limiter = new KumaRateLimiter({
+            tokensPerInterval: 20,
+            interval: "minute",
+            fireImmediately: true,
+            errorMessage: "limited",
+        });
+
+        for (let index = 0; index < 21; index++) {
+            await limiter.pass(null, 1, "admin");
+        }
+        expect(await limiter.pass(null, 0, "admin")).toBe(false);
+
+        for (let index = 0; index < 1001; index++) {
+            await limiter.pass(null, 1, `churn-${index}`);
+        }
+
+        expect(limiter.rateLimiters.size).toBeLessThanOrEqual(100);
+        expect(await limiter.pass(null, 1, "admin")).toBe(false);
+    });
+
+    test("throttles a late identity after protected capacity is full", async () => {
+        const limiter = new CredentialRateLimiter({
+            tokensPerInterval: 3,
+            sourceTokensPerInterval: 3,
+            interval: "minute",
+            maxBuckets: 3,
+            fireImmediately: true,
+            errorMessage: "limited",
+        });
+
+        for (let identity = 0; identity < 3; identity++) {
+            await limiter.identity.removeTokens(3, `blocked-${identity}`);
+        }
+        expect(limiter.identity.rateLimiters.size).toBe(3);
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+            await limiter.pass(null, 1, "late-admin", "origin-a");
+        }
+        expect(await limiter.pass(null, 1, "late-admin", "origin-a")).toBe(false);
+        expect(limiter.identity.rateLimiters.size).toBe(3);
+    });
+
+    test("does not reset a late victim's source admission after another identity succeeds", async () => {
+        const limiter = new CredentialRateLimiter({
+            tokensPerInterval: 3,
+            sourceTokensPerInterval: 3,
+            interval: "minute",
+            maxBuckets: 3,
+            fireImmediately: true,
+            errorMessage: "limited",
+        });
+
+        for (let identity = 0; identity < 3; identity++) {
+            await limiter.identity.removeTokens(3, `blocked-${identity}`);
+        }
+        for (let attempt = 0; attempt < 3; attempt++) {
+            expect(await limiter.pass(null, 1, "late-admin", "origin-a")).toBe(true);
+        }
+        expect(await limiter.pass(null, 1, "late-admin", "origin-a")).toBe(false);
+
+        limiter.reset("attacker-owned-account", "origin-a");
+        expect(await limiter.pass(null, 1, "late-admin", "origin-a")).toBe(false);
+        expect(limiter.identity.rateLimiters.size).toBe(3);
+    });
+
+    test("throttles a late identity across many sources after protected capacity is full", async () => {
+        const limiter = new CredentialRateLimiter({
+            tokensPerInterval: 3,
+            sourceTokensPerInterval: 100,
+            interval: "minute",
+            maxBuckets: 3,
+            fireImmediately: true,
+            errorMessage: "limited",
+        });
+
+        for (let identity = 0; identity < 3; identity++) {
+            await limiter.identity.removeTokens(3, `blocked-${identity}`);
+        }
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+            expect(await limiter.pass(null, 1, "late-api-key:77", `origin-${attempt}`)).toBe(true);
+        }
+        expect(await limiter.pass(null, 1, "late-api-key:77", "origin-99")).toBe(false);
+        expect(limiter.identity.rateLimiters.size).toBe(3);
     });
 });
 

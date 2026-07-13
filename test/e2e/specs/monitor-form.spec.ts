@@ -60,6 +60,12 @@ function collectSentSocketEvents(page) {
     return events;
 }
 
+async function expectBootstrapModalCleanup(page) {
+    await expect(page.locator(".modal.show")).toHaveCount(0);
+    await expect(page.locator(".modal-backdrop")).toHaveCount(0);
+    await expect(page.locator("body")).not.toHaveClass(/modal-open/);
+}
+
 test.describe("Monitor Form", () => {
     let dnsFixture;
 
@@ -212,6 +218,7 @@ test.describe("Monitor Form", () => {
         await proxyModal.locator("#mark-active").check();
         await proxyModal.getByRole("button", { name: "Save" }).click();
         await expect(proxyModal).toBeHidden();
+        await expectBootstrapModalCleanup(page);
 
         await page.goto("./add");
         await selectMonitorType(page, "http");
