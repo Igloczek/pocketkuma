@@ -13,7 +13,13 @@ import {
     normalizeMonitorColumnValue,
 } from "@/db/schema/column-metadata";
 import { expectedTableColumns } from "@/db/schema/expected-schema";
-import { addColumnIfMissing as addSchemaColumnIfMissing, runPendingUpgrades } from "@/server/db-migrations";
+import {
+    addColumnIfMissing as addSchemaColumnIfMissing,
+    columnExists as schemaColumnExists,
+    createIndexIfMissing as createSchemaIndexIfMissing,
+    runPendingUpgrades,
+    tableExists as schemaTableExists,
+} from "@/server/db-migrations";
 import APIKey from "@/server/model/api_key";
 import DomainExpiry from "@/server/model/domain_expiry";
 import Group from "@/server/model/group";
@@ -213,14 +219,37 @@ function conditionSql(condition) {
 }
 
 class BunSQLiteRedbean {
-    db = null;
+    #db = null;
+    #databaseFactory;
+    #poisonError = null;
     sqlitePath = null;
     dbConfig = { type: "sqlite" };
     #transactionOwner = null;
     #transactionQueue = [];
     #processingQueue = false;
 
+    constructor({ databaseFactory = (sqlitePath, options) => new BunDatabase(sqlitePath, options) } = {}) {
+        this.#databaseFactory = databaseFactory;
+    }
+
+    isOpen() {
+        return this.#db !== null;
+    }
+
+    #database() {
+        if (this.#poisonError) {
+            throw this.#poisonError;
+        }
+        if (!this.#db) {
+            throw new Error("SQLite database is closed");
+        }
+        return this.#db;
+    }
+
     async connect({ sqlitePath, templatePath, testMode = false }) {
+        if (this.#poisonError) {
+            throw this.#poisonError;
+        }
         this.sqlitePath = sqlitePath;
         this.dbConfig = { type: "sqlite" };
         if (!fs.existsSync(sqlitePath)) {
@@ -229,27 +258,64 @@ class BunSQLiteRedbean {
             fs.writeFileSync(sqlitePath, fs.readFileSync(templatePath));
         }
 
-        this.db = new BunDatabase(sqlitePath, { create: true, strict: true });
-        this.db.run(testMode ? "PRAGMA journal_mode = MEMORY" : "PRAGMA journal_mode = WAL");
-        this.db.run("PRAGMA foreign_keys = ON");
-        this.db.run("PRAGMA cache_size = -12000");
-        this.db.run("PRAGMA auto_vacuum = INCREMENTAL");
-        this.db.run("PRAGMA busy_timeout = 5000");
-        this.db.run("PRAGMA synchronous = NORMAL");
-        await runPendingUpgrades(this);
+        this.#db = this.#databaseFactory(sqlitePath, { create: true, strict: true });
+        const db = this.#database();
+        db.run(testMode ? "PRAGMA journal_mode = MEMORY" : "PRAGMA journal_mode = WAL");
+        db.run("PRAGMA foreign_keys = ON");
+        db.run("PRAGMA cache_size = -12000");
+        db.run("PRAGMA auto_vacuum = INCREMENTAL");
+        db.run("PRAGMA busy_timeout = 5000");
+        db.run("PRAGMA synchronous = NORMAL");
+        const migration = this.#createSchemaMigrationHandle();
+        try {
+            await runPendingUpgrades(this, migration.handle);
+        } finally {
+            migration.finish();
+        }
+    }
+
+    #createSchemaMigrationHandle() {
+        let active = true;
+        const run = (operation) => {
+            if (!active) {
+                throw new Error("Schema migration has finished");
+            }
+            return operation(this.#database());
+        };
+        return {
+            handle: {
+                exec: (sql, params = []) => run((db) => db.query(normalizeSql(sql)).run(...params)),
+                hasTable: (table) => run((db) => schemaTableExists(db, table)),
+                hasColumn: (table, column) => run((db) => schemaColumnExists(db, table, column)),
+                addColumnIfMissing: (table, column, type) =>
+                    run((db) => addSchemaColumnIfMissing(db, table, column, type)),
+                createIndexIfMissing: (sql, indexName) => run((db) => createSchemaIndexIfMissing(db, sql, indexName)),
+            },
+            finish: () => {
+                active = false;
+            },
+        };
     }
 
     async addColumnIfMissing(table, column, type) {
-        return this.#runDatabaseOperation(null, () => addSchemaColumnIfMissing(this.db, table, column, type));
+        return this.#runDatabaseOperation(null, () => addSchemaColumnIfMissing(this.#database(), table, column, type));
     }
 
     async close() {
-        return this.#runDatabaseOperation(null, () => {
-            if (this.db) {
-                this.db.close();
-                this.db = null;
+        if (!this.#db) {
+            return;
+        }
+        try {
+            return await this.#runDatabaseOperation(null, () => {
+                const db = this.#db;
+                this.#db = null;
+                db?.close();
+            });
+        } catch (error) {
+            if (error !== this.#poisonError) {
+                throw error;
             }
-        });
+        }
     }
 
     dispense(table) {
@@ -294,7 +360,7 @@ class BunSQLiteRedbean {
                         throw error;
                     }
                     for (const column of columns) {
-                        addSchemaColumnIfMissing(this.db, table, column);
+                        addSchemaColumnIfMissing(this.#database(), table, column);
                     }
                     this.#exec(`UPDATE "${table}" SET ${assignments} WHERE id = ?`, [
                         ...columns.map((column) => row[column]),
@@ -306,7 +372,7 @@ class BunSQLiteRedbean {
         }
 
         if (columns.length === 0) {
-            const result = this.db.query(`INSERT INTO "${table}" DEFAULT VALUES`).run();
+            const result = this.#database().query(`INSERT INTO "${table}" DEFAULT VALUES`).run();
             bean.id = Number(result.lastInsertRowid);
             return bean.id;
         }
@@ -314,7 +380,7 @@ class BunSQLiteRedbean {
         const placeholders = columns.map(() => "?").join(", ");
         let result;
         try {
-            result = this.db
+            result = this.#database()
                 .query(
                     `INSERT INTO "${table}" (${columns.map((column) => `"${column}"`).join(", ")}) VALUES (${placeholders})`
                 )
@@ -324,9 +390,9 @@ class BunSQLiteRedbean {
                 throw error;
             }
             for (const column of columns) {
-                addSchemaColumnIfMissing(this.db, table, column);
+                addSchemaColumnIfMissing(this.#database(), table, column);
             }
-            result = this.db
+            result = this.#database()
                 .query(
                     `INSERT INTO "${table}" (${columns.map((column) => `"${column}"`).join(", ")}) VALUES (${placeholders})`
                 )
@@ -356,12 +422,16 @@ class BunSQLiteRedbean {
     }
 
     #exec(sql, params = []) {
-        this.db.query(normalizeSql(sql)).run(...params);
+        this.#database()
+            .query(normalizeSql(sql))
+            .run(...params);
     }
 
     #getAll(sql, params = []) {
         try {
-            return this.db.query(normalizeSql(sql)).all(...params);
+            return this.#database()
+                .query(normalizeSql(sql))
+                .all(...params);
         } catch (error) {
             if (String(error.message).includes("no such table")) {
                 return [];
@@ -372,7 +442,11 @@ class BunSQLiteRedbean {
 
     #getRow(sql, params = []) {
         try {
-            return this.db.query(normalizeSql(sql)).get(...params) || null;
+            return (
+                this.#database()
+                    .query(normalizeSql(sql))
+                    .get(...params) || null
+            );
         } catch (error) {
             if (String(error.message).includes("no such table")) {
                 return null;
@@ -468,6 +542,9 @@ class BunSQLiteRedbean {
     }
 
     #runDatabaseOperation(owner, operation) {
+        if (this.#poisonError) {
+            throw this.#poisonError;
+        }
         if (owner !== null) {
             if (owner !== this.#transactionOwner) {
                 throw new Error("Transaction has finished");
@@ -486,6 +563,10 @@ class BunSQLiteRedbean {
     }
 
     #drainTransactionQueue() {
+        if (this.#poisonError) {
+            this.#rejectTransactionQueue(this.#poisonError);
+            return;
+        }
         if (this.#transactionOwner || this.#processingQueue) {
             return;
         }
@@ -499,7 +580,7 @@ class BunSQLiteRedbean {
             const owner = Symbol("sqlite-transaction");
             this.#transactionOwner = owner;
             try {
-                this.db.run("BEGIN");
+                this.#database().run("BEGIN");
                 item.resolve(this.#createTransaction(owner));
             } catch (error) {
                 this.#transactionOwner = null;
@@ -519,6 +600,26 @@ class BunSQLiteRedbean {
             });
     }
 
+    #rejectTransactionQueue(error) {
+        for (const item of this.#transactionQueue.splice(0)) {
+            item.reject(error);
+        }
+    }
+
+    #quarantine(error) {
+        const db = this.#db;
+        this.#db = null;
+        this.#transactionOwner = null;
+        let cause = error;
+        try {
+            db?.close();
+        } catch (closeError) {
+            cause = new AggregateError([error, closeError], "SQLite transaction and connection close failed");
+        }
+        this.#poisonError = new Error("SQLite store is quarantined after transaction rollback failure", { cause });
+        this.#rejectTransactionQueue(this.#poisonError);
+    }
+
     #createTransaction(owner) {
         let finished = false;
         const run = (operation) => {
@@ -534,22 +635,37 @@ class BunSQLiteRedbean {
             if (owner !== this.#transactionOwner) {
                 throw new Error("Transaction has finished");
             }
-            finished = true;
-            try {
-                this.db.run(command);
-            } catch (error) {
-                if (command === "COMMIT") {
-                    try {
-                        this.db.run("ROLLBACK");
-                    } catch {}
-                }
-                throw error;
-            } finally {
+            const release = () => {
                 if (owner === this.#transactionOwner) {
                     this.#transactionOwner = null;
                     this.#drainTransactionQueue();
                 }
+            };
+            try {
+                this.#database().run(command);
+                finished = true;
+            } catch (primaryError) {
+                if (command === "COMMIT") {
+                    try {
+                        this.#database().run("ROLLBACK");
+                        finished = true;
+                    } catch (rollbackError) {
+                        finished = true;
+                        const error = new AggregateError(
+                            [primaryError, rollbackError],
+                            "SQLite COMMIT and ROLLBACK failed"
+                        );
+                        this.#quarantine(error);
+                        throw error;
+                    }
+                    release();
+                } else {
+                    finished = true;
+                    this.#quarantine(primaryError);
+                }
+                throw primaryError;
             }
+            release();
         };
         return {
             exec: async (sql, params = []) => run(() => this.#exec(sql, params)),
@@ -567,6 +683,10 @@ class BunSQLiteRedbean {
     }
 
     async begin() {
+        if (this.#poisonError) {
+            throw this.#poisonError;
+        }
+        this.#database();
         return new Promise((resolve, reject) => {
             this.#transactionQueue.push({ type: "transaction", resolve, reject });
             this.#drainTransactionQueue();

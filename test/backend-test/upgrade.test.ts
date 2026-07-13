@@ -208,3 +208,70 @@ describe("Fresh Buna template", () => {
         expect(await store.count("notification")).toBe(0);
     });
 });
+
+describe("Upgrade transaction recovery", () => {
+    test("rolls back when the first data-phase statement fails and remains usable", async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-upgrade-first-error-"));
+        const dbPath = path.join(dir, "kuma.db");
+        loadSqlFixture(dbPath, fs.readFileSync(baselineFixturePath, "utf8"));
+        let insideTransaction = false;
+        let failFirstDataStatement = true;
+        const store = new BunSQLiteRedbean({
+            databaseFactory(sqlitePath, options) {
+                const db = new BunDatabase(sqlitePath, options);
+                return {
+                    query(sql) {
+                        const statement = db.query(sql);
+                        return new Proxy(statement, {
+                            get(target, property) {
+                                if (property === "run") {
+                                    return (...params) => {
+                                        if (
+                                            insideTransaction &&
+                                            failFirstDataStatement &&
+                                            /^\s*UPDATE status_page SET analytics_type/.test(sql)
+                                        ) {
+                                            failFirstDataStatement = false;
+                                            throw new Error("forced first upgrade data statement failure");
+                                        }
+                                        return target.run(...params);
+                                    };
+                                }
+                                const value = Reflect.get(target, property, target);
+                                return typeof value === "function" ? value.bind(target) : value;
+                            },
+                        });
+                    },
+                    run(sql, ...params) {
+                        const result = db.run(sql, ...params);
+                        if (sql === "BEGIN") {
+                            insideTransaction = true;
+                        } else if (sql === "COMMIT" || sql === "ROLLBACK") {
+                            insideTransaction = false;
+                        }
+                        return result;
+                    },
+                    close: db.close.bind(db),
+                };
+            },
+        });
+
+        try {
+            await expect(
+                store.connect({
+                    sqlitePath: dbPath,
+                    templatePath: dbPath,
+                    testMode: true,
+                })
+            ).rejects.toThrow("forced first upgrade data statement failure");
+            expect(store.isOpen()).toBe(true);
+            await expect(store.getCell("SELECT 1")).resolves.toBe(1);
+            const transaction = await store.begin();
+            await expect(transaction.rollback()).resolves.toBeUndefined();
+            expect(await getBunaSchemaVersion(store)).toBeNull();
+        } finally {
+            await store.close();
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    });
+});

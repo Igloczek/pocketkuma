@@ -421,7 +421,7 @@ class PocketKumaServer {
      * @returns {Promise<void>}
      */
     async stop() {
-        if (!R.db) {
+        if (!R.isOpen()) {
             return;
         }
 

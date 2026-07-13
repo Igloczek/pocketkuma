@@ -26,8 +26,16 @@ export const LATEST_BUNA_SCHEMA_VERSION = 1;
 interface SchemaUpgrade {
     version: number;
     name: string;
-    runSchema?: (store: BunSQLiteRedbean) => Promise<void>;
+    runSchema?: (migration: SchemaMigration) => Promise<void>;
     runData?: (store: BunSQLiteRedbean) => Promise<void>;
+}
+
+export interface SchemaMigration {
+    exec(sql: string, params?: unknown[]): unknown;
+    hasTable(table: string): boolean;
+    hasColumn(table: string, column: string): boolean;
+    addColumnIfMissing(table: string, column: string, type?: string): boolean;
+    createIndexIfMissing(sql: string, indexName: string): boolean;
 }
 
 const upgrades: SchemaUpgrade[] = [
@@ -73,7 +81,7 @@ export async function resolveCurrentSchemaVersion(store: BunSQLiteRedbean) {
     return 0;
 }
 
-export async function runPendingUpgrades(store: BunSQLiteRedbean) {
+export async function runPendingUpgrades(store: BunSQLiteRedbean, migration: SchemaMigration) {
     let currentVersion = await resolveCurrentSchemaVersion(store);
 
     for (const upgrade of upgrades) {
@@ -85,7 +93,7 @@ export async function runPendingUpgrades(store: BunSQLiteRedbean) {
 
         if (upgrade.runSchema) {
             log.debug("db", `Applying schema phase for ${upgrade.name} (DDL auto-commits in SQLite)`);
-            await upgrade.runSchema(store);
+            await upgrade.runSchema(migration);
         }
 
         const transaction: any = await store.begin();

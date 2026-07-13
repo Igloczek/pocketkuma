@@ -10,7 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Maintenance from "@/server/model/maintenance";
-import { R } from "@/server/bun-sqlite-store";
+import { BunSQLiteRedbean, R } from "@/server/bun-sqlite-store";
 import { cachedResponse, clearResponseCache, textResponse } from "@/server/bun-response";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { maintenanceSocketHandler } from "@/server/socket-handlers/maintenance-socket-handler";
@@ -22,6 +22,7 @@ describe("maintenance validation and timer lifecycle", () => {
     const originalClearTimeout = global.clearTimeout;
     const originalBegin = R.begin;
     const originalStore = R.store;
+    const originalFindOne = R.findOne;
     const originalSendMaintenanceList = PocketKumaServer.getInstance().sendMaintenanceList;
     const originalSendMaintenanceListByUserID = PocketKumaServer.getInstance().sendMaintenanceListByUserID;
     const originalGetTimezone = PocketKumaServer.getInstance().getTimezone;
@@ -30,6 +31,7 @@ describe("maintenance validation and timer lifecycle", () => {
         global.clearTimeout = originalClearTimeout;
         R.begin = originalBegin;
         R.store = originalStore;
+        R.findOne = originalFindOne;
         PocketKumaServer.getInstance().sendMaintenanceList = originalSendMaintenanceList;
         PocketKumaServer.getInstance().sendMaintenanceListByUserID = originalSendMaintenanceListByUserID;
         PocketKumaServer.getInstance().getTimezone = originalGetTimezone;
@@ -567,9 +569,101 @@ describe("maintenance validation and timer lifecycle", () => {
         }
     });
 
+    test("rolls back when addMaintenance fails on its first transaction operation", async () => {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-add-first-error-"));
+        const store = new BunSQLiteRedbean();
+        const originalBeginForTest = R.begin;
+        await store.connect({
+            sqlitePath: path.join(directory, "kuma.db"),
+            templatePath: path.join(process.cwd(), "src/db/kuma.db"),
+            testMode: true,
+        });
+        R.begin = async () => {
+            const transaction = await store.begin();
+            transaction.store = async () => {
+                throw new Error("forced first add operation failure");
+            };
+            return transaction;
+        };
+
+        try {
+            const handlers = new Map();
+            maintenanceSocketHandler({
+                userID: 1,
+                on(event, handler) {
+                    handlers.set(event, handler);
+                },
+            });
+            const callbacks = [];
+            await handlers.get("addMaintenance")(schedule("manual", { timezoneOption: "UTC" }), (result) =>
+                callbacks.push(result)
+            );
+
+            expect(callbacks).toEqual([{ ok: false, msg: "forced first add operation failure" }]);
+            await expect(store.getCell("SELECT 1")).resolves.toBe(1);
+        } finally {
+            R.begin = originalBeginForTest;
+            await store.close();
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
+    test("rolls back when relation replacement fails on its first transaction operation", async () => {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-relation-first-error-"));
+        const store = new BunSQLiteRedbean();
+        const server = PocketKumaServer.getInstance();
+        const previousMaintenanceList = server.maintenanceList;
+        const originalBeginForTest = R.begin;
+        await store.connect({
+            sqlitePath: path.join(directory, "kuma.db"),
+            templatePath: path.join(process.cwd(), "src/db/kuma.db"),
+            testMode: true,
+        });
+        await store.exec("INSERT INTO user (id, username, password, active) VALUES (1, 'owner', 'hash', 1)");
+        await store.exec(
+            "INSERT INTO monitor (id, name, type, url, interval, retry_interval, accepted_statuscodes_json, user_id) VALUES (2, 'Monitor', 'http', 'http://127.0.0.1', 60, 20, '[\"200-299\"]', 1)"
+        );
+        await store.exec(
+            "INSERT INTO maintenance (id, title, description, user_id, active, strategy) VALUES (1, 'Window', '', 1, 1, 'manual')"
+        );
+        await store.exec("INSERT INTO monitor_maintenance (monitor_id, maintenance_id) VALUES (2, 1)");
+        await store.exec(`
+            CREATE TRIGGER reject_first_relation_delete
+            BEFORE DELETE ON monitor_maintenance
+            BEGIN
+                SELECT RAISE(ABORT, 'forced first relation operation failure');
+            END
+        `);
+        server.maintenanceList = { 1: { id: 1, user_id: 1 } };
+        R.findOne = async () => ({ id: 2, user_id: 1 });
+        R.begin = store.begin.bind(store);
+
+        try {
+            const handlers = new Map();
+            maintenanceSocketHandler({
+                userID: 1,
+                on(event, handler) {
+                    handlers.set(event, handler);
+                },
+            });
+            const callbacks = [];
+            await handlers.get("addMonitorMaintenance")(1, [{ id: 2 }], (result) => callbacks.push(result));
+
+            expect(callbacks).toEqual([{ ok: false, msg: "forced first relation operation failure" }]);
+            await expect(store.getCell("SELECT 1")).resolves.toBe(1);
+            expect(await store.count("monitor_maintenance")).toBe(1);
+        } finally {
+            R.begin = originalBeginForTest;
+            R.findOne = originalFindOne;
+            server.maintenanceList = previousMaintenanceList;
+            await store.close();
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
     test("rolls back when edit setup fails immediately after begin", async () => {
         const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-first-error-"));
-        const store = new R.constructor();
+        const store = new BunSQLiteRedbean();
         const server = PocketKumaServer.getInstance();
         const previousMaintenanceList = server.maintenanceList;
         const originalBeginForTest = R.begin;
