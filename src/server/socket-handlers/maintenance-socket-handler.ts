@@ -68,6 +68,14 @@ async function validateRelations(relations, userID) {
     };
 }
 
+async function publishMaintenanceList(socket) {
+    try {
+        await server.sendMaintenanceList(socket);
+    } catch (error) {
+        log.error("maintenance", `Could not publish maintenance list: ${error.message}`);
+    }
+}
+
 /**
  * Handlers for Maintenance
  * @param {Socket} socket Socket.io instance
@@ -82,6 +90,7 @@ export const maintenanceSocketHandler = (socket) => {
         }
         let bean;
         let transaction;
+        let maintenanceID;
         try {
             checkLogin(socket);
 
@@ -91,7 +100,7 @@ export const maintenanceSocketHandler = (socket) => {
             bean = await Maintenance.jsonToBean(R.dispense("maintenance"), maintenance);
             bean.user_id = socket.userID;
             transaction = await R.begin();
-            const maintenanceID = await transaction.store(bean);
+            maintenanceID = await transaction.store(bean);
             if (relationIDs) {
                 await writeRelations(
                     transaction,
@@ -111,17 +120,6 @@ export const maintenanceSocketHandler = (socket) => {
             await bean.run(true, true);
             await transaction.commit();
             transaction = null;
-            server.maintenanceList[maintenanceID] = bean;
-            clearResponseCache();
-
-            await server.sendMaintenanceList(socket);
-
-            callback({
-                ok: true,
-                msg: "successAdded",
-                msgi18n: true,
-                maintenanceID,
-            });
         } catch (e) {
             bean?.stop();
             await transaction?.rollback();
@@ -129,7 +127,17 @@ export const maintenanceSocketHandler = (socket) => {
                 ok: false,
                 msg: e.message,
             });
+            return;
         }
+        server.maintenanceList[maintenanceID] = bean;
+        clearResponseCache();
+        callback({
+            ok: true,
+            msg: "successAdded",
+            msgi18n: true,
+            maintenanceID,
+        });
+        await publishMaintenanceList(socket);
     });
 
     // Edit a maintenance
@@ -138,12 +146,14 @@ export const maintenanceSocketHandler = (socket) => {
             callback = relations;
             relations = null;
         }
+        let bean;
+        let draft;
         try {
             checkLogin(socket);
 
-            const bean = getOwnedMaintenance(maintenance?.id, socket.userID);
+            bean = getOwnedMaintenance(maintenance?.id, socket.userID);
             const relationIDs = await validateRelations(relations, socket.userID);
-            const draft = await Maintenance.jsonToBean(R.dispense("maintenance").import(bean.export()), maintenance);
+            draft = await Maintenance.jsonToBean(R.dispense("maintenance").import(bean.export()), maintenance);
             const transaction = await R.begin();
             bean.stop();
             try {
@@ -172,23 +182,23 @@ export const maintenanceSocketHandler = (socket) => {
                 await bean.run(true, true);
                 throw error;
             }
-            server.maintenanceList[bean.id] = draft;
-            clearResponseCache();
-            await server.sendMaintenanceList(socket);
-
-            callback({
-                ok: true,
-                msg: "Saved.",
-                msgi18n: true,
-                maintenanceID: bean.id,
-            });
         } catch (e) {
             log.error("maintenance", e);
             callback({
                 ok: false,
                 msg: e.message,
             });
+            return;
         }
+        server.maintenanceList[bean.id] = draft;
+        clearResponseCache();
+        callback({
+            ok: true,
+            msg: "Saved.",
+            msgi18n: true,
+            maintenanceID: bean.id,
+        });
+        await publishMaintenanceList(socket);
     });
 
     // Add a new monitor_maintenance
@@ -351,7 +361,7 @@ export const maintenanceSocketHandler = (socket) => {
                 msgi18n: true,
             });
 
-            await server.sendMaintenanceList(socket);
+            await publishMaintenanceList(socket);
         } catch (e) {
             callback({
                 ok: false,
@@ -386,7 +396,7 @@ export const maintenanceSocketHandler = (socket) => {
                 msgi18n: true,
             });
 
-            await server.sendMaintenanceList(socket);
+            await publishMaintenanceList(socket);
         } catch (e) {
             callback({
                 ok: false,
@@ -407,7 +417,7 @@ export const maintenanceSocketHandler = (socket) => {
             maintenance.active = true;
             try {
                 await R.store(maintenance);
-                await maintenance.run(true);
+                await maintenance.run(true, true);
             } catch (error) {
                 maintenance.stop();
                 maintenance.active = active;
@@ -423,7 +433,7 @@ export const maintenanceSocketHandler = (socket) => {
                 msgi18n: true,
             });
 
-            await server.sendMaintenanceList(socket);
+            await publishMaintenanceList(socket);
         } catch (e) {
             callback({
                 ok: false,
