@@ -21,6 +21,12 @@ function totp(uri, offset = 0) {
     return String((digest.readUInt32BE(index) & 0x7fffffff) % 1_000_000).padStart(6, "0");
 }
 
+async function expectBootstrapModalCleanup(page) {
+    await expect(page.locator(".modal.show")).toHaveCount(0);
+    await expect(page.locator(".modal-backdrop")).toHaveCount(0);
+    await expect(page.locator("body")).not.toHaveClass(/modal-open/);
+}
+
 test.describe("Auth security UI", () => {
     test.beforeEach(async () => {
         await restoreSqliteSnapshot();
@@ -58,12 +64,13 @@ test.describe("Auth security UI", () => {
         await modal.getByLabel("Don't expire").check();
         await modal.getByRole("button", { name: "Generate" }).click();
 
-        modal = page.locator(".modal.show");
+        modal = page.getByRole("dialog").filter({ hasText: "Key Added" });
         await expect(modal.getByRole("heading", { name: "Key Added" })).toBeVisible();
-        const key = await modal.locator("input").inputValue();
+        const key = await modal.locator("input[disabled]").inputValue();
         expect(key).toMatch(/^uk\d+_[a-f0-9]{40}$/);
         await modal.getByRole("button", { name: "Continue" }).click();
         await expect(modal).toBeHidden();
+        await expectBootstrapModalCleanup(page);
 
         const item = page.locator(".item").filter({ hasText: "Playwright metrics key" });
         await expect(item).toContainText("Active");
@@ -77,12 +84,14 @@ test.describe("Auth security UI", () => {
 
         await item.getByRole("button", { name: "Disable" }).click();
         await page.locator(".modal.show").getByRole("button", { name: "Yes" }).click();
+        await expectBootstrapModalCleanup(page);
         await expect(item).toContainText("Inactive");
         await item.getByRole("button", { name: "Enable" }).click();
         await expect(item).toContainText("Active");
 
         await item.getByRole("button", { name: "Delete" }).click();
         await page.locator(".modal.show").getByRole("button", { name: "Yes" }).click();
+        await expectBootstrapModalCleanup(page);
         await expect(page.getByText("No API Keys")).toBeVisible();
     });
 
@@ -91,7 +100,7 @@ test.describe("Auth security UI", () => {
         await login(page);
 
         await page.getByRole("button", { name: "2FA Settings" }).click();
-        let modal = page.locator(".modal.show");
+        let modal = page.getByRole("dialog").filter({ hasText: "Set Up 2FA" });
         await modal.locator('input[autocomplete="current-password"]').fill("admin123");
         await modal.getByRole("button", { name: "Enable 2FA" }).click();
         await modal.getByRole("button", { name: "Show URI" }).click();
@@ -101,6 +110,8 @@ test.describe("Auth security UI", () => {
         await expect(modal.getByText(/Token is valid/)).toBeVisible();
         await modal.getByRole("button", { name: "Save" }).click();
         await page.locator(".modal.show").getByRole("button", { name: "Yes" }).click();
+        await expect(modal).toBeHidden();
+        await expectBootstrapModalCleanup(page);
         await expect(page.getByText("2FA Enabled")).toBeVisible();
 
         await page.getByText("A", { exact: true }).click();
@@ -115,10 +126,12 @@ test.describe("Auth security UI", () => {
 
         await page.goto("./settings/security");
         await page.getByRole("button", { name: "2FA Settings" }).click();
-        modal = page.locator(".modal.show");
+        modal = page.getByRole("dialog").filter({ hasText: "Set Up 2FA" });
         await modal.locator('input[autocomplete="current-password"]').fill("admin123");
         await modal.getByRole("button", { name: "Disable 2FA" }).click();
         await page.locator(".modal.show").getByRole("button", { name: "Yes" }).click();
+        await expect(modal).toBeHidden();
+        await expectBootstrapModalCleanup(page);
         await expect(page.getByText("2FA Disabled")).toBeVisible();
     });
 });

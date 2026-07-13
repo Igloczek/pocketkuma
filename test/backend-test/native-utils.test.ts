@@ -195,6 +195,54 @@ describe("token bucket rate limiter", () => {
         limiter.reset("user-a");
         expect(await limiter.pass(null, 0, "user-a")).toBe(true);
     });
+
+    test("evicts identities with bounded LRU/TTL state instead of a shared overflow bucket", async () => {
+        const limiter = new KumaRateLimiter({
+            tokensPerInterval: 2,
+            interval: 1000,
+            bucketTTL: 10_000,
+            maxBuckets: 3,
+            fireImmediately: true,
+            errorMessage: "limited",
+        });
+
+        await limiter.removeTokens(3, "blocked");
+        await limiter.pass(null, 0, "recent");
+        await limiter.pass(null, 0, "identity-0");
+        await limiter.pass(null, 0, "blocked");
+        await limiter.pass(null, 0, "identity-1");
+        await limiter.pass(null, 0, "identity-new");
+
+        expect(limiter.rateLimiters.size).toBe(3);
+        expect(limiter.rateLimiters.has("overflow")).toBe(false);
+        expect(await limiter.pass(null, 0, "blocked")).toBe(false);
+
+        const ttlLimiter = new KumaRateLimiter({
+            tokensPerInterval: 1,
+            interval: 1000,
+            bucketTTL: 1,
+            maxBuckets: 3,
+            fireImmediately: true,
+            errorMessage: "limited",
+        });
+        await ttlLimiter.removeTokens(1, "expired");
+        await Bun.sleep(5);
+        expect(await ttlLimiter.pass(null, 0, "expired")).toBe(true);
+
+        const bounded = new KumaRateLimiter({
+            tokensPerInterval: 1,
+            interval: "minute",
+            fireImmediately: true,
+            errorMessage: "limited",
+        });
+        for (let index = 0; index < 150; index++) {
+            await bounded.removeTokens(1, `identity-${index}`);
+        }
+        expect(bounded.rateLimiters.size).toBe(100);
+        expect(bounded.rateLimiters.has("overflow")).toBe(false);
+        bounded.reset("identity-149");
+        expect(bounded.rateLimiters.size).toBe(99);
+    });
 });
 
 describe("validator replacements", () => {

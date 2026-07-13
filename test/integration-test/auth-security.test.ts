@@ -13,6 +13,7 @@ const binaryPath = process.env.POCKETKUMA_BINARY ? path.resolve(projectRoot, pro
 let appProcess;
 let dataDir;
 let sockets = [];
+let captureAppOutput = false;
 
 function withTimeout(promise, timeout, message) {
     let timeoutID;
@@ -51,7 +52,7 @@ async function waitForApp(url) {
     throw new Error("PocketKuma did not become ready within 30 seconds");
 }
 
-async function startApp() {
+async function startApp({ captureOutput = false } = {}) {
     const port = reservePort();
     const command = binaryPath
         ? [binaryPath, `--port=${port}`, "--host=127.0.0.1", `--data-dir=${dataDir}`]
@@ -62,28 +63,43 @@ async function startApp() {
             ...process.env,
             NODE_ENV: "production",
             UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
+            ...(captureOutput
+                ? {
+                      POCKETKUMA_SETUP_HASH_TRACE: "1",
+                      POCKETKUMA_AUTH_HASH_TRACE: "1",
+                  }
+                : {}),
         },
-        stdout: "ignore",
+        stdout: captureOutput ? "pipe" : "ignore",
         stderr: "ignore",
     });
+    captureAppOutput = captureOutput;
     await waitForApp(`http://127.0.0.1:${port}`);
     return port;
 }
 
 async function stopApp() {
+    const processToStop = appProcess;
     for (const socket of sockets.splice(0)) {
         socket.close();
     }
-    if (!appProcess || appProcess.exitCode !== null) {
-        return;
+    if (!processToStop) {
+        return "";
     }
-    appProcess.kill("SIGTERM");
-    try {
-        await withTimeout(appProcess.exited, 5_000, "PocketKuma did not stop after SIGTERM");
-    } catch {
-        appProcess.kill("SIGKILL");
-        await appProcess.exited;
+    if (processToStop.exitCode === null) {
+        processToStop.kill("SIGTERM");
+        try {
+            await withTimeout(processToStop.exited, 5_000, "PocketKuma did not stop after SIGTERM");
+        } catch {
+            processToStop.kill("SIGKILL");
+            await processToStop.exited;
+        }
     }
+
+    const output = captureAppOutput && processToStop.stdout ? await new Response(processToStop.stdout).text() : "";
+    appProcess = null;
+    captureAppOutput = false;
+    return output;
 }
 
 async function connectRealtime(port) {
@@ -177,6 +193,55 @@ afterEach(async () => {
 });
 
 describe("production auth, API key, and metrics boundaries", () => {
+    test("claims setup before hashing and releases the claim after concurrent setup attempts", async () => {
+        dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-setup-concurrency-"));
+        const port = await startApp({ captureOutput: true });
+        const results = await Promise.all(
+            Array.from({ length: 32 }, async (_, index) => {
+                const socket = await connectRealtime(port);
+                return socket.request("setup", `admin-${index}`, `Setup-password-${index}!`);
+            })
+        );
+
+        expect(results.filter((result) => result.ok)).toHaveLength(1);
+        const output = await stopApp();
+        expect(output.match(/setup-password-hash/g) || []).toHaveLength(1);
+
+        const database = new Database(path.join(dataDir, "kuma.db"), { readonly: true });
+        expect(database.query("SELECT COUNT(*) AS count FROM user").get().count).toBe(1);
+        database.close();
+    }, 120_000);
+
+    test("reserves HTTP Basic and API-key attempts before credential hashing", async () => {
+        dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-http-auth-concurrency-"));
+        const port = await startApp({ captureOutput: true });
+        const socket = await connectRealtime(port);
+        expect((await socket.request("setup", "admin", "admin-password")).ok).toBe(true);
+        expect(
+            (
+                await socket.request("login", {
+                    username: "admin",
+                    password: "admin-password",
+                    token: "",
+                })
+            ).ok
+        ).toBe(true);
+        const basicResults = await Promise.all(
+            Array.from({ length: 25 }, () => metrics(port, basic("admin", "wrong-password")))
+        );
+        const ownerKey = await socket.request("addAPIKey", { name: "burst key", active: 1, expires: null });
+        expect(ownerKey.ok).toBe(true);
+
+        const wrongKey = `${ownerKey.key.slice(0, -1)}${ownerKey.key.endsWith("a") ? "b" : "a"}`;
+        const apiResults = await Promise.all(Array.from({ length: 65 }, () => metrics(port, basic("", wrongKey))));
+        expect(basicResults.every((response) => response.status === 401)).toBe(true);
+        expect(apiResults.every((response) => response.status === 401)).toBe(true);
+
+        const output = await stopApp();
+        expect(output.match(/auth-password-verify/g) || []).toHaveLength(21);
+        expect(output.match(/auth-api-key-verify/g) || []).toHaveLength(60);
+    }, 120_000);
+
     test("setup, persistent sessions, ownership, and secret redaction", async () => {
         dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-auth-security-"));
         let port = await startApp();
@@ -255,7 +320,9 @@ describe("production auth, API key, and metrics boundaries", () => {
             expires: null,
         });
         expect(ownerKey).toMatchObject({ ok: true });
-        expect((await metrics(port, basic("", ownerKey.key))).status).toBe(200);
+        const ownerKeyMetrics = await metrics(port, basic("", ownerKey.key));
+        expect(ownerKeyMetrics.status).toBe(200);
+        expect(await ownerKeyMetrics.text()).not.toContain(ownerKey.key);
         expect((await metrics(port, basic("", ownerKey.key.replace(/^uk/, "xx")))).status).toBe(401);
         expect((await metrics(port, `bAsIc ${Buffer.from(`:${ownerKey.key}`).toString("base64")}`)).status).toBe(200);
         expect(
@@ -265,6 +332,27 @@ describe("production auth, API key, and metrics boundaries", () => {
                         ["authorization", basic("", ownerKey.key)],
                         ["authorization", basic("", "wrong-key")],
                     ],
+                })
+            ).status
+        ).toBe(401);
+        const ownerKeySecret = ownerKey.key.split("_")[1];
+        const nonCanonicalKeys = [
+            `uk000${ownerKey.keyID}_${ownerKeySecret}`,
+            `uk0_${ownerKeySecret}`,
+            `UK${ownerKey.keyID}_${ownerKeySecret}`,
+            `${ownerKey.key} `,
+            `${ownerKey.key}x`,
+            `${ownerKey.key}?query=secret`,
+        ];
+        for (const malformedKey of nonCanonicalKeys) {
+            expect((await metrics(port, basic("", malformedKey))).status).toBe(401);
+        }
+        expect((await metrics(port, `Bearer ${ownerKey.key}`)).status).toBe(401);
+        expect((await metrics(port, null, `?api_key=${ownerKey.key}`)).status).toBe(401);
+        expect(
+            (
+                await fetch(`http://127.0.0.1:${port}/metrics`, {
+                    headers: { cookie: `api_key=${ownerKey.key}` },
                 })
             ).status
         ).toBe(401);
@@ -443,6 +531,134 @@ describe("production auth, API key, and metrics boundaries", () => {
             .get();
         twoFactorDatabase.close();
         expect(disabledTwoFactor).toEqual({ twofa_status: 0, twofa_secret: null, twofa_last_token: null });
+    }, 120_000);
+
+    test("consumes one concurrent TOTP login code before issuing a session", async () => {
+        dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-totp-concurrency-"));
+        const port = await startApp();
+        const setupSocket = await connectRealtime(port);
+        expect((await setupSocket.request("setup", "admin", "admin-password")).ok).toBe(true);
+        expect(
+            (
+                await setupSocket.request("login", {
+                    username: "admin",
+                    password: "admin-password",
+                    token: "",
+                })
+            ).ok
+        ).toBe(true);
+
+        const prepared = await setupSocket.request("prepare2FA", "admin-password");
+        expect(prepared.ok).toBe(true);
+        const setupToken = totp(prepared.uri);
+        expect((await setupSocket.request("verifyToken", setupToken, "admin-password")).valid).toBe(true);
+        expect((await setupSocket.request("save2FA", "admin-password")).ok).toBe(true);
+        await setupSocket.request("logout");
+
+        const loginToken = totp(prepared.uri, 1);
+        const first = await connectRealtime(port);
+        const second = await connectRealtime(port);
+        const results = await Promise.all(
+            [first, second].map((socket) =>
+                socket.request("login", {
+                    username: "admin",
+                    password: "admin-password",
+                    token: loginToken,
+                })
+            )
+        );
+
+        expect(results.filter((result) => result.ok)).toHaveLength(1);
+        expect(results.filter((result) => !result.ok)).toHaveLength(1);
+        const winner = results.find((result) => result.ok);
+        const database = new Database(path.join(dataDir, "kuma.db"), { readonly: true });
+        expect(database.query("SELECT `key` FROM setting WHERE `key` LIKE 'session:%'").all()).toHaveLength(1);
+        database.close();
+
+        const replay = await connectRealtime(port);
+        expect((await replay.request("loginByToken", winner.token)).ok).toBe(true);
+    }, 120_000);
+
+    test("binds a pending 2FA secret to its socket and rejects replacement saves", async () => {
+        dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-2fa-socket-state-"));
+        const port = await startApp();
+        const first = await connectRealtime(port);
+        expect((await first.request("setup", "admin", "admin-password")).ok).toBe(true);
+        expect(
+            (
+                await first.request("login", {
+                    username: "admin",
+                    password: "admin-password",
+                    token: "",
+                })
+            ).ok
+        ).toBe(true);
+
+        const second = await connectRealtime(port);
+        expect(
+            (
+                await second.request("login", {
+                    username: "admin",
+                    password: "admin-password",
+                    token: "",
+                })
+            ).ok
+        ).toBe(true);
+
+        const preparedA = await first.request("prepare2FA", "admin-password");
+        expect(preparedA.ok).toBe(true);
+
+        const tokenA = totp(preparedA.uri);
+        expect((await first.request("verifyToken", tokenA, "admin-password")).valid).toBe(true);
+        expect((await first.request("verifyToken", tokenA, "admin-password")).valid).toBe(false);
+
+        const preparedB = await second.request("prepare2FA", "admin-password");
+        expect(preparedB.ok).toBe(true);
+        expect(preparedA.uri).not.toBe(preparedB.uri);
+        const resetDatabase = new Database(path.join(dataDir, "kuma.db"), { readonly: true });
+        expect(resetDatabase.query("SELECT twofa_last_token FROM user WHERE username = 'admin'").get()).toEqual({
+            twofa_last_token: null,
+        });
+        resetDatabase.close();
+
+        expect((await first.request("save2FA", "admin-password")).ok).toBe(false);
+
+        const database = new Database(path.join(dataDir, "kuma.db"), { readonly: true });
+        expect(database.query("SELECT twofa_status FROM user WHERE username = 'admin'").get().twofa_status).toBe(0);
+        database.close();
+
+        const tokenB = totp(preparedB.uri, tokenA === totp(preparedB.uri) ? 1 : 0);
+        expect((await second.request("verifyToken", tokenB, "admin-password")).valid).toBe(true);
+        expect((await second.request("save2FA", "admin-password")).ok).toBe(true);
+
+        first.socket.close();
+        expect((await second.request("disable2FA", "admin-password")).ok).toBe(true);
+        const cleanupDatabase = new Database(path.join(dataDir, "kuma.db"), { readonly: true });
+        expect(
+            cleanupDatabase
+                .query("SELECT twofa_status, twofa_secret, twofa_last_token FROM user WHERE username = 'admin'")
+                .get()
+        ).toEqual({ twofa_status: 0, twofa_secret: null, twofa_last_token: null });
+        cleanupDatabase.close();
+    }, 120_000);
+
+    test("reserves a password-login token before concurrent credential verification", async () => {
+        dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-login-concurrency-"));
+        const port = await startApp();
+        const socket = await connectRealtime(port);
+        expect((await socket.request("setup", "admin", "admin-password")).ok).toBe(true);
+
+        const results = await Promise.all(
+            Array.from({ length: 35 }, () =>
+                socket.request("login", {
+                    username: "admin",
+                    password: "wrong-password",
+                    token: "",
+                })
+            )
+        );
+
+        expect(results.filter((result) => result.msg === "Too frequently, try again later.")).not.toHaveLength(0);
     }, 120_000);
 
     test("login throttling does not let unrelated usernames exhaust the admin bucket", async () => {
