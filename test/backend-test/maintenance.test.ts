@@ -566,4 +566,83 @@ describe("maintenance validation and timer lifecycle", () => {
             fs.rmSync(directory, { recursive: true, force: true });
         }
     });
+
+    test("rolls back when edit setup fails immediately after begin", async () => {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-first-error-"));
+        const store = new R.constructor();
+        const server = PocketKumaServer.getInstance();
+        const previousMaintenanceList = server.maintenanceList;
+        const originalBeginForTest = R.begin;
+        await store.connect({
+            sqlitePath: path.join(directory, "kuma.db"),
+            templatePath: path.join(process.cwd(), "src/db/kuma.db"),
+            testMode: true,
+        });
+        const bean = Object.assign(new Maintenance(), {
+            id: 1,
+            user_id: 1,
+            title: "Before edit",
+            description: "",
+            active: 1,
+            strategy: "manual",
+            interval_day: 1,
+            timezone: "UTC",
+            weekdays: "[]",
+            days_of_month: "[]",
+        });
+        bean.stop = () => {
+            throw new Error("forced edit setup failure");
+        };
+        server.maintenanceList = { 1: bean };
+        let transaction;
+        R.begin = async () => (transaction = await store.begin());
+
+        try {
+            const handlers = new Map();
+            maintenanceSocketHandler({
+                userID: 1,
+                on(event, handler) {
+                    handlers.set(event, handler);
+                },
+            });
+            const callbacks = [];
+            await handlers.get("editMaintenance")(
+                {
+                    id: 1,
+                    title: "After edit",
+                    description: "",
+                    active: true,
+                    strategy: "manual",
+                    intervalDay: 1,
+                    timezoneOption: "UTC",
+                    dateRange: [null, null],
+                    timeRange: [
+                        { hours: 10, minutes: 0 },
+                        { hours: 11, minutes: 0 },
+                    ],
+                    weekdays: [],
+                    daysOfMonth: [],
+                    durationMinutes: 60,
+                    cron: "0 10 * * *",
+                },
+                (result) => callbacks.push(result)
+            );
+
+            expect(callbacks).toEqual([{ ok: false, msg: "forced edit setup failure" }]);
+            await expect(
+                Promise.race([
+                    store.getCell("SELECT 1"),
+                    Bun.sleep(100).then(() => {
+                        throw new Error("subsequent operation stayed blocked");
+                    }),
+                ])
+            ).resolves.toBe(1);
+        } finally {
+            R.begin = originalBeginForTest;
+            server.maintenanceList = previousMaintenanceList;
+            await transaction?.rollback();
+            await store.close();
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
 });

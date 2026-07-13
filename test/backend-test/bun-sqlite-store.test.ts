@@ -4,6 +4,7 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { Database as BunDatabase } from "bun:sqlite";
 import { BunSQLiteRedbean } from "@/server/bun-sqlite-store";
 
 describe("Bun SQLite Redbean compatibility store", () => {
@@ -284,6 +285,120 @@ describe("Bun SQLite Redbean compatibility store", () => {
         await expect(transaction.store(store.dispense("notification"))).rejects.toThrow("Transaction has finished");
     });
 
+    test("quarantines the connection when a failed commit cannot roll back", async () => {
+        await store.exec("CREATE TABLE poison_probe (value TEXT NOT NULL)");
+        const raw = store.db;
+        const originalRun = raw.run.bind(raw);
+        raw.run = (sql, ...params) => {
+            if (sql === "COMMIT") {
+                throw new Error("forced commit failure");
+            }
+            if (sql === "ROLLBACK") {
+                throw new Error("forced rollback failure");
+            }
+            return originalRun(sql, ...params);
+        };
+
+        const transaction = await store.begin();
+        await transaction.exec("INSERT INTO poison_probe VALUES (?)", ["inside"]);
+        const queued = Promise.allSettled([
+            store.getCell("SELECT COUNT(*) FROM poison_probe"),
+            store.exec("INSERT INTO poison_probe VALUES (?)", ["outside"]),
+            store.begin(),
+        ]);
+        let queuedResults;
+
+        try {
+            const error = await transaction.commit().catch((failure) => failure);
+            expect(error).toBeInstanceOf(AggregateError);
+            expect(error.errors.map(({ message }) => message)).toEqual([
+                "forced commit failure",
+                "forced rollback failure",
+            ]);
+            queuedResults = await queued;
+            expect(queuedResults.map(({ status }) => status)).toEqual(["rejected", "rejected", "rejected"]);
+            expect(store.isOpen()).toBe(false);
+            await expect(store.getCell("SELECT COUNT(*) FROM poison_probe")).rejects.toThrow("quarantined");
+            await expect(
+                store.connect({
+                    sqlitePath: path.join(dir, "kuma.db"),
+                    templatePath: path.join(process.cwd(), "src/db/kuma.db"),
+                    testMode: true,
+                })
+            ).rejects.toThrow("quarantined");
+        } finally {
+            raw.run = originalRun;
+            queuedResults ??= await queued;
+            for (const result of queuedResults) {
+                if (result.status === "fulfilled" && result.value?.rollback) {
+                    await result.value.rollback();
+                }
+            }
+            if (raw.inTransaction) {
+                originalRun("ROLLBACK");
+            }
+        }
+
+        const observer = new BunDatabase(path.join(dir, "kuma.db"), { readonly: true });
+        try {
+            expect(observer.query("SELECT COUNT(*) AS count FROM poison_probe").get().count).toBe(0);
+        } finally {
+            observer.close();
+        }
+        await expect(store.close()).resolves.toBeUndefined();
+    });
+
+    test("quarantines the connection when an explicit rollback fails", async () => {
+        await store.exec("CREATE TABLE rollback_poison_probe (value TEXT NOT NULL)");
+        const raw = store.db;
+        const originalRun = raw.run.bind(raw);
+        raw.run = (sql, ...params) => {
+            if (sql === "ROLLBACK") {
+                throw new Error("forced explicit rollback failure");
+            }
+            return originalRun(sql, ...params);
+        };
+
+        const transaction = await store.begin();
+        await transaction.exec("INSERT INTO rollback_poison_probe VALUES (?)", ["inside"]);
+        const queued = Promise.allSettled([
+            store.getCell("SELECT COUNT(*) FROM rollback_poison_probe"),
+            store.exec("INSERT INTO rollback_poison_probe VALUES (?)", ["outside"]),
+            store.begin(),
+        ]);
+        let queuedResults;
+
+        try {
+            await expect(transaction.rollback()).rejects.toThrow("forced explicit rollback failure");
+            queuedResults = await queued;
+            expect(queuedResults.map(({ status }) => status)).toEqual(["rejected", "rejected", "rejected"]);
+            await expect(store.exec("SELECT 1")).rejects.toThrow("quarantined");
+        } finally {
+            raw.run = originalRun;
+            queuedResults ??= await queued;
+            for (const result of queuedResults) {
+                if (result.status === "fulfilled" && result.value?.rollback) {
+                    await result.value.rollback();
+                }
+            }
+            if (raw.inTransaction) {
+                originalRun("ROLLBACK");
+            }
+        }
+
+        const observer = new BunDatabase(path.join(dir, "kuma.db"), { readonly: true });
+        try {
+            expect(observer.query("SELECT COUNT(*) AS count FROM rollback_poison_probe").get().count).toBe(0);
+        } finally {
+            observer.close();
+        }
+        await expect(store.close()).resolves.toBeUndefined();
+    });
+
+    test("does not expose the raw SQLite connection", () => {
+        expect("db" in store).toBe(false);
+    });
+
     test("keeps draining queued work after an operation throws and survives mixed transaction stress", async () => {
         await store.exec("CREATE TABLE isolation_stress (value INTEGER NOT NULL)");
         const blocker = await store.begin();
@@ -329,11 +444,14 @@ describe("Bun SQLite Redbean compatibility store", () => {
         });
         await Bun.sleep(20);
         expect(closed).toBe(false);
-        expect(store.db).not.toBeNull();
-        await blocker.rollback();
-        await closing;
+        try {
+            expect(store.isOpen()).toBe(true);
+        } finally {
+            await blocker.rollback();
+            await closing;
+        }
         expect(closed).toBe(true);
-        expect(store.db).toBeNull();
+        expect(store.isOpen()).toBe(false);
     });
 
     test("trash deletes stored beans, clears their identity, and ignores unsaved beans", async () => {
