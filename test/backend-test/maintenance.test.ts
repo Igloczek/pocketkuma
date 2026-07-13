@@ -1,26 +1,36 @@
 // @ts-nocheck
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import Cron from "croner";
 import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import Maintenance from "@/server/model/maintenance";
 import { R } from "@/server/bun-sqlite-store";
+import { cachedResponse, clearResponseCache, textResponse } from "@/server/bun-response";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
+import { maintenanceSocketHandler } from "@/server/socket-handlers/maintenance-socket-handler";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 describe("maintenance validation and timer lifecycle", () => {
     const originalClearTimeout = global.clearTimeout;
+    const originalBegin = R.begin;
     const originalStore = R.store;
+    const originalSendMaintenanceList = PocketKumaServer.getInstance().sendMaintenanceList;
     const originalSendMaintenanceListByUserID = PocketKumaServer.getInstance().sendMaintenanceListByUserID;
     const originalGetTimezone = PocketKumaServer.getInstance().getTimezone;
 
     afterEach(() => {
         global.clearTimeout = originalClearTimeout;
+        R.begin = originalBegin;
         R.store = originalStore;
+        PocketKumaServer.getInstance().sendMaintenanceList = originalSendMaintenanceList;
         PocketKumaServer.getInstance().sendMaintenanceListByUserID = originalSendMaintenanceListByUserID;
         PocketKumaServer.getInstance().getTimezone = originalGetTimezone;
     });
@@ -425,5 +435,135 @@ describe("maintenance validation and timer lifecycle", () => {
         expect(stores).toBe(1);
         expect(maintenance.last_start_date).not.toBe("2026-01-01 00:00:00");
         maintenance.stop();
+    });
+
+    test("keeps a concurrent pause outside a failed edit transaction until callback and cache publication", async () => {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-isolation-"));
+        const sqlitePath = path.join(directory, "kuma.db");
+        const server = PocketKumaServer.getInstance();
+        const previousMaintenanceList = server.maintenanceList;
+        clearResponseCache();
+
+        try {
+            await R.connect({
+                sqlitePath,
+                templatePath: path.join(process.cwd(), "src/db/kuma.db"),
+                testMode: true,
+            });
+            await R.exec("INSERT INTO user (id, username, password, active) VALUES (?, ?, ?, ?)", [
+                1,
+                "owner",
+                "hash",
+                1,
+            ]);
+            const bean = Object.assign(R.dispense("maintenance"), {
+                title: "Before edit",
+                description: "",
+                user_id: 1,
+                active: 1,
+                strategy: "manual",
+                interval_day: 1,
+                timezone: "UTC",
+                weekdays: "[]",
+                days_of_month: "[]",
+            });
+            const maintenanceID = await R.store(bean);
+            server.maintenanceList = { [maintenanceID]: bean };
+            server.sendMaintenanceList = async () => server.maintenanceList;
+
+            await R.exec(
+                "CREATE TABLE maintenance_commit_guard (parent_id INTEGER REFERENCES maintenance(id) DEFERRABLE INITIALLY DEFERRED)"
+            );
+            await R.exec(`
+                CREATE TRIGGER reject_isolated_maintenance_edit
+                AFTER UPDATE ON maintenance
+                WHEN NEW.title = 'Rollback edit'
+                BEGIN
+                    INSERT INTO maintenance_commit_guard (parent_id) VALUES (-1);
+                END
+            `);
+
+            let signalCommitStarted;
+            let releaseCommit;
+            const commitStarted = new Promise((resolve) => (signalCommitStarted = resolve));
+            const commitRelease = new Promise((resolve) => (releaseCommit = resolve));
+            R.begin = async function () {
+                const transaction = await originalBegin.call(this);
+                const commit = transaction.commit;
+                transaction.commit = async () => {
+                    signalCommitStarted();
+                    await commitRelease;
+                    return commit();
+                };
+                return transaction;
+            };
+
+            const handlers = new Map();
+            maintenanceSocketHandler({
+                userID: 1,
+                on(event, handler) {
+                    handlers.set(event, handler);
+                },
+            });
+            const editCallbacks = [];
+            const pauseCallbacks = [];
+            await cachedResponse("maintenance-isolation", "1 hour", () => textResponse("before"));
+
+            const editTask = handlers.get("editMaintenance")(
+                {
+                    id: maintenanceID,
+                    title: "Rollback edit",
+                    description: "",
+                    active: true,
+                    strategy: "manual",
+                    intervalDay: 1,
+                    timezoneOption: "UTC",
+                    dateRange: [null, null],
+                    timeRange: [
+                        { hours: 10, minutes: 0 },
+                        { hours: 11, minutes: 0 },
+                    ],
+                    weekdays: [],
+                    daysOfMonth: [],
+                    durationMinutes: 60,
+                    cron: "0 10 * * *",
+                },
+                (result) => editCallbacks.push(result)
+            );
+            await commitStarted;
+            const pauseTask = handlers.get("pauseMaintenance")(maintenanceID, (result) => pauseCallbacks.push(result));
+
+            await Bun.sleep(20);
+            expect(editCallbacks).toEqual([]);
+            expect(pauseCallbacks).toEqual([]);
+            const observer = new Database(sqlitePath, { readonly: true });
+            expect(observer.query("SELECT title, active FROM maintenance WHERE id = ?").get(maintenanceID)).toEqual({
+                title: "Before edit",
+                active: 1,
+            });
+            observer.close();
+
+            releaseCommit();
+            await Promise.all([editTask, pauseTask]);
+
+            expect(editCallbacks).toHaveLength(1);
+            expect(editCallbacks[0]).toMatchObject({ ok: false });
+            expect(pauseCallbacks).toEqual([{ ok: true, msg: "successPaused", msgi18n: true }]);
+            expect(server.maintenanceList[maintenanceID]).toBe(bean);
+            expect(bean.active).toBe(false);
+            expect(await R.getRow("SELECT title, active FROM maintenance WHERE id = ?", [maintenanceID])).toEqual({
+                title: "Before edit",
+                active: 0,
+            });
+            const refreshed = await cachedResponse("maintenance-isolation", "1 hour", () => textResponse("after"));
+            expect(await refreshed.text()).toBe("after");
+        } finally {
+            R.begin = originalBegin;
+            server.sendMaintenanceList = originalSendMaintenanceList;
+            server.maintenanceList = previousMaintenanceList;
+            clearResponseCache();
+            await R.close();
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
     });
 });

@@ -91,6 +91,251 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(domain).toBe("status.example.com");
     });
 
+    test("keeps every ordinary database operation outside an active transaction", async () => {
+        await store.exec("INSERT INTO notification (name, config) VALUES (?, ?)", ["existing", "{}"]);
+        const existing = await store.findOne("notification", " name = ? ", ["existing"]);
+        const transaction = await store.begin();
+        await transaction.exec("INSERT INTO notification (name, config) VALUES (?, ?)", ["transaction", "{}"]);
+
+        const queuedBean = store.dispense("notification");
+        queuedBean.name = "queued-store";
+        queuedBean.config = "{}";
+        const completed = [];
+        const values = {};
+        const queue = (name, operation) =>
+            Promise.resolve()
+                .then(operation)
+                .then((value) => {
+                    completed.push(name);
+                    values[name] = value;
+                });
+        const operations = [
+            queue("exec", () =>
+                store.exec("INSERT INTO notification (name, config) VALUES (?, ?)", ["queued-exec", "{}"])
+            ),
+            queue("store", () => store.store(queuedBean)),
+            queue("trash", () => store.trash(existing)),
+            queue("addColumnIfMissing", () => store.addColumnIfMissing("notification", "isolation_probe", "TEXT")),
+            queue("getAll", () => store.getAll("SELECT name FROM notification ORDER BY name")),
+            queue("getRow", () => store.getRow("SELECT name FROM notification WHERE name = ?", ["transaction"])),
+            queue("getCell", () => store.getCell("SELECT COUNT(*) FROM notification")),
+            queue("getCol", () => store.getCol("SELECT name FROM notification ORDER BY name")),
+            queue("getAssoc", () => store.getAssoc("SELECT name, id FROM notification ORDER BY name")),
+            queue("find", () => store.find("notification", " ORDER BY name ")),
+            queue("findAll", () => store.findAll("notification", " ORDER BY name ")),
+            queue("findOne", () => store.findOne("notification", " name = ? ", ["transaction"])),
+            queue("load", () => store.load("notification", existing.id)),
+            queue("count", () => store.count("notification")),
+            queue("hasTable", () => store.hasTable("notification")),
+        ];
+
+        let finalized = false;
+        try {
+            await Bun.sleep(20);
+            expect(completed).toEqual([]);
+            expect(existing.id).not.toBe(0);
+
+            await transaction.commit();
+            finalized = true;
+            await Promise.all(operations);
+        } finally {
+            if (!finalized) {
+                await transaction.rollback().catch(() => {});
+            }
+        }
+
+        const names = ["queued-exec", "queued-store", "transaction"];
+        expect(completed).toEqual([
+            "exec",
+            "store",
+            "trash",
+            "addColumnIfMissing",
+            "getAll",
+            "getRow",
+            "getCell",
+            "getCol",
+            "getAssoc",
+            "find",
+            "findAll",
+            "findOne",
+            "load",
+            "count",
+            "hasTable",
+        ]);
+        expect(existing.id).toBe(0);
+        expect(values.getAll).toEqual(names.map((name) => ({ name })));
+        expect(values.getRow).toEqual({ name: "transaction" });
+        expect(values.getCell).toBe(3);
+        expect(values.getCol).toEqual(names);
+        expect(Object.keys(values.getAssoc)).toEqual(names);
+        expect(values.find.map(({ name }) => name)).toEqual(names);
+        expect(values.findAll.map(({ name }) => name)).toEqual(names);
+        expect(values.findOne.name).toBe("transaction");
+        expect(values.load).toBeNull();
+        expect(values.count).toBe(3);
+        expect(values.hasTable).toBe(true);
+        expect(
+            await store.getCell("SELECT COUNT(*) FROM pragma_table_info('notification') WHERE name = ?", [
+                "isolation_probe",
+            ])
+        ).toBe(1);
+    });
+
+    test("queues transactions and later ordinary work fairly without nested transactions", async () => {
+        await store.exec("CREATE TABLE isolation_order (value TEXT NOT NULL)");
+        const first = await store.begin();
+        await first.exec("INSERT INTO isolation_order VALUES (?)", ["first"]);
+
+        const completed = [];
+        const secondPromise = store.begin().then(
+            (transaction) => {
+                completed.push("second");
+                return { transaction };
+            },
+            (error) => {
+                completed.push(`second-error:${error.message}`);
+                return { error };
+            }
+        );
+        const ordinary = store.exec("INSERT INTO isolation_order VALUES (?)", ["ordinary"]).then(() => {
+            completed.push("ordinary");
+        });
+        const thirdPromise = store.begin().then(
+            (transaction) => {
+                completed.push("third");
+                return { transaction };
+            },
+            (error) => {
+                completed.push(`third-error:${error.message}`);
+                return { error };
+            }
+        );
+
+        let firstFinalized = false;
+        try {
+            await Bun.sleep(20);
+            expect(completed).toEqual([]);
+            await first.commit();
+            firstFinalized = true;
+        } finally {
+            if (!firstFinalized) {
+                await first.rollback().catch(() => {});
+            }
+        }
+
+        const { transaction: second, error: secondError } = await secondPromise;
+        expect(secondError).toBeUndefined();
+        expect(completed).toEqual(["second"]);
+        await Bun.sleep(20);
+        expect(completed).toEqual(["second"]);
+        await second.exec("INSERT INTO isolation_order VALUES (?)", ["second"]);
+        await second.rollback();
+
+        await ordinary;
+        const { transaction: third, error: thirdError } = await thirdPromise;
+        expect(thirdError).toBeUndefined();
+        expect(completed).toEqual(["second", "ordinary", "third"]);
+        await third.exec("INSERT INTO isolation_order VALUES (?)", ["third"]);
+        await third.commit();
+        await expect(third.commit()).resolves.toBeUndefined();
+        await expect(third.rollback()).resolves.toBeUndefined();
+
+        const fourth = await store.begin();
+        await expect(third.rollback()).resolves.toBeUndefined();
+        await expect(third.exec("INSERT INTO isolation_order VALUES ('stale')")).rejects.toThrow(
+            "Transaction has finished"
+        );
+        await fourth.exec("INSERT INTO isolation_order VALUES (?)", ["fourth"]);
+        await fourth.commit();
+
+        expect(await store.getCol("SELECT value FROM isolation_order ORDER BY rowid")).toEqual([
+            "first",
+            "ordinary",
+            "third",
+            "fourth",
+        ]);
+    });
+
+    test("rolls back a failed deferred commit before releasing queued work", async () => {
+        await store.exec("CREATE TABLE isolation_parent (id INTEGER PRIMARY KEY)");
+        await store.exec(
+            "CREATE TABLE isolation_child (parent_id INTEGER REFERENCES isolation_parent(id) DEFERRABLE INITIALLY DEFERRED)"
+        );
+        await store.exec("CREATE TABLE isolation_log (value TEXT NOT NULL)");
+
+        const transaction = await store.begin();
+        await transaction.exec("INSERT INTO isolation_child VALUES (?)", [-1]);
+        let ordinaryCompleted = false;
+        const ordinary = store.exec("INSERT INTO isolation_log VALUES (?)", ["outside"]).then(() => {
+            ordinaryCompleted = true;
+        });
+
+        await Bun.sleep(20);
+        expect(ordinaryCompleted).toBe(false);
+        await expect(transaction.commit()).rejects.toThrow();
+        await expect(transaction.rollback()).resolves.toBeUndefined();
+        await ordinary;
+
+        expect(await store.getCell("SELECT COUNT(*) FROM isolation_child")).toBe(0);
+        expect(await store.getCol("SELECT value FROM isolation_log")).toEqual(["outside"]);
+        await expect(transaction.exec("INSERT INTO isolation_log VALUES ('stale')")).rejects.toThrow(
+            "Transaction has finished"
+        );
+        await expect(transaction.store(store.dispense("notification"))).rejects.toThrow("Transaction has finished");
+    });
+
+    test("keeps draining queued work after an operation throws and survives mixed transaction stress", async () => {
+        await store.exec("CREATE TABLE isolation_stress (value INTEGER NOT NULL)");
+        const blocker = await store.begin();
+        const rejected = store.getAll("SELECT FROM isolation_stress");
+        const following = store.exec("INSERT INTO isolation_stress VALUES (?)", [-1]);
+        await blocker.rollback();
+        await expect(rejected).rejects.toThrow();
+        await following;
+
+        for (let index = 0; index < 100; index++) {
+            const transaction = await store.begin();
+            await transaction.exec("INSERT INTO isolation_stress VALUES (?)", [index]);
+            const outside = store.exec("INSERT INTO isolation_stress VALUES (?)", [10_000 + index]);
+            if (index % 2 === 0) {
+                await transaction.commit();
+            } else {
+                await transaction.rollback();
+            }
+            await outside;
+        }
+
+        expect(await store.count("isolation_stress")).toBe(151);
+        expect(await store.getCell("SELECT COUNT(*) FROM isolation_stress WHERE value < 10000")).toBe(51);
+        expect(await store.getCell("SELECT COUNT(*) FROM isolation_stress WHERE value >= 10000")).toBe(100);
+    });
+
+    test("finishes an already-started ordinary operation before begin and makes close wait", async () => {
+        await store.exec("DROP TABLE incident");
+        await store.exec("CREATE TABLE incident (id INTEGER PRIMARY KEY AUTOINCREMENT)");
+        const bean = store.dispense("incident");
+        bean.pin = 1;
+
+        const storing = store.store(bean);
+        const transaction = await store.begin();
+        await transaction.rollback();
+        await storing;
+        expect(await store.getCell("SELECT pin FROM incident WHERE id = ?", [bean.id])).toBe(1);
+
+        const blocker = await store.begin();
+        let closed = false;
+        const closing = store.close().then(() => {
+            closed = true;
+        });
+        await Bun.sleep(20);
+        expect(closed).toBe(false);
+        expect(store.db).not.toBeNull();
+        await blocker.rollback();
+        await closing;
+        expect(closed).toBe(true);
+        expect(store.db).toBeNull();
+    });
+
     test("trash deletes stored beans, clears their identity, and ignores unsaved beans", async () => {
         const notification = store.dispense("notification");
         notification.name = "Trash regression";
