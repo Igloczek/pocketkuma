@@ -156,8 +156,21 @@ class Maintenance extends BeanModel {
         const start = dayjs(startDate);
         const [hour, minute] = this.end_time.split(":").map(Number);
         const endJob = new Cron(`${minute} ${hour} * * *`, { timezone, paused: true });
-        const end = dayjs(endJob.nextRun(start.toDate()));
+        let end = dayjs(endJob.nextRun(start.toDate()));
         endJob.stop();
+
+        const [startHour, startMinute] = this.start_time.split(":").map(Number);
+        const localStart = start.tz(timezone);
+        const nominalStartMinute = startHour * 60 + startMinute;
+        const nominalEndMinute = hour * 60 + minute;
+        const shiftedStart = localStart.hour() !== startHour || localStart.minute() !== startMinute;
+        if (
+            shiftedStart &&
+            nominalEndMinute >= nominalStartMinute &&
+            localStart.hour() * 60 + localStart.minute() >= nominalEndMinute
+        ) {
+            end = start.add(this.calcDuration(), "second");
+        }
 
         return {
             startDate: start.toISOString(),
@@ -345,10 +358,10 @@ class Maintenance extends BeanModel {
     /**
      * Run the cron
      * @param {boolean} throwError Should an error be thrown on failure
-     * @param {boolean} silentInitial Do not publish an already-running timeslot during transactional validation
+     * @param {boolean} recovery Restore an already-running timeslot without persistence or publication
      * @returns {Promise<void>}
      */
-    async run(throwError = false, silentInitial = false) {
+    async run(throwError = false, recovery = false) {
         this.stop();
         if (!this.active) {
             return;
@@ -367,7 +380,7 @@ class Maintenance extends BeanModel {
             if (!this.timezone) {
                 this.timezone = "UTC";
             }
-            if (this.cron) {
+            if (this.cron && !recovery) {
                 await R.store(this);
             }
         }
@@ -409,7 +422,7 @@ class Maintenance extends BeanModel {
             try {
                 this.beanMeta.status = "scheduled";
 
-                let startEvent = async (customDuration = 0, notify = true) => {
+                let startEvent = async (customDuration = 0, notify = true, persist = true) => {
                     const timezone = await this.getTimezone();
                     if (
                         !this.active ||
@@ -446,9 +459,10 @@ class Maintenance extends BeanModel {
                         PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
                     }, duration);
 
-                    // Set last start date to current time
-                    this.last_start_date = dayjs().utc().format(SQL_DATETIME_FORMAT);
-                    await R.store(this);
+                    if (persist) {
+                        this.last_start_date = dayjs().utc().format(SQL_DATETIME_FORMAT);
+                        await R.store(this);
+                    }
                 };
 
                 // Create Cron
@@ -510,7 +524,7 @@ class Maintenance extends BeanModel {
                 if (runningTimeslot) {
                     let duration = dayjs(runningTimeslot.endDate).diff(dayjs(), "second") * 1000;
                     log.debug("maintenance", "Maintenance id: " + this.id + " Remaining duration: " + duration + "ms");
-                    await startEvent(duration, !silentInitial);
+                    await startEvent(duration, !recovery, !recovery);
                 }
             } catch (e) {
                 this.stop();
@@ -628,7 +642,13 @@ class Maintenance extends BeanModel {
         if (!this.timezone || this.timezone === "SAME_AS_SERVER") {
             return await PocketKumaServer.getInstance().getTimezone();
         }
-        return this.timezone;
+        try {
+            Intl.DateTimeFormat(undefined, { timeZone: this.timezone });
+            return this.timezone;
+        } catch {
+            log.warn("maintenance", `Invalid legacy timezone ${this.timezone}; using server timezone`);
+            return await PocketKumaServer.getInstance().getTimezone();
+        }
     }
 
     /**
