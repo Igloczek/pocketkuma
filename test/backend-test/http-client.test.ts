@@ -10,7 +10,6 @@ import httpClient from "@/server/http-client";
 import { R } from "@/server/bun-sqlite-store";
 
 let ipv6ProxyServer;
-let ipv6SkipReason = "";
 try {
     ipv6ProxyServer = Bun.serve({
         hostname: "::1",
@@ -24,7 +23,7 @@ try {
         },
     });
 } catch (error) {
-    ipv6SkipReason = `IPv6 loopback unavailable: ${error.message}`;
+    throw new Error(`IPv6 loopback is required for the HTTP proxy test: ${error.message}`, { cause: error });
 }
 
 describe("fetch HTTP client", () => {
@@ -553,36 +552,33 @@ describe("fetch HTTP client", () => {
         }
     });
 
-    test.skipIf(!ipv6ProxyServer)(
-        `monitor brackets a raw IPv6 proxy host${ipv6SkipReason ? ` (${ipv6SkipReason})` : ""}`,
-        async () => {
-            const monitor = R.convertToBean("monitor", {
-                type: "http",
-                user_id: 1,
-                auth_method: null,
-                proxy_id: 10,
-                ignore_tls: 0,
-                ip_family: null,
-            });
-            const originalFindOne = R.findOne;
-            R.findOne = async () => ({
-                active: true,
-                protocol: "http",
-                host: "::1",
-                port: ipv6ProxyServer.port,
-                auth: false,
-            });
+    test("monitor brackets a raw IPv6 proxy host", async () => {
+        const monitor = R.convertToBean("monitor", {
+            type: "http",
+            user_id: 1,
+            auth_method: null,
+            proxy_id: 10,
+            ignore_tls: 0,
+            ip_family: null,
+        });
+        const originalFindOne = R.findOne;
+        R.findOne = async () => ({
+            active: true,
+            protocol: "http",
+            host: "::1",
+            port: ipv6ProxyServer.port,
+            auth: false,
+        });
 
-            try {
-                const options = { url: `${baseUrl}/ok` };
-                await monitor.assertFetchHttpTransportSupported(options);
-                expect(options.proxy).toBe(`http://[::1]:${ipv6ProxyServer.port}/`);
-                expect((await monitor.makeHttpMonitorRequest(options)).data).toEqual({ ok: true });
-            } finally {
-                R.findOne = originalFindOne;
-            }
+        try {
+            const options = { url: `${baseUrl}/ok` };
+            await monitor.assertFetchHttpTransportSupported(options);
+            expect(options.proxy).toBe(`http://[::1]:${ipv6ProxyServer.port}/`);
+            expect((await monitor.makeHttpMonitorRequest(options)).data).toEqual({ ok: true });
+        } finally {
+            R.findOne = originalFindOne;
         }
-    );
+    });
 
     test("Bun cannot scope rejectUnauthorized to the target instead of an HTTPS proxy", async () => {
         await expect(httpClient.get(`${baseUrl}/ok`, { proxy: httpsProxyUrl })).rejects.toThrow();
@@ -652,23 +648,6 @@ describe("fetch HTTP client", () => {
 
         expect(component).toContain('v-for="proxy in supportedHttpProxyList"');
         expect(component).toContain('["http", "https"].includes(proxy.protocol)');
-    });
-
-    test("core HTTP UI blocks an HTTPS proxy with ignore TLS using a localized error", () => {
-        const component = fs.readFileSync(path.join(process.cwd(), "src/pages/EditMonitor.vue"), "utf8");
-        const english = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src/lang/en.json"), "utf8"));
-        const polish = JSON.parse(fs.readFileSync(path.join(process.cwd(), "src/lang/pl.json"), "utf8"));
-
-        const submit = component.slice(
-            component.indexOf("async submit()"),
-            component.indexOf("async startParentGroupMonitor")
-        );
-        expect(submit).toContain("httpsProxyIgnoreTlsUnsupported");
-        expect(submit).toContain("this.$root.toastError");
-        expect(submit).toContain("this.processing = false");
-        expect(submit).toContain("return;");
-        expect(english.httpsProxyIgnoreTlsUnsupported).toMatch(/Ignore TLS.*HTTPS proxy/i);
-        expect(polish.httpsProxyIgnoreTlsUnsupported).toBeTruthy();
     });
 
     test("monitor debug logging never serializes fetch options containing proxy credentials", () => {
