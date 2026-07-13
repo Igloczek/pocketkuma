@@ -14,10 +14,11 @@ local push endpoint is called.
 ## Revisions
 
 - Before runtime: `209259b1010fe9e7d4680c66393b228638885e7a`
-- After runtime: `0859db97ef4a5125828366e2794334b0dd7cd66d`
+- Runtime implementation commit: `0859db97ef4a5125828366e2794334b0dd7cd66d`
+- After/final tree measured: `bd7ac8beec81cdddb33b21fbf1dae510c982d7e6`
 
-The benchmark/docs commit following `0859db97` contains only this harness and report; it does not change runtime
-source. The exact repository SHA is recorded in the final handoff.
+The `bd7ac8be` tree adds only this harness and report after the runtime implementation commit; runtime source is
+unchanged between those two revisions.
 
 Both measured revisions used Bun `1.3.14` on macOS arm64 and the same installed dependencies. The baseline was a
 detached local worktree. Each sample used a fresh temporary SQLite database and a fresh server process.
@@ -52,7 +53,7 @@ present. The baseline is deliberately run without that assertion so its failure 
 | Runtime revision | owner A (ms) | owner B (ms) | pair (ms) | response bytes | RSS before/after (KiB) | ownership   | URL secrets  |
 | ---------------- | -----------: | -----------: | --------: | -------------: | ---------------------: | ----------- | ------------ |
 | Before `209259b` |       70.075 |       82.188 |    82.247 |          1,622 |      154,848 / 220,560 | both leaked | both present |
-| After `0859db9`  |       77.676 |       80.313 |    80.378 |          1,118 |      154,720 / 253,216 | isolated    | absent       |
+| After `bd7ac8b`  |       82.018 |       86.980 |    87.051 |          1,118 |      154,544 / 252,896 | isolated    | absent       |
 
 The median response body is 504 bytes smaller after filtering/redaction. Timing and RSS are intentionally reported as
 local microbenchmark observations, not capacity claims; the endpoint includes password verification and process-level
@@ -71,9 +72,9 @@ Before:
 After:
 
 ```json
-{"revision":"0859db97ef4a5125828366e2794334b0dd7cd66d","sample":1,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":82.015,"bytes":1118,"owned":"benchmark-a-1","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":85.413,"bytes":1118,"owned":"benchmark-b-1","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":85.48,"rssBeforeKB":154960,"rssAfterKB":253456}
-{"revision":"0859db97ef4a5125828366e2794334b0dd7cd66d","sample":2,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":74.904,"bytes":1118,"owned":"benchmark-a-2","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":77.23,"bytes":1118,"owned":"benchmark-b-2","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":77.29,"rssBeforeKB":154720,"rssAfterKB":253216}
-{"revision":"0859db97ef4a5125828366e2794334b0dd7cd66d","sample":3,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":77.676,"bytes":1118,"owned":"benchmark-a-3","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":80.313,"bytes":1118,"owned":"benchmark-b-3","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":80.378,"rssBeforeKB":154272,"rssAfterKB":252736}
+{"revision":"bd7ac8beec81cdddb33b21fbf1dae510c982d7e6","sample":1,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":80.856,"bytes":1118,"owned":"benchmark-a-1","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":85.196,"bytes":1118,"owned":"benchmark-b-1","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":85.282,"rssBeforeKB":154544,"rssAfterKB":253008}
+{"revision":"bd7ac8beec81cdddb33b21fbf1dae510c982d7e6","sample":2,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":82.018,"bytes":1118,"owned":"benchmark-a-2","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":86.98,"bytes":1118,"owned":"benchmark-b-2","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":87.051,"rssBeforeKB":154416,"rssAfterKB":252896}
+{"revision":"bd7ac8beec81cdddb33b21fbf1dae510c982d7e6","sample":3,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":967.231,"bytes":1118,"owned":"benchmark-a-3","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":1080.851,"bytes":1118,"owned":"benchmark-b-3","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":1081.142,"rssBeforeKB":154960,"rssAfterKB":241744}
 ```
 
 ## Limits
