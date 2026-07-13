@@ -723,7 +723,11 @@ export default {
                     timezoneOption: "SAME_AS_SERVER",
                 };
             } else if (this.isEdit || this.isClone) {
-                this.appStore.getSocket().emit("getMaintenance", this.$route.params.id, (res) => {
+                const maintenanceID = this.$route.params.id;
+                this.appStore.getSocket().emit("getMaintenance", maintenanceID, (res) => {
+                    if (this.$route.params.id !== maintenanceID) {
+                        return;
+                    }
                     if (res.ok) {
                         this.maintenance = res.maintenance;
 
@@ -732,7 +736,10 @@ export default {
                             this.maintenance.title = this.$t("cloneOf", [this.maintenance.title]);
                         }
 
-                        this.appStore.getSocket().emit("getMonitorMaintenance", this.$route.params.id, (res) => {
+                        this.appStore.getSocket().emit("getMonitorMaintenance", maintenanceID, (res) => {
+                            if (this.$route.params.id !== maintenanceID) {
+                                return;
+                            }
                             if (res.ok) {
                                 Object.values(res.monitors).map((monitor) => {
                                     this.affectedMonitors.push(
@@ -744,7 +751,10 @@ export default {
                             }
                         });
 
-                        this.appStore.getSocket().emit("getMaintenanceStatusPage", this.$route.params.id, (res) => {
+                        this.appStore.getSocket().emit("getMaintenanceStatusPage", maintenanceID, (res) => {
+                            if (this.$route.params.id !== maintenanceID) {
+                                return;
+                            }
                             if (res.ok) {
                                 Object.values(res.statusPages).map((statusPage) => {
                                     this.selectedStatusPages.push({
@@ -834,79 +844,38 @@ export default {
                 return;
             }
 
+            const relations = {
+                monitors: this.affectedMonitors,
+                statusPages: this.showOnAllPages ? this.selectedStatusPagesOptions : this.selectedStatusPages,
+            };
+
             if (this.isAdd || this.isClone) {
-                this.appStore.addMaintenance(this.maintenance, async (res) => {
+                this.appStore.addMaintenance(this.maintenance, relations, (res) => {
                     if (res.ok) {
-                        await this.addMonitorMaintenance(res.maintenanceID, async () => {
-                            await this.addMaintenanceStatusPage(res.maintenanceID, () => {
-                                this.appStore.toastRes(res);
-                                this.processing = false;
-                                this.appStore.getMaintenanceList();
-                                this.$router.push("/maintenance");
-                            });
-                        });
+                        this.appStore.toastRes(res);
+                        this.processing = false;
+                        this.appStore.getMonitorList();
+                        this.appStore.getMaintenanceList();
+                        this.$router.push("/maintenance");
                     } else {
                         this.appStore.toastRes(res);
                         this.processing = false;
                     }
                 });
             } else {
-                this.appStore.getSocket().emit("editMaintenance", this.maintenance, async (res) => {
+                this.appStore.getSocket().emit("editMaintenance", this.maintenance, relations, (res) => {
                     if (res.ok) {
-                        await this.addMonitorMaintenance(res.maintenanceID, async () => {
-                            await this.addMaintenanceStatusPage(res.maintenanceID, () => {
-                                this.processing = false;
-                                this.appStore.toastRes(res);
-                                this.init();
-                                this.$router.push("/maintenance");
-                            });
-                        });
+                        this.processing = false;
+                        this.appStore.toastRes(res);
+                        this.appStore.getMonitorList();
+                        this.appStore.getMaintenanceList();
+                        this.$router.push("/maintenance");
                     } else {
                         this.processing = false;
                         this.appStore.toastError(res.msg);
                     }
                 });
             }
-        },
-
-        /**
-         * Add monitor to maintenance
-         * @param {number} maintenanceID ID of maintenance to modify
-         * @param {socketCB} callback Callback for socket response
-         * @returns {Promise<void>}
-         */
-        async addMonitorMaintenance(maintenanceID, callback) {
-            await this.appStore.addMonitorMaintenance(maintenanceID, this.affectedMonitors, async (res) => {
-                if (!res.ok) {
-                    this.appStore.toastError(res.msg);
-                } else {
-                    this.appStore.getMonitorList();
-                }
-
-                callback();
-            });
-        },
-
-        /**
-         * Add status page to maintenance
-         * @param {number} maintenanceID ID of maintenance to modify
-         * @param {socketCB} callback Callback for socket response
-         * @returns {void}
-         */
-        async addMaintenanceStatusPage(maintenanceID, callback) {
-            await this.appStore.addMaintenanceStatusPage(
-                maintenanceID,
-                this.showOnAllPages ? this.selectedStatusPagesOptions : this.selectedStatusPages,
-                async (res) => {
-                    if (!res.ok) {
-                        this.appStore.toastError(res.msg);
-                    } else {
-                        this.appStore.getMaintenanceList();
-                    }
-
-                    callback();
-                }
-            );
         },
     },
 };
