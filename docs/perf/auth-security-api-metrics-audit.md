@@ -110,3 +110,44 @@ verification is part of the timed request, so the numbers do not isolate only th
 RSS is sampled with `ps` around one request pair and is noisy. The security assertions are the meaningful result: the
 baseline admits cross-user monitor data and URL secrets, while the final run passes the same harness with isolation
 required.
+
+## WebSocket peer-source follow-up
+
+The source-runtime parent was `69ac7a9e25292b58eee3f7c8df05dd6ddd22e27b`. The final runtime commit is
+`180c765fd9d90f4b8c314a91d85c19a451fca5cf` (`Use Bun peer IP for WebSocket rate limits`). The runtime change is one
+WebSocket-upgrade input: it passes `bunServer.requestIP(request)?.address || ""` into the existing client-IP
+canonicalization policy, matching the established HTTP `/metrics` path. Therefore, with `trustProxy=false`, a Bun peer
+of `127.0.0.1` remains the source even when `X-Forwarded-For` and `X-Real-IP` are spoofed. With `trustProxy=true`, the
+existing configured behavior deliberately uses forwarding headers; an operator enabling it must prevent direct access
+to PocketKuma, because this change does not add a trusted-proxy allowlist.
+
+The production-path repro filled the 100 exact login identities with one failed login each, then made 250 invalid
+WebSocket logins from one Bun peer through five rotating spoofed forwarding-header sets. On the parent runtime all
+250 were admitted and the valid admin login passed. With the final runtime, each of three runs admitted 200 and blocked
+50; the subsequent valid admin login was rate-limited. `requestIP` unavailable remains the prior bounded behavior:
+the source is the empty string, so no synthetic address or untrusted header is introduced. The credential state bound
+remains 16,584 buckets (unchanged exact-LRU and fixed fallback design).
+
+New targeted coverage exercises the real upgrade path, untrusted-header rejection, explicit `trustProxy=true`
+forwarding behavior, unavailable peer behavior, and the existing HTTP/API canonicalizer shared by the server. The
+native token-bucket timing assertion now controls and restores `Date.now`; it passed 20 consecutive runs. The source
+integration passed three consecutive runs. Full backend: `237 pass / 6 skip / 0 fail`; compiled auth: `13 pass / 0
+fail`; compiled SMTP: `1 pass / 0 fail / 6 expect()`. Full source E2E passed twice (`31/31`, natural exit), the
+proxy dialog regression passed 20 repeats, and the three auth UI cases passed 10 repeats each (`35` tests including
+the five setup dependencies).
+
+Final isolated benchmark, final runtime `180c765f`, command:
+
+```bash
+bun scripts/benchmark/auth-security-api-metrics.ts --repo="$PWD" --samples=3 --expect-isolated=1
+```
+
+| sample | owner A (ms) | owner B (ms) | pair (ms) | bytes | RSS before/after (KiB) |
+| ------ | -----------: | -----------: | --------: | ----: | ---------------------: |
+| 1      |       67.297 |       70.227 |    70.282 | 1,118 |      157,632 / 256,128 |
+| 2      |       67.633 |       70.217 |    70.273 | 1,118 |      157,392 / 255,872 |
+| 3      |       68.184 |       70.411 |    70.459 | 1,118 |      157,456 / 255,952 |
+| median |       67.633 |       70.227 |    70.282 | 1,118 |      157,456 / 255,952 |
+
+All samples enforced ownership isolation and secret redaction. This is a local, isolated measurement; the WebSocket
+fix changes rate-limit attribution, not the `/metrics` rendering path.
