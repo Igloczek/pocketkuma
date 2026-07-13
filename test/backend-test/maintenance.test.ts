@@ -7,6 +7,7 @@ import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 import Maintenance from "@/server/model/maintenance";
 import { R } from "@/server/bun-sqlite-store";
+import { PocketKumaServer } from "@/server/pocketkuma-server";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -14,10 +15,14 @@ dayjs.extend(timezone);
 describe("maintenance validation and timer lifecycle", () => {
     const originalClearTimeout = global.clearTimeout;
     const originalStore = R.store;
+    const originalSendMaintenanceListByUserID = PocketKumaServer.getInstance().sendMaintenanceListByUserID;
+    const originalGetTimezone = PocketKumaServer.getInstance().getTimezone;
 
     afterEach(() => {
         global.clearTimeout = originalClearTimeout;
         R.store = originalStore;
+        PocketKumaServer.getInstance().sendMaintenanceListByUserID = originalSendMaintenanceListByUserID;
+        PocketKumaServer.getInstance().getTimezone = originalGetTimezone;
     });
 
     const schedule = (strategy, overrides = {}) => ({
@@ -230,6 +235,39 @@ describe("maintenance validation and timer lifecycle", () => {
             startDate: "2026-03-28T22:30:00.000Z",
             endDate: "2026-03-29T00:15:00.000Z",
         });
+
+        maintenance.start_time = "02:00";
+        maintenance.end_time = "03:00";
+        expect(await maintenance.getTimeslot(new Date("2026-03-29T01:00:00.000Z"))).toEqual({
+            startDate: "2026-03-29T01:00:00.000Z",
+            endDate: "2026-03-29T02:00:00.000Z",
+        });
+
+        maintenance.start_time = "02:30";
+        expect(await maintenance.getTimeslot(new Date("2026-03-29T01:30:00.000Z"))).toEqual({
+            startDate: "2026-03-29T01:30:00.000Z",
+            endDate: "2026-03-29T02:00:00.000Z",
+        });
+    });
+
+    test("falls back to the server timezone when serializing a malformed legacy timezone", async () => {
+        PocketKumaServer.getInstance().getTimezone = async () => "UTC";
+        const maintenance = Object.assign(new Maintenance(), {
+            id: 1,
+            title: "Legacy timezone",
+            description: "",
+            active: false,
+            strategy: "manual",
+            timezone: "Mars/Olympus",
+        });
+
+        await expect(maintenance.toJSON()).resolves.toMatchObject({
+            id: 1,
+            title: "Legacy timezone",
+            timezone: expect.any(String),
+            timezoneOption: "Mars/Olympus",
+            status: "inactive",
+        });
     });
 
     test("single windows restore exactly one guarded end job and stop every callback", async () => {
@@ -353,5 +391,39 @@ describe("maintenance validation and timer lifecycle", () => {
         expect(maintenance.beanMeta.durationTimeout).toBeUndefined();
         expect(maintenance.beanMeta.status).toBeUndefined();
         expect(maintenance.last_start_date).toBeUndefined();
+    });
+
+    test("rehydrates an active window without persistence or publication and keeps one timer set", async () => {
+        let stores = 0;
+        let publications = 0;
+        R.store = async () => stores++;
+        PocketKumaServer.getInstance().sendMaintenanceListByUserID = async () => publications++;
+        const maintenance = Object.assign(new Maintenance(), {
+            id: 1,
+            user_id: 1,
+            active: 1,
+            strategy: "cron",
+            cron: "* * * * * *",
+            duration: 60,
+            timezone: "UTC",
+            last_start_date: "2026-01-01 00:00:00",
+        });
+        const previousJobs = [];
+
+        for (let index = 0; index < 20; index++) {
+            await maintenance.run(true, true);
+            expect(maintenance.beanMeta.job).toBeDefined();
+            expect(maintenance.beanMeta.durationTimeout).toBeDefined();
+            expect(previousJobs.every((job) => job.isStopped())).toBe(true);
+            previousJobs.push(maintenance.beanMeta.job);
+        }
+
+        expect(stores).toBe(0);
+        expect(publications).toBe(0);
+        expect(maintenance.last_start_date).toBe("2026-01-01 00:00:00");
+        await maintenance.beanMeta.job.fn();
+        expect(stores).toBe(1);
+        expect(maintenance.last_start_date).not.toBe("2026-01-01 00:00:00");
+        maintenance.stop();
     });
 });

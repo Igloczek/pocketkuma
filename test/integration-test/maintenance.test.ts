@@ -82,6 +82,13 @@ async function connect(port) {
             } else if ((message.type === "reply" || message.type === "error") && message.id) {
                 const callback = callbacks.get(message.id);
                 if (callback) {
+                    if (callback.replies) {
+                        callback.replies.push(
+                            message.type === "error" ? { error: message.message } : message.args?.[0]
+                        );
+                        callback.firstReply();
+                        return;
+                    }
                     callbacks.delete(message.id);
                     message.type === "error"
                         ? callback.reject(new Error(message.message))
@@ -107,6 +114,23 @@ async function connect(port) {
                     throw new Error(`No reply for ${event}`);
                 }),
             ]);
+        },
+        async requestReplies(event, ...args) {
+            const id = String(nextID++);
+            const replies = [];
+            let firstReply;
+            const received = new Promise((resolve) => (firstReply = resolve));
+            callbacks.set(id, { replies, firstReply });
+            socket.send(JSON.stringify({ type: "event", event, args, id }));
+            await Promise.race([
+                received,
+                Bun.sleep(10_000).then(() => {
+                    throw new Error(`No reply for ${event}`);
+                }),
+            ]);
+            await Bun.sleep(300);
+            callbacks.delete(id);
+            return replies;
         },
         nextEvent(name) {
             return new Promise((resolve) => events.set(name, [...(events.get(name) || []), resolve]));
@@ -185,6 +209,95 @@ afterEach(async () => {
 });
 
 describe("maintenance ownership boundaries", () => {
+    test("commits each mutation once when a malformed legacy timezone is present", async () => {
+        dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-"));
+        let port = await startApp();
+        const bootstrap = await connect(port);
+        expect((await bootstrap.request("setup", "owner", "owner-password")).ok).toBe(true);
+        await stopApp();
+
+        const db = new Database(path.join(dataDir, "kuma.db"));
+        const ownerID = db.query("SELECT id FROM user WHERE username = ?").get("owner").id;
+        const statusPageID = Number(
+            db
+                .query("INSERT INTO status_page (slug, title, icon, theme) VALUES (?, ?, '', 'auto')")
+                .run("legacy-timezone", "Legacy timezone").lastInsertRowid
+        );
+        const insertMaintenance = db.query(
+            "INSERT INTO maintenance (title, description, user_id, active, strategy, weekdays, days_of_month, timezone) VALUES (?, '', ?, ?, 'manual', '[]', '[]', ?)"
+        );
+        const legacyID = Number(insertMaintenance.run("Malformed legacy", ownerID, 0, "Mars/Olympus").lastInsertRowid);
+        const existingID = Number(insertMaintenance.run("Before edit", ownerID, 1, "UTC").lastInsertRowid);
+        db.query("INSERT INTO maintenance_status_page (status_page_id, maintenance_id) VALUES (?, ?)").run(
+            statusPageID,
+            existingID
+        );
+        db.close();
+
+        port = await startApp();
+        const owner = await connect(port);
+        expect((await owner.request("login", { username: "owner", password: "owner-password", token: "" })).ok).toBe(
+            true
+        );
+        expect(await publicMaintenance(port, "legacy-timezone")).toEqual([
+            expect.objectContaining({ id: existingID, title: "Before edit" }),
+        ]);
+
+        const editReplies = await owner.requestReplies(
+            "editMaintenance",
+            { ...maintenance(), id: existingID, title: "After edit" },
+            { monitors: [], statusPages: [{ id: statusPageID }] }
+        );
+        const addReplies = await owner.requestReplies(
+            "addMaintenance",
+            { ...maintenance(), title: "Added once" },
+            { monitors: [], statusPages: [{ id: statusPageID }] }
+        );
+        const stateDB = new Database(path.join(dataDir, "kuma.db"), { readonly: true });
+        const addedID = stateDB.query("SELECT id FROM maintenance WHERE title = ?").get("Added once").id;
+        stateDB.close();
+        const pauseReplies = await owner.requestReplies("pauseMaintenance", addedID);
+        const paused = (await owner.request("getMaintenance", addedID)).maintenance.active;
+        const resumeReplies = await owner.requestReplies("resumeMaintenance", addedID);
+        const resumed = (await owner.request("getMaintenance", addedID)).maintenance.active;
+        const deleteReplies = await owner.requestReplies("deleteMaintenance", addedID);
+
+        expect({ editReplies, addReplies, pauseReplies, resumeReplies, deleteReplies }).toEqual({
+            editReplies: [{ ok: true, msg: "Saved.", msgi18n: true, maintenanceID: existingID }],
+            addReplies: [{ ok: true, msg: "successAdded", msgi18n: true, maintenanceID: addedID }],
+            pauseReplies: [{ ok: true, msg: "successPaused", msgi18n: true }],
+            resumeReplies: [{ ok: true, msg: "successResumed", msgi18n: true }],
+            deleteReplies: [{ ok: true, msg: "successDeleted", msgi18n: true }],
+        });
+        expect(paused).toBe(false);
+        expect(resumed).toBe(true);
+        expect((await owner.request("getMaintenance", existingID)).maintenance.title).toBe("After edit");
+        expect(await publicMaintenance(port, "legacy-timezone")).toEqual([
+            expect.objectContaining({ id: existingID, title: "After edit" }),
+        ]);
+
+        const listEvent = owner.nextEvent("maintenanceList");
+        expect((await owner.request("getMaintenanceList")).ok).toBe(true);
+        const listed = await listEvent;
+        expect(listed).toMatchObject({
+            [legacyID]: { id: legacyID, title: "Malformed legacy", timezoneOption: "Mars/Olympus" },
+            [existingID]: { id: existingID, title: "After edit" },
+        });
+        expect(listed[addedID]).toBeUndefined();
+
+        const resultDB = new Database(path.join(dataDir, "kuma.db"), { readonly: true });
+        expect(resultDB.query("SELECT title FROM maintenance WHERE id = ?").get(existingID)).toEqual({
+            title: "After edit",
+        });
+        expect(resultDB.query("SELECT COUNT(*) AS count FROM maintenance WHERE id = ?").get(addedID)).toEqual({
+            count: 0,
+        });
+        resultDB.close();
+        expect(await publicMaintenance(port, "legacy-timezone")).toEqual([
+            expect.objectContaining({ id: existingID, title: "After edit" }),
+        ]);
+    }, 120_000);
+
     test("invalidates a prewarmed public status page only after an atomic add commits", async () => {
         const slug = "maintenance-add-cache";
         const { owner, port, statusPageID } = await setupStatusPage(slug);
@@ -232,6 +345,10 @@ describe("maintenance ownership boundaries", () => {
 
         const before = (await owner.request("getMaintenance", created.maintenanceID)).maintenance;
         const db = new Database(path.join(dataDir, "kuma.db"));
+        const databaseBefore = db.query("SELECT * FROM maintenance WHERE id = ?").get(created.maintenanceID);
+        const relationsBefore = db
+            .query("SELECT * FROM maintenance_status_page WHERE maintenance_id = ? ORDER BY id")
+            .all(created.maintenanceID);
         db.query("UPDATE status_page SET title = ? WHERE id = ?").run("Changed behind cache", statusPageID);
         db.exec(`
             CREATE TABLE maintenance_commit_guard (
@@ -246,15 +363,25 @@ describe("maintenance ownership boundaries", () => {
             END
         `);
         db.close();
+        await Bun.sleep(1_100);
         const rejected = await owner.request(
             "editMaintenance",
             { ...before, title: "Rollback edit" },
             { monitors: [], statusPages: [{ id: statusPageID }] }
         );
         expect(rejected.ok).toBe(false);
+        expect((await owner.request("getMaintenance", created.maintenanceID)).maintenance).toEqual(before);
         expect((await publicStatusPage(port, slug)).config.title).toBe(slug);
 
         const cleanupDB = new Database(path.join(dataDir, "kuma.db"));
+        expect(cleanupDB.query("SELECT * FROM maintenance WHERE id = ?").get(created.maintenanceID)).toEqual(
+            databaseBefore
+        );
+        expect(
+            cleanupDB
+                .query("SELECT * FROM maintenance_status_page WHERE maintenance_id = ? ORDER BY id")
+                .all(created.maintenanceID)
+        ).toEqual(relationsBefore);
         cleanupDB.exec("DROP TRIGGER reject_maintenance_edit");
         cleanupDB.close();
         const edited = await owner.request(
