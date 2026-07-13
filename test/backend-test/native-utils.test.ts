@@ -244,7 +244,34 @@ describe("token bucket rate limiter", () => {
         expect(bounded.rateLimiters.size).toBe(99);
     });
 
-    test("keeps a rate-limited identity through adversarial identity churn", async () => {
+    test("preserves login and API partial penalties through exact-LRU churn", async () => {
+        for (const { identity, capacity } of [
+            { identity: "login-admin", capacity: 20 },
+            { identity: "api-key:42", capacity: 60 },
+        ]) {
+            const limiter = new KumaRateLimiter({
+                tokensPerInterval: capacity,
+                interval: "minute",
+                fireImmediately: true,
+                errorMessage: "limited",
+            });
+
+            for (let attempt = 0; attempt < capacity - 1; attempt++) {
+                expect(await limiter.pass(null, 1, identity)).toBe(true);
+            }
+            for (let churn = 0; churn < 1001; churn++) {
+                await limiter.pass(null, 1, `churn-${churn}`);
+            }
+
+            const attemptsAfterChurn = await Promise.all(
+                Array.from({ length: capacity }, () => limiter.pass(null, 1, identity))
+            );
+            expect(attemptsAfterChurn.filter(Boolean)).toHaveLength(1);
+            expect(limiter.rateLimiters.size).toBe(100);
+        }
+    });
+
+    test("keeps a fully blocked identity through adversarial identity churn", async () => {
         const limiter = new KumaRateLimiter({
             tokensPerInterval: 20,
             interval: "minute",
@@ -255,16 +282,35 @@ describe("token bucket rate limiter", () => {
         for (let index = 0; index < 21; index++) {
             await limiter.pass(null, 1, "admin");
         }
-        expect(await limiter.pass(null, 0, "admin")).toBe(false);
-
         for (let index = 0; index < 1001; index++) {
             await limiter.pass(null, 1, `churn-${index}`);
         }
 
-        expect(limiter.rateLimiters.size).toBeLessThanOrEqual(100);
-        for (let attempt = 0; attempt < 20; attempt++) {
-            expect(await limiter.pass(null, 1, "admin")).toBe(false);
-        }
+        expect(limiter.rateLimiters.size).toBe(100);
+        expect(await limiter.pass(null, 1, "admin")).toBe(false);
+    });
+
+    test("evicts only an exact identity reset or fully regenerated to capacity", async () => {
+        const limiter = new KumaRateLimiter({
+            tokensPerInterval: 2,
+            interval: 1_000,
+            maxBuckets: 2,
+            fireImmediately: true,
+            errorMessage: "limited",
+        });
+
+        await limiter.pass(null, 1, "partial");
+        await limiter.pass(null, 1, "other");
+        await limiter.pass(null, 1, "new");
+        expect(limiter.rateLimiters.has("partial")).toBe(true);
+
+        limiter.reset("partial");
+        expect(limiter.rateLimiters.has("partial")).toBe(false);
+
+        await limiter.pass(null, 1, "refilled");
+        limiter.rateLimiters.get("refilled").lastRefill -= 2_000;
+        await limiter.pass(null, 1, "another");
+        expect(limiter.rateLimiters.has("refilled")).toBe(false);
     });
 
     test("throttles a late identity after protected capacity is full", async () => {
@@ -319,6 +365,24 @@ describe("token bucket rate limiter", () => {
         limiter.reset("attacker-owned-account", "origin-a");
         expect(await limiter.pass(null, 1, "late-admin", "origin-a")).toBe(false);
         expect(limiter.identity.rateLimiters.size).toBe(3);
+    });
+
+    test("rejects at source admission before consuming a late identity bucket", async () => {
+        const limiter = new CredentialRateLimiter({
+            tokensPerInterval: 3,
+            sourceTokensPerInterval: 1,
+            interval: "minute",
+            maxBuckets: 1,
+            fixedBuckets: 1,
+            fireImmediately: true,
+            errorMessage: "limited",
+        });
+
+        await limiter.identity.removeTokens(3, "protected");
+        expect(await limiter.pass(null, 1, "late-one", "source-a")).toBe(true);
+        expect(await limiter.pass(null, 1, "late-two", "source-a")).toBe(false);
+        expect(limiter.identity.rateLimiters.size).toBe(1);
+        expect(limiter.identity.rateLimiters.has("late-two")).toBe(false);
     });
 
     test("throttles a late identity across many sources after protected capacity is full", async () => {

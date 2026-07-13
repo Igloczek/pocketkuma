@@ -69,8 +69,13 @@ class KumaRateLimiter {
         return (
             this.rateLimiters.has(key) ||
             this.rateLimiters.size < this.maxBuckets ||
-            [...this.rateLimiters.values()].some((candidate) => candidate.tokens > 0)
+            [...this.rateLimiters.values()].some((candidate) => this.isEvictable(candidate))
         );
+    }
+
+    isEvictable(bucket) {
+        bucket.refill();
+        return bucket.tokens >= bucket.tokensPerInterval;
     }
 
     getRateLimiter(key = "global") {
@@ -87,7 +92,7 @@ class KumaRateLimiter {
         }
 
         if (this.rateLimiters.size >= this.maxBuckets) {
-            const evictable = [...this.rateLimiters].find(([, candidate]) => candidate.tokens > 0);
+            const evictable = [...this.rateLimiters].find(([, candidate]) => this.isEvictable(candidate));
             if (!evictable) {
                 return new TokenBucket(this.config);
             }
