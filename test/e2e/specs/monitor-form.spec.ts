@@ -45,6 +45,21 @@ async function selectMonitorType(page, monitorType = "dns") {
     expect(selectedValue).toBe(monitorType);
 }
 
+function collectSentSocketEvents(page) {
+    const events = [];
+    page.on("websocket", (socket) => {
+        socket.on("framesent", ({ payload }) => {
+            try {
+                const message = JSON.parse(String(payload));
+                if (message.type === "event") {
+                    events.push(message.event);
+                }
+            } catch {}
+        });
+    });
+    return events;
+}
+
 test.describe("Monitor Form", () => {
     let dnsFixture;
 
@@ -177,5 +192,59 @@ test.describe("Monitor Form", () => {
         await expect(page.getByLabel("Response Max Length (bytes)")).toHaveValue("2048");
 
         await screenshot(testInfo, page);
+    });
+
+    test("blocks HTTPS proxy with Ignore TLS on create and edit before WebSocket persistence", async ({ page }) => {
+        const sentEvents = collectSentSocketEvents(page);
+        const message =
+            "Ignore TLS cannot be combined with an HTTPS proxy because Bun cannot limit disabled certificate validation to the target.";
+
+        await page.goto("./settings/proxies");
+        await login(page);
+        await expect(page.getByText("Add New Monitor")).toBeVisible();
+        await page.goto("./settings/proxies");
+        await page.getByRole("button", { name: "Set Up Proxy" }).click();
+
+        const proxyModal = page.locator(".modal").filter({ has: page.locator("#proxy-protocol") });
+        await proxyModal.locator("#proxy-protocol").selectOption("https");
+        await proxyModal.locator("#proxy-host").fill("127.0.0.1");
+        await proxyModal.locator('input[type="number"]').fill("443");
+        await proxyModal.locator("#mark-active").check();
+        await proxyModal.getByRole("button", { name: "Save" }).click();
+        await expect(proxyModal).toBeHidden();
+
+        await page.goto("./add");
+        await selectMonitorType(page, "http");
+        await page.getByTestId("friendly-name-input").fill("Blocked proxy combination");
+        await page.getByTestId("url-input").fill(serverUrl);
+        await page.locator('input[name="proxy"]:not(#proxy-disable)').check();
+        await page.getByLabel("Ignore TLS/SSL errors for HTTPS websites").check();
+
+        const eventsBeforeCreate = sentEvents.length;
+        await page.getByTestId("save-button").click();
+        await expect(page.getByText(message, { exact: true }).last()).toBeVisible();
+        expect(sentEvents.slice(eventsBeforeCreate)).not.toContain("add");
+        await expect(page).toHaveURL(/\/add$/);
+
+        await page.getByLabel("Ignore TLS/SSL errors for HTTPS websites").uncheck();
+        await page.locator("#proxy-disable").check();
+        await page.getByTestId("save-button").click();
+        await page.waitForURL("**/dashboard/*");
+        const monitorID = page.url().split("/").at(-1);
+
+        await page.goto(`./edit/${monitorID}`);
+        await expect(page.getByTestId("friendly-name-input")).toHaveValue("Blocked proxy combination");
+        await page.locator('input[name="proxy"]:not(#proxy-disable)').check();
+        await page.getByLabel("Ignore TLS/SSL errors for HTTPS websites").check();
+
+        const eventsBeforeEdit = sentEvents.length;
+        await page.getByTestId("save-button").click();
+        await expect(page.getByText(message, { exact: true }).last()).toBeVisible();
+        expect(sentEvents.slice(eventsBeforeEdit)).not.toContain("editMonitor");
+
+        await page.reload();
+        await expect(page.getByTestId("friendly-name-input")).toHaveValue("Blocked proxy combination");
+        await expect(page.getByLabel("Ignore TLS/SSL errors for HTTPS websites")).not.toBeChecked();
+        await expect(page.locator("#proxy-disable")).toBeChecked();
     });
 });

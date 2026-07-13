@@ -706,6 +706,19 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
             port: 8080,
             active: 1,
         });
+
+        const deactivated = await realtime.request(
+            "addProxy",
+            { protocol: "http", host: "deactivated.example", port: 3128, auth: false, active: false },
+            unchanged.id
+        );
+        expect(deactivated.ok).toBe(true);
+        proxyList = await reconnectAndGetProxyList();
+        expect(proxyList.find((proxy) => proxy.id === unchanged.id)).toMatchObject({
+            host: "deactivated.example",
+            port: 3128,
+            active: 0,
+        });
     }, 30_000);
 
     test("core HTTP monitor saves reject unavailable proxies before persistence", async () => {
