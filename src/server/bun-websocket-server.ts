@@ -126,7 +126,7 @@ class BunRealtimeAdapter extends EventEmitter {
         }
 
         const headers = headersToObject(request.headers);
-        const clientIP = await this.server.getClientIPwithProxy("", headers);
+        const clientIP = await this.server.getClientIPwithProxy(bunServer.requestIP(request)?.address || "", headers);
         log.info("socket", `New websocket connection, IP = ${clientIP}`);
 
         const bypass = process.env.UPTIME_KUMA_WS_ORIGIN_CHECK === "bypass";

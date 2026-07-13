@@ -91,8 +91,8 @@ async function stopApp() {
     appProcess = null;
 }
 
-async function connectRealtime(port) {
-    const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+async function connectRealtime(port, headers) {
+    const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`, headers ? { headers } : undefined);
     sockets.push(socket);
     const callbacks = new Map();
     let nextID = 1;
@@ -669,6 +669,50 @@ describe("production auth, API key, and metrics boundaries", () => {
                 })
             ).ok
         ).toBe(true);
+    }, 120_000);
+
+    test("uses the real WebSocket peer for source fallback despite rotated forwarding headers", async () => {
+        dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-ws-peer-source-"));
+        const port = await startApp();
+        const setup = await connectRealtime(port);
+        expect((await setup.request("setup", "admin", "admin-password")).ok).toBe(true);
+        const spoofedSockets = await Promise.all(
+            Array.from({ length: 5 }, (_, index) =>
+                connectRealtime(port, {
+                    "x-forwarded-for": `203.0.113.${index + 1}`,
+                    "x-real-ip": `198.51.100.${index + 1}`,
+                })
+            )
+        );
+
+        for (let identity = 0; identity < 100; identity++) {
+            await spoofedSockets[identity % spoofedSockets.length].request("login", {
+                username: `exact-${identity}`,
+                password: "wrong-password",
+                token: "",
+            });
+        }
+
+        const overflow = [];
+        for (let attempt = 0; attempt < 250; attempt++) {
+            overflow.push(
+                await spoofedSockets[attempt % spoofedSockets.length].request("login", {
+                    username: `overflow-${attempt}`,
+                    password: "wrong-password",
+                    token: "",
+                })
+            );
+        }
+
+        const blocked = overflow.filter((result) => result.msg === "Too frequently, try again later.").length;
+        expect(blocked).toBeGreaterThan(0);
+        expect(
+            await spoofedSockets[0].request("login", {
+                username: "admin",
+                password: "admin-password",
+                token: "",
+            })
+        ).toMatchObject({ msg: "Too frequently, try again later." });
     }, 120_000);
 
     test("preserves WebSocket, HTTP Basic, and API-key partial penalties through adversarial churn", async () => {
