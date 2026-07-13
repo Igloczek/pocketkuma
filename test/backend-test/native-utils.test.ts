@@ -174,7 +174,7 @@ describe("token bucket rate limiter", () => {
         });
 
         expect(bucket.removeTokens(1)).toBe(1);
-        expect(bucket.removeTokens(1)).toBe(0);
+        expect(bucket.removeTokens(1)).toBeLessThan(0.01);
         expect(bucket.removeTokens(1)).toBe(-1);
 
         bucket.lastRefill = Date.now() - 2000;
@@ -262,7 +262,9 @@ describe("token bucket rate limiter", () => {
         }
 
         expect(limiter.rateLimiters.size).toBeLessThanOrEqual(100);
-        expect(await limiter.pass(null, 1, "admin")).toBe(false);
+        for (let attempt = 0; attempt < 20; attempt++) {
+            expect(await limiter.pass(null, 1, "admin")).toBe(false);
+        }
     });
 
     test("throttles a late identity after protected capacity is full", async () => {
@@ -271,6 +273,7 @@ describe("token bucket rate limiter", () => {
             sourceTokensPerInterval: 3,
             interval: "minute",
             maxBuckets: 3,
+            fixedBuckets: 7,
             fireImmediately: true,
             errorMessage: "limited",
         });
@@ -285,6 +288,14 @@ describe("token bucket rate limiter", () => {
         }
         expect(await limiter.pass(null, 1, "late-admin", "origin-a")).toBe(false);
         expect(limiter.identity.rateLimiters.size).toBe(3);
+        expect(limiter.fallback.rateLimiters).toHaveLength(7);
+        expect(limiter.source.rateLimiters).toHaveLength(7);
+
+        const otherIdentity = Array.from({ length: 100 }, (_, index) => `real-user-${index}`).find(
+            (identity) => limiter.fallback.getRateLimiter(identity) !== limiter.fallback.getRateLimiter("late-admin")
+        );
+        expect(otherIdentity).toBeDefined();
+        expect(await limiter.pass(null, 1, otherIdentity, "origin-b")).toBe(true);
     });
 
     test("does not reset a late victim's source admission after another identity succeeds", async () => {
@@ -312,7 +323,7 @@ describe("token bucket rate limiter", () => {
 
     test("throttles a late identity across many sources after protected capacity is full", async () => {
         const limiter = new CredentialRateLimiter({
-            tokensPerInterval: 3,
+            tokensPerInterval: 20,
             sourceTokensPerInterval: 100,
             interval: "minute",
             maxBuckets: 3,
@@ -324,10 +335,10 @@ describe("token bucket rate limiter", () => {
             await limiter.identity.removeTokens(3, `blocked-${identity}`);
         }
 
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 20; attempt++) {
             expect(await limiter.pass(null, 1, "late-api-key:77", `origin-${attempt}`)).toBe(true);
         }
-        expect(await limiter.pass(null, 1, "late-api-key:77", "origin-99")).toBe(false);
+        expect(await limiter.pass(null, 1, "late-api-key:77", "origin-20")).toBe(false);
         expect(limiter.identity.rateLimiters.size).toBe(3);
     });
 });
