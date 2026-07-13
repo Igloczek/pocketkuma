@@ -228,7 +228,10 @@ class PocketKumaServer {
     async getMaintenanceJSONList(userID) {
         let result = {};
         for (let maintenanceID in this.maintenanceList) {
-            result[maintenanceID] = await this.maintenanceList[maintenanceID].toJSON();
+            const maintenance = this.maintenanceList[maintenanceID];
+            if (maintenance.user_id === userID) {
+                result[maintenanceID] = await maintenance.toJSON();
+            }
         }
         return result;
     }

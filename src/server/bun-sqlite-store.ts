@@ -36,6 +36,10 @@ const modelMap = {
     domain_expiry: DomainExpiry,
 };
 
+export function registerModel(table, model) {
+    modelMap[table] = model;
+}
+
 const monitorMappedProperties = new Set(Object.keys(monitorPropertyColumns));
 
 // Generic camelCase -> snake_case aliases for tables that use BeanModel fields in camelCase.
