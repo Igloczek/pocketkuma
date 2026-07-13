@@ -206,6 +206,19 @@ function ownership(body, ownedName, foreignName) {
     };
 }
 
+export function assertMetricsIsolated({ ownershipA, ownershipB, secretsA, secretsB }) {
+    if (
+        !ownershipA.ownedPresent ||
+        ownershipA.foreignPresent ||
+        !ownershipB.ownedPresent ||
+        ownershipB.foreignPresent ||
+        secretsA ||
+        secretsB
+    ) {
+        throw new Error(`Metrics isolation failed: ${JSON.stringify({ ownershipA, ownershipB, secretsA, secretsB })}`);
+    }
+}
+
 async function runSample(repoRoot, sample, expectIsolated) {
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-auth-metrics-bench-"));
     try {
@@ -236,14 +249,8 @@ async function runSample(repoRoot, sample, expectIsolated) {
         if (ownerA.status !== 200 || ownerB.status !== 200) {
             throw new Error(`Metrics request failed: ${ownerA.status}/${ownerB.status}`);
         }
-        if (
-            expectIsolated &&
-            (!ownershipA.ownedPresent ||
-                ownershipA.foreignPresent ||
-                !ownershipB.ownedPresent ||
-                ownershipB.foreignPresent)
-        ) {
-            throw new Error(`Metrics ownership filtering failed: ${JSON.stringify({ ownershipA, ownershipB })}`);
+        if (expectIsolated) {
+            assertMetricsIsolated({ ownershipA, ownershipB, secretsA, secretsB });
         }
 
         return {
@@ -289,10 +296,12 @@ async function main() {
     }
 }
 
-try {
-    await main();
-} catch (error) {
-    console.error(error.stack || error);
-    await stopApp();
-    process.exitCode = 1;
+if (import.meta.main) {
+    try {
+        await main();
+    } catch (error) {
+        console.error(error.stack || error);
+        await stopApp();
+        process.exitCode = 1;
+    }
 }

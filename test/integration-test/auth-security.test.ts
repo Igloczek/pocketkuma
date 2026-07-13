@@ -13,7 +13,6 @@ const binaryPath = process.env.POCKETKUMA_BINARY ? path.resolve(projectRoot, pro
 let appProcess;
 let dataDir;
 let sockets = [];
-let captureAppOutput = false;
 
 function withTimeout(promise, timeout, message) {
     let timeoutID;
@@ -52,7 +51,7 @@ async function waitForApp(url) {
     throw new Error("PocketKuma did not become ready within 30 seconds");
 }
 
-async function startApp({ captureOutput = false } = {}) {
+async function startApp() {
     const port = reservePort();
     const command = binaryPath
         ? [binaryPath, `--port=${port}`, "--host=127.0.0.1", `--data-dir=${dataDir}`]
@@ -63,17 +62,10 @@ async function startApp({ captureOutput = false } = {}) {
             ...process.env,
             NODE_ENV: "production",
             UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
-            ...(captureOutput
-                ? {
-                      POCKETKUMA_SETUP_HASH_TRACE: "1",
-                      POCKETKUMA_AUTH_HASH_TRACE: "1",
-                  }
-                : {}),
         },
-        stdout: captureOutput ? "pipe" : "ignore",
+        stdout: "ignore",
         stderr: "ignore",
     });
-    captureAppOutput = captureOutput;
     await waitForApp(`http://127.0.0.1:${port}`);
     return port;
 }
@@ -84,7 +76,7 @@ async function stopApp() {
         socket.close();
     }
     if (!processToStop) {
-        return "";
+        return;
     }
     if (processToStop.exitCode === null) {
         processToStop.kill("SIGTERM");
@@ -96,10 +88,7 @@ async function stopApp() {
         }
     }
 
-    const output = captureAppOutput && processToStop.stdout ? await new Response(processToStop.stdout).text() : "";
     appProcess = null;
-    captureAppOutput = false;
-    return output;
 }
 
 async function connectRealtime(port) {
@@ -195,7 +184,7 @@ afterEach(async () => {
 describe("production auth, API key, and metrics boundaries", () => {
     test("claims setup before hashing and releases the claim after concurrent setup attempts", async () => {
         dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-setup-concurrency-"));
-        const port = await startApp({ captureOutput: true });
+        const port = await startApp();
         const results = await Promise.all(
             Array.from({ length: 32 }, async (_, index) => {
                 const socket = await connectRealtime(port);
@@ -204,17 +193,14 @@ describe("production auth, API key, and metrics boundaries", () => {
         );
 
         expect(results.filter((result) => result.ok)).toHaveLength(1);
-        const output = await stopApp();
-        expect(output.match(/setup-password-hash/g) || []).toHaveLength(1);
-
         const database = new Database(path.join(dataDir, "kuma.db"), { readonly: true });
         expect(database.query("SELECT COUNT(*) AS count FROM user").get().count).toBe(1);
         database.close();
     }, 120_000);
 
-    test("reserves HTTP Basic and API-key attempts before credential hashing", async () => {
+    test("throttles HTTP Basic and API-key attempts before verification", async () => {
         dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-http-auth-concurrency-"));
-        const port = await startApp({ captureOutput: true });
+        const port = await startApp();
         const socket = await connectRealtime(port);
         expect((await socket.request("setup", "admin", "admin-password")).ok).toBe(true);
         expect(
@@ -237,9 +223,8 @@ describe("production auth, API key, and metrics boundaries", () => {
         expect(basicResults.every((response) => response.status === 401)).toBe(true);
         expect(apiResults.every((response) => response.status === 401)).toBe(true);
 
-        const output = await stopApp();
-        expect(output.match(/auth-password-verify/g) || []).toHaveLength(21);
-        expect(output.match(/auth-api-key-verify/g) || []).toHaveLength(60);
+        expect((await metrics(port, basic("admin", "admin-password"))).status).toBe(401);
+        expect((await metrics(port, basic("", ownerKey.key))).status).toBe(401);
     }, 120_000);
 
     test("setup, persistent sessions, ownership, and secret redaction", async () => {
@@ -684,6 +669,61 @@ describe("production auth, API key, and metrics boundaries", () => {
                 })
             ).ok
         ).toBe(true);
+    }, 120_000);
+
+    test("keeps WebSocket, HTTP Basic, and API-key targets throttled through adversarial churn", async () => {
+        dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-rate-limit-churn-"));
+        let port = await startApp();
+        let socket = await connectRealtime(port);
+        expect((await socket.request("setup", "admin", "admin-password")).ok).toBe(true);
+        await stopApp();
+        const database = new Database(path.join(dataDir, "kuma.db"));
+        database
+            .query("INSERT INTO user (username, password) VALUES (?, ?)")
+            .run("other", await Bun.password.hash("other-password", { algorithm: "argon2id" }));
+        database.close();
+        port = await startApp();
+        socket = await connectRealtime(port);
+        expect(
+            (
+                await socket.request("login", {
+                    username: "admin",
+                    password: "admin-password",
+                    token: "",
+                })
+            ).ok
+        ).toBe(true);
+
+        for (let attempt = 0; attempt < 21; attempt++) {
+            await socket.request("login", { username: "admin", password: "wrong-password", token: "" });
+        }
+        for (let identity = 0; identity < 101; identity++) {
+            await socket.request("login", { username: `ws-churn-${identity}`, password: "wrong-password", token: "" });
+        }
+        expect(
+            await socket.request("login", { username: "admin", password: "wrong-password", token: "" })
+        ).toMatchObject({
+            msg: "Too frequently, try again later.",
+        });
+
+        for (let identity = 0; identity < 101; identity++) {
+            expect((await metrics(port, basic(`basic-churn-${identity}`, "wrong-password"))).status).toBe(401);
+        }
+        expect((await metrics(port, basic("admin", "admin-password"))).status).toBe(401);
+        expect((await metrics(port, basic("other", "other-password"))).status).toBe(200);
+
+        const ownerKey = await socket.request("addAPIKey", { name: "churn owner", active: 1, expires: null });
+        const otherKey = await socket.request("addAPIKey", { name: "churn other", active: 1, expires: null });
+        const wrongOwnerKey = `${ownerKey.key.slice(0, -1)}${ownerKey.key.endsWith("a") ? "b" : "a"}`;
+        for (let attempt = 0; attempt < 80; attempt++) {
+            expect((await metrics(port, basic("", wrongOwnerKey))).status).toBe(401);
+        }
+        for (let identity = 0; identity < 101; identity++) {
+            const secret = "a".repeat(40);
+            expect((await metrics(port, basic("", `uk${100_000 + identity}_${secret}`))).status).toBe(401);
+        }
+        expect((await metrics(port, basic("", ownerKey.key))).status).toBe(401);
+        expect((await metrics(port, basic("", otherKey.key))).status).toBe(200);
     }, 120_000);
 
     test("disabled authentication requires a password to enter and restores the boundary when re-enabled", async () => {

@@ -279,8 +279,12 @@ async function handleDevRequest(request, disableFrameSameOrigin) {
     return null;
 }
 
-async function metricsResponse(request, disableFrameSameOrigin) {
-    const auth = await authenticateAPIRequest(request, { disableFrameSameOrigin });
+async function metricsResponse(request, bunServer, server, disableFrameSameOrigin) {
+    const source = await server.getClientIPwithProxy(
+        bunServer.requestIP(request)?.address || "",
+        Object.fromEntries(request.headers)
+    );
+    const auth = await authenticateAPIRequest(request, { disableFrameSameOrigin, source });
     if (auth.response) {
         return auth.response;
     }
@@ -334,7 +338,7 @@ function createBunFetchHandler({ server, disableFrameSameOrigin }) {
         }
 
         if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/metrics") {
-            return metricsResponse(request, disableFrameSameOrigin);
+            return metricsResponse(request, bunServer, server, disableFrameSameOrigin);
         }
 
         const apiResponse = await handleApiRequest(request, { server, disableFrameSameOrigin });

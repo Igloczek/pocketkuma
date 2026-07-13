@@ -54,15 +54,29 @@ class KumaRateLimiter {
         this.rateLimiters = new Map();
     }
 
-    getRateLimiter(key = "global") {
-        key = String(key);
+    removeExpiredBuckets() {
         const now = Date.now();
-
         for (const [bucketKey, bucket] of this.rateLimiters) {
             if (now - bucket.lastUsed >= this.bucketTTL) {
                 this.rateLimiters.delete(bucketKey);
             }
         }
+    }
+
+    canPersist(key = "global") {
+        key = String(key);
+        this.removeExpiredBuckets();
+        return (
+            this.rateLimiters.has(key) ||
+            this.rateLimiters.size < this.maxBuckets ||
+            [...this.rateLimiters.values()].some((candidate) => candidate.tokens > 0)
+        );
+    }
+
+    getRateLimiter(key = "global") {
+        key = String(key);
+        const now = Date.now();
+        this.removeExpiredBuckets();
 
         let bucket = this.rateLimiters.get(key);
         if (bucket) {
@@ -72,8 +86,12 @@ class KumaRateLimiter {
             return bucket;
         }
 
-        while (this.rateLimiters.size >= this.maxBuckets) {
-            this.rateLimiters.delete(this.rateLimiters.keys().next().value);
+        if (this.rateLimiters.size >= this.maxBuckets) {
+            const evictable = [...this.rateLimiters].find(([, candidate]) => candidate.tokens > 0);
+            if (!evictable) {
+                return new TokenBucket(this.config);
+            }
+            this.rateLimiters.delete(evictable[0]);
         }
 
         bucket = new TokenBucket(this.config);
@@ -123,15 +141,90 @@ class KumaRateLimiter {
     }
 }
 
-const loginRateLimiter = new KumaRateLimiter({
+const RATE_LIMIT_HASH_SEED = crypto.getRandomValues(new Uint32Array(1))[0];
+
+function fixedBucketIndex(key, bucketCount) {
+    let hash = 2166136261 ^ RATE_LIMIT_HASH_SEED;
+    for (const character of String(key)) {
+        hash ^= character.charCodeAt(0);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) % bucketCount;
+}
+
+class FixedRateLimiter {
+    constructor(config, tokensPerInterval) {
+        this.errorMessage = config.errorMessage;
+        const sourceConfig = {
+            ...config,
+            tokensPerInterval,
+        };
+        this.rateLimiters = Array.from(
+            { length: Math.max(1, Number(config.fixedBuckets) || 4096) },
+            () => new TokenBucket(sourceConfig)
+        );
+    }
+
+    getRateLimiter(key) {
+        return this.rateLimiters[fixedBucketIndex(key, this.rateLimiters.length)];
+    }
+
+    async pass(callback, num = 1, key) {
+        const remainingRequests = this.getRateLimiter(key).removeTokens(num);
+        if (remainingRequests < 0) {
+            if (callback) {
+                callback({
+                    ok: false,
+                    msg: this.errorMessage,
+                });
+            }
+            return false;
+        }
+        return true;
+    }
+}
+
+class SourceRateLimiter extends FixedRateLimiter {
+    constructor(config) {
+        super(config, config.sourceTokensPerInterval);
+    }
+}
+
+class CredentialRateLimiter {
+    constructor(config) {
+        this.identity = new KumaRateLimiter(config);
+        this.fallback = new FixedRateLimiter(config, config.tokensPerInterval);
+        this.source = new SourceRateLimiter(config);
+    }
+
+    async pass(callback, num = 1, identity = "global", source = "") {
+        if (!this.identity.canPersist(identity)) {
+            if (source && !(await this.source.pass(callback, num, source))) {
+                return false;
+            }
+            if (!(await this.fallback.pass(callback, num, identity))) {
+                return false;
+            }
+        }
+        return this.identity.pass(callback, num, identity);
+    }
+
+    reset(identity = "global") {
+        this.identity.reset(identity);
+    }
+}
+
+const loginRateLimiter = new CredentialRateLimiter({
     tokensPerInterval: 20,
+    sourceTokensPerInterval: 200,
     interval: "minute",
     fireImmediately: true,
     errorMessage: "Too frequently, try again later.",
 });
 
-const apiRateLimiter = new KumaRateLimiter({
+const apiRateLimiter = new CredentialRateLimiter({
     tokensPerInterval: 60,
+    sourceTokensPerInterval: 600,
     interval: "minute",
     fireImmediately: true,
     errorMessage: "Too frequently, try again later.",
@@ -144,4 +237,13 @@ const twoFaRateLimiter = new KumaRateLimiter({
     errorMessage: "Too frequently, try again later.",
 });
 
-export { TokenBucket, KumaRateLimiter, loginRateLimiter, apiRateLimiter, twoFaRateLimiter };
+export {
+    CredentialRateLimiter,
+    FixedRateLimiter,
+    SourceRateLimiter,
+    TokenBucket,
+    KumaRateLimiter,
+    loginRateLimiter,
+    apiRateLimiter,
+    twoFaRateLimiter,
+};

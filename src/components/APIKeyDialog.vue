@@ -108,7 +108,9 @@ export default {
     data() {
         return {
             keyaddmodal: null,
+            keyaddmodalShowing: false,
             keymodal: null,
+            keymodalShowing: false,
             processing: false,
             key: {},
             clearKey: null,
@@ -125,6 +127,10 @@ export default {
     mounted() {
         this.keyaddmodal = new Modal(this.$refs.keyaddmodal);
         this.keymodal = new Modal(this.$refs.keymodal);
+        this.$refs.keyaddmodal.addEventListener("show.bs.modal", () => (this.keyaddmodalShowing = true));
+        this.$refs.keyaddmodal.addEventListener("shown.bs.modal", () => (this.keyaddmodalShowing = false));
+        this.$refs.keymodal.addEventListener("show.bs.modal", () => (this.keymodalShowing = true));
+        this.$refs.keymodal.addEventListener("shown.bs.modal", () => (this.keymodalShowing = false));
     },
     beforeUnmount() {
         this.keyaddmodal?.hide();
@@ -209,7 +215,7 @@ export default {
          * @returns {Promise<void>}
          */
         hideModal(modal, element) {
-            if (!modal || !element.classList.contains("show")) {
+            if (!modal) {
                 return Promise.resolve();
             }
 
@@ -219,8 +225,16 @@ export default {
                     modal.hide();
                 };
 
-                element.addEventListener("hidden.bs.modal", resolve, { once: true });
-                if (modal._isTransitioning) {
+                if (element.classList.contains("show")) {
+                    element.addEventListener("hidden.bs.modal", resolve, { once: true });
+                } else if (!this[`${element === this.$refs.keyaddmodal ? "keyaddmodal" : "keymodal"}Showing`]) {
+                    resolve();
+                    return;
+                } else {
+                    element.addEventListener("hidden.bs.modal", resolve, { once: true });
+                }
+
+                if (this[`${element === this.$refs.keyaddmodal ? "keyaddmodal" : "keymodal"}Showing`]) {
                     element.addEventListener("shown.bs.modal", hide, { once: true });
                 } else {
                     hide();
