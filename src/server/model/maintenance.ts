@@ -68,7 +68,7 @@ class Maintenance extends BeanModel {
         } else {
             // Should be cron or recurring here
             if (this.beanMeta.job) {
-                let runningTimeslot = this.getRunningTimeslot();
+                const runningTimeslot = await this.getRunningTimeslot();
 
                 if (runningTimeslot) {
                     obj.timeslotList.push(runningTimeslot);
@@ -76,15 +76,15 @@ class Maintenance extends BeanModel {
 
                 let nextRunDate = this.beanMeta.job.nextRun();
                 if (nextRunDate) {
-                    let startDateDayjs = dayjs(nextRunDate);
-
-                    let startDate = startDateDayjs.toISOString();
-                    let endDate = startDateDayjs.add(this.duration, "second").toISOString();
-
-                    obj.timeslotList.push({
-                        startDate,
-                        endDate,
-                    });
+                    if (this.strategy.startsWith("recurring-")) {
+                        obj.timeslotList.push(await this.getTimeslot(nextRunDate));
+                    } else {
+                        const startDate = dayjs(nextRunDate);
+                        obj.timeslotList.push({
+                            startDate: startDate.toISOString(),
+                            endDate: startDate.add(this.duration, "second").toISOString(),
+                        });
+                    }
                 }
             }
         }
@@ -144,6 +144,25 @@ class Maintenance extends BeanModel {
             duration += 24 * 3600;
         }
         return duration;
+    }
+
+    /**
+     * Resolve one recurring window against the timezone offset of that occurrence.
+     * @param {Date|string} startDate Concrete start instant
+     * @returns {Promise<{startDate: string, endDate: string}>} Concrete UTC timeslot
+     */
+    async getTimeslot(startDate) {
+        const timezone = await this.getTimezone();
+        const start = dayjs(startDate);
+        const [hour, minute] = this.end_time.split(":").map(Number);
+        const endJob = new Cron(`${minute} ${hour} * * *`, { timezone, paused: true });
+        const end = dayjs(endJob.nextRun(start.toDate()));
+        endJob.stop();
+
+        return {
+            startDate: start.toISOString(),
+            endDate: end.toISOString(),
+        };
     }
 
     /**
@@ -326,9 +345,10 @@ class Maintenance extends BeanModel {
     /**
      * Run the cron
      * @param {boolean} throwError Should an error be thrown on failure
+     * @param {boolean} silentInitial Do not publish an already-running timeslot during transactional validation
      * @returns {Promise<void>}
      */
-    async run(throwError = false) {
+    async run(throwError = false, silentInitial = false) {
         this.stop();
         if (!this.active) {
             return;
@@ -355,20 +375,41 @@ class Maintenance extends BeanModel {
         if (this.strategy === "manual") {
             // Do nothing, because it is controlled by the user
         } else if (this.strategy === "single") {
-            this.beanMeta.job = new Cron(this.start_date, { timezone: await this.getTimezone() }, () => {
+            const timezone = await this.getTimezone();
+            const now = dayjs();
+            const start = dayjs.tz(this.start_date, timezone);
+            const notify = async () => {
                 if (!this.active || this.beanMeta.generation !== generation) {
                     return;
                 }
-                log.info("maintenance", "Maintenance id: " + this.id + " is under maintenance now");
-                PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
                 clearResponseCache();
+                await PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
+            };
+
+            if (now.isBefore(start)) {
+                this.beanMeta.job = new Cron(this.start_date, { timezone }, async () => {
+                    if (!this.active || this.beanMeta.generation !== generation) {
+                        return;
+                    }
+                    delete this.beanMeta.job;
+                    log.info("maintenance", "Maintenance id: " + this.id + " is under maintenance now");
+                    await notify();
+                });
+            }
+            this.beanMeta.endJob = new Cron(this.end_date, { timezone }, async () => {
+                if (!this.active || this.beanMeta.generation !== generation) {
+                    return;
+                }
+                delete this.beanMeta.endJob;
+                log.info("maintenance", "Maintenance id: " + this.id + " has ended");
+                await notify();
             });
         } else if (this.cron != null) {
             // Here should be cron or recurring
             try {
                 this.beanMeta.status = "scheduled";
 
-                let startEvent = async (customDuration = 0) => {
+                let startEvent = async (customDuration = 0, notify = true) => {
                     const timezone = await this.getTimezone();
                     if (
                         !this.active ||
@@ -384,9 +425,15 @@ class Maintenance extends BeanModel {
                     this.beanMeta.status = "under-maintenance";
                     clearTimeout(this.beanMeta.durationTimeout);
 
-                    let duration = this.inferDuration(customDuration);
+                    let duration = await this.inferDuration(customDuration);
+                    if (!this.active || this.beanMeta.generation !== generation) {
+                        return;
+                    }
 
-                    PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
+                    if (notify) {
+                        clearResponseCache();
+                        PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
+                    }
 
                     this.beanMeta.durationTimeout = setTimeout(() => {
                         if (!this.active || this.beanMeta.generation !== generation) {
@@ -458,12 +505,12 @@ class Maintenance extends BeanModel {
                 }
 
                 // Continue if the maintenance is still in the window
-                let runningTimeslot = this.getRunningTimeslot();
+                let runningTimeslot = await this.getRunningTimeslot();
 
                 if (runningTimeslot) {
                     let duration = dayjs(runningTimeslot.endDate).diff(dayjs(), "second") * 1000;
                     log.debug("maintenance", "Maintenance id: " + this.id + " Remaining duration: " + duration + "ms");
-                    await startEvent(duration);
+                    await startEvent(duration, !silentInitial);
                 }
             } catch (e) {
                 this.stop();
@@ -484,10 +531,32 @@ class Maintenance extends BeanModel {
      * Get timeslots where maintenance is running
      * @returns {object|null} Maintenance time slot
      */
-    getRunningTimeslot() {
-        let start = dayjs(this.beanMeta.job.nextRun(dayjs().add(-this.duration, "second").toDate()));
-        let end = start.add(this.duration, "second");
-        let current = dayjs();
+    async getRunningTimeslot() {
+        const current = dayjs();
+        let start;
+        let end;
+
+        if (this.strategy.startsWith("recurring-")) {
+            const previousRun = this.beanMeta.job.nextRun(current.subtract(25, "hour").toDate());
+            if (!previousRun) {
+                return null;
+            }
+            start = dayjs(previousRun);
+            let timeslot = await this.getTimeslot(start.toDate());
+            end = dayjs(timeslot.endDate);
+            if (!end.isAfter(current)) {
+                const nextRun = this.beanMeta.job.nextRun(start.add(1, "millisecond").toDate());
+                if (!nextRun) {
+                    return null;
+                }
+                start = dayjs(nextRun);
+                timeslot = await this.getTimeslot(start.toDate());
+                end = dayjs(timeslot.endDate);
+            }
+        } else {
+            start = dayjs(this.beanMeta.job.nextRun(current.add(-this.duration, "second").toDate()));
+            end = start.add(this.duration, "second");
+        }
 
         if (current.isAfter(start) && current.isBefore(end)) {
             return {
@@ -504,17 +573,22 @@ class Maintenance extends BeanModel {
      * @param {number} customDuration - The custom duration in milliseconds.
      * @returns {number} The inferred duration in milliseconds.
      */
-    inferDuration(customDuration) {
+    async inferDuration(customDuration) {
         // Check if duration is still in the window. If not, use the duration from the current time to the end of the window
+        const now = dayjs();
+        let duration;
         if (customDuration > 0) {
-            return customDuration;
-        } else if (this.end_date) {
-            let d = dayjs(this.end_date).diff(dayjs(), "second");
-            if (d < this.duration) {
-                return d * 1000;
-            }
+            duration = customDuration;
+        } else if (this.strategy.startsWith("recurring-")) {
+            const timeslot = await this.getTimeslot(now.toDate());
+            duration = dayjs(timeslot.endDate).diff(now);
+        } else {
+            duration = this.duration * 1000;
         }
-        return this.duration * 1000;
+        if (this.end_date) {
+            duration = Math.min(duration, dayjs.tz(this.end_date, await this.getTimezone()).diff(now));
+        }
+        return Math.max(0, duration);
     }
 
     /**
@@ -526,6 +600,10 @@ class Maintenance extends BeanModel {
         if (this.beanMeta.job) {
             this.beanMeta.job.stop();
             delete this.beanMeta.job;
+        }
+        if (this.beanMeta.endJob) {
+            this.beanMeta.endJob.stop();
+            delete this.beanMeta.endJob;
         }
         if (this.beanMeta.durationTimeout) {
             clearTimeout(this.beanMeta.durationTimeout);

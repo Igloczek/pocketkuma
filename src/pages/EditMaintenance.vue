@@ -468,6 +468,7 @@ export default {
         return {
             timezoneList: timezoneList(),
             processing: false,
+            requestGeneration: 0,
             maintenance: {},
             affectedMonitors: [],
             affectedMonitorsOptions: [],
@@ -676,14 +677,20 @@ export default {
             this.init();
         });
     },
+    beforeUnmount() {
+        this.requestGeneration++;
+    },
     methods: {
         /**
          * Initialise page
          * @returns {void}
          */
         init() {
+            const generation = ++this.requestGeneration;
+            this.processing = false;
             this.affectedMonitors = [];
             this.selectedStatusPages = [];
+            this.showOnAllPages = false;
 
             if (this.isAdd) {
                 // Get current date/time in local timezone
@@ -725,7 +732,7 @@ export default {
             } else if (this.isEdit || this.isClone) {
                 const maintenanceID = this.$route.params.id;
                 this.appStore.getSocket().emit("getMaintenance", maintenanceID, (res) => {
-                    if (this.$route.params.id !== maintenanceID) {
+                    if (this.requestGeneration !== generation || this.$route.params.id !== maintenanceID) {
                         return;
                     }
                     if (res.ok) {
@@ -737,7 +744,7 @@ export default {
                         }
 
                         this.appStore.getSocket().emit("getMonitorMaintenance", maintenanceID, (res) => {
-                            if (this.$route.params.id !== maintenanceID) {
+                            if (this.requestGeneration !== generation || this.$route.params.id !== maintenanceID) {
                                 return;
                             }
                             if (res.ok) {
@@ -752,7 +759,7 @@ export default {
                         });
 
                         this.appStore.getSocket().emit("getMaintenanceStatusPage", maintenanceID, (res) => {
-                            if (this.$route.params.id !== maintenanceID) {
+                            if (this.requestGeneration !== generation || this.$route.params.id !== maintenanceID) {
                                 return;
                             }
                             if (res.ok) {
@@ -837,6 +844,8 @@ export default {
          */
         async doSubmit() {
             this.processing = true;
+            const generation = this.requestGeneration;
+            const route = this.$route.fullPath;
 
             if (!this.hasMonitors && !this.hasStatusPages) {
                 this.appStore.toastError(this.$t("noMonitorsOrStatusPagesSelectedError"));
@@ -851,6 +860,9 @@ export default {
 
             if (this.isAdd || this.isClone) {
                 this.appStore.addMaintenance(this.maintenance, relations, (res) => {
+                    if (this.requestGeneration !== generation || this.$route.fullPath !== route) {
+                        return;
+                    }
                     if (res.ok) {
                         this.appStore.toastRes(res);
                         this.processing = false;
@@ -864,6 +876,9 @@ export default {
                 });
             } else {
                 this.appStore.getSocket().emit("editMaintenance", this.maintenance, relations, (res) => {
+                    if (this.requestGeneration !== generation || this.$route.fullPath !== route) {
+                        return;
+                    }
                     if (res.ok) {
                         this.processing = false;
                         this.appStore.toastRes(res);

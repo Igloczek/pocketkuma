@@ -81,6 +81,113 @@ test.describe("Maintenance", () => {
         expect(consoleErrors).toEqual([]);
     });
 
+    test("resets all-status-pages selection when the reused edit route becomes add", async ({ page }) => {
+        const pageErrors = [];
+        const consoleErrors = [];
+        page.on("pageerror", (error) => pageErrors.push(error.message));
+        page.on("console", (message) => {
+            if (message.type() === "error") {
+                consoleErrors.push(message.text());
+            }
+        });
+
+        await page.goto("./add-maintenance");
+        await login(page);
+        await page.locator("#name").fill("All pages route reuse");
+        await page.locator("#strategy").selectOption("manual");
+        await page.locator("#show-on-all-pages").check();
+        await page.locator("#monitor-submit-btn").click();
+        await page.getByRole("button", { name: "Yes" }).click();
+        await page.waitForURL("/maintenance");
+
+        const row = page.locator(".item").filter({ hasText: "All pages route reuse" });
+        await row.getByRole("link", { name: "Edit this maintenance schedule" }).click();
+        await expect(page.locator("#show-on-all-pages")).toBeChecked();
+        await page.evaluate(() => window.app._vnode.component.proxy.$router.push("/add-maintenance"));
+        await page.waitForURL("/add-maintenance");
+        await expect(page.locator("#show-on-all-pages")).not.toBeChecked();
+        await page.locator("#show-on-all-pages").check();
+        await page.evaluate(() => {
+            const findView = (vnode) => {
+                if (!vnode) {
+                    return null;
+                }
+                if (Array.isArray(vnode)) {
+                    for (const child of vnode) {
+                        const match = findView(child);
+                        if (match) {
+                            return match;
+                        }
+                    }
+                    return null;
+                }
+                if (typeof vnode.component?.proxy?.init === "function" && "showOnAllPages" in vnode.component.proxy) {
+                    return vnode.component.proxy;
+                }
+                return findView(vnode.component?.subTree) || findView(vnode.children);
+            };
+            findView(window.app._vnode).init();
+        });
+        await expect(page.locator("#show-on-all-pages")).not.toBeChecked();
+        expect(pageErrors).toEqual([]);
+        expect(consoleErrors).toEqual([]);
+    });
+
+    test("ignores a delayed edit response after the reused route becomes add", async ({ page }) => {
+        const pageErrors = [];
+        const consoleErrors = [];
+        page.on("pageerror", (error) => pageErrors.push(error.message));
+        page.on("console", (message) => {
+            if (message.type() === "error") {
+                consoleErrors.push(message.text());
+            }
+        });
+
+        await page.goto("./add-maintenance");
+        await login(page);
+        await page.locator("#name").fill("Stale submit");
+        await page.locator("#strategy").selectOption("manual");
+        await page.locator("#show-on-all-pages").check();
+        await page.locator("#monitor-submit-btn").click();
+        await page.getByRole("button", { name: "Yes" }).click();
+        await page.waitForURL("/maintenance");
+
+        const row = page.locator(".item").filter({ hasText: "Stale submit" });
+        await row.getByRole("link", { name: "Edit this maintenance schedule" }).click();
+        await expect(page.locator("#show-on-all-pages")).toBeChecked();
+        await page.evaluate(() => {
+            const socket = window.app._vnode.component.proxy.appStore.getSocket();
+            const emit = socket.emit.bind(socket);
+            socket.emit = (event, ...args) => {
+                if (event === "editMaintenance") {
+                    window.__maintenanceSubmitCallback = args.at(-1);
+                    return socket;
+                }
+                return emit(event, ...args);
+            };
+        });
+        await page.locator("#monitor-submit-btn").click();
+        await page.getByRole("button", { name: "Yes" }).click();
+        await expect.poll(() => page.evaluate(() => typeof window.__maintenanceSubmitCallback)).toBe("function");
+        await page.evaluate(() => window.app._vnode.component.proxy.$router.push("/add-maintenance"));
+        await page.waitForURL("/add-maintenance");
+        await expect(page.locator("#monitor-submit-btn")).toBeEnabled();
+        await expect(page.locator("#show-on-all-pages")).not.toBeChecked();
+        await page.evaluate(() =>
+            window.__maintenanceSubmitCallback({
+                ok: true,
+                msg: "Saved.",
+                msgi18n: true,
+                maintenanceID: 1,
+            })
+        );
+        await page.waitForTimeout(250);
+        await expect(page).toHaveURL(/\/add-maintenance$/);
+        await expect(page.locator("#monitor-submit-btn")).toBeEnabled();
+        expect(pageErrors).toEqual([]);
+        expect(consoleErrors).toEqual([]);
+    });
+
     test("saves, reloads, edits, and deletes every supported strategy", async ({ page }) => {
         test.setTimeout(120_000);
         await page.goto("./add-maintenance");
