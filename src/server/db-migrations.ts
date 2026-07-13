@@ -88,17 +88,17 @@ export async function runPendingUpgrades(store: BunSQLiteRedbean) {
             await upgrade.runSchema(store);
         }
 
-        store.db.run("BEGIN");
+        const transaction: any = await store.begin();
         try {
             if (upgrade.runData) {
-                await upgrade.runData(store);
+                await upgrade.runData(transaction as BunSQLiteRedbean);
             }
-            await setBunaSchemaVersion(store, upgrade.version);
-            store.db.run("COMMIT");
+            await setBunaSchemaVersion(transaction as BunSQLiteRedbean, upgrade.version);
+            await transaction.commit();
             currentVersion = upgrade.version;
             log.info("db", `Schema upgrade ${upgrade.name} completed`);
         } catch (error) {
-            store.db.run("ROLLBACK");
+            await transaction.rollback();
             log.error(
                 "db",
                 `Schema upgrade ${upgrade.name} data phase failed; DML rolled back (DDL changes from schema phase may persist)`

@@ -216,6 +216,9 @@ class BunSQLiteRedbean {
     db = null;
     sqlitePath = null;
     dbConfig = { type: "sqlite" };
+    #transactionOwner = null;
+    #transactionQueue = [];
+    #processingQueue = false;
 
     async connect({ sqlitePath, templatePath, testMode = false }) {
         this.sqlitePath = sqlitePath;
@@ -236,15 +239,17 @@ class BunSQLiteRedbean {
         await runPendingUpgrades(this);
     }
 
-    addColumnIfMissing(table, column, type) {
-        addSchemaColumnIfMissing(this.db, table, column, type);
+    async addColumnIfMissing(table, column, type) {
+        return this.#runDatabaseOperation(null, () => addSchemaColumnIfMissing(this.db, table, column, type));
     }
 
     async close() {
-        if (this.db) {
-            this.db.close();
-            this.db = null;
-        }
+        return this.#runDatabaseOperation(null, () => {
+            if (this.db) {
+                this.db.close();
+                this.db = null;
+            }
+        });
     }
 
     dispense(table) {
@@ -259,7 +264,7 @@ class BunSQLiteRedbean {
         return rows.map((row) => beanForTable(table, row));
     }
 
-    async store(bean) {
+    #store(bean) {
         const table = bean.__table;
         if (!table) {
             throw new Error("Cannot store bean without table metadata");
@@ -280,7 +285,7 @@ class BunSQLiteRedbean {
             if (columns.length > 0) {
                 const assignments = columns.map((column) => `"${column}" = ?`).join(", ");
                 try {
-                    await this.exec(`UPDATE "${table}" SET ${assignments} WHERE id = ?`, [
+                    this.#exec(`UPDATE "${table}" SET ${assignments} WHERE id = ?`, [
                         ...columns.map((column) => row[column]),
                         bean.id,
                     ]);
@@ -289,9 +294,9 @@ class BunSQLiteRedbean {
                         throw error;
                     }
                     for (const column of columns) {
-                        this.addColumnIfMissing(table, column);
+                        addSchemaColumnIfMissing(this.db, table, column);
                     }
-                    await this.exec(`UPDATE "${table}" SET ${assignments} WHERE id = ?`, [
+                    this.#exec(`UPDATE "${table}" SET ${assignments} WHERE id = ?`, [
                         ...columns.map((column) => row[column]),
                         bean.id,
                     ]);
@@ -319,7 +324,7 @@ class BunSQLiteRedbean {
                 throw error;
             }
             for (const column of columns) {
-                this.addColumnIfMissing(table, column);
+                addSchemaColumnIfMissing(this.db, table, column);
             }
             result = this.db
                 .query(
@@ -331,22 +336,30 @@ class BunSQLiteRedbean {
         return bean.id;
     }
 
-    async trash(bean) {
+    async store(bean) {
+        return this.#runDatabaseOperation(null, () => this.#store(bean));
+    }
+
+    #trash(bean) {
         const table = bean.__table;
         if (!table) {
             throw new Error("Cannot trash bean without table metadata");
         }
         if (bean.id) {
-            await this.exec(`DELETE FROM "${table}" WHERE id = ?`, [bean.id]);
+            this.#exec(`DELETE FROM "${table}" WHERE id = ?`, [bean.id]);
             bean.id = 0;
         }
     }
 
-    async exec(sql, params = []) {
+    async trash(bean) {
+        return this.#runDatabaseOperation(null, () => this.#trash(bean));
+    }
+
+    #exec(sql, params = []) {
         this.db.query(normalizeSql(sql)).run(...params);
     }
 
-    async getAll(sql, params = []) {
+    #getAll(sql, params = []) {
         try {
             return this.db.query(normalizeSql(sql)).all(...params);
         } catch (error) {
@@ -357,7 +370,7 @@ class BunSQLiteRedbean {
         }
     }
 
-    async getRow(sql, params = []) {
+    #getRow(sql, params = []) {
         try {
             return this.db.query(normalizeSql(sql)).get(...params) || null;
         } catch (error) {
@@ -368,21 +381,21 @@ class BunSQLiteRedbean {
         }
     }
 
-    async getCell(sql, params = []) {
-        const row = await this.getRow(sql, params);
+    #getCell(sql, params = []) {
+        const row = this.#getRow(sql, params);
         if (!row) {
             return null;
         }
         return row[Object.keys(row)[0]];
     }
 
-    async getCol(sql, params = []) {
-        const rows = await this.getAll(sql, params);
+    #getCol(sql, params = []) {
+        const rows = this.#getAll(sql, params);
         return rows.map((row) => row[Object.keys(row)[0]]);
     }
 
-    async getAssoc(sql, params = []) {
-        const rows = await this.getAll(sql, params);
+    #getAssoc(sql, params = []) {
+        const rows = this.#getAll(sql, params);
         const result = {};
         for (const row of rows) {
             const keys = Object.keys(row);
@@ -391,41 +404,173 @@ class BunSQLiteRedbean {
         return result;
     }
 
-    async find(table, condition = "", params = []) {
-        const rows = await this.getAll(`SELECT * FROM "${table}" ${conditionSql(condition)}`, params);
+    #find(table, condition = "", params = []) {
+        const rows = this.#getAll(`SELECT * FROM "${table}" ${conditionSql(condition)}`, params);
         return rows.map((row) => beanForTable(table, row));
     }
 
-    async findAll(table, condition = "", params = []) {
-        return this.find(table, condition, params);
-    }
-
-    async findOne(table, condition = "", params = []) {
-        const row = await this.getRow(`SELECT * FROM "${table}" ${conditionSql(condition)} LIMIT 1`, params);
+    #findOne(table, condition = "", params = []) {
+        const row = this.#getRow(`SELECT * FROM "${table}" ${conditionSql(condition)} LIMIT 1`, params);
         return row ? beanForTable(table, row) : null;
     }
 
+    async exec(sql, params = []) {
+        return this.#runDatabaseOperation(null, () => this.#exec(sql, params));
+    }
+
+    async getAll(sql, params = []) {
+        return this.#runDatabaseOperation(null, () => this.#getAll(sql, params));
+    }
+
+    async getRow(sql, params = []) {
+        return this.#runDatabaseOperation(null, () => this.#getRow(sql, params));
+    }
+
+    async getCell(sql, params = []) {
+        return this.#runDatabaseOperation(null, () => this.#getCell(sql, params));
+    }
+
+    async getCol(sql, params = []) {
+        return this.#runDatabaseOperation(null, () => this.#getCol(sql, params));
+    }
+
+    async getAssoc(sql, params = []) {
+        return this.#runDatabaseOperation(null, () => this.#getAssoc(sql, params));
+    }
+
+    async find(table, condition = "", params = []) {
+        return this.#runDatabaseOperation(null, () => this.#find(table, condition, params));
+    }
+
+    async findAll(table, condition = "", params = []) {
+        return this.#runDatabaseOperation(null, () => this.#find(table, condition, params));
+    }
+
+    async findOne(table, condition = "", params = []) {
+        return this.#runDatabaseOperation(null, () => this.#findOne(table, condition, params));
+    }
+
     async load(table, id) {
-        return this.findOne(table, " id = ? ", [id]);
+        return this.#runDatabaseOperation(null, () => this.#findOne(table, " id = ? ", [id]));
     }
 
     async count(table, condition = "", params = []) {
-        return Number(await this.getCell(`SELECT COUNT(*) FROM "${table}"${conditionSql(condition)}`, params));
+        return this.#runDatabaseOperation(null, () =>
+            Number(this.#getCell(`SELECT COUNT(*) FROM "${table}"${conditionSql(condition)}`, params))
+        );
     }
 
     async hasTable(table) {
-        return !!(await this.getCell("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [table]));
+        return this.#runDatabaseOperation(
+            null,
+            () => !!this.#getCell("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [table])
+        );
+    }
+
+    #runDatabaseOperation(owner, operation) {
+        if (owner !== null) {
+            if (owner !== this.#transactionOwner) {
+                throw new Error("Transaction has finished");
+            }
+            return operation();
+        }
+
+        if (!this.#transactionOwner && !this.#processingQueue && this.#transactionQueue.length === 0) {
+            return operation();
+        }
+
+        return new Promise((resolve, reject) => {
+            this.#transactionQueue.push({ type: "operation", operation, resolve, reject });
+            this.#drainTransactionQueue();
+        });
+    }
+
+    #drainTransactionQueue() {
+        if (this.#transactionOwner || this.#processingQueue) {
+            return;
+        }
+
+        const item = this.#transactionQueue.shift();
+        if (!item) {
+            return;
+        }
+
+        if (item.type === "transaction") {
+            const owner = Symbol("sqlite-transaction");
+            this.#transactionOwner = owner;
+            try {
+                this.db.run("BEGIN");
+                item.resolve(this.#createTransaction(owner));
+            } catch (error) {
+                this.#transactionOwner = null;
+                item.reject(error);
+                this.#drainTransactionQueue();
+            }
+            return;
+        }
+
+        this.#processingQueue = true;
+        Promise.resolve()
+            .then(item.operation)
+            .then(item.resolve, item.reject)
+            .finally(() => {
+                this.#processingQueue = false;
+                this.#drainTransactionQueue();
+            });
+    }
+
+    #createTransaction(owner) {
+        let finished = false;
+        const run = (operation) => {
+            if (finished) {
+                throw new Error("Transaction has finished");
+            }
+            return this.#runDatabaseOperation(owner, operation);
+        };
+        const finish = async (command) => {
+            if (finished) {
+                return;
+            }
+            if (owner !== this.#transactionOwner) {
+                throw new Error("Transaction has finished");
+            }
+            finished = true;
+            try {
+                this.db.run(command);
+            } catch (error) {
+                if (command === "COMMIT") {
+                    try {
+                        this.db.run("ROLLBACK");
+                    } catch {}
+                }
+                throw error;
+            } finally {
+                if (owner === this.#transactionOwner) {
+                    this.#transactionOwner = null;
+                    this.#drainTransactionQueue();
+                }
+            }
+        };
+        return {
+            exec: async (sql, params = []) => run(() => this.#exec(sql, params)),
+            getAll: async (sql, params = []) => run(() => this.#getAll(sql, params)),
+            getRow: async (sql, params = []) => run(() => this.#getRow(sql, params)),
+            getCell: async (sql, params = []) => run(() => this.#getCell(sql, params)),
+            hasTable: async (table) =>
+                run(() => !!this.#getCell("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?", [table])),
+            dispense: (...args) => this.dispense(...args),
+            store: async (bean) => run(() => this.#store(bean)),
+            trash: async (bean) => run(() => this.#trash(bean)),
+            commit: () => finish("COMMIT"),
+            rollback: () => finish("ROLLBACK"),
+        };
     }
 
     async begin() {
-        this.db.run("BEGIN");
-        return {
-            exec: (...args) => this.exec(...args),
-            dispense: (...args) => this.dispense(...args),
-            store: (...args) => this.store(...args),
-            commit: async () => this.db.run("COMMIT"),
-            rollback: async () => this.db.run("ROLLBACK"),
-        };
+        return new Promise((resolve, reject) => {
+            this.#transactionQueue.push({ type: "transaction", resolve, reject });
+            this.#drainTransactionQueue();
+        });
     }
 
     isoDateTime(value = dayjs.utc()) {
