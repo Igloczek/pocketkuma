@@ -24,7 +24,7 @@ async function runCommand(command, args = [], options = {}) {
 
     let timeout;
     if (options.timeout) {
-        timeout = setTimeout(() => subprocess.kill(), options.timeout);
+        timeout = setTimeout(() => subprocess.kill("SIGKILL"), options.timeout);
     }
 
     try {

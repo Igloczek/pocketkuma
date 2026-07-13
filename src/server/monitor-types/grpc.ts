@@ -14,13 +14,19 @@ class GrpcKeywordMonitorType extends MonitorType {
      */
     async check(monitor, heartbeat, _server) {
         const startTime = dayjs().valueOf();
-        const service = this.constructGrpcService(
+        const { service, client } = this.constructGrpcService(
             monitor.grpcUrl,
             monitor.grpcProtobuf,
             monitor.grpcServiceName,
-            monitor.grpcEnableTls
+            monitor.grpcEnableTls,
+            (monitor.timeout ?? 20) * 1000
         );
-        let response = await this.grpcQuery(service, monitor.grpcMethod, monitor.grpcBody);
+        let response;
+        try {
+            response = await this.grpcQuery(service, monitor.grpcMethod, monitor.grpcBody);
+        } finally {
+            client.close();
+        }
         heartbeat.ping = dayjs().valueOf() - startTime;
         log.debug(this.name, "gRPC response:", response);
         let keywordFound = response.toString().includes(monitor.keyword);
@@ -46,15 +52,16 @@ class GrpcKeywordMonitorType extends MonitorType {
      * @param {string} protobufData grpc ProtobufData
      * @param {string} serviceName grpc ServiceName
      * @param {string} enableTls grpc EnableTls
-     * @returns {grpc.Service} grpc Service
+     * @param {number} timeout Request deadline in milliseconds
+     * @returns {{service: grpc.Service, client: grpc.Client}} grpc Service and client
      */
-    constructGrpcService(url, protobufData, serviceName, enableTls) {
+    constructGrpcService(url, protobufData, serviceName, enableTls, timeout) {
         const protocObject = protojs.parse(protobufData);
         const protoServiceObject = protocObject.root.lookupService(serviceName);
         const Client = grpc.makeGenericClientConstructor({});
         const credentials = enableTls ? grpc.credentials.createSsl() : grpc.credentials.createInsecure();
         const client = new Client(url, credentials);
-        return protoServiceObject.create(
+        const service = protoServiceObject.create(
             (method, requestData, cb) => {
                 const fullServiceName = method.fullName;
                 const serviceFQDN = fullServiceName.split(".");
@@ -66,12 +73,14 @@ class GrpcKeywordMonitorType extends MonitorType {
                     (arg) => arg,
                     (arg) => arg,
                     requestData,
+                    { deadline: Date.now() + timeout },
                     cb
                 );
             },
             false,
             false
         );
+        return { service, client };
     }
 
     /**
@@ -86,11 +95,13 @@ class GrpcKeywordMonitorType extends MonitorType {
             try {
                 service[method](JSON.parse(body), (err, response) => {
                     if (err) {
-                        if (err.code !== 1) {
+                        if (err.code === 1) {
+                            log.debug(this.name, `ignoring ${err.code} ${err.details}, as code=1 is considered OK`);
+                            resolve(`${err.code} is considered OK because ${err.details}`);
+                        } else {
                             reject(err);
                         }
-                        log.debug(this.name, `ignoring ${err.code} ${err.details}, as code=1 is considered OK`);
-                        resolve(`${err.code} is considered OK because ${err.details}`);
+                        return;
                     }
                     resolve(JSON.stringify(response));
                 });

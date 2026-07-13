@@ -28,7 +28,7 @@ class MqttMonitorType extends MonitorType {
             port: monitor.port,
             username: monitor.mqttUsername,
             password: monitor.mqttPassword,
-            interval: monitor.interval,
+            timeout: (monitor.timeout ?? 20) * 1000,
             websocketPath: monitor.mqttWebsocketPath,
         });
 
@@ -133,26 +133,17 @@ class MqttMonitorType extends MonitorType {
      * @param {string} hostname Hostname / address of machine to test
      * @param {string} topic MQTT topic
      * @param {object} options MQTT options. Contains port, username,
-     * password, websocketPath and interval (interval defaults to 20)
+     * password, websocketPath and timeout
      * @returns {Promise<string>} Received MQTT message
      */
     mqttAsync(hostname, topic, options = {}) {
         return new Promise((resolve, reject) => {
-            const { port, username, password, websocketPath, interval = 20 } = options;
+            const { port, username, password, websocketPath, timeout = 20_000 } = options;
 
             // Adds MQTT protocol to the hostname if not already present
             if (!/^(?:http|mqtt|ws)s?:\/\//.test(hostname)) {
                 hostname = "mqtt://" + hostname;
             }
-
-            const timeoutID = setTimeout(
-                () => {
-                    log.debug(this.name, "MQTT timeout triggered");
-                    client.end();
-                    reject(new Error("Timeout, Message not received"));
-                },
-                interval * 1000 * 0.8
-            );
 
             // Construct the URL based on protocol
             let mqttUrl = `${hostname}:${port}`;
@@ -166,11 +157,28 @@ class MqttMonitorType extends MonitorType {
 
             log.debug(this.name, `MQTT connecting to ${mqttUrl}`);
 
-            let client = mqtt.connect(mqttUrl, {
+            const client = mqtt.connect(mqttUrl, {
                 username,
                 password,
                 clientId: "uptime-kuma_" + Math.random().toString(16).substr(2, 8),
+                connectTimeout: timeout,
+                reconnectPeriod: 0,
             });
+            let settled = false;
+            let timeoutID;
+            const finish = (error, value) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                clearTimeout(timeoutID);
+                client.end(true);
+                error ? reject(error) : resolve(value);
+            };
+            timeoutID = setTimeout(() => {
+                log.debug(this.name, "MQTT timeout triggered");
+                finish(new Error("Timeout, Message not received"));
+            }, timeout);
 
             client.on("connect", () => {
                 log.debug(this.name, "MQTT connected");
@@ -180,22 +188,16 @@ class MqttMonitorType extends MonitorType {
                         log.debug(this.name, "MQTT subscribed to topic");
                     });
                 } catch (e) {
-                    client.end();
-                    clearTimeout(timeoutID);
-                    reject(new Error("Cannot subscribe topic"));
+                    finish(new Error("Cannot subscribe topic"));
                 }
             });
 
             client.on("error", (error) => {
-                client.end();
-                clearTimeout(timeoutID);
-                reject(error);
+                finish(error);
             });
 
             client.on("message", (messageTopic, message) => {
-                client.end();
-                clearTimeout(timeoutID);
-                resolve([messageTopic, message.toString("utf8")]);
+                finish(null, [messageTopic, message.toString("utf8")]);
             });
         });
     }

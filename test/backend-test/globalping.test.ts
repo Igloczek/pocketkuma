@@ -1,11 +1,38 @@
 // @ts-nocheck
 
-import { describe, test, expect, mock } from "bun:test";
+import { describe, test, expect, mock, spyOn } from "bun:test";
 import { encodeBase64 } from "@/server/util-server";
 import { UP, PENDING } from "@/util";
 import { GlobalpingMonitorType } from "@/server/monitor-types/globalping";
 
 describe("GlobalpingMonitorType", () => {
+    test("bounded polling aborts the active Globalping fetch at the monitor deadline", async () => {
+        const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+        let aborted = false;
+        const fetchSpy = spyOn(globalThis, "fetch").mockImplementation((request) => {
+            return new Promise((_, reject) => {
+                request.signal.addEventListener(
+                    "abort",
+                    () => {
+                        aborted = true;
+                        reject(request.signal.reason);
+                    },
+                    { once: true }
+                );
+            });
+        });
+        const started = performance.now();
+        try {
+            await expect(
+                monitorType.awaitMeasurement({ userAgent: "test-agent/1.0" }, "measurement-id", 50)
+            ).rejects.toThrow();
+            expect(aborted).toBe(true);
+            expect(performance.now() - started).toBeLessThan(500);
+        } finally {
+            fetchSpy.mockRestore();
+        }
+    });
+
     describe("ping", () => {
         test("should handle successful ping", async () => {
             const monitorType = new GlobalpingMonitorType("test-agent/1.0");

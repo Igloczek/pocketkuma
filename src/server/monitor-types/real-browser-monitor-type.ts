@@ -94,7 +94,7 @@ async function isAllowedChromeExecutable(executablePath) {
  * it.
  * @returns {Promise<import ("playwright-core").Browser>} The browser
  */
-async function getBrowser() {
+async function getBrowser(timeout = 30_000) {
     if (browser && browser.isConnected()) {
         return browser;
     } else {
@@ -106,6 +106,7 @@ async function getBrowser() {
         browser = await chromium.launch({
             //headless: false,
             executablePath,
+            timeout,
         });
 
         return browser;
@@ -118,11 +119,11 @@ async function getBrowser() {
  * @param {integer} userId User ID
  * @returns {Promise<Browser>} The browser
  */
-async function getRemoteBrowser(remoteBrowserID, userId) {
+async function getRemoteBrowser(remoteBrowserID, userId, timeout = 30_000) {
     let remoteBrowser = await RemoteBrowser.get(remoteBrowserID, userId);
     log.debug("chromium", `Using remote browser: ${remoteBrowser.name} (${remoteBrowser.id})`);
     const chromium = await getChromium();
-    browser = await chromium.connect(remoteBrowser.url);
+    browser = await chromium.connect(remoteBrowser.url, { timeout });
     return browser;
 }
 
@@ -265,49 +266,72 @@ class RealBrowserMonitorType extends MonitorType {
     name = "real-browser";
 
     /**
+     * Return the positive time remaining before the monitor deadline.
+     * @param {number} deadline Absolute deadline in milliseconds
+     * @returns {number} Remaining milliseconds
+     */
+    remaining(deadline) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+            throw new Error("Browser monitor timed out");
+        }
+        return remaining;
+    }
+
+    /**
      * @inheritdoc
      */
     async check(monitor, heartbeat, server) {
+        const timeout = (monitor.timeout ?? 20) * 1000;
+        const deadline = Date.now() + timeout;
         const browser = monitor.remote_browser
-            ? await getRemoteBrowser(monitor.remote_browser, monitor.user_id)
-            : await getBrowser();
+            ? await getRemoteBrowser(monitor.remote_browser, monitor.user_id, this.remaining(deadline))
+            : await getBrowser(this.remaining(deadline));
         const context = await browser.newContext();
-        const page = await context.newPage();
+        try {
+            const page = await context.newPage();
+            page.setDefaultTimeout(this.remaining(deadline));
 
-        // Prevent Local File Inclusion
-        // Accept only http:// and https://
-        // https://github.com/louislam/uptime-kuma/security/advisories/GHSA-2qgm-m29m-cj2h
-        let url = new URL(monitor.url);
-        if (url.protocol !== "http:" && url.protocol !== "https:") {
-            throw new Error("Invalid url protocol, only http and https are allowed.");
-        }
+            // Prevent Local File Inclusion
+            // Accept only http:// and https://
+            // https://github.com/louislam/uptime-kuma/security/advisories/GHSA-2qgm-m29m-cj2h
+            let url = new URL(monitor.url);
+            if (url.protocol !== "http:" && url.protocol !== "https:") {
+                throw new Error("Invalid url protocol, only http and https are allowed.");
+            }
 
-        const res = await page.goto(monitor.url, {
-            waitUntil: "networkidle",
-            timeout: monitor.interval * 1000 * 0.8,
-        });
+            const res = await page.goto(monitor.url, {
+                waitUntil: "networkidle",
+                timeout: this.remaining(deadline),
+            });
 
-        // Wait for additional time before taking screenshot if configured
-        if (monitor.screenshot_delay > 0) {
-            await page.waitForTimeout(monitor.screenshot_delay);
-        }
+            // Wait for additional time before taking screenshot if configured
+            if (monitor.screenshot_delay > 0) {
+                const remaining = this.remaining(deadline);
+                await page.waitForTimeout(Math.min(monitor.screenshot_delay, remaining));
+                if (monitor.screenshot_delay >= remaining) {
+                    throw new Error("Browser monitor timed out before screenshot");
+                }
+            }
 
-        let filename = jwt.sign(monitor.id, server.jwtSecret) + ".png";
+            let filename = jwt.sign(monitor.id, server.jwtSecret) + ".png";
 
-        await page.screenshot({
-            path: path.join(Database.screenshotDir, filename),
-        });
+            await page.screenshot({
+                path: path.join(Database.screenshotDir, filename),
+                timeout: this.remaining(deadline),
+            });
 
-        await context.close();
+            if (res.status() >= 200 && res.status() < 400) {
+                heartbeat.status = UP;
+                heartbeat.msg = res.status();
 
-        if (res.status() >= 200 && res.status() < 400) {
-            heartbeat.status = UP;
-            heartbeat.msg = res.status();
-
-            const timing = res.request().timing();
-            heartbeat.ping = timing.responseEnd;
-        } else {
-            throw new Error(res.status() + "");
+                const timing = res.request().timing();
+                heartbeat.ping = timing.responseEnd;
+            } else {
+                throw new Error(res.status() + "");
+            }
+        } finally {
+            await context.close();
         }
     }
 }

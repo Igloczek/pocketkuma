@@ -9,7 +9,7 @@
  * API documentation: https://globalping.io/docs/api.globalping.io
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { Globalping, IpVersion } from "globalping";
+import { Globalping, IpVersion, MeasurementStatus } from "globalping";
 import { Settings } from "@/server/settings";
 import { log, UP, evaluateJsonQuery } from "@/util";
 import {
@@ -39,21 +39,24 @@ class GlobalpingMonitorType extends MonitorType {
      */
     async check(monitor, heartbeat, _server) {
         const apiKey = await Settings.get("globalpingApiToken");
-        const client = new Globalping({
+        const timeout = (monitor.timeout ?? 20) * 1000;
+        const deadline = Date.now() + timeout;
+        const clientOptions = {
             auth: apiKey,
-            agent: this.httpUserAgent,
-        });
+            userAgent: this.httpUserAgent,
+        };
+        const client = new Globalping({ ...clientOptions, timeout });
 
         const hasAPIToken = !!apiKey;
         switch (monitor.subtype) {
             case "ping":
-                await this.ping(client, monitor, heartbeat, hasAPIToken);
+                await this.ping(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline);
                 break;
             case "http":
-                await this.http(client, monitor, heartbeat, hasAPIToken);
+                await this.http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline);
                 break;
             case "dns":
-                await this.dns(client, monitor, heartbeat, hasAPIToken, R);
+                await this.dns(client, monitor, heartbeat, hasAPIToken, R, clientOptions, deadline);
                 break;
         }
     }
@@ -66,7 +69,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @param {boolean} hasAPIToken - Whether the monitor has an API token.
      * @returns {Promise<void>} A promise that resolves when the ping monitor is handled.
      */
-    async ping(client, monitor, heartbeat, hasAPIToken) {
+    async ping(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline) {
         const opts = {
             type: "ping",
             target: monitor.hostname,
@@ -90,11 +93,11 @@ class GlobalpingMonitorType extends MonitorType {
         }
 
         log.debug("monitor", `Globalping create measurement: ${JSON.stringify(opts)}`);
-        let res = await client.createMeasurement(opts);
+        let res = await this.createMeasurement(client, clientOptions, opts, deadline);
 
         // Retry if the server returns a 500 error
         if (!res.ok && Globalping.isHttpStatus(500, res)) {
-            res = await client.createMeasurement(opts);
+            res = await this.createMeasurement(client, clientOptions, opts, deadline);
         }
 
         if (!res.ok) {
@@ -105,7 +108,9 @@ class GlobalpingMonitorType extends MonitorType {
         }
 
         log.debug("monitor", `Globalping fetch measurement: ${res.data.id}`);
-        let measurement = await client.awaitMeasurement(res.data.id);
+        let measurement = clientOptions
+            ? await this.awaitMeasurement(clientOptions, res.data.id, this.remaining(deadline))
+            : await client.awaitMeasurement(res.data.id);
 
         if (!measurement.ok) {
             throw new Error(
@@ -137,7 +142,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @param {boolean} hasAPIToken - Whether the monitor has an API token.
      * @returns {Promise<void>} A promise that resolves when the HTTP monitor is handled.
      */
-    async http(client, monitor, heartbeat, hasAPIToken) {
+    async http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline) {
         const url = new URL(monitor.url);
 
         let protocol = url.protocol.replace(":", "").toUpperCase();
@@ -147,7 +152,10 @@ class GlobalpingMonitorType extends MonitorType {
 
         const basicAuthHeader = this.getBasicAuthHeader(monitor);
         const bearerAuthHeader = this.getBearerAuthHeader(monitor);
-        const oauth2AuthHeader = await this.getOauth2AuthHeader(monitor);
+        const oauth2AuthHeader = await this.getOauth2AuthHeader(
+            monitor,
+            deadline ? this.remaining(deadline) : undefined
+        );
         const headers = {
             ...basicAuthHeader,
             ...bearerAuthHeader,
@@ -194,11 +202,11 @@ class GlobalpingMonitorType extends MonitorType {
         }
 
         log.debug("monitor", `Globalping create measurement: ${JSON.stringify(opts)}`);
-        let res = await client.createMeasurement(opts);
+        let res = await this.createMeasurement(client, clientOptions, opts, deadline);
 
         // Retry if the server returns a 500 error
         if (!res.ok && Globalping.isHttpStatus(500, res)) {
-            res = await client.createMeasurement(opts);
+            res = await this.createMeasurement(client, clientOptions, opts, deadline);
         }
 
         if (!res.ok) {
@@ -209,7 +217,9 @@ class GlobalpingMonitorType extends MonitorType {
         }
 
         log.debug("monitor", `Globalping fetch measurement: ${res.data.id}`);
-        let measurement = await client.awaitMeasurement(res.data.id);
+        let measurement = clientOptions
+            ? await this.awaitMeasurement(clientOptions, res.data.id, this.remaining(deadline))
+            : await client.awaitMeasurement(res.data.id);
 
         if (!measurement.ok) {
             throw new Error(
@@ -261,7 +271,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @param {R} redbean - The redbean object.
      * @returns {Promise<void>} A promise that resolves when the HTTP monitor is handled.
      */
-    async dns(client, monitor, heartbeat, hasAPIToken, redbean) {
+    async dns(client, monitor, heartbeat, hasAPIToken, redbean, clientOptions, deadline) {
         const opts = {
             type: "dns",
             target: monitor.hostname,
@@ -288,13 +298,13 @@ class GlobalpingMonitorType extends MonitorType {
         }
 
         log.debug("monitor", `Globalping create measurement: ${JSON.stringify(opts)}`);
-        let res = await client.createMeasurement(opts);
+        let res = await this.createMeasurement(client, clientOptions, opts, deadline);
 
         log.debug("monitor", `Globalping ${JSON.stringify(res)}`);
 
         // Retry if the server returns a 500 error
         if (!res.ok && Globalping.isHttpStatus(500, res)) {
-            res = await client.createMeasurement(opts);
+            res = await this.createMeasurement(client, clientOptions, opts, deadline);
         }
 
         if (!res.ok) {
@@ -305,7 +315,9 @@ class GlobalpingMonitorType extends MonitorType {
         }
 
         log.debug("monitor", `Globalping fetch measurement: ${res.data.id}`);
-        let measurement = await client.awaitMeasurement(res.data.id);
+        let measurement = clientOptions
+            ? await this.awaitMeasurement(clientOptions, res.data.id, this.remaining(deadline))
+            : await client.awaitMeasurement(res.data.id);
 
         if (!measurement.ok) {
             throw new Error(
@@ -346,6 +358,59 @@ class GlobalpingMonitorType extends MonitorType {
 
         heartbeat.msg = this.formatResponse(probe, dnsMessage);
         heartbeat.status = UP;
+    }
+
+    /**
+     * Poll a measurement within the monitor deadline. Each request receives only
+     * the remaining time, so the Globalping fetch is aborted at the same deadline.
+     * @param {object} clientOptions Globalping client options
+     * @param {string} id Measurement ID
+     * @param {number} timeout Overall timeout in milliseconds
+     * @returns {Promise<object>} Finished measurement response
+     */
+    async awaitMeasurement(clientOptions, id, timeout) {
+        const deadline = Date.now() + timeout;
+        while (Date.now() < deadline) {
+            const remaining = deadline - Date.now();
+            const measurement = await new Globalping({ ...clientOptions, timeout: remaining }).getMeasurement(id);
+            if (!measurement.ok || measurement.data.status !== MeasurementStatus.IN_PROGRESS) {
+                if (measurement.ok) {
+                    Globalping.assertMeasurementFinished(measurement.data);
+                }
+                return measurement;
+            }
+            await Bun.sleep(Math.max(0, Math.min(500, deadline - Date.now())));
+        }
+        throw new Error(`Timed out waiting for measurement ${id} to finish.`);
+    }
+
+    /**
+     * Create a measurement using only the time left in the monitor budget.
+     * Direct method tests may omit clientOptions and keep using their injected client.
+     * @param {Globalping} client Injected or production client
+     * @param {object | undefined} clientOptions Production client options
+     * @param {object} options Measurement options
+     * @param {number | undefined} deadline Overall monitor deadline
+     * @returns {Promise<object>} Measurement response
+     */
+    createMeasurement(client, clientOptions, options, deadline) {
+        if (!clientOptions) {
+            return client.createMeasurement(options);
+        }
+        return new Globalping({ ...clientOptions, timeout: this.remaining(deadline) }).createMeasurement(options);
+    }
+
+    /**
+     * Return the positive time remaining before a deadline.
+     * @param {number} deadline Absolute deadline in milliseconds
+     * @returns {number} Remaining milliseconds
+     */
+    remaining(deadline) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+            throw new Error("Globalping monitor timed out.");
+        }
+        return remaining;
     }
 
     /**
@@ -510,7 +575,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @param {object} monitor - The monitor object containing authentication information.
      * @returns {Promise<object>} The OAuth2 authorization header.
      */
-    async getOauth2AuthHeader(monitor) {
+    async getOauth2AuthHeader(monitor, timeout) {
         if (monitor.auth_method !== "oauth2-cc") {
             return {};
         }
@@ -523,7 +588,8 @@ class GlobalpingMonitorType extends MonitorType {
                     monitor.oauth_client_secret,
                     monitor.oauth_scopes,
                     monitor.oauth_audience,
-                    monitor.oauth_auth_method
+                    monitor.oauth_auth_method,
+                    timeout
                 );
                 log.debug(
                     "monitor",

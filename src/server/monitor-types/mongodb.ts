@@ -17,7 +17,11 @@ class MongodbMonitorType extends MonitorType {
             command = JSON.parse(monitor.databaseQuery);
         }
 
-        let result = await this.runMongodbCommand(monitor.databaseConnectionString, command);
+        let result = await this.runMongodbCommand(
+            monitor.databaseConnectionString,
+            command,
+            (monitor.timeout ?? 20) * 1000
+        );
 
         if (result["ok"] !== 1) {
             throw new Error("MongoDB command failed");
@@ -54,13 +58,29 @@ class MongodbMonitorType extends MonitorType {
      * Connect to and run MongoDB command on a MongoDB database
      * @param {string} connectionString The database connection string
      * @param {object} command MongoDB command to run on the database
+     * @param {number} timeout Connection and command timeout in milliseconds
      * @returns {Promise<(string[] | object[] | object)>} Response from server
      */
-    async runMongodbCommand(connectionString, command) {
-        let client = await MongoClient.connect(connectionString);
-        let result = await client.db().command(command);
-        await client.close();
-        return result;
+    async runMongodbCommand(connectionString, command, timeout) {
+        const deadline = Date.now() + timeout;
+        const client = new MongoClient(connectionString, {
+            connectTimeoutMS: timeout,
+            serverSelectionTimeoutMS: timeout,
+            socketTimeoutMS: timeout,
+        });
+        try {
+            await client.connect();
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) {
+                throw new Error("MongoDB monitor timed out");
+            }
+            return await client.db().command(command, {
+                maxTimeMS: remaining,
+                socketTimeoutMS: remaining,
+            });
+        } finally {
+            await client.close();
+        }
     }
 }
 

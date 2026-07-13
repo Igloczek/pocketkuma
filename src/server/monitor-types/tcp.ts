@@ -77,11 +77,11 @@ function getTlsAlertName(alertNumber) {
  * @param {number} port TCP port to test
  * @returns {Promise<number>} Maximum time in ms rounded to nearest integer
  */
-const tcping = (hostname, port) => {
+const tcping = (hostname, port, timeout = TIMEOUT) => {
     return new Promise((resolve, reject) => {
         const start = Date.now();
         const socket = net.connect(port, hostname);
-        socket.setTimeout(TIMEOUT * 1000);
+        socket.setTimeout(timeout * 1000);
 
         socket.on("connect", () => {
             const elapsed = Date.now() - start;
@@ -123,7 +123,7 @@ class TCPMonitorType extends MonitorType {
      */
     async checkTcp(monitor, heartbeat) {
         try {
-            const resp = await tcping(monitor.hostname, monitor.port);
+            const resp = await tcping(monitor.hostname, monitor.port, monitor.timeout ?? TIMEOUT);
             heartbeat.ping = resp;
             heartbeat.msg = `${resp} ms`;
             heartbeat.status = UP;
@@ -154,6 +154,7 @@ class TCPMonitorType extends MonitorType {
         return new Promise((resolve, reject) => {
             let dialogTimeout;
             let bannerTimeout;
+            const timeout = (monitor.timeout ?? TIMEOUT) * 1000;
             const socket_ = net.connect(monitor.port, monitor.hostname);
 
             const onTimeout = () => {
@@ -181,7 +182,7 @@ class TCPMonitorType extends MonitorType {
             const doReject = (error) => {
                 dialogTimeout && clearTimeout(dialogTimeout);
                 bannerTimeout && clearTimeout(bannerTimeout);
-                socket_.end();
+                socket_.destroy();
                 reject(error);
             };
 
@@ -224,10 +225,10 @@ class TCPMonitorType extends MonitorType {
             });
             socket_.on("error", (error) => {
                 log.debug(this.name, `[${monitor.name}] ${error.toString()}`);
-                reject(error);
+                doReject(error);
             });
-            socket_.setTimeout(1000 * TIMEOUT, onTimeout);
-            dialogTimeout = setTimeout(onTimeout, 1000 * TIMEOUT);
+            socket_.setTimeout(timeout, onTimeout);
+            dialogTimeout = setTimeout(onTimeout, timeout);
             bannerTimeout = setTimeout(onBannerTimeout, 1000 * 1.5);
         });
     }
@@ -268,7 +269,8 @@ class TCPMonitorType extends MonitorType {
                     reject(error);
                 });
 
-                socket.setTimeout(1000 * TIMEOUT, () => {
+                socket.setTimeout((monitor.timeout ?? TIMEOUT) * 1000, () => {
+                    socket.destroy();
                     reject(new Error("Connection timed out"));
                 });
             });

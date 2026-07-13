@@ -22,9 +22,9 @@ class SystemServiceMonitorType extends MonitorType {
         }
 
         if (process.platform === "win32") {
-            return this.checkWindows(monitor.system_service_name, heartbeat);
+            return this.checkWindows(monitor.system_service_name, heartbeat, (monitor.timeout ?? 5) * 1000);
         } else if (process.platform === "linux") {
-            return this.checkLinux(monitor.system_service_name, heartbeat);
+            return this.checkLinux(monitor.system_service_name, heartbeat, (monitor.timeout ?? 5) * 1000);
         } else {
             throw new Error(`System Service monitoring is not supported on ${process.platform}`);
         }
@@ -34,16 +34,17 @@ class SystemServiceMonitorType extends MonitorType {
      * Linux Check (Systemd)
      * @param {string} serviceName The name of the service to check.
      * @param {object} heartbeat The heartbeat object.
+     * @param {number} timeout Command timeout in milliseconds.
      * @returns {Promise<void>}
      */
-    async checkLinux(serviceName, heartbeat) {
+    async checkLinux(serviceName, heartbeat, timeout = 5000) {
         // SECURITY: Prevent Argument Injection
         // Only allow alphanumeric, dots, dashes, underscores, and @
         if (!serviceName || !/^[a-zA-Z0-9._\-@]+$/.test(serviceName)) {
             throw new Error("Invalid service name. Please use the internal Service Name (no spaces).");
         }
 
-        const result = await runCommand("systemctl", ["is-active", serviceName], { timeout: 5000 });
+        const result = await runCommand("systemctl", ["is-active", serviceName], { timeout });
         let output = trimOutput(result.stderr || result.stdout);
 
         if (result.code !== 0) {
@@ -58,9 +59,10 @@ class SystemServiceMonitorType extends MonitorType {
      * Windows Check (PowerShell)
      * @param {string} serviceName The name of the service to check.
      * @param {object} heartbeat The heartbeat object.
+     * @param {number} timeout Command timeout in milliseconds.
      * @returns {Promise<void>} Resolves on success, rejects on error.
      */
-    async checkWindows(serviceName, heartbeat) {
+    async checkWindows(serviceName, heartbeat, timeout = 5000) {
         // SECURITY: Validate service name to reduce command-injection risk
         if (!/^[A-Za-z0-9._-]+$/.test(serviceName)) {
             throw new Error("Invalid service name. Only alphanumeric characters and '.', '_', '-' are allowed.");
@@ -74,7 +76,7 @@ class SystemServiceMonitorType extends MonitorType {
                 "-Command",
                 `(Get-Service -Name '${serviceName.replaceAll("'", "''")}').Status`,
             ],
-            { timeout: 5000 }
+            { timeout }
         );
         let output = trimOutput(result.stderr || result.stdout);
 

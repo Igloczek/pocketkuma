@@ -34,7 +34,8 @@ class OracleDbMonitorType extends MonitorType {
                     monitor.databaseConnectionString,
                     query,
                     monitor.basic_auth_user,
-                    monitor.basic_auth_pass
+                    monitor.basic_auth_pass,
+                    (monitor.timeout ?? 20) * 1000
                 );
                 heartbeat.ping = dayjs().valueOf() - startTime;
 
@@ -51,7 +52,8 @@ class OracleDbMonitorType extends MonitorType {
                     monitor.databaseConnectionString,
                     query,
                     monitor.basic_auth_user,
-                    monitor.basic_auth_pass
+                    monitor.basic_auth_pass,
+                    (monitor.timeout ?? 20) * 1000
                 );
                 heartbeat.ping = dayjs().valueOf() - startTime;
                 heartbeat.status = UP;
@@ -72,16 +74,24 @@ class OracleDbMonitorType extends MonitorType {
      * @param {string} query The query to execute
      * @param {string} username Oracle DB username
      * @param {string} password Oracle DB password
+     * @param {number} timeout Connection and query timeout in milliseconds
      * @returns {Promise<string>} Row count or execution message
      */
-    async oracledbQuery(connectionString, query, username, password) {
+    async oracledbQuery(connectionString, query, username, password, timeout) {
         let connection;
+        const deadline = Date.now() + timeout;
         try {
             connection = await oracledb.getConnection({
                 connectString: connectionString.trim(),
                 user: username.trim(),
                 password: password.trim(),
+                connectTimeout: Math.max(1, Math.floor(timeout / 1000)),
             });
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) {
+                throw new Error("Oracle monitor timed out");
+            }
+            connection.callTimeout = remaining;
             const result = await connection.execute(query, [], {
                 outFormat: oracledb.OUT_FORMAT_OBJECT,
             });
@@ -111,16 +121,24 @@ class OracleDbMonitorType extends MonitorType {
      * @param {string} query The query to execute
      * @param {string} username Oracle DB username
      * @param {string} password Oracle DB password
+     * @param {number} timeout Connection and query timeout in milliseconds
      * @returns {Promise<any>} Single value from the first column of the first row
      */
-    async oracledbQuerySingleValue(connectionString, query, username, password) {
+    async oracledbQuerySingleValue(connectionString, query, username, password, timeout) {
         let connection;
+        const deadline = Date.now() + timeout;
         try {
             connection = await oracledb.getConnection({
                 connectString: connectionString,
                 user: username,
                 password: password,
+                connectTimeout: Math.max(1, Math.floor(timeout / 1000)),
             });
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) {
+                throw new Error("Oracle monitor timed out");
+            }
+            connection.callTimeout = remaining;
             const result = await connection.execute(query, [], {
                 outFormat: oracledb.OUT_FORMAT_OBJECT,
             });

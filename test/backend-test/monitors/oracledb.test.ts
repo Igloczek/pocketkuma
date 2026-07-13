@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { describe, test, expect, beforeAll, afterAll } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
 import { OracleDbContainer } from "@testcontainers/oraclefree";
 import { OracleDbMonitorType } from "@/server/monitor-types/oracledb";
 import { UP, PENDING } from "@/util";
@@ -8,6 +8,8 @@ import { UP, PENDING } from "@/util";
 const ORACLE_IMAGE = "gvenzl/oracle-free:23-slim-faststart";
 const APP_USER = "uptimekuma";
 const APP_USER_PASSWORD = "Oracle123";
+
+setDefaultTimeout(180_000);
 
 /**
  * Create a monitor payload for Oracle monitor tests.

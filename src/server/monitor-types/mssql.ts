@@ -32,7 +32,11 @@ class MssqlMonitorType extends MonitorType {
         try {
             if (hasConditions) {
                 // When conditions are enabled, expect a single value result
-                const result = await this.mssqlQuerySingleValue(monitor.databaseConnectionString, query);
+                const result = await this.mssqlQuerySingleValue(
+                    monitor.databaseConnectionString,
+                    query,
+                    (monitor.timeout ?? 20) * 1000
+                );
                 heartbeat.ping = dayjs().valueOf() - startTime;
 
                 const conditionsResult = evaluateExpressionGroup(conditions, { result: String(result) });
@@ -45,7 +49,11 @@ class MssqlMonitorType extends MonitorType {
                 heartbeat.msg = "Query did meet specified conditions";
             } else {
                 // Backwards compatible: just check connection and return row count
-                const result = await this.mssqlQuery(monitor.databaseConnectionString, query);
+                const result = await this.mssqlQuery(
+                    monitor.databaseConnectionString,
+                    query,
+                    (monitor.timeout ?? 20) * 1000
+                );
                 heartbeat.ping = dayjs().valueOf() - startTime;
                 heartbeat.status = UP;
                 heartbeat.msg = result;
@@ -64,13 +72,22 @@ class MssqlMonitorType extends MonitorType {
      * Run a query on MSSQL server (backwards compatible - returns row count)
      * @param {string} connectionString The database connection string
      * @param {string} query The query to validate the database with
+     * @param {number} timeout Connection and request timeout in milliseconds
      * @returns {Promise<string>} Row count message
      */
-    async mssqlQuery(connectionString, query) {
+    async mssqlQuery(connectionString, query, timeout) {
         let pool;
+        const deadline = Date.now() + timeout;
         try {
             pool = new mssql.ConnectionPool(connectionString);
+            pool.config.connectionTimeout = timeout;
+            pool.config.requestTimeout = timeout;
             await pool.connect();
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) {
+                throw new Error("MSSQL monitor timed out");
+            }
+            pool.config.requestTimeout = remaining;
             const result = await pool.request().query(query);
 
             if (result.recordset) {
@@ -92,13 +109,22 @@ class MssqlMonitorType extends MonitorType {
      * Run a query on MSSQL server expecting a single value result
      * @param {string} connectionString The database connection string
      * @param {string} query The query to validate the database with
+     * @param {number} timeout Connection and request timeout in milliseconds
      * @returns {Promise<any>} Single value from the first column of the first row
      */
-    async mssqlQuerySingleValue(connectionString, query) {
+    async mssqlQuerySingleValue(connectionString, query, timeout) {
         let pool;
+        const deadline = Date.now() + timeout;
         try {
             pool = new mssql.ConnectionPool(connectionString);
+            pool.config.connectionTimeout = timeout;
+            pool.config.requestTimeout = timeout;
             await pool.connect();
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) {
+                throw new Error("MSSQL monitor timed out");
+            }
+            pool.config.requestTimeout = remaining;
             const result = await pool.request().query(query);
 
             // Check if we have results

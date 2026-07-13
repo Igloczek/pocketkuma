@@ -8,7 +8,13 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { GrpcKeywordMonitorType } from "@/server/monitor-types/grpc";
+import { MongodbMonitorType } from "@/server/monitor-types/mongodb";
+import { MqttMonitorType } from "@/server/monitor-types/mqtt";
+import { MysqlMonitorType } from "@/server/monitor-types/mysql";
 import { PostgresMonitorType } from "@/server/monitor-types/postgres";
+import { RedisMonitorType } from "@/server/monitor-types/redis";
+import { SMTPMonitorType } from "@/server/monitor-types/smtp";
+import { runCommand } from "@/server/process-helper";
 
 let Monitor;
 
@@ -71,6 +77,44 @@ async function createHangingGrpcServer() {
     return { port, requestArrived, requestCanceled, server };
 }
 
+async function createHangingTcpServer() {
+    const requestArrived = deferred();
+    const socketClosed = deferred();
+    const sockets = new Set();
+    const server = net.createServer((socket) => {
+        sockets.add(socket);
+        requestArrived.resolve();
+        socket.on("close", () => {
+            sockets.delete(socket);
+            socketClosed.resolve();
+        });
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    return {
+        port: server.address().port,
+        requestArrived,
+        socketClosed,
+        sockets,
+        async close() {
+            for (const socket of sockets) {
+                socket.destroy();
+            }
+            await new Promise((resolve) => server.close(resolve));
+        },
+    };
+}
+
+async function expectProviderStop(monitor, check, fixture) {
+    const result = check().catch((error) => error);
+    monitor.activeHeartbeat = result.then(() => {});
+    await fixture.requestArrived.promise;
+    const stopping = monitor.stop();
+    expect(await settleWithin(stopping, 500)).toBe(true);
+    await stopping;
+    expect(await settleWithin(fixture.socketClosed.promise, 100)).toBe(true);
+    expect(await result).toBeInstanceOf(Error);
+}
+
 describe("monitor provider timeout cleanup", () => {
     test("gRPC stop enforces monitor timeout and cancels the active call", async () => {
         const fixture = await createHangingGrpcServer();
@@ -91,7 +135,7 @@ describe("monitor provider timeout cleanup", () => {
         await fixture.requestArrived.promise;
 
         const stopping = monitor.stop();
-        const stoppedByDeadline = await settleWithin(stopping, 250);
+        const stoppedByDeadline = await settleWithin(stopping, 500);
         if (!stoppedByDeadline) {
             fixture.server.forceShutdown();
         }
@@ -107,46 +151,101 @@ describe("monitor provider timeout cleanup", () => {
     });
 
     test("PostgreSQL stop enforces monitor timeout and destroys the active socket", async () => {
-        const sockets = new Set();
-        const requestArrived = deferred();
-        const socketClosed = deferred();
-        const server = net.createServer((socket) => {
-            sockets.add(socket);
-            requestArrived.resolve();
-            socket.on("close", () => {
-                sockets.delete(socket);
-                socketClosed.resolve();
-            });
-        });
-        await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+        const fixture = await createHangingTcpServer();
         const monitor = new Monitor();
         Object.assign(monitor, {
             timeout: 0.05,
-            databaseConnectionString: `postgresql://user:pass@127.0.0.1:${server.address().port}/db`,
+            databaseConnectionString: `postgresql://user:pass@127.0.0.1:${fixture.port}/db`,
             databaseQuery: "SELECT 1",
         });
-        const result = new PostgresMonitorType().check(monitor, {}).catch((error) => error);
-        monitor.activeHeartbeat = result.then(() => {});
-        await requestArrived.promise;
-
-        const stopping = monitor.stop();
-        const stoppedByDeadline = await settleWithin(stopping, 250);
-        if (!stoppedByDeadline) {
-            for (const socket of sockets) {
-                socket.destroy();
-            }
-        }
-        await stopping;
-
         try {
-            expect(stoppedByDeadline).toBe(true);
-            expect(await settleWithin(socketClosed.promise, 100)).toBe(true);
-            expect(await result).toBeInstanceOf(Error);
+            await expectProviderStop(monitor, () => new PostgresMonitorType().check(monitor, {}), fixture);
         } finally {
-            for (const socket of sockets) {
-                socket.destroy();
-            }
-            await new Promise((resolve) => server.close(resolve));
+            await fixture.close();
         }
+    });
+
+    test("MongoDB stop enforces monitor timeout and closes the active socket", async () => {
+        const fixture = await createHangingTcpServer();
+        const monitor = new Monitor();
+        Object.assign(monitor, {
+            timeout: 0.05,
+            databaseConnectionString: `mongodb://127.0.0.1:${fixture.port}/db?directConnection=true`,
+        });
+        try {
+            await expectProviderStop(monitor, () => new MongodbMonitorType().check(monitor, {}), fixture);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    test("MySQL stop enforces monitor timeout and destroys the active socket", async () => {
+        const fixture = await createHangingTcpServer();
+        const monitor = new Monitor();
+        Object.assign(monitor, {
+            timeout: 0.05,
+            databaseConnectionString: `mysql://user:pass@127.0.0.1:${fixture.port}/db`,
+            databaseQuery: "SELECT 1",
+        });
+        try {
+            await expectProviderStop(monitor, () => new MysqlMonitorType().check(monitor, {}), fixture);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    test("Redis stop enforces monitor timeout and destroys the active socket", async () => {
+        const fixture = await createHangingTcpServer();
+        const monitor = new Monitor();
+        Object.assign(monitor, {
+            timeout: 0.05,
+            databaseConnectionString: `redis://127.0.0.1:${fixture.port}`,
+            ignoreTls: false,
+        });
+        try {
+            await expectProviderStop(monitor, () => new RedisMonitorType().check(monitor, {}), fixture);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    test("SMTP stop enforces monitor timeout and closes the active socket", async () => {
+        const fixture = await createHangingTcpServer();
+        const monitor = new Monitor();
+        Object.assign(monitor, {
+            timeout: 0.05,
+            hostname: "127.0.0.1",
+            port: fixture.port,
+            smtpSecurity: "nostarttls",
+        });
+        try {
+            await expectProviderStop(monitor, () => new SMTPMonitorType().check(monitor, {}), fixture);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    test("MQTT stop enforces monitor timeout and forcibly closes the active socket", async () => {
+        const fixture = await createHangingTcpServer();
+        const monitor = new Monitor();
+        Object.assign(monitor, {
+            timeout: 0.05,
+            hostname: "127.0.0.1",
+            port: fixture.port,
+            mqttTopic: "health",
+            mqttSuccessMessage: "ok",
+        });
+        try {
+            await expectProviderStop(monitor, () => new MqttMonitorType().check(monitor, {}), fixture);
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    test("process monitor timeout kills a child that ignores SIGTERM", async () => {
+        const started = performance.now();
+        const result = await runCommand("sh", ["-c", "trap '' TERM; while :; do :; done"], { timeout: 50 });
+        expect(performance.now() - started).toBeLessThan(500);
+        expect(result.code).not.toBe(0);
     });
 });

@@ -1,18 +1,29 @@
 // @ts-nocheck
 
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
 import { RabbitMQContainer } from "@testcontainers/rabbitmq";
 import { RabbitMqMonitorType } from "@/server/monitor-types/rabbitmq";
 import { UP, PENDING } from "@/util";
 
+setDefaultTimeout(60_000);
+
 describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
     "RabbitMQ Single Node",
     () => {
+        let rabbitMQContainer;
+        let connectionString;
+
+        beforeAll(async () => {
+            rabbitMQContainer = await new RabbitMQContainer().withStartupTimeout(60000).start();
+            connectionString = `http://${rabbitMQContainer.getHost()}:${rabbitMQContainer.getMappedPort(15672)}`;
+        });
+
+        afterAll(async () => {
+            await rabbitMQContainer?.stop();
+        });
+
         test("check() sets status to UP when RabbitMQ server is reachable", async () => {
-            // The default timeout of 30 seconds might not be enough for the container to start
-            const rabbitMQContainer = await new RabbitMQContainer().withStartupTimeout(60000).start();
             const rabbitMQMonitor = new RabbitMqMonitorType();
-            const connectionString = `http://${rabbitMQContainer.getHost()}:${rabbitMQContainer.getMappedPort(15672)}`;
 
             const monitor = {
                 rabbitmqNodes: JSON.stringify([connectionString]),
@@ -26,13 +37,9 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
                 status: PENDING,
             };
 
-            try {
-                await rabbitMQMonitor.check(monitor, heartbeat);
-                expect(heartbeat.status).toBe(UP);
-                expect(heartbeat.msg).toBe("Node is reachable and there are no alerts in the cluster");
-            } finally {
-                rabbitMQContainer.stop();
-            }
+            await rabbitMQMonitor.check(monitor, heartbeat);
+            expect(heartbeat.status).toBe(UP);
+            expect(heartbeat.msg).toBe("Node is reachable and there are no alerts in the cluster");
         });
 
         test("check() rejects when RabbitMQ server is not reachable", async () => {
@@ -56,9 +63,7 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
         });
 
         test("checkSingleNode() succeeds when node is healthy", async () => {
-            const rabbitMQContainer = await new RabbitMQContainer().withStartupTimeout(60000).start();
             const rabbitMQMonitor = new RabbitMqMonitorType();
-            const connectionString = `http://${rabbitMQContainer.getHost()}:${rabbitMQContainer.getMappedPort(15672)}`;
 
             const monitor = {
                 name: "Test Monitor",
@@ -67,12 +72,8 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
                 timeout: 10,
             };
 
-            try {
-                // Should not throw - just validates the node is healthy
-                await rabbitMQMonitor.checkSingleNode(monitor, connectionString, "1/1");
-            } finally {
-                rabbitMQContainer.stop();
-            }
+            // Should not throw - just validates the node is healthy
+            await rabbitMQMonitor.checkSingleNode(monitor, connectionString, "1/1");
         });
 
         test("checkSingleNode() throws error when node is unreachable", async () => {

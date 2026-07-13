@@ -47,7 +47,8 @@ export const getOidcTokenClientCredentials = async (
     clientSecret,
     scope,
     audience,
-    authMethod = "client_secret_basic"
+    authMethod = "client_secret_basic",
+    timeout = 10000
 ) => {
     const oauthProvider = new oidc.Issuer({ token_endpoint: tokenEndpoint });
     let client = new oauthProvider.Client({
@@ -57,7 +58,7 @@ export const getOidcTokenClientCredentials = async (
     });
 
     // Increase default timeout and clock tolerance
-    client[oidc.custom.http_options] = () => ({ timeout: 10000 });
+    client[oidc.custom.http_options] = () => ({ timeout });
     client[oidc.custom.clock_tolerance] = 5;
 
     let grantParams = { grant_type: "client_credentials" };
