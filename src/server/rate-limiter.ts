@@ -48,18 +48,38 @@ class KumaRateLimiter {
     constructor(config) {
         this.errorMessage = config.errorMessage;
         this.config = config;
+        const intervalMs = config.interval === "minute" ? 60_000 : Number(config.interval) || 60_000;
+        this.maxBuckets = Math.max(1, Number(config.maxBuckets) || 100);
+        this.bucketTTL = Math.max(1, Number(config.bucketTTL) || intervalMs);
         this.rateLimiters = new Map();
     }
 
     getRateLimiter(key = "global") {
         key = String(key);
-        if (!this.rateLimiters.has(key) && this.rateLimiters.size >= 100) {
-            key = "overflow";
+        const now = Date.now();
+
+        for (const [bucketKey, bucket] of this.rateLimiters) {
+            if (now - bucket.lastUsed >= this.bucketTTL) {
+                this.rateLimiters.delete(bucketKey);
+            }
         }
-        if (!this.rateLimiters.has(key)) {
-            this.rateLimiters.set(key, new TokenBucket(this.config));
+
+        let bucket = this.rateLimiters.get(key);
+        if (bucket) {
+            bucket.lastUsed = now;
+            this.rateLimiters.delete(key);
+            this.rateLimiters.set(key, bucket);
+            return bucket;
         }
-        return this.rateLimiters.get(key);
+
+        while (this.rateLimiters.size >= this.maxBuckets) {
+            this.rateLimiters.delete(this.rateLimiters.keys().next().value);
+        }
+
+        bucket = new TokenBucket(this.config);
+        bucket.lastUsed = now;
+        this.rateLimiters.set(key, bucket);
+        return bucket;
     }
 
     /**

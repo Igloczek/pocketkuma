@@ -12,10 +12,10 @@
                     <slot />
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn" :class="btnStyle" data-bs-dismiss="modal" @click="yes">
+                    <button type="button" class="btn" :class="btnStyle" @click="yes">
                         {{ yesText || $t("Yes") }}
                     </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="no">
+                    <button type="button" class="btn btn-secondary" @click="no">
                         {{ noText || $t("No") }}
                     </button>
                 </div>
@@ -57,6 +57,12 @@ export default {
     mounted() {
         this.modal = new Modal(this.$refs.modal);
     },
+    beforeUnmount() {
+        if (this.modal) {
+            this.modal.hide();
+            this.modal.dispose();
+        }
+    },
     methods: {
         /**
          * Show the confirm dialog
@@ -70,16 +76,39 @@ export default {
          * @returns {void}
          */
         yes() {
-            this.modal.hide();
-            this.$emit("yes");
+            this.emitAfterHide("yes");
         },
         /**
          * @fires string "no" Notify the parent when No is pressed
          * @returns {void}
          */
         no() {
-            this.modal.hide();
-            this.$emit("no");
+            this.emitAfterHide("no");
+        },
+        /**
+         * Emit the action only after Bootstrap has removed the modal and backdrop.
+         * @param {"yes"|"no"} eventName Event to emit
+         * @returns {void}
+         */
+        emitAfterHide(eventName) {
+            const hide = () => {
+                this.$refs.modal.removeEventListener("shown.bs.modal", hide);
+                this.modal.hide();
+            };
+
+            this.$refs.modal.addEventListener(
+                "hidden.bs.modal",
+                () => {
+                    this.$emit(eventName);
+                },
+                { once: true }
+            );
+
+            if (this.modal._isTransitioning) {
+                this.$refs.modal.addEventListener("shown.bs.modal", hide, { once: true });
+            } else {
+                hide();
+            }
         },
     },
 };

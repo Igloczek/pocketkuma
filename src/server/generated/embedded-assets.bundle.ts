@@ -4,148 +4,148 @@
 import asset_0 from "../../../dist/apple-touch-icon-precomposed.png" with { type: "file" };
 import asset_1 from "../../../dist/apple-touch-icon.png" with { type: "file" };
 import asset_2 from "../../../dist/assets/360messenger-BJaQHaR4.css" with { type: "file" };
-import asset_3 from "../../../dist/assets/360messenger-C-Iy8hKj.js" with { type: "file" };
-import asset_4 from "../../../dist/assets/360messenger-C-Iy8hKj.js.br" with { type: "file" };
-import asset_5 from "../../../dist/assets/Alerta-B3zWZKyy.js" with { type: "file" };
-import asset_6 from "../../../dist/assets/Alerta-B3zWZKyy.js.br" with { type: "file" };
-import asset_7 from "../../../dist/assets/AliyunSms-DfL7KOE9.js" with { type: "file" };
-import asset_8 from "../../../dist/assets/AliyunSms-DfL7KOE9.js.br" with { type: "file" };
-import asset_9 from "../../../dist/assets/Apprise-nVr_ypTn.js" with { type: "file" };
-import asset_10 from "../../../dist/assets/Apprise-nVr_ypTn.js.br" with { type: "file" };
-import asset_11 from "../../../dist/assets/Bale-CNIUHBO2.js" with { type: "file" };
-import asset_12 from "../../../dist/assets/Bale-CNIUHBO2.js.br" with { type: "file" };
-import asset_13 from "../../../dist/assets/Bark-Bo_4BxWU.js" with { type: "file" };
-import asset_14 from "../../../dist/assets/Bark-Bo_4BxWU.js.br" with { type: "file" };
-import asset_15 from "../../../dist/assets/Cellsynt-D-gTrOZK.js" with { type: "file" };
-import asset_16 from "../../../dist/assets/Cellsynt-D-gTrOZK.js.br" with { type: "file" };
-import asset_17 from "../../../dist/assets/DingDing-B1qIQ2Py.js" with { type: "file" };
-import asset_18 from "../../../dist/assets/DingDing-B1qIQ2Py.js.br" with { type: "file" };
-import asset_19 from "../../../dist/assets/Discord-sHA3ch5N.js" with { type: "file" };
-import asset_20 from "../../../dist/assets/Discord-sHA3ch5N.js.br" with { type: "file" };
-import asset_21 from "../../../dist/assets/Evolution-B0RukCHA.js" with { type: "file" };
-import asset_22 from "../../../dist/assets/Evolution-B0RukCHA.js.br" with { type: "file" };
-import asset_23 from "../../../dist/assets/Feishu-BDn9FMEw.js" with { type: "file" };
-import asset_24 from "../../../dist/assets/Fluxer-DcQEGx1L.js" with { type: "file" };
-import asset_25 from "../../../dist/assets/Fluxer-DcQEGx1L.js.br" with { type: "file" };
-import asset_26 from "../../../dist/assets/GoogleChat-B64Ri45U.js" with { type: "file" };
-import asset_27 from "../../../dist/assets/GoogleChat-B64Ri45U.js.br" with { type: "file" };
-import asset_28 from "../../../dist/assets/GoogleSheets-BZGC_KUt.js" with { type: "file" };
-import asset_29 from "../../../dist/assets/GoogleSheets-BZGC_KUt.js.br" with { type: "file" };
-import asset_30 from "../../../dist/assets/Gorush-CNCQ1rkk.js" with { type: "file" };
-import asset_31 from "../../../dist/assets/Gorush-CNCQ1rkk.js.br" with { type: "file" };
-import asset_32 from "../../../dist/assets/HaloPSA-BrLGI5dI.js" with { type: "file" };
-import asset_33 from "../../../dist/assets/HaloPSA-BrLGI5dI.js.br" with { type: "file" };
-import asset_34 from "../../../dist/assets/HomeAssistant-75cgsAs0.js" with { type: "file" };
-import asset_35 from "../../../dist/assets/HomeAssistant-75cgsAs0.js.br" with { type: "file" };
-import asset_36 from "../../../dist/assets/JiraServiceManagement-CtaNAVSd.js" with { type: "file" };
-import asset_37 from "../../../dist/assets/JiraServiceManagement-CtaNAVSd.js.br" with { type: "file" };
-import asset_38 from "../../../dist/assets/Kook-8JcWZdX5.js" with { type: "file" };
-import asset_39 from "../../../dist/assets/Kook-8JcWZdX5.js.br" with { type: "file" };
-import asset_40 from "../../../dist/assets/LunaSea-Dq6So8_t.js" with { type: "file" };
-import asset_41 from "../../../dist/assets/LunaSea-Dq6So8_t.js.br" with { type: "file" };
-import asset_42 from "../../../dist/assets/Matrix-D1foO2Md.js" with { type: "file" };
-import asset_43 from "../../../dist/assets/Matrix-D1foO2Md.js.br" with { type: "file" };
-import asset_44 from "../../../dist/assets/Mattermost-CaAaLvBr.js" with { type: "file" };
-import asset_45 from "../../../dist/assets/Mattermost-CaAaLvBr.js.br" with { type: "file" };
-import asset_46 from "../../../dist/assets/Max-Dviqbsxf.js" with { type: "file" };
-import asset_47 from "../../../dist/assets/Max-Dviqbsxf.js.br" with { type: "file" };
-import asset_48 from "../../../dist/assets/NextcloudTalk-BJtW9NLQ.js" with { type: "file" };
-import asset_49 from "../../../dist/assets/NextcloudTalk-BJtW9NLQ.js.br" with { type: "file" };
-import asset_50 from "../../../dist/assets/Nostr-CGrNH7MB.js" with { type: "file" };
-import asset_51 from "../../../dist/assets/Nostr-CGrNH7MB.js.br" with { type: "file" };
-import asset_52 from "../../../dist/assets/Notifications-B4RVA5z1.js" with { type: "file" };
-import asset_53 from "../../../dist/assets/Notifications-B4RVA5z1.js.br" with { type: "file" };
+import asset_3 from "../../../dist/assets/360messenger-CbL6YtfF.js" with { type: "file" };
+import asset_4 from "../../../dist/assets/360messenger-CbL6YtfF.js.br" with { type: "file" };
+import asset_5 from "../../../dist/assets/Alerta-DBuqPE1-.js" with { type: "file" };
+import asset_6 from "../../../dist/assets/Alerta-DBuqPE1-.js.br" with { type: "file" };
+import asset_7 from "../../../dist/assets/AliyunSms-CZq6k8bx.js" with { type: "file" };
+import asset_8 from "../../../dist/assets/AliyunSms-CZq6k8bx.js.br" with { type: "file" };
+import asset_9 from "../../../dist/assets/Apprise-DCtOtg3m.js" with { type: "file" };
+import asset_10 from "../../../dist/assets/Apprise-DCtOtg3m.js.br" with { type: "file" };
+import asset_11 from "../../../dist/assets/Bale-DSOx0Soj.js" with { type: "file" };
+import asset_12 from "../../../dist/assets/Bale-DSOx0Soj.js.br" with { type: "file" };
+import asset_13 from "../../../dist/assets/Bark-Cqr96Nf8.js" with { type: "file" };
+import asset_14 from "../../../dist/assets/Bark-Cqr96Nf8.js.br" with { type: "file" };
+import asset_15 from "../../../dist/assets/Cellsynt-DjrHjR6-.js" with { type: "file" };
+import asset_16 from "../../../dist/assets/Cellsynt-DjrHjR6-.js.br" with { type: "file" };
+import asset_17 from "../../../dist/assets/DingDing-CdT92m2G.js" with { type: "file" };
+import asset_18 from "../../../dist/assets/DingDing-CdT92m2G.js.br" with { type: "file" };
+import asset_19 from "../../../dist/assets/Discord-Ct4ul3e0.js" with { type: "file" };
+import asset_20 from "../../../dist/assets/Discord-Ct4ul3e0.js.br" with { type: "file" };
+import asset_21 from "../../../dist/assets/Evolution-LE5W3JVX.js" with { type: "file" };
+import asset_22 from "../../../dist/assets/Evolution-LE5W3JVX.js.br" with { type: "file" };
+import asset_23 from "../../../dist/assets/Feishu-DKev2mjF.js" with { type: "file" };
+import asset_24 from "../../../dist/assets/Fluxer-OTh7AYCv.js" with { type: "file" };
+import asset_25 from "../../../dist/assets/Fluxer-OTh7AYCv.js.br" with { type: "file" };
+import asset_26 from "../../../dist/assets/GoogleChat-CXq9Slzz.js" with { type: "file" };
+import asset_27 from "../../../dist/assets/GoogleChat-CXq9Slzz.js.br" with { type: "file" };
+import asset_28 from "../../../dist/assets/GoogleSheets-B2XkEhS4.js" with { type: "file" };
+import asset_29 from "../../../dist/assets/GoogleSheets-B2XkEhS4.js.br" with { type: "file" };
+import asset_30 from "../../../dist/assets/Gorush-CzH0WHsh.js" with { type: "file" };
+import asset_31 from "../../../dist/assets/Gorush-CzH0WHsh.js.br" with { type: "file" };
+import asset_32 from "../../../dist/assets/HaloPSA-DIbMNnGb.js" with { type: "file" };
+import asset_33 from "../../../dist/assets/HaloPSA-DIbMNnGb.js.br" with { type: "file" };
+import asset_34 from "../../../dist/assets/HomeAssistant-BF_dQMBf.js" with { type: "file" };
+import asset_35 from "../../../dist/assets/HomeAssistant-BF_dQMBf.js.br" with { type: "file" };
+import asset_36 from "../../../dist/assets/JiraServiceManagement-SwRoUkBa.js" with { type: "file" };
+import asset_37 from "../../../dist/assets/JiraServiceManagement-SwRoUkBa.js.br" with { type: "file" };
+import asset_38 from "../../../dist/assets/Kook-BkTcjeYQ.js" with { type: "file" };
+import asset_39 from "../../../dist/assets/Kook-BkTcjeYQ.js.br" with { type: "file" };
+import asset_40 from "../../../dist/assets/LunaSea-Bg-PjXI_.js" with { type: "file" };
+import asset_41 from "../../../dist/assets/LunaSea-Bg-PjXI_.js.br" with { type: "file" };
+import asset_42 from "../../../dist/assets/Matrix-zaBXPPx3.js" with { type: "file" };
+import asset_43 from "../../../dist/assets/Matrix-zaBXPPx3.js.br" with { type: "file" };
+import asset_44 from "../../../dist/assets/Mattermost-rk1PB228.js" with { type: "file" };
+import asset_45 from "../../../dist/assets/Mattermost-rk1PB228.js.br" with { type: "file" };
+import asset_46 from "../../../dist/assets/Max-DikAHQfQ.js" with { type: "file" };
+import asset_47 from "../../../dist/assets/Max-DikAHQfQ.js.br" with { type: "file" };
+import asset_48 from "../../../dist/assets/NextcloudTalk-DN56J37F.js" with { type: "file" };
+import asset_49 from "../../../dist/assets/NextcloudTalk-DN56J37F.js.br" with { type: "file" };
+import asset_50 from "../../../dist/assets/Nostr-FfhmpxMG.js" with { type: "file" };
+import asset_51 from "../../../dist/assets/Nostr-FfhmpxMG.js.br" with { type: "file" };
+import asset_52 from "../../../dist/assets/Notifications-BjWZCVt0.js" with { type: "file" };
+import asset_53 from "../../../dist/assets/Notifications-BjWZCVt0.js.br" with { type: "file" };
 import asset_54 from "../../../dist/assets/Notifications-DOBNTuqL.css" with { type: "file" };
-import asset_55 from "../../../dist/assets/Ntfy-DiiRP_uD.js" with { type: "file" };
-import asset_56 from "../../../dist/assets/Ntfy-DiiRP_uD.js.br" with { type: "file" };
-import asset_57 from "../../../dist/assets/Octopush-fJSzacBA.js" with { type: "file" };
-import asset_58 from "../../../dist/assets/Octopush-fJSzacBA.js.br" with { type: "file" };
-import asset_59 from "../../../dist/assets/OneBot-DS7xY-_w.js" with { type: "file" };
-import asset_60 from "../../../dist/assets/OneBot-DS7xY-_w.js.br" with { type: "file" };
-import asset_61 from "../../../dist/assets/Onesender-DwRuy1RU.css" with { type: "file" };
-import asset_62 from "../../../dist/assets/Onesender-RGPTK1pP.js" with { type: "file" };
-import asset_63 from "../../../dist/assets/Onesender-RGPTK1pP.js.br" with { type: "file" };
-import asset_64 from "../../../dist/assets/Opsgenie-BEESbUGR.js" with { type: "file" };
-import asset_65 from "../../../dist/assets/Opsgenie-BEESbUGR.js.br" with { type: "file" };
-import asset_66 from "../../../dist/assets/PagerDuty-Dl9g5ubq.js" with { type: "file" };
-import asset_67 from "../../../dist/assets/PagerDuty-Dl9g5ubq.js.br" with { type: "file" };
-import asset_68 from "../../../dist/assets/PagerTree-zgYa8XcO.js" with { type: "file" };
-import asset_69 from "../../../dist/assets/PagerTree-zgYa8XcO.js.br" with { type: "file" };
-import asset_70 from "../../../dist/assets/PingChart-6QZaSSVv.js" with { type: "file" };
-import asset_71 from "../../../dist/assets/PingChart-6QZaSSVv.js.br" with { type: "file" };
-import asset_72 from "../../../dist/assets/PingChart-Bep4kX9R.css" with { type: "file" };
-import asset_73 from "../../../dist/assets/PingChart-Bep4kX9R.css.br" with { type: "file" };
-import asset_74 from "../../../dist/assets/PromoSMS-_OuqfK0Q.js" with { type: "file" };
-import asset_75 from "../../../dist/assets/PromoSMS-_OuqfK0Q.js.br" with { type: "file" };
-import asset_76 from "../../../dist/assets/Pushbullet-DQYvEfxj.js" with { type: "file" };
-import asset_77 from "../../../dist/assets/Pushover-gblVGQRp.js" with { type: "file" };
-import asset_78 from "../../../dist/assets/Pushover-gblVGQRp.js.br" with { type: "file" };
-import asset_79 from "../../../dist/assets/RocketChat-BLiCPFup.js" with { type: "file" };
-import asset_80 from "../../../dist/assets/RocketChat-BLiCPFup.js.br" with { type: "file" };
-import asset_81 from "../../../dist/assets/SMSC-DsXboVJg.js" with { type: "file" };
-import asset_82 from "../../../dist/assets/SMSC-DsXboVJg.js.br" with { type: "file" };
-import asset_83 from "../../../dist/assets/SMSEagle-CZvZbkph.js" with { type: "file" };
-import asset_84 from "../../../dist/assets/SMSEagle-CZvZbkph.js.br" with { type: "file" };
-import asset_85 from "../../../dist/assets/SMSManager-D98zu1k8.js" with { type: "file" };
-import asset_86 from "../../../dist/assets/SMSManager-D98zu1k8.js.br" with { type: "file" };
-import asset_87 from "../../../dist/assets/SMSPartner-DsvH2s0a.js" with { type: "file" };
-import asset_88 from "../../../dist/assets/SMSPartner-DsvH2s0a.js.br" with { type: "file" };
-import asset_89 from "../../../dist/assets/Security-B7ecDf-Z.js" with { type: "file" };
-import asset_90 from "../../../dist/assets/Security-B7ecDf-Z.js.br" with { type: "file" };
-import asset_91 from "../../../dist/assets/Security-D37m-G-u.css" with { type: "file" };
-import asset_92 from "../../../dist/assets/SerwerSMS-cIfPq2S1.js" with { type: "file" };
-import asset_93 from "../../../dist/assets/SerwerSMS-cIfPq2S1.js.br" with { type: "file" };
-import asset_94 from "../../../dist/assets/Settings-BZYVD8dm.js" with { type: "file" };
-import asset_95 from "../../../dist/assets/Settings-BZYVD8dm.js.br" with { type: "file" };
+import asset_55 from "../../../dist/assets/Ntfy-ijeDxwpr.js" with { type: "file" };
+import asset_56 from "../../../dist/assets/Ntfy-ijeDxwpr.js.br" with { type: "file" };
+import asset_57 from "../../../dist/assets/Octopush-CYe3ZcF5.js" with { type: "file" };
+import asset_58 from "../../../dist/assets/Octopush-CYe3ZcF5.js.br" with { type: "file" };
+import asset_59 from "../../../dist/assets/OneBot-k5j01p3q.js" with { type: "file" };
+import asset_60 from "../../../dist/assets/OneBot-k5j01p3q.js.br" with { type: "file" };
+import asset_61 from "../../../dist/assets/Onesender-7I3RSpXI.js" with { type: "file" };
+import asset_62 from "../../../dist/assets/Onesender-7I3RSpXI.js.br" with { type: "file" };
+import asset_63 from "../../../dist/assets/Onesender-DwRuy1RU.css" with { type: "file" };
+import asset_64 from "../../../dist/assets/Opsgenie-CxOOcIJn.js" with { type: "file" };
+import asset_65 from "../../../dist/assets/Opsgenie-CxOOcIJn.js.br" with { type: "file" };
+import asset_66 from "../../../dist/assets/PagerDuty-BcPMOT9G.js" with { type: "file" };
+import asset_67 from "../../../dist/assets/PagerDuty-BcPMOT9G.js.br" with { type: "file" };
+import asset_68 from "../../../dist/assets/PagerTree-DrZ66Gkz.js" with { type: "file" };
+import asset_69 from "../../../dist/assets/PagerTree-DrZ66Gkz.js.br" with { type: "file" };
+import asset_70 from "../../../dist/assets/PingChart-Bep4kX9R.css" with { type: "file" };
+import asset_71 from "../../../dist/assets/PingChart-Bep4kX9R.css.br" with { type: "file" };
+import asset_72 from "../../../dist/assets/PingChart-CLzrxSPr.js" with { type: "file" };
+import asset_73 from "../../../dist/assets/PingChart-CLzrxSPr.js.br" with { type: "file" };
+import asset_74 from "../../../dist/assets/PromoSMS-Bg6Rj-4b.js" with { type: "file" };
+import asset_75 from "../../../dist/assets/PromoSMS-Bg6Rj-4b.js.br" with { type: "file" };
+import asset_76 from "../../../dist/assets/Pushbullet-DblBy1bP.js" with { type: "file" };
+import asset_77 from "../../../dist/assets/Pushover-DhpRJJln.js" with { type: "file" };
+import asset_78 from "../../../dist/assets/Pushover-DhpRJJln.js.br" with { type: "file" };
+import asset_79 from "../../../dist/assets/RocketChat-aiSYk9SI.js" with { type: "file" };
+import asset_80 from "../../../dist/assets/RocketChat-aiSYk9SI.js.br" with { type: "file" };
+import asset_81 from "../../../dist/assets/SMSC-D6j9_t6e.js" with { type: "file" };
+import asset_82 from "../../../dist/assets/SMSC-D6j9_t6e.js.br" with { type: "file" };
+import asset_83 from "../../../dist/assets/SMSEagle-BN8K6_3D.js" with { type: "file" };
+import asset_84 from "../../../dist/assets/SMSEagle-BN8K6_3D.js.br" with { type: "file" };
+import asset_85 from "../../../dist/assets/SMSManager-DTPt-vKp.js" with { type: "file" };
+import asset_86 from "../../../dist/assets/SMSManager-DTPt-vKp.js.br" with { type: "file" };
+import asset_87 from "../../../dist/assets/SMSPartner-bnwS3b8I.js" with { type: "file" };
+import asset_88 from "../../../dist/assets/SMSPartner-bnwS3b8I.js.br" with { type: "file" };
+import asset_89 from "../../../dist/assets/Security-B4KLfLGb.css" with { type: "file" };
+import asset_90 from "../../../dist/assets/Security-CXZc9-DW.js" with { type: "file" };
+import asset_91 from "../../../dist/assets/Security-CXZc9-DW.js.br" with { type: "file" };
+import asset_92 from "../../../dist/assets/SerwerSMS-BaK4LnqH.js" with { type: "file" };
+import asset_93 from "../../../dist/assets/SerwerSMS-BaK4LnqH.js.br" with { type: "file" };
+import asset_94 from "../../../dist/assets/Settings-B9n5lf-R.js" with { type: "file" };
+import asset_95 from "../../../dist/assets/Settings-B9n5lf-R.js.br" with { type: "file" };
 import asset_96 from "../../../dist/assets/Settings-D70WUNHM.css" with { type: "file" };
 import asset_97 from "../../../dist/assets/Settings-D70WUNHM.css.br" with { type: "file" };
-import asset_98 from "../../../dist/assets/Signal-CMAQZo_m.js" with { type: "file" };
-import asset_99 from "../../../dist/assets/Signal-CMAQZo_m.js.br" with { type: "file" };
-import asset_100 from "../../../dist/assets/Slack-57jwipKI.js" with { type: "file" };
-import asset_101 from "../../../dist/assets/Slack-57jwipKI.js.br" with { type: "file" };
-import asset_102 from "../../../dist/assets/Splunk-DT2J8wcl.js" with { type: "file" };
-import asset_103 from "../../../dist/assets/Splunk-DT2J8wcl.js.br" with { type: "file" };
-import asset_104 from "../../../dist/assets/Teams-BambOa_f.js" with { type: "file" };
-import asset_105 from "../../../dist/assets/Teams-BambOa_f.js.br" with { type: "file" };
-import asset_106 from "../../../dist/assets/TechulusPush-CKvIwex6.js" with { type: "file" };
-import asset_107 from "../../../dist/assets/TechulusPush-CKvIwex6.js.br" with { type: "file" };
-import asset_108 from "../../../dist/assets/Telegram-C47EG12b.js" with { type: "file" };
-import asset_109 from "../../../dist/assets/Telegram-C47EG12b.js.br" with { type: "file" };
+import asset_98 from "../../../dist/assets/Signal-BGz2awNM.js" with { type: "file" };
+import asset_99 from "../../../dist/assets/Signal-BGz2awNM.js.br" with { type: "file" };
+import asset_100 from "../../../dist/assets/Slack-D1O63I0O.js" with { type: "file" };
+import asset_101 from "../../../dist/assets/Slack-D1O63I0O.js.br" with { type: "file" };
+import asset_102 from "../../../dist/assets/Splunk-BZ085-lA.js" with { type: "file" };
+import asset_103 from "../../../dist/assets/Splunk-BZ085-lA.js.br" with { type: "file" };
+import asset_104 from "../../../dist/assets/Teams-DrknYRP9.js" with { type: "file" };
+import asset_105 from "../../../dist/assets/Teams-DrknYRP9.js.br" with { type: "file" };
+import asset_106 from "../../../dist/assets/TechulusPush-D3KFNYx5.js" with { type: "file" };
+import asset_107 from "../../../dist/assets/TechulusPush-D3KFNYx5.js.br" with { type: "file" };
+import asset_108 from "../../../dist/assets/Telegram-Cp2JSBCI.js" with { type: "file" };
+import asset_109 from "../../../dist/assets/Telegram-Cp2JSBCI.js.br" with { type: "file" };
 import asset_110 from "../../../dist/assets/Telegram-_ZXsHp0a.css" with { type: "file" };
-import asset_111 from "../../../dist/assets/Telnyx-CQbq569z.js" with { type: "file" };
-import asset_112 from "../../../dist/assets/Telnyx-CQbq569z.js.br" with { type: "file" };
-import asset_113 from "../../../dist/assets/Teltonika-BEcg-3OA.js" with { type: "file" };
-import asset_114 from "../../../dist/assets/Teltonika-BEcg-3OA.js.br" with { type: "file" };
+import asset_111 from "../../../dist/assets/Telnyx-PB-Uiifx.js" with { type: "file" };
+import asset_112 from "../../../dist/assets/Telnyx-PB-Uiifx.js.br" with { type: "file" };
+import asset_113 from "../../../dist/assets/Teltonika-anNfKqBh.js" with { type: "file" };
+import asset_114 from "../../../dist/assets/Teltonika-anNfKqBh.js.br" with { type: "file" };
 import asset_115 from "../../../dist/assets/TemplatedField-3xV9PaQs.css" with { type: "file" };
-import asset_116 from "../../../dist/assets/TemplatedField-4pMiLHOq.js" with { type: "file" };
-import asset_117 from "../../../dist/assets/TemplatedField-4pMiLHOq.js.br" with { type: "file" };
-import asset_118 from "../../../dist/assets/Threema-Cdt_IS35.js" with { type: "file" };
-import asset_119 from "../../../dist/assets/Threema-Cdt_IS35.js.br" with { type: "file" };
-import asset_120 from "../../../dist/assets/Twilio-D48bgjzY.js" with { type: "file" };
-import asset_121 from "../../../dist/assets/Twilio-D48bgjzY.js.br" with { type: "file" };
-import asset_122 from "../../../dist/assets/VK-DvwqokBp.js" with { type: "file" };
-import asset_123 from "../../../dist/assets/VK-DvwqokBp.js.br" with { type: "file" };
-import asset_124 from "../../../dist/assets/VKTeams-B5mWT3Ve.js" with { type: "file" };
-import asset_125 from "../../../dist/assets/VKTeams-B5mWT3Ve.js.br" with { type: "file" };
-import asset_126 from "../../../dist/assets/WAHA-Cs8OwtE3.js" with { type: "file" };
-import asset_127 from "../../../dist/assets/WAHA-Cs8OwtE3.js.br" with { type: "file" };
-import asset_128 from "../../../dist/assets/WeCom-CYMjirqR.js" with { type: "file" };
-import asset_129 from "../../../dist/assets/WeCom-CYMjirqR.js.br" with { type: "file" };
-import asset_130 from "../../../dist/assets/Webhook-D6iy_8Kj.css" with { type: "file" };
-import asset_131 from "../../../dist/assets/Webhook-Ddd2biVO.js" with { type: "file" };
-import asset_132 from "../../../dist/assets/Webhook-Ddd2biVO.js.br" with { type: "file" };
-import asset_133 from "../../../dist/assets/Webpush-xxcNJ_2k.js" with { type: "file" };
-import asset_134 from "../../../dist/assets/Webpush-xxcNJ_2k.js.br" with { type: "file" };
-import asset_135 from "../../../dist/assets/Whapi-8lfpM3C6.js" with { type: "file" };
-import asset_136 from "../../../dist/assets/Whapi-8lfpM3C6.js.br" with { type: "file" };
+import asset_116 from "../../../dist/assets/TemplatedField-DW1c4WXa.js" with { type: "file" };
+import asset_117 from "../../../dist/assets/TemplatedField-DW1c4WXa.js.br" with { type: "file" };
+import asset_118 from "../../../dist/assets/Threema-BD43yW0w.js" with { type: "file" };
+import asset_119 from "../../../dist/assets/Threema-BD43yW0w.js.br" with { type: "file" };
+import asset_120 from "../../../dist/assets/Twilio-CIiVburZ.js" with { type: "file" };
+import asset_121 from "../../../dist/assets/Twilio-CIiVburZ.js.br" with { type: "file" };
+import asset_122 from "../../../dist/assets/VK-CXZNoUYw.js" with { type: "file" };
+import asset_123 from "../../../dist/assets/VK-CXZNoUYw.js.br" with { type: "file" };
+import asset_124 from "../../../dist/assets/VKTeams-BZBu-P8S.js" with { type: "file" };
+import asset_125 from "../../../dist/assets/VKTeams-BZBu-P8S.js.br" with { type: "file" };
+import asset_126 from "../../../dist/assets/WAHA-Csz8f2bi.js" with { type: "file" };
+import asset_127 from "../../../dist/assets/WAHA-Csz8f2bi.js.br" with { type: "file" };
+import asset_128 from "../../../dist/assets/WeCom-DbApchr9.js" with { type: "file" };
+import asset_129 from "../../../dist/assets/WeCom-DbApchr9.js.br" with { type: "file" };
+import asset_130 from "../../../dist/assets/Webhook-Cm6aAZat.js" with { type: "file" };
+import asset_131 from "../../../dist/assets/Webhook-Cm6aAZat.js.br" with { type: "file" };
+import asset_132 from "../../../dist/assets/Webhook-D6iy_8Kj.css" with { type: "file" };
+import asset_133 from "../../../dist/assets/Webpush-DSxMAbjn.js" with { type: "file" };
+import asset_134 from "../../../dist/assets/Webpush-DSxMAbjn.js.br" with { type: "file" };
+import asset_135 from "../../../dist/assets/Whapi-CnXQFTdR.js" with { type: "file" };
+import asset_136 from "../../../dist/assets/Whapi-CnXQFTdR.js.br" with { type: "file" };
 import asset_137 from "../../../dist/assets/ab-yoD6TSFD.js" with { type: "file" };
 import asset_138 from "../../../dist/assets/af-MJdpQeqk.js" with { type: "file" };
 import asset_139 from "../../../dist/assets/af-MJdpQeqk.js.br" with { type: "file" };
 import asset_140 from "../../../dist/assets/ang-DvzI6CwH.js" with { type: "file" };
-import asset_141 from "../../../dist/assets/app-DV7fWBBg.css" with { type: "file" };
-import asset_142 from "../../../dist/assets/app-DV7fWBBg.css.br" with { type: "file" };
-import asset_143 from "../../../dist/assets/app-Kxb8ys5l.js" with { type: "file" };
-import asset_144 from "../../../dist/assets/app-Kxb8ys5l.js.br" with { type: "file" };
+import asset_141 from "../../../dist/assets/app-L8PL0tXH.css" with { type: "file" };
+import asset_142 from "../../../dist/assets/app-L8PL0tXH.css.br" with { type: "file" };
+import asset_143 from "../../../dist/assets/app-asde5Tkt.js" with { type: "file" };
+import asset_144 from "../../../dist/assets/app-asde5Tkt.js.br" with { type: "file" };
 import asset_145 from "../../../dist/assets/ar-Cl1mbbB7.js" with { type: "file" };
 import asset_146 from "../../../dist/assets/ar-Cl1mbbB7.js.br" with { type: "file" };
 import asset_147 from "../../../dist/assets/ar-SY-GONmzmkk.js" with { type: "file" };
@@ -300,148 +300,148 @@ const embeddedWebAssets = {
     "apple-touch-icon-precomposed.png": asset_0,
     "apple-touch-icon.png": asset_1,
     "assets/360messenger-BJaQHaR4.css": asset_2,
-    "assets/360messenger-C-Iy8hKj.js": asset_3,
-    "assets/360messenger-C-Iy8hKj.js.br": asset_4,
-    "assets/Alerta-B3zWZKyy.js": asset_5,
-    "assets/Alerta-B3zWZKyy.js.br": asset_6,
-    "assets/AliyunSms-DfL7KOE9.js": asset_7,
-    "assets/AliyunSms-DfL7KOE9.js.br": asset_8,
-    "assets/Apprise-nVr_ypTn.js": asset_9,
-    "assets/Apprise-nVr_ypTn.js.br": asset_10,
-    "assets/Bale-CNIUHBO2.js": asset_11,
-    "assets/Bale-CNIUHBO2.js.br": asset_12,
-    "assets/Bark-Bo_4BxWU.js": asset_13,
-    "assets/Bark-Bo_4BxWU.js.br": asset_14,
-    "assets/Cellsynt-D-gTrOZK.js": asset_15,
-    "assets/Cellsynt-D-gTrOZK.js.br": asset_16,
-    "assets/DingDing-B1qIQ2Py.js": asset_17,
-    "assets/DingDing-B1qIQ2Py.js.br": asset_18,
-    "assets/Discord-sHA3ch5N.js": asset_19,
-    "assets/Discord-sHA3ch5N.js.br": asset_20,
-    "assets/Evolution-B0RukCHA.js": asset_21,
-    "assets/Evolution-B0RukCHA.js.br": asset_22,
-    "assets/Feishu-BDn9FMEw.js": asset_23,
-    "assets/Fluxer-DcQEGx1L.js": asset_24,
-    "assets/Fluxer-DcQEGx1L.js.br": asset_25,
-    "assets/GoogleChat-B64Ri45U.js": asset_26,
-    "assets/GoogleChat-B64Ri45U.js.br": asset_27,
-    "assets/GoogleSheets-BZGC_KUt.js": asset_28,
-    "assets/GoogleSheets-BZGC_KUt.js.br": asset_29,
-    "assets/Gorush-CNCQ1rkk.js": asset_30,
-    "assets/Gorush-CNCQ1rkk.js.br": asset_31,
-    "assets/HaloPSA-BrLGI5dI.js": asset_32,
-    "assets/HaloPSA-BrLGI5dI.js.br": asset_33,
-    "assets/HomeAssistant-75cgsAs0.js": asset_34,
-    "assets/HomeAssistant-75cgsAs0.js.br": asset_35,
-    "assets/JiraServiceManagement-CtaNAVSd.js": asset_36,
-    "assets/JiraServiceManagement-CtaNAVSd.js.br": asset_37,
-    "assets/Kook-8JcWZdX5.js": asset_38,
-    "assets/Kook-8JcWZdX5.js.br": asset_39,
-    "assets/LunaSea-Dq6So8_t.js": asset_40,
-    "assets/LunaSea-Dq6So8_t.js.br": asset_41,
-    "assets/Matrix-D1foO2Md.js": asset_42,
-    "assets/Matrix-D1foO2Md.js.br": asset_43,
-    "assets/Mattermost-CaAaLvBr.js": asset_44,
-    "assets/Mattermost-CaAaLvBr.js.br": asset_45,
-    "assets/Max-Dviqbsxf.js": asset_46,
-    "assets/Max-Dviqbsxf.js.br": asset_47,
-    "assets/NextcloudTalk-BJtW9NLQ.js": asset_48,
-    "assets/NextcloudTalk-BJtW9NLQ.js.br": asset_49,
-    "assets/Nostr-CGrNH7MB.js": asset_50,
-    "assets/Nostr-CGrNH7MB.js.br": asset_51,
-    "assets/Notifications-B4RVA5z1.js": asset_52,
-    "assets/Notifications-B4RVA5z1.js.br": asset_53,
+    "assets/360messenger-CbL6YtfF.js": asset_3,
+    "assets/360messenger-CbL6YtfF.js.br": asset_4,
+    "assets/Alerta-DBuqPE1-.js": asset_5,
+    "assets/Alerta-DBuqPE1-.js.br": asset_6,
+    "assets/AliyunSms-CZq6k8bx.js": asset_7,
+    "assets/AliyunSms-CZq6k8bx.js.br": asset_8,
+    "assets/Apprise-DCtOtg3m.js": asset_9,
+    "assets/Apprise-DCtOtg3m.js.br": asset_10,
+    "assets/Bale-DSOx0Soj.js": asset_11,
+    "assets/Bale-DSOx0Soj.js.br": asset_12,
+    "assets/Bark-Cqr96Nf8.js": asset_13,
+    "assets/Bark-Cqr96Nf8.js.br": asset_14,
+    "assets/Cellsynt-DjrHjR6-.js": asset_15,
+    "assets/Cellsynt-DjrHjR6-.js.br": asset_16,
+    "assets/DingDing-CdT92m2G.js": asset_17,
+    "assets/DingDing-CdT92m2G.js.br": asset_18,
+    "assets/Discord-Ct4ul3e0.js": asset_19,
+    "assets/Discord-Ct4ul3e0.js.br": asset_20,
+    "assets/Evolution-LE5W3JVX.js": asset_21,
+    "assets/Evolution-LE5W3JVX.js.br": asset_22,
+    "assets/Feishu-DKev2mjF.js": asset_23,
+    "assets/Fluxer-OTh7AYCv.js": asset_24,
+    "assets/Fluxer-OTh7AYCv.js.br": asset_25,
+    "assets/GoogleChat-CXq9Slzz.js": asset_26,
+    "assets/GoogleChat-CXq9Slzz.js.br": asset_27,
+    "assets/GoogleSheets-B2XkEhS4.js": asset_28,
+    "assets/GoogleSheets-B2XkEhS4.js.br": asset_29,
+    "assets/Gorush-CzH0WHsh.js": asset_30,
+    "assets/Gorush-CzH0WHsh.js.br": asset_31,
+    "assets/HaloPSA-DIbMNnGb.js": asset_32,
+    "assets/HaloPSA-DIbMNnGb.js.br": asset_33,
+    "assets/HomeAssistant-BF_dQMBf.js": asset_34,
+    "assets/HomeAssistant-BF_dQMBf.js.br": asset_35,
+    "assets/JiraServiceManagement-SwRoUkBa.js": asset_36,
+    "assets/JiraServiceManagement-SwRoUkBa.js.br": asset_37,
+    "assets/Kook-BkTcjeYQ.js": asset_38,
+    "assets/Kook-BkTcjeYQ.js.br": asset_39,
+    "assets/LunaSea-Bg-PjXI_.js": asset_40,
+    "assets/LunaSea-Bg-PjXI_.js.br": asset_41,
+    "assets/Matrix-zaBXPPx3.js": asset_42,
+    "assets/Matrix-zaBXPPx3.js.br": asset_43,
+    "assets/Mattermost-rk1PB228.js": asset_44,
+    "assets/Mattermost-rk1PB228.js.br": asset_45,
+    "assets/Max-DikAHQfQ.js": asset_46,
+    "assets/Max-DikAHQfQ.js.br": asset_47,
+    "assets/NextcloudTalk-DN56J37F.js": asset_48,
+    "assets/NextcloudTalk-DN56J37F.js.br": asset_49,
+    "assets/Nostr-FfhmpxMG.js": asset_50,
+    "assets/Nostr-FfhmpxMG.js.br": asset_51,
+    "assets/Notifications-BjWZCVt0.js": asset_52,
+    "assets/Notifications-BjWZCVt0.js.br": asset_53,
     "assets/Notifications-DOBNTuqL.css": asset_54,
-    "assets/Ntfy-DiiRP_uD.js": asset_55,
-    "assets/Ntfy-DiiRP_uD.js.br": asset_56,
-    "assets/Octopush-fJSzacBA.js": asset_57,
-    "assets/Octopush-fJSzacBA.js.br": asset_58,
-    "assets/OneBot-DS7xY-_w.js": asset_59,
-    "assets/OneBot-DS7xY-_w.js.br": asset_60,
-    "assets/Onesender-DwRuy1RU.css": asset_61,
-    "assets/Onesender-RGPTK1pP.js": asset_62,
-    "assets/Onesender-RGPTK1pP.js.br": asset_63,
-    "assets/Opsgenie-BEESbUGR.js": asset_64,
-    "assets/Opsgenie-BEESbUGR.js.br": asset_65,
-    "assets/PagerDuty-Dl9g5ubq.js": asset_66,
-    "assets/PagerDuty-Dl9g5ubq.js.br": asset_67,
-    "assets/PagerTree-zgYa8XcO.js": asset_68,
-    "assets/PagerTree-zgYa8XcO.js.br": asset_69,
-    "assets/PingChart-6QZaSSVv.js": asset_70,
-    "assets/PingChart-6QZaSSVv.js.br": asset_71,
-    "assets/PingChart-Bep4kX9R.css": asset_72,
-    "assets/PingChart-Bep4kX9R.css.br": asset_73,
-    "assets/PromoSMS-_OuqfK0Q.js": asset_74,
-    "assets/PromoSMS-_OuqfK0Q.js.br": asset_75,
-    "assets/Pushbullet-DQYvEfxj.js": asset_76,
-    "assets/Pushover-gblVGQRp.js": asset_77,
-    "assets/Pushover-gblVGQRp.js.br": asset_78,
-    "assets/RocketChat-BLiCPFup.js": asset_79,
-    "assets/RocketChat-BLiCPFup.js.br": asset_80,
-    "assets/SMSC-DsXboVJg.js": asset_81,
-    "assets/SMSC-DsXboVJg.js.br": asset_82,
-    "assets/SMSEagle-CZvZbkph.js": asset_83,
-    "assets/SMSEagle-CZvZbkph.js.br": asset_84,
-    "assets/SMSManager-D98zu1k8.js": asset_85,
-    "assets/SMSManager-D98zu1k8.js.br": asset_86,
-    "assets/SMSPartner-DsvH2s0a.js": asset_87,
-    "assets/SMSPartner-DsvH2s0a.js.br": asset_88,
-    "assets/Security-B7ecDf-Z.js": asset_89,
-    "assets/Security-B7ecDf-Z.js.br": asset_90,
-    "assets/Security-D37m-G-u.css": asset_91,
-    "assets/SerwerSMS-cIfPq2S1.js": asset_92,
-    "assets/SerwerSMS-cIfPq2S1.js.br": asset_93,
-    "assets/Settings-BZYVD8dm.js": asset_94,
-    "assets/Settings-BZYVD8dm.js.br": asset_95,
+    "assets/Ntfy-ijeDxwpr.js": asset_55,
+    "assets/Ntfy-ijeDxwpr.js.br": asset_56,
+    "assets/Octopush-CYe3ZcF5.js": asset_57,
+    "assets/Octopush-CYe3ZcF5.js.br": asset_58,
+    "assets/OneBot-k5j01p3q.js": asset_59,
+    "assets/OneBot-k5j01p3q.js.br": asset_60,
+    "assets/Onesender-7I3RSpXI.js": asset_61,
+    "assets/Onesender-7I3RSpXI.js.br": asset_62,
+    "assets/Onesender-DwRuy1RU.css": asset_63,
+    "assets/Opsgenie-CxOOcIJn.js": asset_64,
+    "assets/Opsgenie-CxOOcIJn.js.br": asset_65,
+    "assets/PagerDuty-BcPMOT9G.js": asset_66,
+    "assets/PagerDuty-BcPMOT9G.js.br": asset_67,
+    "assets/PagerTree-DrZ66Gkz.js": asset_68,
+    "assets/PagerTree-DrZ66Gkz.js.br": asset_69,
+    "assets/PingChart-Bep4kX9R.css": asset_70,
+    "assets/PingChart-Bep4kX9R.css.br": asset_71,
+    "assets/PingChart-CLzrxSPr.js": asset_72,
+    "assets/PingChart-CLzrxSPr.js.br": asset_73,
+    "assets/PromoSMS-Bg6Rj-4b.js": asset_74,
+    "assets/PromoSMS-Bg6Rj-4b.js.br": asset_75,
+    "assets/Pushbullet-DblBy1bP.js": asset_76,
+    "assets/Pushover-DhpRJJln.js": asset_77,
+    "assets/Pushover-DhpRJJln.js.br": asset_78,
+    "assets/RocketChat-aiSYk9SI.js": asset_79,
+    "assets/RocketChat-aiSYk9SI.js.br": asset_80,
+    "assets/SMSC-D6j9_t6e.js": asset_81,
+    "assets/SMSC-D6j9_t6e.js.br": asset_82,
+    "assets/SMSEagle-BN8K6_3D.js": asset_83,
+    "assets/SMSEagle-BN8K6_3D.js.br": asset_84,
+    "assets/SMSManager-DTPt-vKp.js": asset_85,
+    "assets/SMSManager-DTPt-vKp.js.br": asset_86,
+    "assets/SMSPartner-bnwS3b8I.js": asset_87,
+    "assets/SMSPartner-bnwS3b8I.js.br": asset_88,
+    "assets/Security-B4KLfLGb.css": asset_89,
+    "assets/Security-CXZc9-DW.js": asset_90,
+    "assets/Security-CXZc9-DW.js.br": asset_91,
+    "assets/SerwerSMS-BaK4LnqH.js": asset_92,
+    "assets/SerwerSMS-BaK4LnqH.js.br": asset_93,
+    "assets/Settings-B9n5lf-R.js": asset_94,
+    "assets/Settings-B9n5lf-R.js.br": asset_95,
     "assets/Settings-D70WUNHM.css": asset_96,
     "assets/Settings-D70WUNHM.css.br": asset_97,
-    "assets/Signal-CMAQZo_m.js": asset_98,
-    "assets/Signal-CMAQZo_m.js.br": asset_99,
-    "assets/Slack-57jwipKI.js": asset_100,
-    "assets/Slack-57jwipKI.js.br": asset_101,
-    "assets/Splunk-DT2J8wcl.js": asset_102,
-    "assets/Splunk-DT2J8wcl.js.br": asset_103,
-    "assets/Teams-BambOa_f.js": asset_104,
-    "assets/Teams-BambOa_f.js.br": asset_105,
-    "assets/TechulusPush-CKvIwex6.js": asset_106,
-    "assets/TechulusPush-CKvIwex6.js.br": asset_107,
-    "assets/Telegram-C47EG12b.js": asset_108,
-    "assets/Telegram-C47EG12b.js.br": asset_109,
+    "assets/Signal-BGz2awNM.js": asset_98,
+    "assets/Signal-BGz2awNM.js.br": asset_99,
+    "assets/Slack-D1O63I0O.js": asset_100,
+    "assets/Slack-D1O63I0O.js.br": asset_101,
+    "assets/Splunk-BZ085-lA.js": asset_102,
+    "assets/Splunk-BZ085-lA.js.br": asset_103,
+    "assets/Teams-DrknYRP9.js": asset_104,
+    "assets/Teams-DrknYRP9.js.br": asset_105,
+    "assets/TechulusPush-D3KFNYx5.js": asset_106,
+    "assets/TechulusPush-D3KFNYx5.js.br": asset_107,
+    "assets/Telegram-Cp2JSBCI.js": asset_108,
+    "assets/Telegram-Cp2JSBCI.js.br": asset_109,
     "assets/Telegram-_ZXsHp0a.css": asset_110,
-    "assets/Telnyx-CQbq569z.js": asset_111,
-    "assets/Telnyx-CQbq569z.js.br": asset_112,
-    "assets/Teltonika-BEcg-3OA.js": asset_113,
-    "assets/Teltonika-BEcg-3OA.js.br": asset_114,
+    "assets/Telnyx-PB-Uiifx.js": asset_111,
+    "assets/Telnyx-PB-Uiifx.js.br": asset_112,
+    "assets/Teltonika-anNfKqBh.js": asset_113,
+    "assets/Teltonika-anNfKqBh.js.br": asset_114,
     "assets/TemplatedField-3xV9PaQs.css": asset_115,
-    "assets/TemplatedField-4pMiLHOq.js": asset_116,
-    "assets/TemplatedField-4pMiLHOq.js.br": asset_117,
-    "assets/Threema-Cdt_IS35.js": asset_118,
-    "assets/Threema-Cdt_IS35.js.br": asset_119,
-    "assets/Twilio-D48bgjzY.js": asset_120,
-    "assets/Twilio-D48bgjzY.js.br": asset_121,
-    "assets/VK-DvwqokBp.js": asset_122,
-    "assets/VK-DvwqokBp.js.br": asset_123,
-    "assets/VKTeams-B5mWT3Ve.js": asset_124,
-    "assets/VKTeams-B5mWT3Ve.js.br": asset_125,
-    "assets/WAHA-Cs8OwtE3.js": asset_126,
-    "assets/WAHA-Cs8OwtE3.js.br": asset_127,
-    "assets/WeCom-CYMjirqR.js": asset_128,
-    "assets/WeCom-CYMjirqR.js.br": asset_129,
-    "assets/Webhook-D6iy_8Kj.css": asset_130,
-    "assets/Webhook-Ddd2biVO.js": asset_131,
-    "assets/Webhook-Ddd2biVO.js.br": asset_132,
-    "assets/Webpush-xxcNJ_2k.js": asset_133,
-    "assets/Webpush-xxcNJ_2k.js.br": asset_134,
-    "assets/Whapi-8lfpM3C6.js": asset_135,
-    "assets/Whapi-8lfpM3C6.js.br": asset_136,
+    "assets/TemplatedField-DW1c4WXa.js": asset_116,
+    "assets/TemplatedField-DW1c4WXa.js.br": asset_117,
+    "assets/Threema-BD43yW0w.js": asset_118,
+    "assets/Threema-BD43yW0w.js.br": asset_119,
+    "assets/Twilio-CIiVburZ.js": asset_120,
+    "assets/Twilio-CIiVburZ.js.br": asset_121,
+    "assets/VK-CXZNoUYw.js": asset_122,
+    "assets/VK-CXZNoUYw.js.br": asset_123,
+    "assets/VKTeams-BZBu-P8S.js": asset_124,
+    "assets/VKTeams-BZBu-P8S.js.br": asset_125,
+    "assets/WAHA-Csz8f2bi.js": asset_126,
+    "assets/WAHA-Csz8f2bi.js.br": asset_127,
+    "assets/WeCom-DbApchr9.js": asset_128,
+    "assets/WeCom-DbApchr9.js.br": asset_129,
+    "assets/Webhook-Cm6aAZat.js": asset_130,
+    "assets/Webhook-Cm6aAZat.js.br": asset_131,
+    "assets/Webhook-D6iy_8Kj.css": asset_132,
+    "assets/Webpush-DSxMAbjn.js": asset_133,
+    "assets/Webpush-DSxMAbjn.js.br": asset_134,
+    "assets/Whapi-CnXQFTdR.js": asset_135,
+    "assets/Whapi-CnXQFTdR.js.br": asset_136,
     "assets/ab-yoD6TSFD.js": asset_137,
     "assets/af-MJdpQeqk.js": asset_138,
     "assets/af-MJdpQeqk.js.br": asset_139,
     "assets/ang-DvzI6CwH.js": asset_140,
-    "assets/app-DV7fWBBg.css": asset_141,
-    "assets/app-DV7fWBBg.css.br": asset_142,
-    "assets/app-Kxb8ys5l.js": asset_143,
-    "assets/app-Kxb8ys5l.js.br": asset_144,
+    "assets/app-L8PL0tXH.css": asset_141,
+    "assets/app-L8PL0tXH.css.br": asset_142,
+    "assets/app-asde5Tkt.js": asset_143,
+    "assets/app-asde5Tkt.js.br": asset_144,
     "assets/ar-Cl1mbbB7.js": asset_145,
     "assets/ar-Cl1mbbB7.js.br": asset_146,
     "assets/ar-SY-GONmzmkk.js": asset_147,

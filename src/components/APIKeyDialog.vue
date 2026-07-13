@@ -74,7 +74,7 @@
                     </div>
 
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" @click="keymodal.hide()">
+                        <button type="button" class="btn btn-primary" @click="hideKeyModal">
                             {{ $t("Continue") }}
                         </button>
                     </div>
@@ -126,6 +126,12 @@ export default {
         this.keyaddmodal = new Modal(this.$refs.keyaddmodal);
         this.keymodal = new Modal(this.$refs.keymodal);
     },
+    beforeUnmount() {
+        this.keyaddmodal?.hide();
+        this.keymodal?.hide();
+        this.keyaddmodal?.dispose();
+        this.keymodal?.dispose();
+    },
 
     methods: {
         /**
@@ -155,12 +161,11 @@ export default {
             }
 
             this.appStore.addAPIKey(this.key, async (res) => {
-                this.keyaddmodal.hide();
                 this.processing = false;
                 if (res.ok) {
                     this.clearKey = res.key;
-                    this.keymodal.show();
                     this.clearForm();
+                    this.showKeyModal();
                 } else {
                     this.appStore.toastError(res.msg);
                 }
@@ -178,6 +183,49 @@ export default {
                 active: 1,
             };
             this.noExpire = false;
+        },
+
+        /**
+         * Replace the form modal only after its backdrop has been removed.
+         * @returns {void}
+         */
+        async showKeyModal() {
+            await this.hideModal(this.keyaddmodal, this.$refs.keyaddmodal);
+            this.keymodal?.show();
+        },
+
+        /**
+         * Hide the generated key modal through its Bootstrap instance.
+         * @returns {void}
+         */
+        hideKeyModal() {
+            this.hideModal(this.keymodal, this.$refs.keymodal);
+        },
+
+        /**
+         * Hide a modal after an in-progress show transition has completed.
+         * @param {Modal|null} modal Bootstrap modal instance
+         * @param {HTMLElement} element Modal element
+         * @returns {Promise<void>}
+         */
+        hideModal(modal, element) {
+            if (!modal || !element.classList.contains("show")) {
+                return Promise.resolve();
+            }
+
+            return new Promise((resolve) => {
+                const hide = () => {
+                    element.removeEventListener("shown.bs.modal", hide);
+                    modal.hide();
+                };
+
+                element.addEventListener("hidden.bs.modal", resolve, { once: true });
+                if (modal._isTransitioning) {
+                    element.addEventListener("shown.bs.modal", hide, { once: true });
+                } else {
+                    hide();
+                }
+            });
         },
     },
 };

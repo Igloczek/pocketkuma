@@ -137,6 +137,7 @@ export default {
     props: {},
     data() {
         return {
+            modal: null,
             currentPassword: "",
             processing: false,
             uri: null,
@@ -149,6 +150,10 @@ export default {
     mounted() {
         this.modal = new Modal(this.$refs.modal);
         this.getStatus();
+    },
+    beforeUnmount() {
+        this.modal?.hide();
+        this.modal?.dispose();
     },
     methods: {
         /**

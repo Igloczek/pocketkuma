@@ -14,6 +14,24 @@ import { Settings } from "@/server/settings";
 import dayjs from "dayjs";
 import { textResponse } from "@/server/bun-response";
 
+const API_KEY_PATTERN = /^uk([1-9]\d*)_([A-Za-z0-9]{40})$/;
+
+export function parseAPIKey(key) {
+    if (typeof key !== "string") {
+        return null;
+    }
+
+    const parsed = API_KEY_PATTERN.exec(key);
+    if (!parsed || !Number.isSafeInteger(Number(parsed[1]))) {
+        return null;
+    }
+
+    return {
+        id: parsed[1],
+        secret: parsed[2],
+    };
+}
+
 export async function login(username, password) {
     if (typeof username !== "string" || typeof password !== "string") {
         return null;
@@ -21,6 +39,11 @@ export async function login(username, password) {
 
     let user = await R.findOne("user", "TRIM(username) = ? AND active = 1 ", [username.trim()]);
 
+    if (user) {
+        if (process.env.POCKETKUMA_AUTH_HASH_TRACE === "1") {
+            console.log("auth-password-verify");
+        }
+    }
     if (user && (await passwordHash.verify(password, user.password))) {
         // Upgrade legacy or non-native password hashes after successful login.
         if (passwordHash.needRehash(user.password)) {
@@ -41,17 +64,12 @@ export async function login(username, password) {
  * @returns {Promise<Bean|null>} Matching API key or null
  */
 async function verifyAPIKey(key) {
-    if (typeof key !== "string") {
-        return null;
-    }
-
-    const parsed = /^uk(\d+)_([A-Za-z0-9]{40})$/.exec(key);
+    const parsed = parseAPIKey(key);
     if (!parsed) {
         return null;
     }
-    const [, index, clear] = parsed;
 
-    let hash = await R.findOne("api_key", " id=? ", [index]);
+    let hash = await R.findOne("api_key", " id=? ", [parsed.id]);
 
     if (hash === null) {
         return null;
@@ -61,7 +79,10 @@ async function verifyAPIKey(key) {
         return null;
     }
 
-    return (await passwordHash.verify(clear, hash.key)) ? hash : null;
+    if (process.env.POCKETKUMA_AUTH_HASH_TRACE === "1") {
+        console.log("auth-api-key-verify");
+    }
+    return (await passwordHash.verify(parsed.secret, hash.key)) ? hash : null;
 }
 
 /**
@@ -73,7 +94,7 @@ async function verifyAPIKey(key) {
 async function authorizeUser(username, password) {
     const rateLimitKey = typeof username === "string" ? username.trim().toLowerCase() : "invalid";
     // Login Rate Limit
-    const pass = await loginRateLimiter.pass(null, 0, rateLimitKey);
+    const pass = await loginRateLimiter.pass(null, 1, rateLimitKey);
     if (!pass) {
         log.warn("basic-auth", "Failed basic auth attempt: rate limit exceeded");
         return null;
@@ -86,7 +107,6 @@ async function authorizeUser(username, password) {
     }
 
     log.warn("basic-auth", "Failed basic auth attempt: invalid username/password");
-    loginRateLimiter.removeTokens(1, rateLimitKey);
     return null;
 }
 
@@ -96,8 +116,9 @@ async function authorizeUser(username, password) {
  * @returns {Promise<number|null>} API key owner ID when authorized
  */
 async function authorizeAPIKey(password) {
-    const rateLimitKey = /^uk\d+_/.exec(password)?.[0] || "invalid";
-    const pass = await apiRateLimiter.pass(null, 0, rateLimitKey);
+    const parsed = parseAPIKey(password);
+    const rateLimitKey = parsed ? `api-key:${parsed.id}` : "invalid";
+    const pass = await apiRateLimiter.pass(null, 1, rateLimitKey);
     if (!pass) {
         log.warn("api-auth", "Failed API auth attempt: rate limit exceeded");
         return null;
@@ -108,7 +129,6 @@ async function authorizeAPIKey(password) {
         log.warn("api-auth", "Failed API auth attempt: invalid API Key");
     }
     // Only allow a set number of api requests per minute (currently set to 60).
-    apiRateLimiter.removeTokens(1, rateLimitKey);
     return key?.user_id ?? null;
 }
 
