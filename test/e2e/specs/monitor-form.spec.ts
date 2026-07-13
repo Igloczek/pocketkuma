@@ -220,15 +220,21 @@ test.describe("Monitor Form", () => {
         await page.locator('input[name="proxy"]:not(#proxy-disable)').check();
         await page.getByLabel("Ignore TLS/SSL errors for HTTPS websites").check();
 
+        const errorToasts = page.locator(".Vue-Toastification__toast--error").filter({ hasText: message });
+        await expect(errorToasts).toHaveCount(0);
         const eventsBeforeCreate = sentEvents.length;
         await page.getByTestId("save-button").click();
-        await expect(page.getByText(message, { exact: true }).last()).toBeVisible();
+        await expect(errorToasts).toHaveCount(1);
+        await expect(errorToasts.locator(".Vue-Toastification__toast-body")).toHaveText(message);
         expect(sentEvents.slice(eventsBeforeCreate)).not.toContain("add");
         await expect(page).toHaveURL(/\/add$/);
 
+        await errorToasts.locator(".Vue-Toastification__close-button").click();
         await page.getByLabel("Ignore TLS/SSL errors for HTTPS websites").uncheck();
         await page.locator("#proxy-disable").check();
+        const eventsBeforeAllowedCreate = sentEvents.length;
         await page.getByTestId("save-button").click();
+        await expect.poll(() => sentEvents.slice(eventsBeforeAllowedCreate)).toContain("add");
         await page.waitForURL("**/dashboard/*");
         const monitorID = page.url().split("/").at(-1);
 
@@ -237,14 +243,23 @@ test.describe("Monitor Form", () => {
         await page.locator('input[name="proxy"]:not(#proxy-disable)').check();
         await page.getByLabel("Ignore TLS/SSL errors for HTTPS websites").check();
 
+        await expect(errorToasts).toHaveCount(0);
         const eventsBeforeEdit = sentEvents.length;
         await page.getByTestId("save-button").click();
-        await expect(page.getByText(message, { exact: true }).last()).toBeVisible();
+        await expect(errorToasts).toHaveCount(1);
+        await expect(errorToasts.locator(".Vue-Toastification__toast-body")).toHaveText(message);
         expect(sentEvents.slice(eventsBeforeEdit)).not.toContain("editMonitor");
 
         await page.reload();
         await expect(page.getByTestId("friendly-name-input")).toHaveValue("Blocked proxy combination");
         await expect(page.getByLabel("Ignore TLS/SSL errors for HTTPS websites")).not.toBeChecked();
         await expect(page.locator("#proxy-disable")).toBeChecked();
+
+        await page.getByTestId("friendly-name-input").fill("Allowed proxy edit");
+        const eventsBeforeAllowedEdit = sentEvents.length;
+        await page.getByTestId("save-button").click();
+        await expect.poll(() => sentEvents.slice(eventsBeforeAllowedEdit)).toContain("editMonitor");
+        await page.reload();
+        await expect(page.getByTestId("friendly-name-input")).toHaveValue("Allowed proxy edit");
     });
 });
