@@ -25,6 +25,12 @@ function mqttTest(name, fn) {
     test(name, { timeout: MQTT_TEST_TIMEOUT_MS }, fn);
 }
 
+function publishRetained(client, topic, message) {
+    return new Promise((resolve, reject) => {
+        client.publish(topic, message, { qos: 1, retain: true }, (error) => (error ? reject(error) : resolve()));
+    });
+}
+
 async function testMqtt(
     mqttSuccessMessage,
     mqttCheckType,
@@ -56,18 +62,20 @@ async function testMqtt(
     };
 
     const testMqttClient = mqtt.connect(hiveMQContainer.getConnectionString());
-    testMqttClient.on("connect", () => {
-        testMqttClient.subscribe(monitorTopic, (error) => {
-            if (!error) {
-                testMqttClient.publish(publishTopic, receivedMessage);
-            }
-        });
+    await new Promise((resolve, reject) => {
+        testMqttClient.once("connect", resolve);
+        testMqttClient.once("error", reject);
     });
+    await publishRetained(testMqttClient, publishTopic, receivedMessage);
 
     try {
         await mqttMonitorType.check(monitor, heartbeat);
     } finally {
-        testMqttClient.end(true);
+        try {
+            await publishRetained(testMqttClient, publishTopic, "");
+        } finally {
+            testMqttClient.end(true);
+        }
     }
     return heartbeat;
 }
