@@ -15,11 +15,11 @@ local push endpoint is called.
 
 - Before runtime: `209259b1010fe9e7d4680c66393b228638885e7a`
 - Previous runtime implementation commit: `0859db97ef4a5125828366e2794334b0dd7cd66d`
-- Final security-fix tree measured: `6151edc5baf375138b96c2b0c1296ee42d63c4d9`
+- Previous security-fix tree measured: `6151edc5baf375138b96c2b0c1296ee42d63c4d9`
+- Final runtime tree measured: `db63e91246284d513154e32bd95026b5788f8c9a`
 
-The final measured tree adds bounded credential-admission fallback, removes the production hash trace hooks, and fixes
-modal lifecycle handling. This report commit follows the measured code commit; the reported SHA is the exact runtime
-tree used for the samples.
+The final measured tree preserves partial exact credential penalties through bounded-LRU churn. This report commit
+follows the measured code commit; the reported SHA is the exact runtime tree used for the samples.
 
 Both measured revisions used Bun `1.3.14` on macOS arm64 and the same installed dependencies. The baseline was a
 detached local worktree. Each sample used a fresh temporary SQLite database and a fresh server process.
@@ -54,7 +54,7 @@ present. The baseline is deliberately run without that assertion so its failure 
 | Runtime revision | owner A (ms) | owner B (ms) | pair (ms) | response bytes | RSS before/after (KiB) | ownership   | URL secrets  |
 | ---------------- | -----------: | -----------: | --------: | -------------: | ---------------------: | ----------- | ------------ |
 | Before `209259b` |       70.075 |       82.188 |    82.247 |          1,622 |      154,848 / 220,560 | both leaked | both present |
-| After `6151edc`  |       78.631 |       82.289 |    82.362 |          1,118 |      157,568 / 256,064 | isolated    | absent       |
+| After `db63e912` |       96.407 |       96.297 |    96.432 |          1,118 |      157,296 / 255,808 | isolated    | absent       |
 
 The median response body is 504 bytes smaller after filtering/redaction. Timing and RSS are intentionally reported as
 local microbenchmark observations, not capacity claims; the endpoint includes password verification and process-level
@@ -70,28 +70,34 @@ Before:
 {"revision":"209259b1010fe9e7d4680c66393b228638885e7a","sample":3,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":68.936,"bytes":1622,"owned":"benchmark-a-3","ownedPresent":true,"foreignPresent":true,"secretsPresent":true},"ownerB":{"milliseconds":80.874,"bytes":1622,"owned":"benchmark-b-3","ownedPresent":true,"foreignPresent":true,"secretsPresent":true},"pairMilliseconds":80.929,"rssBeforeKB":154848,"rssAfterKB":220560}
 ```
 
-After (final `6151edc`, command above with `--expect-isolated=1`):
+After (final `db63e912`, command above with `--expect-isolated=1`):
 
 ```json
-{"revision":"6151edc5baf375138b96c2b0c1296ee42d63c4d9","sample":1,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":78.631,"bytes":1118,"owned":"benchmark-a-1","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":82.289,"bytes":1118,"owned":"benchmark-b-1","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":82.362,"rssBeforeKB":157600,"rssAfterKB":256080}
-{"revision":"6151edc5baf375138b96c2b0c1296ee42d63c4d9","sample":2,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":78.111,"bytes":1118,"owned":"benchmark-a-2","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":80.341,"bytes":1118,"owned":"benchmark-b-2","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":80.422,"rssBeforeKB":157392,"rssAfterKB":255888}
-{"revision":"6151edc5baf375138b96c2b0c1296ee42d63c4d9","sample":3,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":94.424,"bytes":1118,"owned":"benchmark-a-3","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":101.448,"bytes":1118,"owned":"benchmark-b-3","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":101.52,"rssBeforeKB":157568,"rssAfterKB":256064}
+{"revision":"db63e91246284d513154e32bd95026b5788f8c9a","sample":1,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":96.407,"bytes":1118,"owned":"benchmark-a-1","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":96.297,"bytes":1118,"owned":"benchmark-b-1","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":96.432,"rssBeforeKB":156928,"rssAfterKB":255392}
+{"revision":"db63e91246284d513154e32bd95026b5788f8c9a","sample":2,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":108.526,"bytes":1118,"owned":"benchmark-a-2","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":127.745,"bytes":1118,"owned":"benchmark-b-2","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":127.832,"rssBeforeKB":157344,"rssAfterKB":255808}
+{"revision":"db63e91246284d513154e32bd95026b5788f8c9a","sample":3,"users":2,"monitors":2,"pushStatuses":[200,200],"ownerA":{"milliseconds":78.431,"bytes":1118,"owned":"benchmark-a-3","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"ownerB":{"milliseconds":78.943,"bytes":1118,"owned":"benchmark-b-3","ownedPresent":true,"foreignPresent":false,"secretsPresent":false},"pairMilliseconds":78.997,"rssBeforeKB":157296,"rssAfterKB":255824}
 ```
 
 ## Credential-admission churn measurement
 
-The regression test first exhausts an exact credential bucket, then churns 1,001 foreign identities. Before
-`6151edc`, the bounded LRU evicted the target: the next request was admitted (`false` → `true` in the RED proof), so
-the next 20 target attempts again reached credential verification. After the fix, all 20 are denied at admission and
-reach zero verifications. The hot exact map remains capped at 100 entries. When all 100 are protected, the fallback is
-two fixed 4,096-bucket token arrays: one keyed by a process-randomized identity hash and one keyed by source. Thus
-the maximum credential-admission state is 16,584 buckets: the login and API-key limiters each have 100 exact buckets
-and two fixed 4,096-bucket arrays. This is independent of churn; a success resets only its exact identity bucket,
-never the fixed fallback.
+The partial-penalty raw runner applies 19/20 login-like or 59/60 API-like failed attempts, churns 1,001 foreign
+identities, then repeats the target capacity. Before `b4f277c1`, all target attempts were admitted after eviction;
+after `db63e912`, exactly one remaining attempt is admitted. The hot exact map remains capped at 100 entries. An exact
+bucket is now evictable only when unused or fully refilled to capacity; a successful exact identity is deleted and is
+therefore also safely evictable. When all 100 are protected, the fallback is two fixed 4,096-bucket token arrays: one
+keyed by a process-randomized identity hash and one keyed by source. Thus the maximum credential-admission state is
+16,584 buckets: the login and API-key limiters each have 100 exact buckets and two fixed 4,096-bucket arrays. This is
+independent of churn; a success resets only its exact identity bucket, never the fixed fallback.
 
-The native gate covers present targets, full-capacity late targets, 1,001-identity churn, valid-credential reset
-attempts, and one target across distinct sources. The production integration gate additionally covers WebSocket,
-HTTP Basic, and API-key identity churn with 101 foreign identities per protocol path.
+```json
+{"revision":"b4f277c166f5eb2ec2cdd1cce59bd717d1d78fd7","cases":[{"identity":"login-admin","initialFailures":19,"churn":1001,"attemptsAfterChurn":20,"admitted":20,"exactBuckets":100},{"identity":"api-key:42","initialFailures":59,"churn":1001,"attemptsAfterChurn":60,"admitted":60,"exactBuckets":100}]}
+{"revision":"db63e91246284d513154e32bd95026b5788f8c9a","cases":[{"identity":"login-admin","initialFailures":19,"churn":1001,"attemptsAfterChurn":20,"admitted":1,"exactBuckets":100},{"identity":"api-key:42","initialFailures":59,"churn":1001,"attemptsAfterChurn":60,"admitted":1,"exactBuckets":100}]}
+```
+
+The native gate covers present and fully blocked targets, 19/20 and 59/60 partial penalties, 1,001-identity churn,
+full-capacity late targets, valid-credential reset, full refill/TTL eviction, bounded state, source-first admission,
+and one target across distinct sources. The production integration gate additionally covers WebSocket, HTTP Basic, and
+API-key partial penalties with 100 foreign identities per protocol path.
 
 The fixed identity hash and source fallback are process-randomized. A collision can produce a bounded false-positive
 throttle within one window; it cannot evict or reset a target's aggregate fallback penalty, and is not a shared global
