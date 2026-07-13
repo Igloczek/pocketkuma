@@ -2,9 +2,10 @@
 
 Date: 2026-07-14
 
-- Baseline tests: `5add23ce1c67b6c46a958e2e5854fef89c8d7ff1`
-- Baseline runtime: `295ca265b8771e3573abe33c1239c71b012d17be`
-- Runtime and tests: `2045324bf7e83d805088e1b73c4687294e789659`
+- RED-test baseline: `5add23ce1c67b6c46a958e2e5854fef89c8d7ff1`
+- Runtime implementation: `2045324bf7e83d805088e1b73c4687294e789659`
+- Audit documentation: `98defe4b`
+- Final integration harness: `e48a377751543b322db71a1601724f25396b993f`
 
 `5add23ce` adds the deterministic RED tests only, so its runtime is identical to `295ca265`.
 
@@ -82,6 +83,35 @@ connection close, and the child that ignored `SIGTERM` was killed. The expanded 
 - Kafka unreachable-broker cleanup: `1/1`.
 - `bun run lint`: exit 0 with only the repository's pre-existing warnings.
 - `bun run build`: exit 0 and produced the compiled executable.
+
+### Final validation campaign
+
+The final full integration run exposed a race in the MQTT test fixture, not in the monitor runtime. The fixture's
+separate publisher could send a QoS 0 message before the monitor client had completed its subscription, so two nested
+topic cases timed out even though the provider deadline and forced cleanup behaved correctly. Commit `e48a3777`
+changes only the test harness: it publishes a retained QoS 1 message after the publisher connects, waits for the
+broker acknowledgement, and deterministically clears the retained message with QoS 1 before force-closing the
+publisher. No runtime source changed in that commit. The MQTT file then completed `95/95` across five repetitions.
+
+Validation from the final code commit produced these results:
+
+- `bun run test:backend:all`: `349 pass / 6 skip / 0 fail / 2,938 expect()`; the six skips are the explicitly opt-in
+  public TLS cases.
+- Final `bun run test:backend`: unit `276 pass / 6 skip / 0 fail / 2,815 expect()`, authentication `13/13`, and
+  maintenance `9/9`.
+- Provider cleanup plus monitor lifecycle: `13/13`.
+- Compiled executable checks: SMTP notification through the production WebSocket flow `1/1`, authentication
+  `13/13`, and setup UI/readiness with a graceful zero-exit `SIGTERM` shutdown.
+- Full Playwright E2E: `39/39` twice from fresh state.
+- Maintenance UI repetition: `55/55` (`5` setup cases plus `5` maintenance cases repeated ten times), with no
+  retries, failures, skips, page errors, or console errors in `11.2m`.
+- Final executable SHA-256:
+  `4de22dd4efdd5b7c2cb6d995586a5052f9e7ff0f3aaa9f7d2d381783fd05e9bb`.
+
+Cleanup was clean after the campaign: the Playwright data directory was removed, its result recorded no failed
+tests, ports `30001` and `51283` had no listeners, no PocketKuma, Bun test-server, or Playwright process remained,
+and the test suites left no owned containers. The only residual verification limits are the six opt-in public TLS
+cases. Lint and build completed with only the repository's baseline lint, deprecation, and bundle-size warnings.
 
 The Docker-backed cases use real protocol servers, not mocked clients. The updated multi-case MySQL, Microsoft SQL
 Server, Oracle, RabbitMQ, and MQTT harnesses keep one container per suite. PostgreSQL and SNMP start a container only
