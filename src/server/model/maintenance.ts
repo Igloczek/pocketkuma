@@ -2,13 +2,18 @@
 
 import { BeanModel } from "@/server/bean-model";
 import { parseTimeObject, parseTimeFromTimeObject, log, SQL_DATETIME_FORMAT } from "@/util";
-import { R } from "@/server/bun-sqlite-store";
+import { R, registerModel } from "@/server/bun-sqlite-store";
 import dayjs from "dayjs";
 import Cron from "croner";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { clearResponseCache } from "@/server/bun-response";
 
 class Maintenance extends BeanModel {
+    constructor() {
+        super();
+        Object.defineProperty(this, "beanMeta", { value: {}, writable: true, enumerable: false });
+    }
+
     /**
      * Return an object that ready to parse to JSON for public
      * Only show necessary data to public
@@ -146,6 +151,103 @@ class Maintenance extends BeanModel {
      * @returns {Promise<Bean>} Filled bean
      */
     static async jsonToBean(bean, obj) {
+        if (!obj || typeof obj !== "object") {
+            throw new Error("Invalid maintenance");
+        }
+
+        const strategies = new Set([
+            "manual",
+            "single",
+            "cron",
+            "recurring-interval",
+            "recurring-weekday",
+            "recurring-day-of-month",
+        ]);
+        if (typeof obj.title !== "string" || !obj.title.trim() || obj.title.length > 150) {
+            throw new Error("Invalid title");
+        }
+        if (typeof obj.description !== "string" || !strategies.has(obj.strategy) || !Array.isArray(obj.dateRange)) {
+            throw new Error("Invalid maintenance");
+        }
+        if (obj.timezoneOption && obj.timezoneOption !== "SAME_AS_SERVER") {
+            try {
+                Intl.DateTimeFormat(undefined, { timeZone: obj.timezoneOption });
+            } catch {
+                throw new Error("Invalid timezone");
+            }
+        }
+
+        const parseDate = (value, name, required = false) => {
+            if (value === null || value === undefined || value === "") {
+                if (required) {
+                    throw new Error(`Invalid ${name} date`);
+                }
+                return null;
+            }
+            if (typeof value !== "string") {
+                throw new Error(`Invalid ${name} date`);
+            }
+            const date = new Date(value);
+            if (isNaN(date.getTime()) || date.getFullYear() > 9999) {
+                throw new Error(`Invalid ${name} date`);
+            }
+            return date;
+        };
+        const startDate = parseDate(obj.dateRange[0], "start", obj.strategy === "single");
+        const endDate = parseDate(obj.dateRange[1], "end", obj.strategy === "single");
+        if (startDate && endDate && endDate <= startDate) {
+            throw new Error("End date must be after start date");
+        }
+
+        const validateTime = (time) =>
+            time &&
+            Number.isInteger(time.hours) &&
+            Number.isInteger(time.minutes) &&
+            time.hours >= 0 &&
+            time.hours < 24 &&
+            time.minutes >= 0 &&
+            time.minutes < 60;
+        if (
+            obj.strategy.startsWith("recurring-") &&
+            (!Array.isArray(obj.timeRange) || !validateTime(obj.timeRange[0]) || !validateTime(obj.timeRange[1]))
+        ) {
+            throw new Error("Invalid maintenance time");
+        }
+        if (
+            obj.strategy === "recurring-interval" &&
+            (!Number.isInteger(Number(obj.intervalDay)) ||
+                Number(obj.intervalDay) < 1 ||
+                Number(obj.intervalDay) > 3650)
+        ) {
+            throw new Error("Invalid interval");
+        }
+        if (
+            obj.strategy === "recurring-weekday" &&
+            (!Array.isArray(obj.weekdays) || obj.weekdays.some((day) => !Number.isInteger(day) || day < 0 || day > 6))
+        ) {
+            throw new Error("Invalid weekdays");
+        }
+        if (
+            obj.strategy === "recurring-day-of-month" &&
+            (!Array.isArray(obj.daysOfMonth) ||
+                obj.daysOfMonth.some(
+                    (day) => !((Number.isInteger(day) && day >= 1 && day <= 31) || day === "lastDay1")
+                ))
+        ) {
+            throw new Error("Invalid days of month");
+        }
+        if (obj.strategy === "cron") {
+            if (
+                !Number.isInteger(Number(obj.durationMinutes)) ||
+                Number(obj.durationMinutes) < 1 ||
+                Number(obj.durationMinutes) > 24 * 60
+            ) {
+                throw new Error("Invalid duration");
+            }
+            if (typeof obj.cron !== "string") {
+                throw new Error("Invalid cron");
+            }
+        }
         if (obj.id) {
             bean.id = obj.id;
         }
@@ -157,23 +259,13 @@ class Maintenance extends BeanModel {
         bean.timezone = obj.timezoneOption;
         bean.active = obj.active;
 
-        if (obj.dateRange[0]) {
-            const parsedDate = new Date(obj.dateRange[0]);
-            if (isNaN(parsedDate.getTime()) || parsedDate.getFullYear() > 9999) {
-                throw new Error("Invalid start date");
-            }
-
+        if (startDate) {
             bean.start_date = obj.dateRange[0];
         } else {
             bean.start_date = null;
         }
 
-        if (obj.dateRange[1]) {
-            const parsedDate = new Date(obj.dateRange[1]);
-            if (isNaN(parsedDate.getTime()) || parsedDate.getFullYear() > 9999) {
-                throw new Error("Invalid end date");
-            }
-
+        if (endDate) {
             bean.end_date = obj.dateRange[1];
         } else {
             bean.end_date = null;
@@ -191,6 +283,9 @@ class Maintenance extends BeanModel {
             bean.weekdays = JSON.stringify(obj.weekdays);
             bean.days_of_month = JSON.stringify(obj.daysOfMonth);
             await bean.generateCron();
+            if (bean.duration <= 0 || bean.duration > 24 * 60 * 60) {
+                throw new Error("Invalid duration");
+            }
             this.validateCron(bean.cron);
         }
         return bean;
@@ -239,8 +334,6 @@ class Maintenance extends BeanModel {
                 clearResponseCache();
             });
         } else if (this.cron != null) {
-            let current = dayjs();
-
             // Here should be cron or recurring
             try {
                 this.beanMeta.status = "scheduled";
@@ -258,19 +351,21 @@ class Maintenance extends BeanModel {
                     this.beanMeta.durationTimeout = setTimeout(() => {
                         // End of maintenance for this timeslot
                         this.beanMeta.status = "scheduled";
+                        delete this.beanMeta.durationTimeout;
+                        clearResponseCache();
                         PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
                     }, duration);
 
                     // Set last start date to current time
-                    this.last_start_date = current.utc().format(SQL_DATETIME_FORMAT);
+                    this.last_start_date = dayjs().utc().format(SQL_DATETIME_FORMAT);
                     await R.store(this);
                 };
 
                 // Create Cron
                 if (this.strategy === "recurring-interval") {
                     // For recurring-interval, Croner needs to have interval and startAt
-                    const startDate = dayjs(this.startDate);
-                    const [hour, minute] = this.startTime.split(":");
+                    const startDate = dayjs(this.start_date);
+                    const [hour, minute] = this.start_time.split(":");
                     const startDateTime = startDate.hour(hour).minute(minute);
 
                     // Fix #6118, since the startDateTime is optional, it will throw error if the date is null when using toISOString()
@@ -286,15 +381,15 @@ class Maintenance extends BeanModel {
                             startAt,
                         },
                         () => {
-                            if (!this.lastStartDate || this.interval_day === 1) {
+                            if (!this.last_start_date || this.interval_day === 1) {
                                 return startEvent();
                             }
 
                             // If last start date is set, it means the maintenance has been started before
-                            let lastStartDate = dayjs(this.lastStartDate).subtract(1.1, "hour"); // Subtract 1.1 hour to avoid issues with timezone differences
+                            let lastStartDate = dayjs(this.last_start_date).subtract(1.1, "hour"); // Subtract 1.1 hour to avoid issues with timezone differences
 
                             // Check if the interval is enough
-                            if (current.diff(lastStartDate, "day") < this.interval_day) {
+                            if (dayjs().diff(lastStartDate, "day") < this.interval_day) {
                                 log.debug(
                                     "maintenance",
                                     "Maintenance id: " + this.id + " is still in the window, skipping start event"
@@ -323,7 +418,7 @@ class Maintenance extends BeanModel {
                 let runningTimeslot = this.getRunningTimeslot();
 
                 if (runningTimeslot) {
-                    let duration = dayjs(runningTimeslot.endDate).diff(current, "second") * 1000;
+                    let duration = dayjs(runningTimeslot.endDate).diff(dayjs(), "second") * 1000;
                     log.debug("maintenance", "Maintenance id: " + this.id + " Remaining duration: " + duration + "ms");
                     startEvent(duration);
                 }
@@ -386,6 +481,10 @@ class Maintenance extends BeanModel {
         if (this.beanMeta.job) {
             this.beanMeta.job.stop();
             delete this.beanMeta.job;
+        }
+        if (this.beanMeta.durationTimeout) {
+            clearTimeout(this.beanMeta.durationTimeout);
+            delete this.beanMeta.durationTimeout;
         }
     }
 
@@ -506,3 +605,5 @@ class Maintenance extends BeanModel {
 }
 
 export default Maintenance;
+
+registerModel("maintenance", Maintenance);

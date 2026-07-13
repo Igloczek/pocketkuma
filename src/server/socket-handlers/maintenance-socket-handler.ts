@@ -9,6 +9,32 @@ import Maintenance from "@/server/model/maintenance";
 
 const server = PocketKumaServer.getInstance();
 
+function getOwnedMaintenance(maintenanceID, userID) {
+    const maintenance = server.getMaintenance(maintenanceID);
+    if (!maintenance || maintenance.user_id !== userID) {
+        throw new Error("Maintenance not found");
+    }
+    return maintenance;
+}
+
+async function getUniqueRelationIDs(items, table, userID = null) {
+    if (!Array.isArray(items)) {
+        throw new Error("Invalid relation list");
+    }
+    const ids = [...new Set(items.map((item) => item?.id))];
+    for (const id of ids) {
+        if (!Number.isInteger(id)) {
+            throw new Error("Invalid relation id");
+        }
+        const condition = userID === null ? " id = ? " : " id = ? AND user_id = ? ";
+        const params = userID === null ? [id] : [id, userID];
+        if (!(await R.findOne(table, condition, params))) {
+            throw new Error("Relation not found");
+        }
+    }
+    return ids;
+}
+
 /**
  * Handlers for Maintenance
  * @param {Socket} socket Socket.io instance
@@ -50,11 +76,7 @@ export const maintenanceSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let bean = server.getMaintenance(maintenance.id);
-
-            if (bean.user_id !== socket.userID) {
-                throw new Error("Permission denied.");
-            }
+            let bean = getOwnedMaintenance(maintenance?.id, socket.userID);
 
             await Maintenance.jsonToBean(bean, maintenance);
             await R.store(bean);
@@ -81,13 +103,15 @@ export const maintenanceSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            await R.exec("DELETE FROM monitor_maintenance WHERE maintenance_id = ?", [maintenanceID]);
+            getOwnedMaintenance(maintenanceID, socket.userID);
+            const monitorIDs = await getUniqueRelationIDs(monitors, "monitor", socket.userID);
 
-            for await (const monitor of monitors) {
+            await R.exec("DELETE FROM monitor_maintenance WHERE maintenance_id = ?", [maintenanceID]);
+            for (const monitorID of monitorIDs) {
                 let bean = R.dispense("monitor_maintenance");
 
                 bean.import({
-                    monitor_id: monitor.id,
+                    monitor_id: monitorID,
                     maintenance_id: maintenanceID,
                 });
                 await R.store(bean);
@@ -113,13 +137,15 @@ export const maintenanceSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            await R.exec("DELETE FROM maintenance_status_page WHERE maintenance_id = ?", [maintenanceID]);
+            getOwnedMaintenance(maintenanceID, socket.userID);
+            const statusPageIDs = await getUniqueRelationIDs(statusPages, "status_page");
 
-            for await (const statusPage of statusPages) {
+            await R.exec("DELETE FROM maintenance_status_page WHERE maintenance_id = ?", [maintenanceID]);
+            for (const statusPageID of statusPageIDs) {
                 let bean = R.dispense("maintenance_status_page");
 
                 bean.import({
-                    status_page_id: statusPage.id,
+                    status_page_id: statusPageID,
                     maintenance_id: maintenanceID,
                 });
                 await R.store(bean);
@@ -146,7 +172,7 @@ export const maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Get Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let bean = await R.findOne("maintenance", " id = ? AND user_id = ? ", [maintenanceID, socket.userID]);
+            let bean = getOwnedMaintenance(maintenanceID, socket.userID);
 
             callback({
                 ok: true,
@@ -163,6 +189,7 @@ export const maintenanceSocketHandler = (socket) => {
     socket.on("getMaintenanceList", async (callback) => {
         try {
             checkLogin(socket);
+
             await server.sendMaintenanceList(socket);
             callback({
                 ok: true,
@@ -179,6 +206,8 @@ export const maintenanceSocketHandler = (socket) => {
     socket.on("getMonitorMaintenance", async (maintenanceID, callback) => {
         try {
             checkLogin(socket);
+
+            getOwnedMaintenance(maintenanceID, socket.userID);
 
             log.debug("maintenance", `Get Monitors for Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
@@ -203,6 +232,8 @@ export const maintenanceSocketHandler = (socket) => {
     socket.on("getMaintenanceStatusPage", async (maintenanceID, callback) => {
         try {
             checkLogin(socket);
+
+            getOwnedMaintenance(maintenanceID, socket.userID);
 
             log.debug("maintenance", `Get Status Pages for Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
@@ -230,10 +261,9 @@ export const maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Delete Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            if (maintenanceID in server.maintenanceList) {
-                server.maintenanceList[maintenanceID].stop();
-                delete server.maintenanceList[maintenanceID];
-            }
+            const maintenance = getOwnedMaintenance(maintenanceID, socket.userID);
+            maintenance.stop();
+            delete server.maintenanceList[maintenanceID];
 
             await R.exec("DELETE FROM maintenance WHERE id = ? AND user_id = ? ", [maintenanceID, socket.userID]);
 
@@ -260,11 +290,7 @@ export const maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Pause Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let maintenance = server.getMaintenance(maintenanceID);
-
-            if (!maintenance) {
-                throw new Error("Maintenance not found");
-            }
+            let maintenance = getOwnedMaintenance(maintenanceID, socket.userID);
 
             maintenance.active = false;
             await R.store(maintenance);
@@ -293,11 +319,7 @@ export const maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Resume Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let maintenance = server.getMaintenance(maintenanceID);
-
-            if (!maintenance) {
-                throw new Error("Maintenance not found");
-            }
+            let maintenance = getOwnedMaintenance(maintenanceID, socket.userID);
 
             maintenance.active = true;
             await R.store(maintenance);
