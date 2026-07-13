@@ -705,7 +705,8 @@ describe("production auth, API key, and metrics boundaries", () => {
         }
 
         const blocked = overflow.filter((result) => result.msg === "Too frequently, try again later.").length;
-        expect(blocked).toBeGreaterThan(0);
+        expect(blocked).toBe(50);
+        expect(overflow.length - blocked).toBe(200);
         expect(
             await spoofedSockets[0].request("login", {
                 username: "admin",
