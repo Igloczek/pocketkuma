@@ -191,6 +191,14 @@ Raw samples:
 {"revision":"23d37b324a359f0d8eec34e78c2237c6a22349e0","sample":5,"readyMilliseconds":329.6990829999995,"rssKiB":187824}
 ```
 
+### SQLite isolation follow-up
+
+The later [SQLite transaction isolation audit](./sqlite-transaction-isolation-audit.md) closes a cross-request
+boundary that this maintenance audit did not originally exercise: an unrelated pause could use the singleton SQLite
+connection while an edit transaction was awaiting commit. The new deterministic regression test holds a deferred-FK
+edit commit, sends pause concurrently, and verifies callback order plus database, live scheduler, and response-cache
+state after rollback.
+
 ## Residual limits
 
 - Malformed legacy weekday/day JSON is handled safely as an empty list, and an invalid legacy timezone uses the
