@@ -155,13 +155,13 @@ function fixedBucketIndex(key, bucketCount) {
 class FixedRateLimiter {
     constructor(config, tokensPerInterval) {
         this.errorMessage = config.errorMessage;
-        const sourceConfig = {
+        const bucketConfig = {
             ...config,
             tokensPerInterval,
         };
         this.rateLimiters = Array.from(
             { length: Math.max(1, Number(config.fixedBuckets) || 4096) },
-            () => new TokenBucket(sourceConfig)
+            () => new TokenBucket(bucketConfig)
         );
     }
 
@@ -237,13 +237,4 @@ const twoFaRateLimiter = new KumaRateLimiter({
     errorMessage: "Too frequently, try again later.",
 });
 
-export {
-    CredentialRateLimiter,
-    FixedRateLimiter,
-    SourceRateLimiter,
-    TokenBucket,
-    KumaRateLimiter,
-    loginRateLimiter,
-    apiRateLimiter,
-    twoFaRateLimiter,
-};
+export { CredentialRateLimiter, TokenBucket, KumaRateLimiter, loginRateLimiter, apiRateLimiter, twoFaRateLimiter };
