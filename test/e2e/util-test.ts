@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { expect } from "@playwright/test";
 import { url as serverUrl } from "../../config/playwright.config.ts";
 
 export { serverUrl };
@@ -28,7 +29,7 @@ export async function login(page) {
     await page.getByPlaceholder("Password", { exact: true }).fill("admin123");
     await page.getByLabel("Remember me").check();
     await page.getByRole("button", { name: "Log in" }).click();
-    await page.isVisible("text=Add New Monitor");
+    await expect(page.getByRole("link", { name: "Add New Monitor" })).toBeVisible();
 }
 
 /**

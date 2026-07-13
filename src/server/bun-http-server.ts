@@ -10,7 +10,7 @@ import Database from "@/server/database";
 import StatusPage from "@/server/model/status_page";
 import { Settings } from "@/server/settings";
 import { Prometheus } from "@/server/prometheus";
-import { checkAPIAuthRequest } from "@/server/auth";
+import { authenticateAPIRequest } from "@/server/auth";
 import { handleApiRequest } from "@/server/routers/api-router";
 import { handleStatusPageRequest } from "@/server/routers/status-page-router";
 import { applyCommonHeaders, htmlResponse, jsonResponse, redirectResponse, textResponse } from "@/server/bun-response";
@@ -280,12 +280,12 @@ async function handleDevRequest(request, disableFrameSameOrigin) {
 }
 
 async function metricsResponse(request, disableFrameSameOrigin) {
-    const authResponse = await checkAPIAuthRequest(request, { disableFrameSameOrigin });
-    if (authResponse) {
-        return authResponse;
+    const auth = await authenticateAPIRequest(request, { disableFrameSameOrigin });
+    if (auth.response) {
+        return auth.response;
     }
 
-    const metrics = await Prometheus.metrics();
+    const metrics = await Prometheus.metrics(auth.userID);
     return textResponse(metrics.body, {
         type: metrics.contentType,
         disableFrameSameOrigin,

@@ -1,10 +1,12 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
+import { createHmac } from "node:crypto";
 import net from "node:net";
 import jwt from "@/server/jwt";
+import passwordHash from "@/server/password-hash";
 import { verify as verifyTotp, encodeSecretForUri } from "@/server/totp";
-import { TokenBucket } from "@/server/rate-limiter";
+import { KumaRateLimiter, TokenBucket } from "@/server/rate-limiter";
 
 const PASSWORD_DIVERSITY_PATTERNS = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/];
 const PASSWORD_STRENGTH_LEVELS = [
@@ -139,6 +141,30 @@ describe("password strength", () => {
     });
 });
 
+describe("native password hashes", () => {
+    test("rejects empty and hashes Unicode and long inputs without truncation", async () => {
+        await expect(passwordHash.generate("")).rejects.toThrow();
+        for (const password of ["Pąsswörd-熊-🔐", "x".repeat(10_000)]) {
+            const hash = await passwordHash.generate(password);
+            expect(hash).toStartWith("$argon2id$");
+            expect(await passwordHash.verify(password, hash)).toBe(true);
+            expect(await passwordHash.verify(`${password}x`, hash)).toBe(false);
+            expect(passwordHash.needRehash(hash)).toBe(false);
+        }
+    });
+
+    test("verifies legacy SHA-1 hashes and marks them for migration", async () => {
+        const password = "legacy-password";
+        const salt = "legacy-salt";
+        const digest = createHmac("sha1", salt).update(password).digest("hex");
+        const hash = `sha1$${salt}$1$${digest}`;
+
+        expect(await passwordHash.verify(password, hash)).toBe(true);
+        expect(await passwordHash.verify("wrong-password", hash)).toBe(false);
+        expect(passwordHash.needRehash(hash)).toBe(true);
+    });
+});
+
 describe("token bucket rate limiter", () => {
     test("depletes tokens and refills over time", () => {
         const bucket = new TokenBucket({
@@ -153,6 +179,21 @@ describe("token bucket rate limiter", () => {
 
         bucket.lastRefill = Date.now() - 2000;
         expect(bucket.removeTokens(1)).toBe(1);
+    });
+
+    test("isolates keys and resets a successful identity", async () => {
+        const limiter = new KumaRateLimiter({
+            tokensPerInterval: 2,
+            interval: 1000,
+            fireImmediately: true,
+            errorMessage: "limited",
+        });
+
+        await limiter.removeTokens(3, "user-a");
+        expect(await limiter.pass(null, 0, "user-a")).toBe(false);
+        expect(await limiter.pass(null, 0, "user-b")).toBe(true);
+        limiter.reset("user-a");
+        expect(await limiter.pass(null, 0, "user-a")).toBe(true);
     });
 });
 

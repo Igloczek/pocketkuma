@@ -241,8 +241,12 @@ let needSetup = false;
                     if (decoded.h !== shake256(user.password, SHAKE256_LENGTH)) {
                         throw new Error("The token is invalid due to password change or old token");
                     }
+                    if (!(await User.hasSession(decoded.sid, user.id))) {
+                        throw new Error("The session has been revoked");
+                    }
 
                     log.debug("auth", "afterLogin");
+                    socket.sessionID = decoded.sid;
                     await afterLogin(socket, user);
                     log.debug("auth", "afterLogin ok");
 
@@ -287,8 +291,9 @@ let needSetup = false;
                 return;
             }
 
+            const rateLimitKey = typeof data.username === "string" ? data.username.trim().toLowerCase() : "invalid";
             // Login Rate Limit
-            if (!(await loginRateLimiter.pass(callback))) {
+            if (!(await loginRateLimiter.pass(callback, 0, rateLimitKey))) {
                 log.info("auth", `Too many failed requests for user ${data.username}. IP=${clientIP}`);
                 return;
             }
@@ -296,14 +301,17 @@ let needSetup = false;
             let user = await login(data.username, data.password);
 
             if (user) {
+                loginRateLimiter.reset(rateLimitKey);
                 if (user.twofa_status === 0) {
+                    const session = await User.createSession(user, server.jwtSecret);
+                    socket.sessionID = session.id;
                     await afterLogin(socket, user);
 
                     log.info("auth", `Successfully logged in user ${data.username}. IP=${clientIP}`);
 
                     callback({
                         ok: true,
-                        token: User.createJWT(user, server.jwtSecret),
+                        token: session.token,
                     });
                 }
 
@@ -316,9 +324,15 @@ let needSetup = false;
                 }
 
                 if (data.token) {
+                    if (!(await twoFaRateLimiter.pass(callback, 0, user.id))) {
+                        return;
+                    }
                     let verify = verifyTotp(data.token, user.twofa_secret, twoFAVerifyOptions);
 
                     if (user.twofa_last_token !== data.token && verify) {
+                        twoFaRateLimiter.reset(user.id);
+                        const session = await User.createSession(user, server.jwtSecret);
+                        socket.sessionID = session.id;
                         await afterLogin(socket, user);
 
                         await R.exec("UPDATE `user` SET twofa_last_token = ? WHERE id = ? ", [
@@ -330,9 +344,10 @@ let needSetup = false;
 
                         callback({
                             ok: true,
-                            token: User.createJWT(user, server.jwtSecret),
+                            token: session.token,
                         });
                     } else {
+                        twoFaRateLimiter.removeTokens(1, user.id);
                         log.warn("auth", `Invalid token provided for user ${data.username}. IP=${clientIP}`);
 
                         callback({
@@ -343,6 +358,7 @@ let needSetup = false;
                     }
                 }
             } else {
+                loginRateLimiter.removeTokens(1, rateLimitKey);
                 log.warn("auth", `Incorrect username or password for user ${data.username}. IP=${clientIP}`);
 
                 callback({
@@ -354,13 +370,17 @@ let needSetup = false;
         });
 
         socket.on("logout", async (callback) => {
-            // Rate Limit
-            if (!(await loginRateLimiter.pass(callback))) {
-                return;
+            const userID = socket.userID;
+            const sessionID = socket.sessionID;
+            await User.revokeSession(sessionID, userID);
+            for (const connectedSocket of io.sockets.sockets.values()) {
+                if (connectedSocket !== socket && connectedSocket.sessionID === sessionID) {
+                    connectedSocket.disconnect();
+                }
             }
-
-            socket.leave(socket.userID);
+            socket.leave(userID);
             socket.userID = null;
+            socket.sessionID = null;
 
             if (typeof callback === "function") {
                 callback();
@@ -369,11 +389,10 @@ let needSetup = false;
 
         socket.on("prepare2FA", async (currentPassword, callback) => {
             try {
-                if (!(await twoFaRateLimiter.pass(callback))) {
+                checkLogin(socket);
+                if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-
-                checkLogin(socket);
                 await doubleCheckPassword(socket, currentPassword);
 
                 let user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
@@ -385,6 +404,7 @@ let needSetup = false;
                     let uri = `otpauth://totp/Uptime%20Kuma:${user.username}?secret=${encodedSecret}`;
 
                     await R.exec("UPDATE `user` SET twofa_secret = ? WHERE id = ? ", [newSecret, socket.userID]);
+                    socket.twoFAVerified = false;
 
                     callback({
                         ok: true,
@@ -409,14 +429,17 @@ let needSetup = false;
             const clientIP = await server.getClientIP(socket);
 
             try {
-                if (!(await twoFaRateLimiter.pass(callback))) {
+                checkLogin(socket);
+                if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-
-                checkLogin(socket);
                 await doubleCheckPassword(socket, currentPassword);
+                if (!socket.twoFAVerified) {
+                    throw new Error("Verify the 2FA token before enabling 2FA");
+                }
 
                 await R.exec("UPDATE `user` SET twofa_status = 1 WHERE id = ? ", [socket.userID]);
+                socket.twoFAVerified = false;
 
                 log.info("auth", `Saved 2FA token. IP=${clientIP}`);
 
@@ -439,11 +462,10 @@ let needSetup = false;
             const clientIP = await server.getClientIP(socket);
 
             try {
-                if (!(await twoFaRateLimiter.pass(callback))) {
+                checkLogin(socket);
+                if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-
-                checkLogin(socket);
                 await doubleCheckPassword(socket, currentPassword);
                 await TwoFA.disable2FA(socket.userID);
 
@@ -467,6 +489,9 @@ let needSetup = false;
         socket.on("verifyToken", async (token, currentPassword, callback) => {
             try {
                 checkLogin(socket);
+                if (!(await twoFaRateLimiter.pass(callback, 0, socket.userID))) {
+                    return;
+                }
                 await doubleCheckPassword(socket, currentPassword);
 
                 let user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
@@ -474,11 +499,15 @@ let needSetup = false;
                 let verify = verifyTotp(token, user.twofa_secret, twoFAVerifyOptions);
 
                 if (user.twofa_last_token !== token && verify) {
+                    twoFaRateLimiter.reset(socket.userID);
+                    await R.exec("UPDATE `user` SET twofa_last_token = ? WHERE id = ? ", [token, socket.userID]);
+                    socket.twoFAVerified = true;
                     callback({
                         ok: true,
                         valid: true,
                     });
                 } else {
+                    twoFaRateLimiter.removeTokens(1, socket.userID);
                     callback({
                         ok: false,
                         msg: "authInvalidToken",
@@ -525,20 +554,30 @@ let needSetup = false;
 
         socket.on("setup", async (username, password, callback) => {
             try {
+                if (typeof username !== "string" || !username.trim() || username.length > 255) {
+                    throw new Error("Invalid username");
+                }
+
                 if (passwordStrength(password).value === "Too weak") {
                     throw new TranslatableError("passwordTooWeak");
                 }
 
-                if ((await R.count("user")) !== 0) {
+                const hashedPassword = await passwordHash.generate(password);
+                const inserted = await R.getRow(
+                    `
+                        INSERT INTO user (username, password)
+                        SELECT ?, ?
+                        WHERE NOT EXISTS (SELECT 1 FROM user)
+                        RETURNING id
+                    `,
+                    [username.trim(), hashedPassword]
+                );
+
+                if (!inserted) {
                     throw new Error(
                         "PocketKuma has been initialized. If you want to run setup again, please delete the database."
                     );
                 }
-
-                let user = R.dispense("user");
-                user.username = username;
-                user.password = await passwordHash.generate(password);
-                await R.store(user);
 
                 needSetup = false;
 
@@ -1276,12 +1315,15 @@ let needSetup = false;
 
                 let user = await doubleCheckPassword(socket, password.currentPassword);
                 await user.resetPassword(password.newPassword);
+                await User.revokeAllSessions(user.id);
+                const session = await User.createSession(user, server.jwtSecret);
+                socket.sessionID = session.id;
 
                 server.disconnectAllSocketClients(user.id, socket.id);
 
                 callback({
                     ok: true,
-                    token: User.createJWT(user, server.jwtSecret),
+                    token: session.token,
                     msg: "successAuthChangePassword",
                     msgi18n: true,
                 });
