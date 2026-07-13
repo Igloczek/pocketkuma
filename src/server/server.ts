@@ -562,6 +562,12 @@ let needSetup = false;
                     throw new TranslatableError("passwordTooWeak");
                 }
 
+                if ((await R.count("user")) !== 0) {
+                    throw new Error(
+                        "PocketKuma has been initialized. If you want to run setup again, please delete the database."
+                    );
+                }
+
                 const hashedPassword = await passwordHash.generate(password);
                 const inserted = await R.getRow(
                     `
