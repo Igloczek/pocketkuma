@@ -17,6 +17,7 @@ local push endpoint is called.
 - Previous runtime implementation commit: `0859db97ef4a5125828366e2794334b0dd7cd66d`
 - Previous security-fix tree measured: `6151edc5baf375138b96c2b0c1296ee42d63c4d9`
 - Final runtime tree measured: `db63e91246284d513154e32bd95026b5788f8c9a`
+- Final test coverage commit: `5558d3924f67c8b8e9c999b588674f904b6c6feb`
 
 The final measured tree preserves partial exact credential penalties through bounded-LRU churn. This report commit
 follows the measured code commit; the reported SHA is the exact runtime tree used for the samples.
@@ -94,10 +95,12 @@ independent of churn; a success resets only its exact identity bucket, never the
 {"revision":"db63e91246284d513154e32bd95026b5788f8c9a","cases":[{"identity":"login-admin","initialFailures":19,"churn":1001,"attemptsAfterChurn":20,"admitted":1,"exactBuckets":100},{"identity":"api-key:42","initialFailures":59,"churn":1001,"attemptsAfterChurn":60,"admitted":1,"exactBuckets":100}]}
 ```
 
-The native gate covers present and fully blocked targets, 19/20 and 59/60 partial penalties, 1,001-identity churn,
-full-capacity late targets, valid-credential reset, full refill/TTL eviction, bounded state, source-first admission,
-and one target across distinct sources. The production integration gate additionally covers WebSocket, HTTP Basic, and
-API-key partial penalties with 100 foreign identities per protocol path.
+The native gate covers present and fully blocked targets, table-driven login-like partial penalties of 1/5/19 with
+19/15/1 remaining and API-like partial penalties of 1/30/59 with 59/30/1 remaining after 1,001-identity churn,
+full-capacity late targets, valid-credential reset, full refill/TTL eviction, the deterministic 499/500 ms eviction
+boundary, the 16,584-bucket production pair bound, source-first admission, and one target across distinct sources.
+The production integration gate additionally covers WebSocket, HTTP Basic, and API-key partial penalties with 100
+foreign identities per protocol path.
 
 The fixed identity hash and source fallback are process-randomized. A collision can produce a bounded false-positive
 throttle within one window; it cannot evict or reset a target's aggregate fallback penalty, and is not a shared global
@@ -130,8 +133,9 @@ remains 16,584 buckets (unchanged exact-LRU and fixed fallback design).
 
 New targeted coverage exercises the real upgrade path, untrusted-header rejection, explicit `trustProxy=true`
 forwarding behavior, unavailable peer behavior, and the existing HTTP/API canonicalizer shared by the server. The
-native token-bucket timing assertion now controls and restores `Date.now`; it passed 20 consecutive runs. The source
-integration passed three consecutive runs. Full backend: `237 pass / 6 skip / 0 fail`; compiled auth: `13 pass / 0
+real WebSocket path asserts exactly `200 admitted / 50 blocked` from 250 overflow attempts and passed 20 consecutive
+runs. The native timing/LRU matrix controls and restores `Date.now` in `finally` and passed 50 consecutive runs. Full
+backend: `239 pass / 6 skip / 0 fail`; lint exits 0 with existing warnings; compiled auth: `13 pass / 0
 fail`; compiled SMTP: `1 pass / 0 fail / 6 expect()`. Full source E2E passed twice (`31/31`, natural exit), the
 proxy dialog regression passed 20 repeats, and the three auth UI cases passed 10 repeats each (`35` tests including
 the five setup dependencies).
