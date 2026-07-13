@@ -80,4 +80,70 @@ test.describe("Maintenance", () => {
         expect(pageErrors).toEqual([]);
         expect(consoleErrors).toEqual([]);
     });
+
+    test("saves, reloads, edits, and deletes every supported strategy", async ({ page }) => {
+        test.setTimeout(120_000);
+        await page.goto("./add-maintenance");
+        await login(page);
+
+        const pageErrors = [];
+        const consoleErrors = [];
+        page.on("pageerror", (error) => pageErrors.push(error.message));
+        page.on("console", (message) => {
+            if (message.type() === "error") {
+                consoleErrors.push(message.text());
+            }
+        });
+
+        const schedules = [
+            ["manual", async () => {}],
+            ["single", async () => {}],
+            ["cron", async () => {}],
+            ["recurring-interval", async () => {}],
+            ["recurring-weekday", async () => page.locator("#weekday1").check()],
+            ["recurring-day-of-month", async () => page.locator("#day31").check()],
+        ];
+
+        for (const [index, [strategy, configure]] of schedules.entries()) {
+            const title = `Lifecycle ${strategy}`;
+            const updatedTitle = `${title} edited`;
+            await page.goto("./add-maintenance");
+            await page.locator("#name").fill(title);
+            await page.locator("#strategy").selectOption(strategy);
+            await configure();
+            await page.locator("#show-on-all-pages").check();
+            await page.locator("#monitor-submit-btn").click();
+            if (index === 0) {
+                await page.getByRole("button", { name: "No" }).click();
+                await expect(page.locator("#name")).toHaveValue(title);
+                await page.locator("#monitor-submit-btn").click();
+            }
+            await page.getByRole("button", { name: "Yes" }).click();
+            await page.waitForURL("/maintenance");
+            await page.reload();
+            await expect(page.getByText(title, { exact: true })).toBeVisible();
+
+            const row = page.locator(".item").filter({ hasText: title });
+            await row.getByRole("link", { name: "Edit this maintenance schedule" }).click();
+            await expect(page.locator("#name")).toHaveValue(title);
+            await expect(page.locator("#strategy")).toHaveValue(strategy);
+            await page.locator("#name").fill(updatedTitle);
+            await page.locator("#monitor-submit-btn").click();
+            await page.getByRole("button", { name: "Yes" }).click();
+            await page.waitForURL("/maintenance");
+            await expect(page.getByText(updatedTitle, { exact: true })).toBeVisible();
+            let updatedRow = page.locator(".item").filter({ hasText: updatedTitle });
+            await updatedRow.getByRole("link", { name: "Edit this maintenance schedule" }).click();
+            await expect(page.locator("#name")).toHaveValue(updatedTitle);
+            await expect(page.locator("#strategy")).toHaveValue(strategy);
+            await page.goto("./maintenance");
+            updatedRow = page.locator(".item").filter({ hasText: updatedTitle });
+            await updatedRow.getByRole("button", { name: "Delete this maintenance schedule" }).click();
+            await page.getByRole("button", { name: "Yes" }).click();
+            await expect(page.getByText(updatedTitle, { exact: true })).toHaveCount(0);
+        }
+
+        expect(pageErrors).toEqual([]);
+        expect(consoleErrors).toEqual([]);
+    });
 });

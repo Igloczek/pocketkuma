@@ -368,8 +368,12 @@ export const useAppStore = defineStore("app", {
             socketEmit("add", monitor, callback);
         },
 
-        addMaintenance(maintenance, callback) {
-            socketEmit("addMaintenance", maintenance, callback);
+        addMaintenance(maintenance, relations, callback) {
+            if (typeof relations === "function") {
+                callback = relations;
+                relations = null;
+            }
+            socketEmit("addMaintenance", maintenance, relations, callback);
         },
 
         addMonitorMaintenance(maintenanceID, monitors, callback) {

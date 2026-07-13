@@ -46,8 +46,8 @@ class Maintenance extends BeanModel {
             active: !!this.active,
             dateRange: dateRange,
             timeRange: timeRange,
-            weekdays: this.weekdays ? JSON.parse(this.weekdays) : [],
-            daysOfMonth: this.days_of_month ? JSON.parse(this.days_of_month) : [],
+            weekdays: this.parseList(this.weekdays),
+            daysOfMonth: this.parseList(this.days_of_month),
             timeslotList: [],
             cron: this.cron,
             duration: this.duration,
@@ -116,7 +116,7 @@ class Maintenance extends BeanModel {
      */
     getDayOfWeekList() {
         log.debug("timeslot", "List: " + this.weekdays);
-        return JSON.parse(this.weekdays).sort(function (a, b) {
+        return this.parseList(this.weekdays).sort(function (a, b) {
             return a - b;
         });
     }
@@ -126,7 +126,7 @@ class Maintenance extends BeanModel {
      * @returns {number[]|string[]} Array of active days in month
      */
     getDayOfMonthList() {
-        return JSON.parse(this.days_of_month).sort(function (a, b) {
+        return this.parseList(this.days_of_month).sort(function (a, b) {
             return a - b;
         });
     }
@@ -136,12 +136,28 @@ class Maintenance extends BeanModel {
      * @returns {number} Duration of maintenance
      */
     calcDuration() {
-        let duration = dayjs.utc(this.end_time, "HH:mm").diff(dayjs.utc(this.start_time, "HH:mm"), "second");
+        const [startHour, startMinute] = this.start_time.split(":").map(Number);
+        const [endHour, endMinute] = this.end_time.split(":").map(Number);
+        let duration = (endHour * 60 + endMinute - startHour * 60 - startMinute) * 60;
         // Add 24hours if it is across day
         if (duration < 0) {
             duration += 24 * 3600;
         }
         return duration;
+    }
+
+    /**
+     * Legacy malformed relation lists are displayed as empty and never run a job.
+     * @param {string|null} value JSON list from SQLite
+     * @returns {Array} Parsed list
+     */
+    parseList(value) {
+        try {
+            const list = value ? JSON.parse(value) : [];
+            return Array.isArray(list) ? list : [];
+        } catch {
+            return [];
+        }
     }
 
     /**
@@ -168,6 +184,9 @@ class Maintenance extends BeanModel {
         }
         if (typeof obj.description !== "string" || !strategies.has(obj.strategy) || !Array.isArray(obj.dateRange)) {
             throw new Error("Invalid maintenance");
+        }
+        if (![true, false, 0, 1].includes(obj.active)) {
+            throw new Error("Invalid active state");
         }
         if (obj.timezoneOption && obj.timezoneOption !== "SAME_AS_SERVER") {
             try {
@@ -223,13 +242,16 @@ class Maintenance extends BeanModel {
         }
         if (
             obj.strategy === "recurring-weekday" &&
-            (!Array.isArray(obj.weekdays) || obj.weekdays.some((day) => !Number.isInteger(day) || day < 0 || day > 6))
+            (!Array.isArray(obj.weekdays) ||
+                obj.weekdays.length === 0 ||
+                obj.weekdays.some((day) => !Number.isInteger(day) || day < 0 || day > 6))
         ) {
             throw new Error("Invalid weekdays");
         }
         if (
             obj.strategy === "recurring-day-of-month" &&
             (!Array.isArray(obj.daysOfMonth) ||
+                obj.daysOfMonth.length === 0 ||
                 obj.daysOfMonth.some(
                     (day) => !((Number.isInteger(day) && day >= 1 && day <= 31) || day === "lastDay1")
                 ))
@@ -307,9 +329,14 @@ class Maintenance extends BeanModel {
      * @returns {Promise<void>}
      */
     async run(throwError = false) {
-        if (this.beanMeta.job) {
-            log.debug("maintenance", "Maintenance is already running, stop it first. id: " + this.id);
-            this.stop();
+        this.stop();
+        if (!this.active) {
+            return;
+        }
+        const generation = this.beanMeta.generation;
+
+        if (this.end_date && dayjs().isAfter(dayjs.tz(this.end_date, await this.getTimezone()))) {
+            return;
         }
 
         log.debug("maintenance", "Run maintenance id: " + this.id);
@@ -329,6 +356,9 @@ class Maintenance extends BeanModel {
             // Do nothing, because it is controlled by the user
         } else if (this.strategy === "single") {
             this.beanMeta.job = new Cron(this.start_date, { timezone: await this.getTimezone() }, () => {
+                if (!this.active || this.beanMeta.generation !== generation) {
+                    return;
+                }
                 log.info("maintenance", "Maintenance id: " + this.id + " is under maintenance now");
                 PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
                 clearResponseCache();
@@ -339,6 +369,16 @@ class Maintenance extends BeanModel {
                 this.beanMeta.status = "scheduled";
 
                 let startEvent = async (customDuration = 0) => {
+                    const timezone = await this.getTimezone();
+                    if (
+                        !this.active ||
+                        this.beanMeta.generation !== generation ||
+                        (this.start_date && dayjs().isBefore(dayjs.tz(this.start_date, timezone))) ||
+                        (this.end_date && dayjs().isAfter(dayjs.tz(this.end_date, timezone)))
+                    ) {
+                        return;
+                    }
+
                     log.info("maintenance", "Maintenance id: " + this.id + " is under maintenance now");
 
                     this.beanMeta.status = "under-maintenance";
@@ -349,6 +389,9 @@ class Maintenance extends BeanModel {
                     PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
 
                     this.beanMeta.durationTimeout = setTimeout(() => {
+                        if (!this.active || this.beanMeta.generation !== generation) {
+                            return;
+                        }
                         // End of maintenance for this timeslot
                         this.beanMeta.status = "scheduled";
                         delete this.beanMeta.durationTimeout;
@@ -420,9 +463,10 @@ class Maintenance extends BeanModel {
                 if (runningTimeslot) {
                     let duration = dayjs(runningTimeslot.endDate).diff(dayjs(), "second") * 1000;
                     log.debug("maintenance", "Maintenance id: " + this.id + " Remaining duration: " + duration + "ms");
-                    startEvent(duration);
+                    await startEvent(duration);
                 }
             } catch (e) {
+                this.stop();
                 log.error("maintenance", "Error in maintenance id: " + this.id);
                 log.error("maintenance", "Cron: " + this.cron);
                 log.error("maintenance", e);
@@ -478,6 +522,7 @@ class Maintenance extends BeanModel {
      * @returns {void}
      */
     stop() {
+        this.beanMeta.generation = (this.beanMeta.generation || 0) + 1;
         if (this.beanMeta.job) {
             this.beanMeta.job.stop();
             delete this.beanMeta.job;
@@ -486,6 +531,7 @@ class Maintenance extends BeanModel {
             clearTimeout(this.beanMeta.durationTimeout);
             delete this.beanMeta.durationTimeout;
         }
+        delete this.beanMeta.status;
     }
 
     /**

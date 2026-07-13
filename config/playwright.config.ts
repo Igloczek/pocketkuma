@@ -4,6 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 const port = 30001;
 export const url = `http://localhost:${port}`;
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_SERVER === "1";
 const desktopChrome = {
     ...devices["Desktop Chrome"],
     ...(chromiumExecutablePath ? { launchOptions: { executablePath: chromiumExecutablePath } } : {}),
@@ -67,7 +68,7 @@ export default defineConfig({
     webServer: {
         command: `bun scripts/test/remove-playwright-test-data.ts && NODE_ENV=development bun src/server/server.ts --port=${port} --data-dir=./data/playwright-test`,
         url,
-        reuseExistingServer: false,
+        reuseExistingServer,
         cwd: "../",
     },
 });

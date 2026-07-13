@@ -246,7 +246,9 @@ class PocketKumaServer {
 
         for (let maintenance of maintenanceList) {
             this.maintenanceList[maintenance.id] = maintenance;
-            maintenance.run(this);
+            if (maintenance.active) {
+                await maintenance.run();
+            }
         }
     }
 

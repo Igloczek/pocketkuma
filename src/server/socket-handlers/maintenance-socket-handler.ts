@@ -35,6 +35,39 @@ async function getUniqueRelationIDs(items, table, userID = null) {
     return ids;
 }
 
+async function writeRelations(store, maintenanceID, ids, table, foreignKey) {
+    await store.exec(`DELETE FROM ${table} WHERE maintenance_id = ?`, [maintenanceID]);
+    for (const id of ids) {
+        const bean = store.dispense(table);
+        bean.import({ maintenance_id: maintenanceID, [foreignKey]: id });
+        await store.store(bean);
+    }
+}
+
+async function replaceRelations(maintenanceID, ids, table, foreignKey) {
+    const transaction = await R.begin();
+    try {
+        await writeRelations(transaction, maintenanceID, ids, table, foreignKey);
+        await transaction.commit();
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
+    }
+}
+
+async function validateRelations(relations, userID) {
+    if (relations === null) {
+        return null;
+    }
+    if (!relations || typeof relations !== "object") {
+        throw new Error("Invalid maintenance relations");
+    }
+    return {
+        monitorIDs: await getUniqueRelationIDs(relations.monitors, "monitor", userID),
+        statusPageIDs: await getUniqueRelationIDs(relations.statusPages, "status_page"),
+    };
+}
+
 /**
  * Handlers for Maintenance
  * @param {Socket} socket Socket.io instance
@@ -42,18 +75,43 @@ async function getUniqueRelationIDs(items, table, userID = null) {
  */
 export const maintenanceSocketHandler = (socket) => {
     // Add a new maintenance
-    socket.on("addMaintenance", async (maintenance, callback) => {
+    socket.on("addMaintenance", async (maintenance, relations, callback) => {
+        if (typeof relations === "function") {
+            callback = relations;
+            relations = null;
+        }
+        let bean;
+        let transaction;
         try {
             checkLogin(socket);
 
             log.debug("maintenance", maintenance);
 
-            let bean = await Maintenance.jsonToBean(R.dispense("maintenance"), maintenance);
+            const relationIDs = await validateRelations(relations, socket.userID);
+            bean = await Maintenance.jsonToBean(R.dispense("maintenance"), maintenance);
             bean.user_id = socket.userID;
-            let maintenanceID = await R.store(bean);
-
-            server.maintenanceList[maintenanceID] = bean;
+            transaction = await R.begin();
+            const maintenanceID = await transaction.store(bean);
+            if (relationIDs) {
+                await writeRelations(
+                    transaction,
+                    maintenanceID,
+                    relationIDs.monitorIDs,
+                    "monitor_maintenance",
+                    "monitor_id"
+                );
+                await writeRelations(
+                    transaction,
+                    maintenanceID,
+                    relationIDs.statusPageIDs,
+                    "maintenance_status_page",
+                    "status_page_id"
+                );
+            }
             await bean.run(true);
+            await transaction.commit();
+            transaction = null;
+            server.maintenanceList[maintenanceID] = bean;
 
             await server.sendMaintenanceList(socket);
 
@@ -64,6 +122,8 @@ export const maintenanceSocketHandler = (socket) => {
                 maintenanceID,
             });
         } catch (e) {
+            bean?.stop();
+            await transaction?.rollback();
             callback({
                 ok: false,
                 msg: e.message,
@@ -72,15 +132,46 @@ export const maintenanceSocketHandler = (socket) => {
     });
 
     // Edit a maintenance
-    socket.on("editMaintenance", async (maintenance, callback) => {
+    socket.on("editMaintenance", async (maintenance, relations, callback) => {
+        if (typeof relations === "function") {
+            callback = relations;
+            relations = null;
+        }
         try {
             checkLogin(socket);
 
-            let bean = getOwnedMaintenance(maintenance?.id, socket.userID);
-
-            await Maintenance.jsonToBean(bean, maintenance);
-            await R.store(bean);
-            await bean.run(true);
+            const bean = getOwnedMaintenance(maintenance?.id, socket.userID);
+            const relationIDs = await validateRelations(relations, socket.userID);
+            const draft = await Maintenance.jsonToBean(R.dispense("maintenance").import(bean.export()), maintenance);
+            const transaction = await R.begin();
+            bean.stop();
+            try {
+                await transaction.store(draft);
+                if (relationIDs) {
+                    await writeRelations(
+                        transaction,
+                        draft.id,
+                        relationIDs.monitorIDs,
+                        "monitor_maintenance",
+                        "monitor_id"
+                    );
+                    await writeRelations(
+                        transaction,
+                        draft.id,
+                        relationIDs.statusPageIDs,
+                        "maintenance_status_page",
+                        "status_page_id"
+                    );
+                }
+                await draft.run(true);
+                await transaction.commit();
+            } catch (error) {
+                draft.stop();
+                await transaction.rollback();
+                await bean.run(true);
+                throw error;
+            }
+            server.maintenanceList[bean.id] = draft;
             await server.sendMaintenanceList(socket);
 
             callback({
@@ -106,16 +197,7 @@ export const maintenanceSocketHandler = (socket) => {
             getOwnedMaintenance(maintenanceID, socket.userID);
             const monitorIDs = await getUniqueRelationIDs(monitors, "monitor", socket.userID);
 
-            await R.exec("DELETE FROM monitor_maintenance WHERE maintenance_id = ?", [maintenanceID]);
-            for (const monitorID of monitorIDs) {
-                let bean = R.dispense("monitor_maintenance");
-
-                bean.import({
-                    monitor_id: monitorID,
-                    maintenance_id: maintenanceID,
-                });
-                await R.store(bean);
-            }
+            await replaceRelations(maintenanceID, monitorIDs, "monitor_maintenance", "monitor_id");
 
             clearResponseCache();
 
@@ -138,18 +220,10 @@ export const maintenanceSocketHandler = (socket) => {
             checkLogin(socket);
 
             getOwnedMaintenance(maintenanceID, socket.userID);
+            // Status pages have no user_id in this SQLite schema, so their ownership is global.
             const statusPageIDs = await getUniqueRelationIDs(statusPages, "status_page");
 
-            await R.exec("DELETE FROM maintenance_status_page WHERE maintenance_id = ?", [maintenanceID]);
-            for (const statusPageID of statusPageIDs) {
-                let bean = R.dispense("maintenance_status_page");
-
-                bean.import({
-                    status_page_id: statusPageID,
-                    maintenance_id: maintenanceID,
-                });
-                await R.store(bean);
-            }
+            await replaceRelations(maintenanceID, statusPageIDs, "maintenance_status_page", "status_page_id");
 
             clearResponseCache();
 
@@ -262,10 +336,10 @@ export const maintenanceSocketHandler = (socket) => {
             log.debug("maintenance", `Delete Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
             const maintenance = getOwnedMaintenance(maintenanceID, socket.userID);
+            await R.exec("DELETE FROM maintenance WHERE id = ? AND user_id = ? ", [maintenanceID, socket.userID]);
+            maintenance.active = false;
             maintenance.stop();
             delete server.maintenanceList[maintenanceID];
-
-            await R.exec("DELETE FROM maintenance WHERE id = ? AND user_id = ? ", [maintenanceID, socket.userID]);
 
             clearResponseCache();
 
@@ -292,8 +366,14 @@ export const maintenanceSocketHandler = (socket) => {
 
             let maintenance = getOwnedMaintenance(maintenanceID, socket.userID);
 
+            const active = maintenance.active;
             maintenance.active = false;
-            await R.store(maintenance);
+            try {
+                await R.store(maintenance);
+            } catch (error) {
+                maintenance.active = active;
+                throw error;
+            }
             maintenance.stop();
 
             clearResponseCache();
@@ -321,9 +401,17 @@ export const maintenanceSocketHandler = (socket) => {
 
             let maintenance = getOwnedMaintenance(maintenanceID, socket.userID);
 
+            const active = maintenance.active;
             maintenance.active = true;
-            await R.store(maintenance);
-            await maintenance.run();
+            try {
+                await R.store(maintenance);
+                await maintenance.run(true);
+            } catch (error) {
+                maintenance.stop();
+                maintenance.active = active;
+                await R.store(maintenance);
+                throw error;
+            }
 
             clearResponseCache();
 
