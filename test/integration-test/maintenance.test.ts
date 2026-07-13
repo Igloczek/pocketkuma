@@ -146,6 +146,35 @@ function maintenance() {
     };
 }
 
+async function setupStatusPage(slug) {
+    dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-"));
+    let port = await startApp();
+    const bootstrap = await connect(port);
+    expect((await bootstrap.request("setup", "owner", "owner-password")).ok).toBe(true);
+    await stopApp();
+
+    const db = new Database(path.join(dataDir, "kuma.db"));
+    const statusPageID = Number(
+        db.query("INSERT INTO status_page (slug, title, icon, theme) VALUES (?, ?, '', 'auto')").run(slug, slug)
+            .lastInsertRowid
+    );
+    db.close();
+    port = await startApp();
+    const owner = await connect(port);
+    expect((await owner.request("login", { username: "owner", password: "owner-password", token: "" })).ok).toBe(true);
+    return { owner, port, statusPageID };
+}
+
+async function publicStatusPage(port, slug) {
+    const response = await fetch(`http://127.0.0.1:${port}/api/status-page/${slug}`);
+    expect(response.ok).toBe(true);
+    return response.json();
+}
+
+async function publicMaintenance(port, slug) {
+    return (await publicStatusPage(port, slug)).maintenanceList;
+}
+
 afterEach(async () => {
     await stopApp();
     sink?.stop(true);
@@ -156,6 +185,175 @@ afterEach(async () => {
 });
 
 describe("maintenance ownership boundaries", () => {
+    test("invalidates a prewarmed public status page only after an atomic add commits", async () => {
+        const slug = "maintenance-add-cache";
+        const { owner, port, statusPageID } = await setupStatusPage(slug);
+        expect(await publicMaintenance(port, slug)).toEqual([]);
+
+        const created = await owner.request(
+            "addMaintenance",
+            { ...maintenance(), title: "Added after prewarm" },
+            { monitors: [], statusPages: [{ id: statusPageID }] }
+        );
+        expect(created.ok).toBe(true);
+        expect(await publicMaintenance(port, slug)).toEqual([
+            expect.objectContaining({
+                id: created.maintenanceID,
+                title: "Added after prewarm",
+                status: "under-maintenance",
+            }),
+        ]);
+    });
+
+    test("invalidates a prewarmed public status page only after an atomic edit commits", async () => {
+        const slug = "maintenance-edit-cache";
+        const { owner, port, statusPageID } = await setupStatusPage(slug);
+        const now = Date.now();
+        const targetSecond = (new Date(now).getUTCSeconds() + 30) % 60;
+        const created = await owner.request(
+            "addMaintenance",
+            {
+                ...maintenance(),
+                title: "Before edit",
+                strategy: "cron",
+                cron: `${targetSecond} * * * * *`,
+                durationMinutes: 1,
+                timezoneOption: "UTC",
+                dateRange: [new Date(now - 600_000).toISOString(), new Date(now + 600_000).toISOString()],
+            },
+            { monitors: [], statusPages: [{ id: statusPageID }] }
+        );
+        expect(created.ok).toBe(true);
+        const prewarmed = await publicStatusPage(port, slug);
+        expect(prewarmed.config.title).toBe(slug);
+        expect(prewarmed.maintenanceList).toEqual([
+            expect.objectContaining({ title: "Before edit", status: "under-maintenance" }),
+        ]);
+
+        const before = (await owner.request("getMaintenance", created.maintenanceID)).maintenance;
+        const db = new Database(path.join(dataDir, "kuma.db"));
+        db.query("UPDATE status_page SET title = ? WHERE id = ?").run("Changed behind cache", statusPageID);
+        db.exec(`
+            CREATE TABLE maintenance_commit_guard (
+                parent_id INTEGER,
+                FOREIGN KEY (parent_id) REFERENCES maintenance(id) DEFERRABLE INITIALLY DEFERRED
+            );
+            CREATE TRIGGER reject_maintenance_edit
+            AFTER UPDATE ON maintenance
+            WHEN NEW.title = 'Rollback edit'
+            BEGIN
+                INSERT INTO maintenance_commit_guard (parent_id) VALUES (-1);
+            END
+        `);
+        db.close();
+        const rejected = await owner.request(
+            "editMaintenance",
+            { ...before, title: "Rollback edit" },
+            { monitors: [], statusPages: [{ id: statusPageID }] }
+        );
+        expect(rejected.ok).toBe(false);
+        expect((await publicStatusPage(port, slug)).config.title).toBe(slug);
+
+        const cleanupDB = new Database(path.join(dataDir, "kuma.db"));
+        cleanupDB.exec("DROP TRIGGER reject_maintenance_edit");
+        cleanupDB.close();
+        const edited = await owner.request(
+            "editMaintenance",
+            { ...before, title: "After edit" },
+            { monitors: [], statusPages: [{ id: statusPageID }] }
+        );
+        expect(edited.ok).toBe(true);
+        const refreshed = await publicStatusPage(port, slug);
+        expect(refreshed.config.title).toBe("Changed behind cache");
+        expect(refreshed.maintenanceList).toEqual([expect.objectContaining({ title: "After edit" })]);
+
+        const detached = await owner.request(
+            "editMaintenance",
+            { ...before, title: "Detached" },
+            {
+                monitors: [],
+                statusPages: [],
+            }
+        );
+        expect(detached.ok).toBe(true);
+        expect(await publicMaintenance(port, slug)).toEqual([]);
+
+        expect(
+            (await owner.request("addMaintenanceStatusPage", created.maintenanceID, [{ id: statusPageID }])).ok
+        ).toBe(true);
+        expect(await publicMaintenance(port, slug)).toEqual([expect.objectContaining({ title: "Detached" })]);
+    });
+
+    test("invalidates a prewarmed public status page when a cron window starts", async () => {
+        const slug = "maintenance-cron-cache";
+        const { owner, port, statusPageID } = await setupStatusPage(slug);
+        const now = Date.now();
+        const created = await owner.request(
+            "addMaintenance",
+            {
+                ...maintenance(),
+                title: "Cron after prewarm",
+                strategy: "cron",
+                cron: "* * * * * *",
+                durationMinutes: 1,
+                timezoneOption: "UTC",
+                dateRange: [new Date(now + 4_000).toISOString(), new Date(now + 70_000).toISOString()],
+            },
+            { monitors: [], statusPages: [{ id: statusPageID }] }
+        );
+        expect(created.ok).toBe(true);
+        expect(await publicMaintenance(port, slug)).toEqual([]);
+
+        await waitFor(async () => {
+            const result = await owner.request("getMaintenance", created.maintenanceID);
+            return result.maintenance.status === "under-maintenance";
+        }, 15_000);
+        expect(await publicMaintenance(port, slug)).toEqual([
+            expect.objectContaining({ title: "Cron after prewarm", status: "under-maintenance" }),
+        ]);
+    }, 120_000);
+
+    test("starts and expires a cached single window across restart at its real boundaries", async () => {
+        const slug = "maintenance-single-end";
+        let { owner, port, statusPageID } = await setupStatusPage(slug);
+        expect(await publicMaintenance(port, slug)).toEqual([]);
+        const now = Date.now();
+        const created = await owner.request(
+            "addMaintenance",
+            {
+                ...maintenance(),
+                title: "Short single",
+                strategy: "single",
+                dateRange: [new Date(now + 2_000).toISOString(), new Date(now + 10_000).toISOString()],
+            },
+            { monitors: [], statusPages: [{ id: statusPageID }] }
+        );
+        expect(created.ok).toBe(true);
+        expect(await publicMaintenance(port, slug)).toEqual([]);
+        await waitFor(async () => {
+            const result = await owner.request("getMaintenance", created.maintenanceID);
+            return result.maintenance.status === "under-maintenance";
+        });
+        expect(await publicMaintenance(port, slug)).toEqual([expect.objectContaining({ title: "Short single" })]);
+
+        await stopApp();
+        port = await startApp();
+        owner = await connect(port);
+        expect((await owner.request("login", { username: "owner", password: "owner-password", token: "" })).ok).toBe(
+            true
+        );
+        expect((await owner.request("getMaintenance", created.maintenanceID)).maintenance.status).toBe(
+            "under-maintenance"
+        );
+        expect(await publicMaintenance(port, slug)).toEqual([expect.objectContaining({ title: "Short single" })]);
+
+        await waitFor(async () => {
+            const result = await owner.request("getMaintenance", created.maintenanceID);
+            return result.maintenance.status === "ended";
+        }, 15_000);
+        expect(await publicMaintenance(port, slug)).toEqual([]);
+    }, 120_000);
+
     test("keeps schedules and every mutation scoped to their owner", async () => {
         dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-"));
         let port = await startApp();
@@ -548,6 +746,8 @@ describe("maintenance ownership boundaries", () => {
         });
         await Bun.sleep(1_200);
         expect(webhookRequests).toHaveLength(1);
+        publicPage = await (await fetch(`http://127.0.0.1:${port}/api/status-page/runtime-maintenance`)).json();
+        expect(publicPage.maintenanceList).toEqual([expect.objectContaining({ title: "Runtime window" })]);
 
         expect((await owner.request("deleteMaintenance", created.maintenanceID)).ok).toBe(true);
         await waitFor(() => {

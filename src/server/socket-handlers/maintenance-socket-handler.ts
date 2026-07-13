@@ -108,10 +108,11 @@ export const maintenanceSocketHandler = (socket) => {
                     "status_page_id"
                 );
             }
-            await bean.run(true);
+            await bean.run(true, true);
             await transaction.commit();
             transaction = null;
             server.maintenanceList[maintenanceID] = bean;
+            clearResponseCache();
 
             await server.sendMaintenanceList(socket);
 
@@ -163,15 +164,16 @@ export const maintenanceSocketHandler = (socket) => {
                         "status_page_id"
                     );
                 }
-                await draft.run(true);
+                await draft.run(true, true);
                 await transaction.commit();
             } catch (error) {
                 draft.stop();
                 await transaction.rollback();
-                await bean.run(true);
+                await bean.run(true, true);
                 throw error;
             }
             server.maintenanceList[bean.id] = draft;
+            clearResponseCache();
             await server.sendMaintenanceList(socket);
 
             callback({
