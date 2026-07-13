@@ -24,7 +24,7 @@ class Prometheus {
             monitor_id: monitor.id,
             monitor_name: monitor.name,
             monitor_type: monitor.type,
-            monitor_url: monitor.url,
+            monitor_url: Prometheus.redactMonitorURL(monitor.url),
             monitor_hostname: monitor.hostname,
             monitor_port: monitor.port,
         };
@@ -102,9 +102,22 @@ class Prometheus {
      * Render the current Prometheus registry for a Bun HTTP response.
      * @returns {Promise<{ body: string, contentType: string }>} Metrics body and content type
      */
-    static async metrics() {
+    static async metrics(userID = null) {
+        let body = await PrometheusClient.register.metrics();
+        if (userID !== null) {
+            const monitorIDs = new Set(
+                (await R.getCol("SELECT id FROM monitor WHERE user_id = ?", [userID])).map(String)
+            );
+            body = body
+                .split("\n")
+                .filter((line) => {
+                    const match = line.match(/[{,]monitor_id="(\d+)"/);
+                    return !match || monitorIDs.has(match[1]);
+                })
+                .join("\n");
+        }
         return {
-            body: await PrometheusClient.register.metrics(),
+            body,
             contentType: PrometheusClient.register.contentType,
         };
     }
@@ -119,6 +132,22 @@ class Prometheus {
         text = text.replace(/[^a-zA-Z0-9_]/g, "");
         text = text.replace(/^[^a-zA-Z_]+/, "");
         return text;
+    }
+
+    /**
+     * Keep a useful URL origin without publishing credentials, paths, or query secrets.
+     * @param {string} value Monitor URL
+     * @returns {string} Safe URL origin or an empty value
+     */
+    static redactMonitorURL(value) {
+        if (typeof value !== "string") {
+            return "";
+        }
+        try {
+            return new URL(value).origin;
+        } catch {
+            return "";
+        }
     }
 
     /**

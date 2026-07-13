@@ -14,6 +14,7 @@ import {
 } from "@/db/schema/column-metadata";
 import { expectedTableColumns } from "@/db/schema/expected-schema";
 import { addColumnIfMissing as addSchemaColumnIfMissing, runPendingUpgrades } from "@/server/db-migrations";
+import APIKey from "@/server/model/api_key";
 import DomainExpiry from "@/server/model/domain_expiry";
 import Group from "@/server/model/group";
 import Heartbeat from "@/server/model/heartbeat";
@@ -25,6 +26,7 @@ import User from "@/server/model/user";
 // Static model map keeps compiled binaries working (no runtime .ts require paths).
 // Models import BeanModel/R from this module; ESM cycle resolves after this file finishes evaluating.
 const modelMap = {
+    api_key: APIKey,
     group: Group,
     heartbeat: Heartbeat,
     incident: Incident,

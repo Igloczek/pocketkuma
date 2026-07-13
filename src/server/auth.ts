@@ -38,75 +38,78 @@ export async function login(username, password) {
 /**
  * Validate a provided API key
  * @param {string} key API key to verify
- * @returns {boolean} API is ok?
+ * @returns {Promise<Bean|null>} Matching API key or null
  */
 async function verifyAPIKey(key) {
     if (typeof key !== "string") {
-        return false;
+        return null;
     }
 
-    // uk prefix + key ID is before _
-    let index = key.substring(2, key.indexOf("_"));
-    let clear = key.substring(key.indexOf("_") + 1, key.length);
+    const parsed = /^uk(\d+)_([A-Za-z0-9]{40})$/.exec(key);
+    if (!parsed) {
+        return null;
+    }
+    const [, index, clear] = parsed;
 
     let hash = await R.findOne("api_key", " id=? ", [index]);
 
     if (hash === null) {
-        return false;
+        return null;
     }
 
-    let current = dayjs();
-    let expiry = dayjs(hash.expires);
-    if (expiry.diff(current) < 0 || !hash.active) {
-        return false;
+    if ((hash.expires && !dayjs(hash.expires).isAfter(dayjs())) || !hash.active) {
+        return null;
     }
 
-    return hash && (await passwordHash.verify(clear, hash.key));
+    return (await passwordHash.verify(clear, hash.key)) ? hash : null;
 }
 
 /**
  * Validate username and password credentials for HTTP Basic auth.
  * @param {string} username Username to login with
  * @param {string} password Password to login with
- * @returns {Promise<boolean>} true if authorized
+ * @returns {Promise<number|null>} User ID when authorized
  */
 async function authorizeUser(username, password) {
+    const rateLimitKey = typeof username === "string" ? username.trim().toLowerCase() : "invalid";
     // Login Rate Limit
-    const pass = await loginRateLimiter.pass(null, 0);
+    const pass = await loginRateLimiter.pass(null, 0, rateLimitKey);
     if (!pass) {
         log.warn("basic-auth", "Failed basic auth attempt: rate limit exceeded");
-        return false;
+        return null;
     }
 
     const user = await login(username, password);
     if (user !== null) {
-        return true;
+        loginRateLimiter.reset(rateLimitKey);
+        return user.id;
     }
 
     log.warn("basic-auth", "Failed basic auth attempt: invalid username/password");
-    loginRateLimiter.removeTokens(1);
-    return false;
+    loginRateLimiter.removeTokens(1, rateLimitKey);
+    return null;
 }
 
 /**
  * Validate an API key passed as the HTTP Basic auth password.
  * @param {string} password API key from the password field
- * @returns {Promise<boolean>} true if authorized
+ * @returns {Promise<number|null>} API key owner ID when authorized
  */
 async function authorizeAPIKey(password) {
-    const pass = await apiRateLimiter.pass(null, 0);
+    const rateLimitKey = /^uk\d+_/.exec(password)?.[0] || "invalid";
+    const pass = await apiRateLimiter.pass(null, 0, rateLimitKey);
     if (!pass) {
         log.warn("api-auth", "Failed API auth attempt: rate limit exceeded");
-        return false;
+        return null;
     }
 
-    const valid = await verifyAPIKey(password);
-    if (!valid) {
+    const key = await verifyAPIKey(password);
+    if (!key) {
         log.warn("api-auth", "Failed API auth attempt: invalid API Key");
     }
     // Only allow a set number of api requests per minute (currently set to 60).
-    apiRateLimiter.removeTokens(1);
-    return valid;
+    apiRateLimiter.removeTokens(1, rateLimitKey);
+    return key?.user_id ?? null;
 }
 
 function parseBasicAuthRequest(request) {
@@ -152,24 +155,37 @@ function unauthorizedResponse(disableFrameSameOrigin) {
  * @returns {Promise<Response|null>} null when authorized, otherwise an auth response
  */
 export async function checkBasicAuthRequest(request, options = {}) {
+    const auth = await authenticateBasicAuthRequest(request, options);
+    return auth.response || null;
+}
+
+/**
+ * Authenticate a Bun Request and preserve the authenticated user identity.
+ * @param {Request} request Bun request
+ * @param {object} options Auth options
+ * @returns {Promise<{userID: number|null, response?: Response}>} Auth result
+ */
+export async function authenticateBasicAuthRequest(request, options = {}) {
     const disabledAuth = await Settings.get("disableAuth");
     if (disabledAuth) {
-        return null;
+        return { userID: null };
     }
 
     const credentials = parseBasicAuthRequest(request);
     if (!credentials) {
-        return unauthorizedResponse(options.disableFrameSameOrigin);
+        return { userID: null, response: unauthorizedResponse(options.disableFrameSameOrigin) };
     }
 
-    let authorized;
+    let userID;
     if (options.apiKeys && (await Settings.get("apiKeysEnabled"))) {
-        authorized = await authorizeAPIKey(credentials.password);
+        userID = await authorizeAPIKey(credentials.password);
     } else {
-        authorized = await authorizeUser(credentials.username, credentials.password);
+        userID = await authorizeUser(credentials.username, credentials.password);
     }
 
-    return authorized ? null : unauthorizedResponse(options.disableFrameSameOrigin);
+    return userID === null
+        ? { userID: null, response: unauthorizedResponse(options.disableFrameSameOrigin) }
+        : { userID };
 }
 
 /**
@@ -180,6 +196,19 @@ export async function checkBasicAuthRequest(request, options = {}) {
  */
 export async function checkAPIAuthRequest(request, options = {}) {
     return checkBasicAuthRequest(request, {
+        ...options,
+        apiKeys: true,
+    });
+}
+
+/**
+ * Authenticate HTTP API access and return its user identity.
+ * @param {Request} request Bun request
+ * @param {object} options Auth options
+ * @returns {Promise<{userID: number|null, response?: Response}>} Auth result
+ */
+export async function authenticateAPIRequest(request, options = {}) {
+    return authenticateBasicAuthRequest(request, {
         ...options,
         apiKeys: true,
     });

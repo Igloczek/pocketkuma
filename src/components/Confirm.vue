@@ -70,6 +70,7 @@ export default {
          * @returns {void}
          */
         yes() {
+            this.modal.hide();
             this.$emit("yes");
         },
         /**
@@ -77,6 +78,7 @@ export default {
          * @returns {void}
          */
         no() {
+            this.modal.hide();
             this.$emit("no");
         },
     },

@@ -47,7 +47,19 @@ class KumaRateLimiter {
      */
     constructor(config) {
         this.errorMessage = config.errorMessage;
-        this.rateLimiter = new TokenBucket(config);
+        this.config = config;
+        this.rateLimiters = new Map();
+    }
+
+    getRateLimiter(key = "global") {
+        key = String(key);
+        if (!this.rateLimiters.has(key) && this.rateLimiters.size >= 100) {
+            key = "overflow";
+        }
+        if (!this.rateLimiters.has(key)) {
+            this.rateLimiters.set(key, new TokenBucket(this.config));
+        }
+        return this.rateLimiters.get(key);
     }
 
     /**
@@ -62,8 +74,8 @@ class KumaRateLimiter {
      * @param {number} num Number of tokens to remove
      * @returns {Promise<boolean>} Should the request be allowed?
      */
-    async pass(callback, num = 1) {
-        const remainingRequests = await this.removeTokens(num);
+    async pass(callback, num = 1, key = "global") {
+        const remainingRequests = await this.removeTokens(num, key);
         log.info("rate-limit", "remaining requests: " + remainingRequests);
         if (remainingRequests < 0) {
             if (callback) {
@@ -82,8 +94,12 @@ class KumaRateLimiter {
      * @param {number} num Number of tokens to remove
      * @returns {Promise<number>} Number of remaining tokens
      */
-    async removeTokens(num = 1) {
-        return this.rateLimiter.removeTokens(num);
+    async removeTokens(num = 1, key = "global") {
+        return this.getRateLimiter(key).removeTokens(num);
+    }
+
+    reset(key = "global") {
+        this.rateLimiters.delete(String(key));
     }
 }
 

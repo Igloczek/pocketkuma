@@ -47,3 +47,6 @@ jobs:
 
             - name: Test compiled SMTP provider loading
               run: POCKETKUMA_BINARY=dist/releases/pocketkuma-linux-x64 bun run test:notification-provider-binary
+
+            - name: Test compiled auth, API keys, and metrics
+              run: POCKETKUMA_BINARY=dist/releases/pocketkuma-linux-x64 bun run test:auth-security-binary

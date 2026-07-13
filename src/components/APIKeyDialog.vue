@@ -74,7 +74,7 @@
                     </div>
 
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                        <button type="button" class="btn btn-primary" @click="keymodal.hide()">
                             {{ $t("Continue") }}
                         </button>
                     </div>
