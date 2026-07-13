@@ -671,7 +671,7 @@ describe("production auth, API key, and metrics boundaries", () => {
         ).toBe(true);
     }, 120_000);
 
-    test("keeps WebSocket, HTTP Basic, and API-key targets throttled through adversarial churn", async () => {
+    test("preserves WebSocket, HTTP Basic, and API-key partial penalties through adversarial churn", async () => {
         dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-rate-limit-churn-"));
         let port = await startApp();
         let socket = await connectRealtime(port);
@@ -694,34 +694,53 @@ describe("production auth, API key, and metrics boundaries", () => {
             ).ok
         ).toBe(true);
 
-        for (let attempt = 0; attempt < 21; attempt++) {
+        for (let attempt = 0; attempt < 19; attempt++) {
             await socket.request("login", { username: "admin", password: "wrong-password", token: "" });
         }
-        for (let identity = 0; identity < 101; identity++) {
+        for (let identity = 0; identity < 100; identity++) {
             await socket.request("login", { username: `ws-churn-${identity}`, password: "wrong-password", token: "" });
         }
+        const wsAttemptsAfterChurn = await Promise.all(
+            Array.from({ length: 20 }, () =>
+                socket.request("login", { username: "admin", password: "wrong-password", token: "" })
+            )
+        );
+        expect(wsAttemptsAfterChurn.filter((result) => result.msg === "Too frequently, try again later.")).toHaveLength(
+            19
+        );
         expect(
-            await socket.request("login", { username: "admin", password: "wrong-password", token: "" })
+            await socket.request("login", { username: "admin", password: "admin-password", token: "" })
         ).toMatchObject({
             msg: "Too frequently, try again later.",
         });
 
-        for (let identity = 0; identity < 101; identity++) {
+        for (let attempt = 0; attempt < 19; attempt++) {
+            expect((await metrics(port, basic("admin", "wrong-password"))).status).toBe(401);
+        }
+        for (let identity = 0; identity < 100; identity++) {
             expect((await metrics(port, basic(`basic-churn-${identity}`, "wrong-password"))).status).toBe(401);
         }
+        const basicAttemptsAfterChurn = await Promise.all(
+            Array.from({ length: 10 }, () => metrics(port, basic("admin", "wrong-password")))
+        );
+        expect(basicAttemptsAfterChurn.every((response) => response.status === 401)).toBe(true);
         expect((await metrics(port, basic("admin", "admin-password"))).status).toBe(401);
         expect((await metrics(port, basic("other", "other-password"))).status).toBe(200);
 
         const ownerKey = await socket.request("addAPIKey", { name: "churn owner", active: 1, expires: null });
         const otherKey = await socket.request("addAPIKey", { name: "churn other", active: 1, expires: null });
         const wrongOwnerKey = `${ownerKey.key.slice(0, -1)}${ownerKey.key.endsWith("a") ? "b" : "a"}`;
-        for (let attempt = 0; attempt < 80; attempt++) {
+        for (let attempt = 0; attempt < 59; attempt++) {
             expect((await metrics(port, basic("", wrongOwnerKey))).status).toBe(401);
         }
-        for (let identity = 0; identity < 101; identity++) {
+        for (let identity = 0; identity < 100; identity++) {
             const secret = "a".repeat(40);
             expect((await metrics(port, basic("", `uk${100_000 + identity}_${secret}`))).status).toBe(401);
         }
+        const apiAttemptsAfterChurn = await Promise.all(
+            Array.from({ length: 40 }, () => metrics(port, basic("", wrongOwnerKey)))
+        );
+        expect(apiAttemptsAfterChurn.every((response) => response.status === 401)).toBe(true);
         expect((await metrics(port, basic("", ownerKey.key))).status).toBe(401);
         expect((await metrics(port, basic("", otherKey.key))).status).toBe(200);
     }, 120_000);
