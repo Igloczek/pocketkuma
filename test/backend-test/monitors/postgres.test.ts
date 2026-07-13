@@ -1,9 +1,11 @@
 // @ts-nocheck
 
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, setDefaultTimeout } from "bun:test";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { PostgresMonitorType } from "@/server/monitor-types/postgres";
 import { UP, PENDING } from "@/util";
+
+setDefaultTimeout(60_000);
 
 describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
     "Postgres Single Node",
@@ -27,9 +29,9 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
                 await postgresMonitor.check(monitor, heartbeat);
                 expect(heartbeat.status).toBe(UP);
             } finally {
-                postgresContainer.stop();
+                await postgresContainer.stop();
             }
-        });
+        }, 30_000);
 
         test("check() rejects when Postgres server is not reachable", async () => {
             const postgresMonitor = new PostgresMonitorType();

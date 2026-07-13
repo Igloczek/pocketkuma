@@ -1,10 +1,7 @@
 // @ts-nocheck
 
 import { log } from "@/util";
-import { Kafka, SASLOptions } from "kafkajs";
-
-// SASLOptions used in JSDoc
-// eslint-disable-next-line no-unused-vars
+import { Kafka } from "kafkajs";
 
 /**
  * Monitor Kafka using Producer
@@ -16,98 +13,76 @@ import { Kafka, SASLOptions } from "kafkajs";
  * allowAutoTopicCreation and interval (interval defaults to 20,
  * allowAutoTopicCreation defaults to false, clientId defaults to
  * "Uptime-Kuma" and ssl defaults to false)
- * @param {SASLOptions} saslOptions Options for kafka client
+ * @param {object} saslOptions Options for kafka client
  * Authentication (SASL) (defaults to {})
  * @returns {Promise<string>} Status message
  */
 export function kafkaProducerAsync(brokers, topic, message, options = {}, saslOptions = {}) {
+    const {
+        interval = 20,
+        timeout = interval * 0.8,
+        allowAutoTopicCreation = false,
+        ssl = false,
+        clientId = "Uptime-Kuma",
+        connectionTimeout = 1,
+    } = options;
+    const timeoutMs = timeout * 1000;
+    const requestTimeout = Math.max(1, Math.floor(timeoutMs / 2));
+
+    if (saslOptions.mechanism === "None") {
+        saslOptions = undefined;
+    }
+
+    const client = new Kafka({
+        brokers,
+        clientId,
+        sasl: saslOptions,
+        retry: { retries: 0 },
+        ssl,
+        connectionTimeout: Math.min(connectionTimeout * 1000, requestTimeout),
+        requestTimeout,
+    });
+    const producer = client.producer({
+        allowAutoTopicCreation,
+        retry: { retries: 0 },
+    });
+
     return new Promise((resolve, reject) => {
-        const {
-            interval = 20,
-            allowAutoTopicCreation = false,
-            ssl = false,
-            clientId = "Uptime-Kuma",
-            connectionTimeout = 1,
-        } = options;
-
-        let connectedToKafka = false;
-
-        const timeoutID = setTimeout(
-            () => {
-                log.debug("kafkaProducer", "KafkaProducer timeout triggered");
-                connectedToKafka = true;
-                reject(new Error("Timeout"));
-            },
-            interval * 1000 * 0.8
-        );
-
-        if (saslOptions.mechanism === "None") {
-            saslOptions = undefined;
-        }
-
-        let client = new Kafka({
-            brokers: brokers,
-            clientId: clientId,
-            sasl: saslOptions,
-            retry: {
-                retries: 0,
-            },
-            ssl: ssl,
-            connectionTimeout: connectionTimeout * 1000,
-        });
-
-        let producer = client.producer({
-            allowAutoTopicCreation: allowAutoTopicCreation,
-            retry: {
-                retries: 0,
-            },
-        });
-
-        producer
-            .connect()
-            .then(() => {
-                producer
-                    .send({
-                        topic: topic,
-                        messages: [
-                            {
-                                value: message,
-                            },
-                        ],
-                    })
-                    .then((_) => {
-                        resolve("Message sent successfully");
-                    })
-                    .catch((e) => {
-                        connectedToKafka = true;
-                        producer.disconnect();
-                        clearTimeout(timeoutID);
-                        reject(new Error("Error sending message: " + e.message));
-                    })
-                    .finally(() => {
-                        connectedToKafka = true;
-                        clearTimeout(timeoutID);
-                    });
-            })
-            .catch((e) => {
-                connectedToKafka = true;
-                producer.disconnect();
-                clearTimeout(timeoutID);
-                reject(new Error("Error in producer connection: " + e.message));
-            });
-
-        producer.on("producer.network.request_timeout", (_) => {
-            if (!connectedToKafka) {
-                clearTimeout(timeoutID);
-                reject(new Error("producer.network.request_timeout"));
+        let settled = false;
+        let connected = false;
+        const finish = async (error, result) => {
+            if (settled) {
+                return;
             }
-        });
-
-        producer.on("producer.disconnect", (_) => {
-            if (!connectedToKafka) {
-                clearTimeout(timeoutID);
-                reject(new Error("producer.disconnect"));
+            settled = true;
+            clearTimeout(timeoutID);
+            try {
+                await producer.disconnect();
+            } catch (disconnectError) {
+                error ||= disconnectError;
             }
-        });
+            error ? reject(error) : resolve(result);
+        };
+        const timeoutID = setTimeout(() => {
+            log.debug("kafkaProducer", "KafkaProducer timeout triggered");
+            void finish(new Error("Timeout"));
+        }, timeoutMs);
+
+        void (async () => {
+            try {
+                await producer.connect();
+                connected = true;
+                await producer.send({
+                    topic,
+                    messages: [{ value: message }],
+                });
+                await finish(null, "Message sent successfully");
+            } catch (error) {
+                const message = connected
+                    ? `Error sending message: ${error.message}`
+                    : `Error in producer connection: ${error.message}`;
+                await finish(new Error(message));
+            }
+        })();
     });
 }

@@ -25,8 +25,15 @@ class DnsMonitorType extends MonitorType {
         let startTime = dayjs().valueOf();
         let dnsMessage = "";
 
-        const resolverServers = await this.resolveDnsResolverServers(monitor.dns_resolve_server);
-        let dnsRes = await this.dnsResolve(monitor.hostname, resolverServers, monitor.port, monitor.dns_resolve_type);
+        const timeout = ((monitor.timeout ?? 20) * 1000) / 2;
+        const resolverServers = await this.resolveDnsResolverServers(monitor.dns_resolve_server, timeout);
+        let dnsRes = await this.dnsResolve(
+            monitor.hostname,
+            resolverServers,
+            monitor.port,
+            monitor.dns_resolve_type,
+            timeout
+        );
         heartbeat.ping = dayjs().valueOf() - startTime;
 
         const conditions = ConditionExpressionGroup.fromMonitor(monitor);
@@ -116,7 +123,7 @@ class DnsMonitorType extends MonitorType {
      * @returns {Promise<Array<string>>} Array of resolved IP addresses
      * @throws {Error} If no valid resolver servers could be parsed or resolved
      */
-    async resolveDnsResolverServers(dnsResolveServer) {
+    async resolveDnsResolverServers(dnsResolveServer, timeout = 20_000) {
         // Remove all spaces, split into array, remove all elements that are empty
         const addresses = dnsResolveServer
             .replace(/\s/g, "")
@@ -128,6 +135,7 @@ class DnsMonitorType extends MonitorType {
             );
         }
         const resolver = new Resolver();
+        const timeoutID = setTimeout(() => resolver.cancel(), timeout);
 
         // Make promises to be resolved concurrently
         const promises = addresses.map(async (e) => {
@@ -151,7 +159,7 @@ class DnsMonitorType extends MonitorType {
         });
 
         // [[ips of hostname1],[ips hostname2],...]
-        const ips = await Promise.all(promises);
+        const ips = await Promise.all(promises).finally(() => clearTimeout(timeoutID));
         // Append all the ips in [[]] to a single []
         const parsed = ips.flat();
 
@@ -173,13 +181,18 @@ class DnsMonitorType extends MonitorType {
      * @param {string} rrtype The type of record to request
      * @returns {Promise<(string[] | object[] | object)>} DNS response
      */
-    async dnsResolve(hostname, resolverServer, resolverPort, rrtype) {
+    async dnsResolve(hostname, resolverServer, resolverPort, rrtype, timeout = 20_000) {
         const resolver = new Resolver();
         resolver.setServers(resolverServer.map((server) => `[${server}]:${resolverPort}`));
-        if (rrtype === "PTR") {
-            return await resolver.reverse(hostname);
+        const timeoutID = setTimeout(() => resolver.cancel(), timeout);
+        try {
+            if (rrtype === "PTR") {
+                return await resolver.reverse(hostname);
+            }
+            return await resolver.resolve(hostname, rrtype);
+        } finally {
+            clearTimeout(timeoutID);
         }
-        return await resolver.resolve(hostname, rrtype);
     }
 }
 

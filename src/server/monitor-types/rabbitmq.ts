@@ -24,13 +24,14 @@ class RabbitMqMonitorType extends MonitorType {
         }
 
         const errors = [];
+        const nodeTimeout = (monitor.timeout ?? 20) / baseUrls.length;
 
         for (let i = 0; i < baseUrls.length; i++) {
             const baseUrl = baseUrls[i];
             const nodeIndex = i + 1;
 
             try {
-                await this.checkSingleNode(monitor, baseUrl, `${nodeIndex}/${baseUrls.length}`);
+                await this.checkSingleNode(monitor, baseUrl, `${nodeIndex}/${baseUrls.length}`, nodeTimeout);
                 // If checkSingleNode succeeds (doesn't throw), set heartbeat to UP
                 heartbeat.status = UP;
                 heartbeat.msg =
@@ -53,10 +54,11 @@ class RabbitMqMonitorType extends MonitorType {
      * @param {object} monitor Monitor configuration
      * @param {string} baseUrl Base URL of the RabbitMQ node
      * @param {string} nodeInfo Node index info for logging (e.g., "1/3")
+     * @param {number} timeout Node timeout in seconds
      * @returns {Promise<void>}
      * @throws {Error} If the node check fails
      */
-    async checkSingleNode(monitor, baseUrl, nodeInfo) {
+    async checkSingleNode(monitor, baseUrl, nodeInfo, timeout = monitor.timeout) {
         // Without a trailing slash, path in baseUrl will be removed. https://example.com/api -> https://example.com
         let normalizedUrl = baseUrl;
         if (!normalizedUrl.endsWith("/")) {
@@ -67,7 +69,7 @@ class RabbitMqMonitorType extends MonitorType {
             // Do not start with slash, it will strip the trailing slash from baseUrl
             url: new URL("api/health/checks/alarms/", normalizedUrl).href,
             method: "get",
-            timeout: monitor.timeout * 1000,
+            timeout: timeout * 1000,
             headers: {
                 Accept: "application/json",
                 Authorization:
@@ -76,7 +78,7 @@ class RabbitMqMonitorType extends MonitorType {
                         "base64"
                     ),
             },
-            signal: axiosAbortSignal((monitor.timeout + 10) * 1000),
+            signal: axiosAbortSignal(timeout * 1000),
             // Capture reason for 503 status
             validateStatus: (status) => status === 200 || status === 503,
         };

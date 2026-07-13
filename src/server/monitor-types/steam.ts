@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { UP, PING_COUNT_DEFAULT, PING_GLOBAL_TIMEOUT_DEFAULT, PING_PER_REQUEST_TIMEOUT_DEFAULT } from "@/util";
+import { UP, PING_COUNT_DEFAULT, PING_PER_REQUEST_TIMEOUT_DEFAULT } from "@/util";
 import { Settings } from "@/server/settings";
 import { ping, checkStatusCode } from "@/server/util-server";
 import httpClient from "@/server/http-client";
@@ -33,16 +33,22 @@ class SteamMonitorType extends MonitorType {
      */
     async check(monitor, heartbeat) {
         const steamApiUrl = "https://api.steampowered.com/IGameServersService/GetServerList/v1/";
+        const timeout = monitor.timeout ?? 20;
+        const deadline = Date.now() + timeout * 1000;
         const steamAPIKey = await this.getSteamAPIKey();
 
         if (!steamAPIKey) {
             throw new Error("Steam API Key not found");
         }
 
-        const filter = await this.buildServerFilter(monitor.hostname, monitor.port);
+        const filter = await this.withDeadline(
+            this.buildServerFilter(monitor.hostname, monitor.port),
+            deadline,
+            "Steam hostname lookup timed out"
+        );
 
         let res = await this.steamApiClient.get(steamApiUrl, {
-            timeout: monitor.timeout * 1000,
+            timeout: this.remaining(deadline),
             headers: {
                 Accept: "*/*",
             },
@@ -64,14 +70,15 @@ class SteamMonitorType extends MonitorType {
             heartbeat.msg = res.data.response.servers[0].name;
 
             try {
+                const pingTimeout = this.remaining(deadline) / 1000;
                 heartbeat.ping = await this.ping(
                     monitor.hostname,
                     PING_COUNT_DEFAULT,
                     "",
                     true,
                     monitor.packetSize,
-                    PING_GLOBAL_TIMEOUT_DEFAULT,
-                    PING_PER_REQUEST_TIMEOUT_DEFAULT
+                    pingTimeout,
+                    Math.min(pingTimeout, PING_PER_REQUEST_TIMEOUT_DEFAULT)
                 );
             } catch (_) {}
         } else {
@@ -114,6 +121,40 @@ class SteamMonitorType extends MonitorType {
             return resolvedAddress;
         } catch (error) {
             throw new Error(`Unable to resolve Steam server hostname "${hostname}": ${error.message}`);
+        }
+    }
+
+    /**
+     * Return the positive time remaining before a deadline.
+     * @param {number} deadline Absolute deadline in milliseconds.
+     * @returns {number} Remaining milliseconds.
+     */
+    remaining(deadline) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+            throw new Error("Steam monitor timed out");
+        }
+        return remaining;
+    }
+
+    /**
+     * Bound a non-cancellable system operation without allowing late side effects.
+     * @param {Promise<any>} promise Operation promise.
+     * @param {number} deadline Absolute deadline in milliseconds.
+     * @param {string} message Timeout error message.
+     * @returns {Promise<any>} Operation result.
+     */
+    async withDeadline(promise, deadline, message) {
+        let timeoutID;
+        try {
+            return await Promise.race([
+                promise,
+                new Promise((_, reject) => {
+                    timeoutID = setTimeout(() => reject(new Error(message)), this.remaining(deadline));
+                }),
+            ]);
+        } finally {
+            clearTimeout(timeoutID);
         }
     }
 }

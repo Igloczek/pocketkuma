@@ -35,6 +35,7 @@ describe("SystemServiceMonitorType", () => {
 
         const monitor = {
             system_service_name: "pocketkuma.service",
+            timeout: 2,
         };
 
         await monitorType.check(monitor, heartbeat);
@@ -42,7 +43,7 @@ describe("SystemServiceMonitorType", () => {
         expect(heartbeat.status).toBe(UP);
         expect(heartbeat.msg.includes("is running")).toBeTruthy();
         expect(runCommandSpy).toHaveBeenCalledWith("systemctl", ["is-active", "pocketkuma.service"], {
-            timeout: 5000,
+            timeout: 2000,
         });
     });
 

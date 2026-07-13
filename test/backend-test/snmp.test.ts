@@ -44,7 +44,8 @@ describe("SNMPMonitorType", () => {
             } finally {
                 await container.stop();
             }
-        }
+        },
+        30_000
     );
 
     test.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))(
@@ -64,7 +65,7 @@ describe("SNMPMonitorType", () => {
             const snmpMonitor = new SNMPMonitorType();
             const heartbeat = {};
 
-            await expect(snmpMonitor.check(monitor, heartbeat)).rejects.toThrow(/timeout|RequestTimedOutError/i);
+            await expect(snmpMonitor.check(monitor, heartbeat)).rejects.toThrow(/timed? ?out|timeout/i);
         }
     );
 
@@ -115,6 +116,7 @@ describe("SNMPMonitorType", () => {
         expect(createV3Called).toBe(true);
         expect(createSessionCalled).toBe(false);
         expect(receivedOptions.securityLevel).toBe(snmp.SecurityLevel.noAuthNoPriv);
+        expect(receivedOptions.timeout).toBe(2500);
 
         // Restore originals
         snmp.createV3Session = originalCreateV3Session;

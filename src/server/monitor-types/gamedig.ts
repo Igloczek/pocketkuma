@@ -17,6 +17,8 @@ class GameDigMonitorType extends MonitorType {
                 host: monitor.hostname,
                 port: monitor.port,
                 givenPortOnly: Boolean(monitor.gamedigGivenPortOnly),
+                socketTimeout: (monitor.timeout ?? 2) * 1000,
+                attemptTimeout: (monitor.timeout ?? 2) * 1000,
                 ...(monitor.gamedigToken ? { token: monitor.gamedigToken } : {}),
             });
 

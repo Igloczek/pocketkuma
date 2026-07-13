@@ -63,6 +63,7 @@ describe("Steam Monitor", () => {
     test("check() uses the resolved IP address in the Steam API filter", async () => {
         let capturedUrl = null;
         let capturedOptions = null;
+        let capturedPingArgs = null;
         const steamMonitor = new SteamMonitorType({
             lookup: async () => {
                 return [
@@ -90,7 +91,10 @@ describe("Steam Monitor", () => {
                     };
                 },
             },
-            ping: async () => 42,
+            ping: async (...args) => {
+                capturedPingArgs = args;
+                return 42;
+            },
         });
 
         const monitor = {
@@ -112,6 +116,11 @@ describe("Steam Monitor", () => {
         expect(capturedUrl).toBe("https://api.steampowered.com/IGameServersService/GetServerList/v1/");
         expect(capturedOptions.params.filter).toBe("addr\\203.0.113.30:27015");
         expect(capturedOptions.params.key).toBe("test-steam-api-key");
+        expect(capturedOptions.timeout).toBeGreaterThan(29_000);
+        expect(capturedOptions.timeout).toBeLessThanOrEqual(30_000);
+        expect(capturedPingArgs.at(-2)).toBeGreaterThan(29);
+        expect(capturedPingArgs.at(-2)).toBeLessThanOrEqual(30);
+        expect(capturedPingArgs.at(-1)).toBe(2);
         expect(heartbeat.status).toBe(UP);
         expect(heartbeat.msg).toBe("Test Steam Server");
         expect(heartbeat.ping).toBe(42);

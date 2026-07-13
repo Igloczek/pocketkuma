@@ -433,20 +433,22 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
         );
         const created = await realtime.request(
             "add",
-            monitorPayload({ url: `${targetUrl}/barrier`, proxyId: proxy.id })
+            monitorPayload({ url: `${targetUrl}/barrier`, proxyId: proxy.id, timeout: 0 })
         );
         let deletion;
+        let deleted;
         try {
             expect(created.ok).toBe(true);
             await withTimeout(barrier.arrived, 5_000, "barrier heartbeat did not start");
 
             deletion = realtime.request("deleteMonitor", created.monitorID, false);
             expect((await realtime.request("getMonitor", created.monitorID)).ok).toBe(true);
+            deleted = await withTimeout(deletion, 2_500, "delete did not enforce the active heartbeat timeout");
         } finally {
             barrier.release();
         }
 
-        expect((await deletion).ok).toBe(true);
+        expect(deleted.ok).toBe(true);
         expect((await realtime.request("getMonitor", created.monitorID)).ok).toBe(false);
         expect(
             realtime.events

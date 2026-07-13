@@ -90,7 +90,7 @@ export function pingAsync(
 async function pingByProcess(destAddr, ipv6, count, sourceAddr, numeric, size, deadline, timeout) {
     const args = buildPingArgs(destAddr, ipv6, count, sourceAddr, numeric, size, deadline, timeout);
     const result = await runCommand("ping", args, {
-        timeout: Math.max(deadline, timeout) * 1000 + 1000,
+        timeout: Math.max(deadline, timeout) * 1000,
     });
     const output = result.stderr || result.stdout;
 

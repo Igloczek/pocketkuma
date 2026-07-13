@@ -10,7 +10,7 @@
  * @param {string|null} conditions JSON string of conditions or null
  * @returns {Promise<Heartbeat>} the heartbeat produced by the check
  */
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
 import { HiveMQContainer } from "@testcontainers/hivemq";
 import mqtt from "mqtt";
 import { MqttMonitorType } from "@/server/monitor-types/mqtt";
@@ -18,6 +18,8 @@ import { UP, PENDING } from "@/util";
 
 // HiveMQ Testcontainers startup can exceed Bun's default 5s per-test timeout.
 const MQTT_TEST_TIMEOUT_MS = 120_000;
+setDefaultTimeout(MQTT_TEST_TIMEOUT_MS);
+let hiveMQContainer;
 
 function mqttTest(name, fn) {
     test(name, { timeout: MQTT_TEST_TIMEOUT_MS }, fn);
@@ -31,7 +33,6 @@ async function testMqtt(
     publishTopic = "test",
     conditions = null
 ) {
-    const hiveMQContainer = await new HiveMQContainer().start();
     const connectionString = hiveMQContainer.getConnectionString();
     const mqttMonitorType = new MqttMonitorType();
     const monitor = {
@@ -42,7 +43,8 @@ async function testMqtt(
         mqttUsername: null,
         mqttPassword: null,
         mqttWebsocketPath: null, // for WebSocket connections
-        interval: 20, // controls the timeout
+        interval: 20,
+        timeout: 1, // controls the timeout
         mqttSuccessMessage: mqttSuccessMessage, // for keywords
         expectedValue: mqttSuccessMessage, // for json-query
         mqttCheckType: mqttCheckType,
@@ -65,13 +67,20 @@ async function testMqtt(
     try {
         await mqttMonitorType.check(monitor, heartbeat);
     } finally {
-        testMqttClient.end();
-        hiveMQContainer.stop();
+        testMqttClient.end(true);
     }
     return heartbeat;
 }
 
 describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))("MqttMonitorType", () => {
+    beforeAll(async () => {
+        hiveMQContainer = await new HiveMQContainer().start();
+    });
+
+    afterAll(async () => {
+        await hiveMQContainer?.stop();
+    });
+
     mqttTest("check() sets status to UP when keyword is found in message (type=default)", async () => {
         const heartbeat = await testMqtt("KEYWORD", null, "-> KEYWORD <-");
         expect(heartbeat.status).toBe(UP);

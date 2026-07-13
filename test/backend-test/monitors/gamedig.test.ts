@@ -165,6 +165,7 @@ describe("GameDig Monitor", () => {
             port: 27015,
             game: "valve",
             gamedigGivenPortOnly: true,
+            timeout: 3,
         };
 
         const heartbeat = {
@@ -179,6 +180,8 @@ describe("GameDig Monitor", () => {
             expect(capturedOptions.host).toBe("192.168.1.100");
             expect(capturedOptions.port).toBe(27015);
             expect(capturedOptions.givenPortOnly).toBe(true);
+            expect(capturedOptions.socketTimeout).toBe(3000);
+            expect(capturedOptions.attemptTimeout).toBe(3000);
         } finally {
             querySpy.mockRestore();
         }

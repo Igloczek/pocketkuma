@@ -96,7 +96,8 @@ class WebSocketMonitorType extends MonitorType {
                     monitor.oauth_client_secret,
                     monitor.oauth_scopes,
                     monitor.oauth_audience,
-                    monitor.oauth_auth_method
+                    monitor.oauth_auth_method,
+                    timeoutMs
                 );
             }
             options.headers.Authorization = `${monitor.oauthAccessToken.token_type} ${monitor.oauthAccessToken.access_token}`;

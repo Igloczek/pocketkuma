@@ -11,7 +11,11 @@ class RedisMonitorType extends MonitorType {
      * @inheritdoc
      */
     async check(monitor, heartbeat, _server) {
-        heartbeat.msg = await this.redisPingAsync(monitor.databaseConnectionString, !monitor.ignoreTls);
+        heartbeat.msg = await this.redisPingAsync(
+            monitor.databaseConnectionString,
+            !monitor.ignoreTls,
+            (monitor.timeout ?? 20) * 1000
+        );
         heartbeat.status = UP;
     }
 
@@ -19,41 +23,31 @@ class RedisMonitorType extends MonitorType {
      * Redis server ping
      * @param {string} dsn The redis connection string
      * @param {boolean} rejectUnauthorized If false, allows unverified server certificates.
+     * @param {number} timeout Connection and command timeout in milliseconds
      * @returns {Promise<any>} Response from redis server
      */
-    redisPingAsync(dsn, rejectUnauthorized) {
-        return new Promise((resolve, reject) => {
-            const client = redis.createClient({
-                url: dsn,
-                socket: {
-                    rejectUnauthorized,
-                },
-            });
-            client.on("error", (err) => {
-                if (client.isOpen) {
-                    client.disconnect();
-                }
-                reject(err);
-            });
-            client.connect().then(() => {
-                if (!client.isOpen) {
-                    client.emit("error", new Error("connection isn't open"));
-                }
-                client
-                    .ping()
-                    .then((res, err) => {
-                        if (client.isOpen) {
-                            client.disconnect();
-                        }
-                        if (err) {
-                            reject(err);
-                        } else {
-                            resolve(res);
-                        }
-                    })
-                    .catch((error) => reject(error));
-            });
+    async redisPingAsync(dsn, rejectUnauthorized, timeout) {
+        const client = redis.createClient({
+            url: dsn,
+            socket: {
+                rejectUnauthorized,
+                connectTimeout: timeout,
+                socketTimeout: timeout,
+                reconnectStrategy: false,
+            },
+            commandOptions: {
+                abortSignal: AbortSignal.timeout(timeout),
+            },
         });
+        client.on("error", () => {});
+        try {
+            await client.connect();
+            return await client.ping();
+        } finally {
+            if (client.isOpen) {
+                client.destroy();
+            }
+        }
     }
 }
 

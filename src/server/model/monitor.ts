@@ -464,7 +464,7 @@ class Monitor extends BeanModel {
             // Runtime patch timeout if it is 0
             // See https://github.com/louislam/uptime-kuma/pull/3961#issuecomment-1804149144
             if (!this.timeout || this.timeout <= 0) {
-                this.timeout = this.interval * 1000 * 0.8;
+                this.timeout = this.interval * 0.8;
             }
 
             try {
@@ -474,6 +474,14 @@ class Monitor extends BeanModel {
                 } else if (this.type === "http" || this.type === "keyword" || this.type === "json-query") {
                     // Do not do any queries/high loading things before the "bean.ping"
                     let startTime = dayjs().valueOf();
+                    const deadline = startTime + this.timeout * 1000;
+                    const remainingTimeout = () => {
+                        const remaining = deadline - dayjs().valueOf();
+                        if (remaining <= 0) {
+                            throw new Error("HTTP monitor timed out");
+                        }
+                        return remaining;
+                    };
 
                     // HTTP basic auth
                     let basicAuthHeader = {};
@@ -500,7 +508,8 @@ class Monitor extends BeanModel {
                                 this.oauthAccessToken === undefined ||
                                 new Date(this.oauthAccessToken.expires_at * 1000) <= new Date()
                             ) {
-                                this.oauthAccessToken = await this.makeOidcTokenClientCredentialsRequest();
+                                this.oauthAccessToken =
+                                    await this.makeOidcTokenClientCredentialsRequest(remainingTimeout());
                             }
                             oauth2AuthHeader = {
                                 Authorization:
@@ -535,7 +544,7 @@ class Monitor extends BeanModel {
                     const options = {
                         url: this.url,
                         method: (this.method || "get").toLowerCase(),
-                        timeout: this.timeout * 1000,
+                        timeout: remainingTimeout(),
                         headers: {
                             Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
                             ...(contentType ? { "Content-Type": contentType } : {}),
@@ -569,7 +578,7 @@ class Monitor extends BeanModel {
                     log.debug("monitor", `[${this.name}] Fetch Request`);
 
                     // Make Request
-                    let res = await this.makeHttpMonitorRequest(options);
+                    let res = await this.makeHttpMonitorRequest(options, false, deadline);
 
                     bean.msg = `${res.status} - ${res.statusText}`;
                     bean.ping = dayjs().valueOf() - startTime;
@@ -583,7 +592,7 @@ class Monitor extends BeanModel {
                                 const inspected = await inspectRemoteCertificate(
                                     target.hostname,
                                     port,
-                                    this.timeout * 1000
+                                    remainingTimeout()
                                 );
                                 if (inspected) {
                                     tlsInfo = inspected;
@@ -707,7 +716,7 @@ class Monitor extends BeanModel {
 
                     const options = {
                         url: `/containers/${this.docker_container}/json`,
-                        timeout: this.interval * 1000 * 0.8,
+                        timeout: this.timeout * 1000,
                         headers: {
                             Accept: "*/*",
                         },
@@ -789,7 +798,7 @@ class Monitor extends BeanModel {
                         this.radiusCallingStationId,
                         this.radiusSecret,
                         port,
-                        this.interval * 1000 * 0.4
+                        this.timeout * 1000 * 0.5
                     );
 
                     bean.msg = resp.code;
@@ -824,6 +833,7 @@ class Monitor extends BeanModel {
                             ssl: this.kafkaProducerSsl,
                             clientId: `Uptime-Kuma/${version}`,
                             interval: this.interval,
+                            timeout: this.timeout,
                             connectionTimeout: this.timeout,
                         },
                         JSON.parse(this.kafkaProducerSaslOptions)
@@ -1160,7 +1170,7 @@ class Monitor extends BeanModel {
      * don't retry on failure
      * @returns {object} HTTP response
      */
-    async makeHttpMonitorRequest(options, finalCall = false) {
+    async makeHttpMonitorRequest(options, finalCall = false, deadline = Date.now() + options.timeout) {
         try {
             return await httpClient.request(options);
         } catch (error) {
@@ -1169,13 +1179,22 @@ class Monitor extends BeanModel {
              * the recent api request failed for authentication purposes
              */
             if (this.auth_method === "oauth2-cc" && error.response?.status === 401 && !finalCall) {
-                this.oauthAccessToken = await this.makeOidcTokenClientCredentialsRequest();
+                let remaining = deadline - Date.now();
+                if (remaining <= 0) {
+                    throw new Error("HTTP monitor timed out while refreshing OAuth credentials");
+                }
+                this.oauthAccessToken = await this.makeOidcTokenClientCredentialsRequest(remaining);
                 let oauth2AuthHeader = {
                     Authorization: this.oauthAccessToken.token_type + " " + this.oauthAccessToken.access_token,
                 };
                 options.headers = { ...options.headers, ...oauth2AuthHeader };
+                remaining = deadline - Date.now();
+                if (remaining <= 0) {
+                    throw new Error("HTTP monitor timed out after refreshing OAuth credentials");
+                }
+                options.timeout = remaining;
 
-                return this.makeHttpMonitorRequest(options, true);
+                return this.makeHttpMonitorRequest(options, true, deadline);
             }
 
             throw error;
@@ -2015,7 +2034,7 @@ class Monitor extends BeanModel {
      * Obtains a new Oidc Token
      * @returns {Promise<object>} OAuthProvider client
      */
-    async makeOidcTokenClientCredentialsRequest() {
+    async makeOidcTokenClientCredentialsRequest(timeout = this.timeout * 1000) {
         log.debug("monitor", `[${this.name}] The oauth access-token undefined or expired. Requesting a new token`);
         const oAuthAccessToken = await getOidcTokenClientCredentials(
             this.oauth_token_url,
@@ -2023,7 +2042,8 @@ class Monitor extends BeanModel {
             this.oauth_client_secret,
             this.oauth_scopes,
             this.oauth_audience,
-            this.oauth_auth_method
+            this.oauth_auth_method,
+            timeout
         );
         if (this.oauthAccessToken?.expires_at) {
             log.debug(

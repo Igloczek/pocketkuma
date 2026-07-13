@@ -13,10 +13,11 @@ class SNMPMonitorType extends MonitorType {
     async check(monitor, heartbeat, _server) {
         let session;
         try {
+            const retries = monitor.maxretries ?? 0;
             const sessionOptions = {
                 port: monitor.port || "161",
-                retries: monitor.maxretries,
-                timeout: monitor.timeout * 1000,
+                retries,
+                timeout: ((monitor.timeout ?? 20) * 1000) / (retries + 1),
                 version: snmp.Version[monitor.snmpVersion],
             };
 
@@ -36,13 +37,11 @@ class SNMPMonitorType extends MonitorType {
                 session = snmp.createSession(monitor.hostname, monitor.radiusPassword, sessionOptions);
             }
 
-            // Handle errors during session creation
-            session.on("error", (error) => {
-                throw new Error(`Error creating SNMP session: ${error.message}`);
-            });
-
             const varbinds = await new Promise((resolve, reject) => {
+                const onError = (error) => reject(new Error(`Error creating SNMP session: ${error.message}`));
+                session.on("error", onError);
                 session.get([monitor.snmpOid], (error, varbinds) => {
+                    session.removeListener?.("error", onError);
                     error ? reject(error) : resolve(varbinds);
                 });
             });

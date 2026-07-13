@@ -12,7 +12,7 @@ class TailscalePing extends MonitorType {
      */
     async check(monitor, heartbeat, _server) {
         try {
-            let tailscaleOutput = await this.runTailscalePing(monitor.hostname, monitor.interval);
+            let tailscaleOutput = await this.runTailscalePing(monitor.hostname, monitor.timeout ?? 20);
             this.parseTailscaleOutput(tailscaleOutput, heartbeat);
         } catch (err) {
             // trigger log function somewhere to display a notification or alert to the user (but how?)
@@ -23,13 +23,14 @@ class TailscalePing extends MonitorType {
     /**
      * Runs the Tailscale ping command to the given URL.
      * @param {string} hostname The hostname to ping.
-     * @param {number} interval Interval to send ping
+     * @param {number} timeoutSeconds Maximum command duration in seconds
      * @returns {Promise<string>} A Promise that resolves to the output of the Tailscale ping command
      * @throws Will throw an error if the command execution encounters any error.
      */
-    async runTailscalePing(hostname, interval) {
-        let timeout = interval * 1000 * 0.8;
-        let res = await runCommand("tailscale", ["ping", "--c", "1", hostname], { timeout });
+    async runTailscalePing(hostname, timeoutSeconds) {
+        let res = await runCommand("tailscale", ["ping", "--c", "1", hostname], {
+            timeout: timeoutSeconds * 1000,
+        });
         if (res.stderr && res.code !== 0) {
             throw new Error(`Error in output: ${res.stderr}`);
         }

@@ -4,10 +4,12 @@
  * Helper function to create and start a MSSQL container
  * @returns {Promise<{container: MSSQLServerContainer, connectionString: string}>} The started container and connection string
  */
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
 import { MSSQLServerContainer } from "@testcontainers/mssqlserver";
 import { MssqlMonitorType } from "@/server/monitor-types/mssql";
 import { UP, PENDING } from "@/util";
+
+setDefaultTimeout(120_000);
 
 async function createAndStartMSSQLContainer() {
     const container = await new MSSQLServerContainer("mcr.microsoft.com/mssql/server:2022-latest")
@@ -23,9 +25,20 @@ async function createAndStartMSSQLContainer() {
 }
 
 describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arch !== "x64"))("MSSQL Monitor", () => {
-    test("check() sets status to UP when MSSQL server is reachable", async () => {
-        const { container, connectionString } = await createAndStartMSSQLContainer();
+    let container;
+    let connectionString;
 
+    beforeAll(async () => {
+        const mssql = await createAndStartMSSQLContainer();
+        container = mssql.container;
+        connectionString = mssql.connectionString;
+    });
+
+    afterAll(async () => {
+        await container?.stop();
+    });
+
+    test("check() sets status to UP when MSSQL server is reachable", async () => {
         const mssqlMonitor = new MssqlMonitorType();
         const monitor = {
             databaseConnectionString: connectionString,
@@ -37,12 +50,8 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
             status: PENDING,
         };
 
-        try {
-            await mssqlMonitor.check(monitor, heartbeat, {});
-            expect(heartbeat.status).toBe(UP);
-        } finally {
-            await container.stop();
-        }
+        await mssqlMonitor.check(monitor, heartbeat, {});
+        expect(heartbeat.status).toBe(UP);
     });
 
     test("check() rejects when MSSQL server is not reachable", async () => {
@@ -66,8 +75,6 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
     });
 
     test("check() sets status to UP when custom query returns single value", async () => {
-        const { container, connectionString } = await createAndStartMSSQLContainer();
-
         const mssqlMonitor = new MssqlMonitorType();
         const monitor = {
             databaseConnectionString: connectionString,
@@ -80,17 +87,11 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
             status: PENDING,
         };
 
-        try {
-            await mssqlMonitor.check(monitor, heartbeat, {});
-            expect(heartbeat.status).toBe(UP);
-        } finally {
-            await container.stop();
-        }
+        await mssqlMonitor.check(monitor, heartbeat, {});
+        expect(heartbeat.status).toBe(UP);
     });
 
     test("check() sets status to UP when custom query result meets condition", async () => {
-        const { container, connectionString } = await createAndStartMSSQLContainer();
-
         const mssqlMonitor = new MssqlMonitorType();
         const monitor = {
             databaseConnectionString: connectionString,
@@ -111,17 +112,11 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
             status: PENDING,
         };
 
-        try {
-            await mssqlMonitor.check(monitor, heartbeat, {});
-            expect(heartbeat.status).toBe(UP);
-        } finally {
-            await container.stop();
-        }
+        await mssqlMonitor.check(monitor, heartbeat, {});
+        expect(heartbeat.status).toBe(UP);
     });
 
     test("check() rejects when custom query result does not meet condition", async () => {
-        const { container, connectionString } = await createAndStartMSSQLContainer();
-
         const mssqlMonitor = new MssqlMonitorType();
         const monitor = {
             databaseConnectionString: connectionString,
@@ -142,19 +137,13 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
             status: PENDING,
         };
 
-        try {
-            await expect(mssqlMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
-                new Error("Query result did not meet the specified conditions (99)")
-            );
-            expect(heartbeat.status).toBe(PENDING);
-        } finally {
-            await container.stop();
-        }
+        await expect(mssqlMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+            new Error("Query result did not meet the specified conditions (99)")
+        );
+        expect(heartbeat.status).toBe(PENDING);
     });
 
     test("check() rejects when query returns no results with conditions", async () => {
-        const { container, connectionString } = await createAndStartMSSQLContainer();
-
         const mssqlMonitor = new MssqlMonitorType();
         const monitor = {
             databaseConnectionString: connectionString,
@@ -175,19 +164,13 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
             status: PENDING,
         };
 
-        try {
-            await expect(mssqlMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
-                new Error("Database connection/query failed: Query returned no results")
-            );
-            expect(heartbeat.status).toBe(PENDING);
-        } finally {
-            await container.stop();
-        }
+        await expect(mssqlMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+            new Error("Database connection/query failed: Query returned no results")
+        );
+        expect(heartbeat.status).toBe(PENDING);
     });
 
     test("check() rejects when query returns multiple rows with conditions", async () => {
-        const { container, connectionString } = await createAndStartMSSQLContainer();
-
         const mssqlMonitor = new MssqlMonitorType();
         const monitor = {
             databaseConnectionString: connectionString,
@@ -208,19 +191,13 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
             status: PENDING,
         };
 
-        try {
-            await expect(mssqlMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
-                new Error("Database connection/query failed: Multiple values were found, expected only one value")
-            );
-            expect(heartbeat.status).toBe(PENDING);
-        } finally {
-            await container.stop();
-        }
+        await expect(mssqlMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+            new Error("Database connection/query failed: Multiple values were found, expected only one value")
+        );
+        expect(heartbeat.status).toBe(PENDING);
     });
 
     test("check() rejects when query returns multiple columns with conditions", async () => {
-        const { container, connectionString } = await createAndStartMSSQLContainer();
-
         const mssqlMonitor = new MssqlMonitorType();
         const monitor = {
             databaseConnectionString: connectionString,
@@ -241,13 +218,9 @@ describe.skipIf(!!process.env.CI && (process.platform !== "linux" || process.arc
             status: PENDING,
         };
 
-        try {
-            await expect(mssqlMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
-                new Error("Database connection/query failed: Multiple columns were found, expected only one value")
-            );
-            expect(heartbeat.status).toBe(PENDING);
-        } finally {
-            await container.stop();
-        }
+        await expect(mssqlMonitor.check(monitor, heartbeat, {})).rejects.toEqual(
+            new Error("Database connection/query failed: Multiple columns were found, expected only one value")
+        );
+        expect(heartbeat.status).toBe(PENDING);
     });
 });

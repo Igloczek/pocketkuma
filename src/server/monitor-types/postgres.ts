@@ -22,7 +22,7 @@ class PostgresMonitorType extends MonitorType {
         if (!query || (typeof query === "string" && query.trim() === "")) {
             query = "SELECT 1";
         }
-        await this.postgresQuery(monitor.databaseConnectionString, query);
+        await this.postgresQuery(monitor.databaseConnectionString, query, (monitor.timeout ?? 20) * 1000);
 
         heartbeat.msg = "";
         heartbeat.status = UP;
@@ -33,52 +33,41 @@ class PostgresMonitorType extends MonitorType {
      * Run a query on Postgres
      * @param {string} connectionString The database connection string
      * @param {string} query The query to validate the database with
+     * @param {number} timeout Connection and query timeout in milliseconds
      * @returns {Promise<(string[] | object[] | object)>} Response from
      * server
      */
-    async postgresQuery(connectionString, query) {
-        return new Promise((resolve, reject) => {
-            const config = postgresConParse(connectionString);
+    async postgresQuery(connectionString, query, timeout) {
+        const deadline = Date.now() + timeout;
+        const config = postgresConParse(connectionString);
 
-            // Fix #3868, which true/false is not parsed to boolean
-            if (typeof config.ssl === "string") {
-                config.ssl = config.ssl === "true";
-            }
+        // Fix #3868, which true/false is not parsed to boolean
+        if (typeof config.ssl === "string") {
+            config.ssl = config.ssl === "true";
+        }
 
-            if (config.password === "") {
-                // See https://github.com/brianc/node-postgres/issues/1927
-                reject(new Error("Password is undefined."));
-                return;
-            }
-            const client = new Client(config);
+        if (config.password === "") {
+            // See https://github.com/brianc/node-postgres/issues/1927
+            throw new Error("Password is undefined.");
+        }
 
-            client.on("error", (error) => {
-                log.debug(this.name, "Error caught in the error event handler.");
-                reject(error);
-            });
-
-            client.connect((err) => {
-                if (err) {
-                    reject(err);
-                    client.end();
-                } else {
-                    // Connected here
-                    try {
-                        client.query(query, (err, res) => {
-                            if (err) {
-                                reject(err);
-                            } else {
-                                resolve(res);
-                            }
-                            client.end();
-                        });
-                    } catch (e) {
-                        reject(e);
-                        client.end();
-                    }
-                }
-            });
+        const client = new Client({
+            ...config,
+            connectionTimeoutMillis: timeout,
+            query_timeout: timeout,
         });
+        client.on("error", () => log.debug(this.name, "Error caught in the error event handler."));
+
+        try {
+            await client.connect();
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) {
+                throw new Error("PostgreSQL monitor timed out");
+            }
+            return await client.query({ text: query, query_timeout: remaining });
+        } finally {
+            await client.end();
+        }
     }
 }
 
