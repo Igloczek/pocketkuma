@@ -55,4 +55,23 @@ describe("monitor scheduler timer control", () => {
         expect(monitor.heartbeatInterval).toBe(null);
         expect(monitor.isStop).toBe(true);
     });
+
+    test("stop waits for the active heartbeat barrier", async () => {
+        const monitor = new Monitor();
+        let releaseHeartbeat;
+        let stopped = false;
+        monitor.activeHeartbeat = new Promise((resolve) => {
+            releaseHeartbeat = resolve;
+        });
+
+        const stop = monitor.stop().then(() => {
+            stopped = true;
+        });
+        await Promise.resolve();
+
+        expect(stopped).toBe(false);
+        releaseHeartbeat();
+        await stop;
+        expect(stopped).toBe(true);
+    });
 });

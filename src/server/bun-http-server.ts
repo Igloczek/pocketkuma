@@ -3,17 +3,28 @@
 
 import fs from "fs";
 import path from "path";
+import { Database as SQLiteDatabase } from "bun:sqlite";
 import { isDev, log } from "@/util";
 import { setting, printServerUrls } from "@/server/util-server";
 import config from "@/server/config";
 import Database from "@/server/database";
+import { R } from "@/server/bun-sqlite-store";
 import StatusPage from "@/server/model/status_page";
 import { Settings } from "@/server/settings";
 import { Prometheus } from "@/server/prometheus";
+import { UptimeCalculator } from "@/server/uptime-calculator";
+import { initBackgroundJobs, stopBackgroundJobs } from "@/server/jobs";
 import { authenticateAPIRequest } from "@/server/auth";
 import { handleApiRequest } from "@/server/routers/api-router";
 import { handleStatusPageRequest } from "@/server/routers/status-page-router";
-import { applyCommonHeaders, htmlResponse, jsonResponse, redirectResponse, textResponse } from "@/server/bun-response";
+import {
+    applyCommonHeaders,
+    clearResponseCache,
+    htmlResponse,
+    jsonResponse,
+    redirectResponse,
+    textResponse,
+} from "@/server/bun-response";
 import { isCompiledBinary } from "@/server/app-paths";
 import { hasEmbeddedAsset, readEmbeddedAsset } from "@/server/generated/embedded-assets";
 
@@ -38,6 +49,127 @@ const MIME_TYPES = {
     ".woff": "font/woff",
     ".woff2": "font/woff2",
 };
+
+let devSnapshotPhase = "idle";
+let devSnapshotQueue = Promise.resolve();
+
+function enqueueDevSnapshotOperation(operation) {
+    const pending = devSnapshotQueue.catch(() => {}).then(operation);
+    devSnapshotQueue = pending.catch(() => {});
+    return pending;
+}
+
+function validateSqliteSnapshot(snapshotPath) {
+    const db = new SQLiteDatabase(snapshotPath, { strict: true });
+    try {
+        const check = db.query("PRAGMA quick_check").get();
+        if (Object.values(check || {})[0] !== "ok") {
+            throw new Error("Snapshot failed SQLite integrity validation.");
+        }
+        const requiredTables = db
+            .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('monitor', 'setting', 'user')")
+            .all();
+        if (requiredTables.length !== 3) {
+            throw new Error("Snapshot is not a PocketKuma database.");
+        }
+        if (db.query("PRAGMA foreign_key_check").all().length > 0) {
+            throw new Error("Snapshot failed foreign-key validation.");
+        }
+    } finally {
+        db.close();
+        fs.rmSync(`${snapshotPath}-shm`, { force: true });
+        fs.rmSync(`${snapshotPath}-wal`, { force: true });
+    }
+}
+
+async function stopRuntimeForSnapshot(server) {
+    stopBackgroundJobs();
+    for (const maintenance of Object.values(server.maintenanceList)) {
+        maintenance.stop();
+    }
+    await Promise.all(Object.values(server.monitorList).map((monitor) => monitor.stop()));
+    server.monitorList = {};
+    server.maintenanceList = {};
+    await UptimeCalculator.removeAll();
+    Settings.cacheList = {};
+    StatusPage.domainMappingList = {};
+    clearResponseCache();
+}
+
+async function reloadRuntimeAfterSnapshot(server) {
+    Settings.cacheList = {};
+    const jwtSecret = await R.findOne("setting", " `key` = ? ", ["jwtSecret"]);
+    server.jwtSecret = jwtSecret?.value || null;
+    await server.initAfterDatabaseReady();
+    server.entryPage = await Settings.get("entryPage");
+    await StatusPage.loadDomainMappingList();
+
+    const monitors = await R.find("monitor", " active = 1 ");
+    for (const monitor of monitors) {
+        server.monitorList[monitor.id] = monitor;
+        await monitor.start(server.io);
+    }
+    await initBackgroundJobs();
+    clearResponseCache();
+}
+
+async function restoreSqliteSnapshot(server) {
+    const snapshotPath = `${Database.sqlitePath}.e2e-snapshot`;
+    if (!fs.existsSync(snapshotPath)) {
+        throw new Error("Snapshot doesn't exist.");
+    }
+
+    const suffix = crypto.randomUUID();
+    const restorePath = `${Database.sqlitePath}.e2e-restore-${suffix}`;
+    const backupPath = `${Database.sqlitePath}.e2e-backup-${suffix}`;
+    let backupCreated = false;
+    let runtimeStopped = false;
+
+    devSnapshotPhase = "validating";
+    try {
+        fs.copyFileSync(snapshotPath, restorePath);
+        validateSqliteSnapshot(restorePath);
+
+        devSnapshotPhase = "quiescing";
+        runtimeStopped = true;
+        await stopRuntimeForSnapshot(server);
+        devSnapshotPhase = "restoring";
+        await Database.close();
+        fs.renameSync(Database.sqlitePath, backupPath);
+        backupCreated = true;
+        fs.renameSync(restorePath, Database.sqlitePath);
+        await Database.connect();
+
+        devSnapshotPhase = "rehydrating";
+        await reloadRuntimeAfterSnapshot(server);
+        fs.rmSync(backupPath, { force: true });
+        backupCreated = false;
+    } catch (error) {
+        if (!runtimeStopped) {
+            throw error;
+        }
+        try {
+            await stopRuntimeForSnapshot(server);
+            if (R.isOpen()) {
+                await Database.close();
+            }
+            if (backupCreated) {
+                fs.rmSync(Database.sqlitePath, { force: true });
+                fs.renameSync(backupPath, Database.sqlitePath);
+            }
+            if (!R.isOpen()) {
+                await Database.connect();
+            }
+            await reloadRuntimeAfterSnapshot(server);
+        } catch (recoveryError) {
+            throw new AggregateError([error, recoveryError], "Snapshot restore and recovery failed");
+        }
+        throw error;
+    } finally {
+        fs.rmSync(restorePath, { force: true });
+        devSnapshotPhase = "idle";
+    }
+}
 
 function getHostname(request) {
     const url = new URL(request.url);
@@ -232,12 +364,16 @@ async function parseDevBody(request) {
     return body;
 }
 
-async function handleDevRequest(request, disableFrameSameOrigin) {
+async function handleDevRequest(request, server, disableFrameSameOrigin) {
     if (!isDev) {
         return null;
     }
 
     const url = new URL(request.url);
+
+    if (request.method === "GET" && url.pathname === "/_e2e/sqlite-snapshot-state") {
+        return jsonResponse({ phase: devSnapshotPhase }, { disableFrameSameOrigin });
+    }
 
     if (
         request.method === "POST" &&
@@ -261,17 +397,7 @@ async function handleDevRequest(request, disableFrameSameOrigin) {
     }
 
     if (request.method === "GET" && url.pathname === "/_e2e/restore-sqlite-snapshot") {
-        if (!fs.existsSync(`${Database.sqlitePath}.e2e-snapshot`)) {
-            throw new Error("Snapshot doesn't exist.");
-        }
-
-        await Database.close();
-        try {
-            fs.cpSync(`${Database.sqlitePath}.e2e-snapshot`, Database.sqlitePath);
-        } catch {
-            throw new Error("Unable to copy snapshot file.");
-        }
-        await Database.connect();
+        await enqueueDevSnapshotOperation(() => restoreSqliteSnapshot(server));
 
         return textResponse("Snapshot restored.", { disableFrameSameOrigin });
     }
@@ -315,7 +441,7 @@ function createBunFetchHandler({ server, disableFrameSameOrigin }) {
             return rootResponse(request, server, disableFrameSameOrigin);
         }
 
-        const devResponse = await handleDevRequest(request, disableFrameSameOrigin);
+        const devResponse = await handleDevRequest(request, server, disableFrameSameOrigin);
         if (devResponse) {
             return devResponse;
         }
