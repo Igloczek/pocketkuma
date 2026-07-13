@@ -252,9 +252,13 @@ describe("token bucket rate limiter", () => {
     });
 
     test("preserves login and API partial penalties through exact-LRU churn", async () => {
-        for (const { identity, capacity } of [
-            { identity: "login-admin", capacity: 20 },
-            { identity: "api-key:42", capacity: 60 },
+        for (const { identity, capacity, initialFailures, remaining } of [
+            { identity: "login-admin-1", capacity: 20, initialFailures: 1, remaining: 19 },
+            { identity: "login-admin-5", capacity: 20, initialFailures: 5, remaining: 15 },
+            { identity: "login-admin-19", capacity: 20, initialFailures: 19, remaining: 1 },
+            { identity: "api-key:1", capacity: 60, initialFailures: 1, remaining: 59 },
+            { identity: "api-key:30", capacity: 60, initialFailures: 30, remaining: 30 },
+            { identity: "api-key:59", capacity: 60, initialFailures: 59, remaining: 1 },
         ]) {
             const limiter = new KumaRateLimiter({
                 tokensPerInterval: capacity,
@@ -263,7 +267,7 @@ describe("token bucket rate limiter", () => {
                 errorMessage: "limited",
             });
 
-            for (let attempt = 0; attempt < capacity - 1; attempt++) {
+            for (let attempt = 0; attempt < initialFailures; attempt++) {
                 expect(await limiter.pass(null, 1, identity)).toBe(true);
             }
             for (let churn = 0; churn < 1001; churn++) {
@@ -273,9 +277,62 @@ describe("token bucket rate limiter", () => {
             const attemptsAfterChurn = await Promise.all(
                 Array.from({ length: capacity }, () => limiter.pass(null, 1, identity))
             );
-            expect(attemptsAfterChurn.filter(Boolean)).toHaveLength(1);
+            expect(attemptsAfterChurn.filter(Boolean)).toHaveLength(remaining);
             expect(limiter.rateLimiters.size).toBe(100);
         }
+    });
+
+    test("evicts a partial bucket only at the deterministic full-refill boundary", async () => {
+        const realNow = Date.now;
+        let now = 10_000;
+        Date.now = () => now;
+        try {
+            const limiter = new KumaRateLimiter({
+                tokensPerInterval: 2,
+                interval: 1_000,
+                maxBuckets: 1,
+                fireImmediately: true,
+                errorMessage: "limited",
+            });
+
+            await limiter.pass(null, 1, "partial");
+            now += 499;
+            expect(limiter.isEvictable(limiter.rateLimiters.get("partial"))).toBe(false);
+            await limiter.pass(null, 1, "before-full");
+            expect(limiter.rateLimiters.has("partial")).toBe(true);
+            expect(limiter.rateLimiters.has("before-full")).toBe(false);
+
+            now += 1;
+            expect(limiter.isEvictable(limiter.rateLimiters.get("partial"))).toBe(true);
+            await limiter.pass(null, 1, "at-full");
+            expect(limiter.rateLimiters.has("partial")).toBe(false);
+            expect(limiter.rateLimiters.has("at-full")).toBe(true);
+        } finally {
+            Date.now = realNow;
+        }
+    });
+
+    test("derives the bounded production credential limiter pair", () => {
+        const limiters = [
+            { tokensPerInterval: 20, sourceTokensPerInterval: 200 },
+            { tokensPerInterval: 60, sourceTokensPerInterval: 600 },
+        ].map(
+            ({ tokensPerInterval, sourceTokensPerInterval }) =>
+                new CredentialRateLimiter({
+                    tokensPerInterval,
+                    sourceTokensPerInterval,
+                    interval: "minute",
+                    fireImmediately: true,
+                    errorMessage: "limited",
+                })
+        );
+        const perLimiterBounds = limiters.map(
+            (limiter) =>
+                limiter.identity.maxBuckets + limiter.fallback.rateLimiters.length + limiter.source.rateLimiters.length
+        );
+
+        expect(perLimiterBounds).toEqual([8_292, 8_292]);
+        expect(perLimiterBounds.reduce((total, bound) => total + bound, 0)).toBe(16_584);
     });
 
     test("keeps a fully blocked identity through adversarial identity churn", async () => {
