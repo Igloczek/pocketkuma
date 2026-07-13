@@ -52,14 +52,14 @@ For standalone function mocks, use `mock()` from `bun:test` (`mock.fn()` in Node
 ## Run
 
 ```bash
-bun run test:backend          # CI gate: 30 fast, offline test files
-bun run test:backend:unit     # same as test:backend
+bun run test:backend          # fast unit gate plus auth and maintenance integration
+bun run test:backend:unit     # fast, offline unit subset
 bun run test:backend:all      # full suite (includes integration / Docker tests)
 ```
 
-### CI gate (`test:backend`)
+### Fast unit gate (`test:backend:unit`)
 
-The gate runs fast, hermetic tests (no Docker or public network):
+The unit subset runs fast, hermetic tests (no Docker or public network):
 
 - `bun-sqlite-store.test.ts` — SQLite store bootstrap and queries
 - `cert-hostname-match.test.ts` — certificate hostname matching
@@ -69,6 +69,7 @@ The gate runs fast, hermetic tests (no Docker or public network):
 - `monitor-response.test.ts` — saved response serialization and truncation
 - `monitor-runtime-loading.test.ts` — lazy monitor/notification loading
 - `monitor-scheduler.test.ts` — scheduler timer control
+- `monitor-provider-timeout.test.ts` — loopback deadline, cancellation, socket cleanup, and process-kill behavior
 - `check-translations.test.ts` — translation key and placeholder safety
 - `monitors/{gamedig,grpc,steam,tcp,websocket}.test.ts` — mocked or loopback protocol behavior
 - `notification-providers/notification-provider.test.ts` — provider error normalization
@@ -90,4 +91,10 @@ The full suite discovers all `*.test.ts` files. Some failures are environmental,
 | Public network | `domain.test.ts`, opt-in TCP via `POCKETKUMA_PUBLIC_NETWORK_TESTS=1`             | Needs live RDAP/DNS/TLS           |
 | Host/process   | `util-server.test.ts`, `monitors/kafka-producer.test.ts`                         | Needs host tools or a local mock  |
 
-Use `test:backend` (unit subset) to validate core changes in CI.
+The Testcontainers suites require a working local Docker daemon. The multi-case MySQL, Microsoft SQL Server, Oracle,
+RabbitMQ, and MQTT suites share one real service container across their cases. PostgreSQL and SNMP start a container
+only for their single live-service case. The suites use explicit startup or test bounds and await container teardown,
+keeping protocol coverage realistic while avoiding unnecessary startup noise and cleanup leaks.
+
+Use `test:backend` for the normal repository gate: it runs this unit subset, then the auth-security and maintenance
+integration suites. Use `test:backend:unit` for a focused offline iteration.
