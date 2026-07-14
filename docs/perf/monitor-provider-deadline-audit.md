@@ -565,11 +565,12 @@ the browser close, retires the captured supervisor through fd 5, and waits for P
 considers force-disconnecting the channel. Three consecutive real `testChrome` calls, subsequent monitor launch, and
 source and compiled full-Chrome lifecycles all pass.
 
-Runtime commit `7c6a3403` implements the ownership protocol and `65978cb4` corrects the process-tree fixture to read
-the wrapper's actual PGID now that the supervisor, rather than Chromium, is the group leader. The focused lifecycle
-file passes `37/37`; its new cases cover stale exit/close state, identity loss between TERM and KILL, a naturally
-exited launcher with a live descendant, 100 concurrent resets producing exactly one TERM/KILL pair, and control-pipe
-failure without a numeric fallback. The real pending wrapper still ignores TERM and carries a child and grandchild;
+Runtime commit `7c6a3403` implements the ownership protocol, `65978cb4` corrects the process-tree fixture to read the
+wrapper's actual PGID now that the supervisor is the group leader, and `ab675b9b` refuses the dependency's numeric
+POSIX kill if a future Playwright change ever bypasses capture. The focused lifecycle file passes `37/37`; its new
+cases cover stale exit/close state, identity loss between TERM and KILL, a naturally exited launcher with a live
+descendant, 100 concurrent resets producing exactly one TERM/KILL pair, control-pipe failure, and an untracked process
+handle without a numeric fallback. The real pending wrapper still ignores TERM and carries a child and grandchild;
 settings, Chrome-test, snapshot success/rollback, and `SIGTERM` callbacks all observe the entire actual group gone.
 
 Verification on the follow-up:
@@ -610,7 +611,7 @@ Seven fresh-data compiled starts show no idle regression. Excluding each cold fi
 from 282.884 to 281.397 ms (-1.487 ms); all-sample RSS median changed from 196,880 to 196,736 KiB (-144 KiB), and
 idle shutdown was unchanged at 2,016.306 versus 2,016.309 ms. Binary size changed from 91,516,514 to 91,400,930
 bytes (-115,584 bytes). The final arm64 checksum is
-`954b29a6aec01698260ed965029f8512779c37866323fe50302d9898e8fd2e2e`.
+`1692dc60f2ef882e87b78ea747a48817d65d9f844f31a7c432c8dc7aeab93d5f`.
 
 ```text
 startup baseline: 1452.515, 289.830, 281.937, 286.694, 282.337, 281.648, 283.430 ms
