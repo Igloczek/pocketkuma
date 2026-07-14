@@ -165,6 +165,42 @@ describe("monitor provider timeout cleanup", () => {
         }
     });
 
+    test("PostgreSQL legacy malformed timeout falls back and lets stop close the socket", async () => {
+        const fixture = await createHangingTcpServer();
+        const monitor = new Monitor();
+        Object.assign(monitor, {
+            interval: 1,
+            timeout: "bogus",
+            databaseConnectionString: `postgresql://user:pass@127.0.0.1:${fixture.port}/db`,
+            databaseQuery: "SELECT 1",
+        });
+        const result = new PostgresMonitorType().check(monitor, {}).catch((error) => error);
+        monitor.activeHeartbeat = result.then(() => {});
+        let stopping;
+        let stoppedByDeadline;
+        try {
+            await fixture.requestArrived.promise;
+            stopping = monitor.stop();
+            stoppedByDeadline = await settleWithin(stopping, 1_500);
+            if (!stoppedByDeadline) {
+                for (const socket of fixture.sockets) {
+                    socket.destroy();
+                }
+            }
+            await stopping;
+
+            expect(stoppedByDeadline).toBe(true);
+            expect(await settleWithin(fixture.socketClosed.promise, 100)).toBe(true);
+            expect(await result).toBeInstanceOf(Error);
+        } finally {
+            for (const socket of fixture.sockets) {
+                socket.destroy();
+            }
+            await stopping?.catch(() => {});
+            await fixture.close();
+        }
+    });
+
     test("MongoDB stop enforces monitor timeout and closes the active socket", async () => {
         const fixture = await createHangingTcpServer();
         const monitor = new Monitor();

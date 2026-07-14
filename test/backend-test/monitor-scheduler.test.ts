@@ -9,15 +9,18 @@ describe("monitor scheduler timer control", () => {
     let nextTimerID;
     let activeTimers;
     let clearedTimers;
+    let scheduledDelays;
 
     beforeEach(() => {
         nextTimerID = 1;
         activeTimers = new Set();
         clearedTimers = [];
+        scheduledDelays = [];
 
-        global.setTimeout = () => {
+        global.setTimeout = (_callback, delay) => {
             const timerID = nextTimerID++;
             activeTimers.add(timerID);
+            scheduledDelays.push(delay);
             return timerID;
         };
 
@@ -73,5 +76,16 @@ describe("monitor scheduler timer control", () => {
         releaseHeartbeat();
         await stop;
         expect(stopped).toBe(true);
+    });
+
+    test("malformed and overflowing legacy delays cannot create immediate or overflowing timers", () => {
+        const monitor = new Monitor();
+
+        for (const delay of ["bogus", NaN, Infinity, -Infinity, -1, 0, 2_073_600_001]) {
+            monitor.scheduleHeartbeat(() => {}, delay);
+        }
+
+        expect(scheduledDelays).toEqual(Array(7).fill(1000));
+        expect(activeTimers.size).toBe(1);
     });
 });
