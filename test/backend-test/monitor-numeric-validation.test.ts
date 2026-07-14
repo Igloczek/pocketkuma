@@ -16,7 +16,9 @@ beforeAll(async () => {
     Monitor = (await import("@/server/model/monitor")).default;
 });
 
-const TIMEOUT_ERROR = `Timeout must be 0 or a finite number between 0.001 and ${MAX_INTERVAL_SECOND} seconds`;
+const TIMEOUT_ERROR = `Timeout must be 0 or a finite number between 0.1 and ${MAX_INTERVAL_SECOND} seconds`;
+const MAX_MONITOR_RETRIES = 100;
+const MAX_MONITOR_REDIRECTS = 100;
 
 function monitor(overrides = {}) {
     const bean = new Monitor();
@@ -78,8 +80,8 @@ describe("monitor numeric validation", () => {
         });
     });
 
-    test("validate() preserves zero and fractional provider timeout values", () => {
-        for (const value of [0, "0", "0.0", 0.001, "0.25", MAX_INTERVAL_SECOND]) {
+    test("validate() preserves zero and UI-representable provider timeout values", () => {
+        for (const value of [0, "0", "0.0", 0.1, "0.25", MAX_INTERVAL_SECOND]) {
             const bean = monitor({ timeout: value });
             bean.validate();
             expect(bean.timeout).toBe(Number(value));
@@ -97,6 +99,8 @@ describe("monitor numeric validation", () => {
                 Infinity,
                 -Infinity,
                 Number.MIN_VALUE,
+                0.001,
+                0.099,
                 0.000999,
                 -0.001,
                 MAX_INTERVAL_SECOND + 1,
@@ -125,8 +129,21 @@ describe("monitor numeric validation", () => {
             ],
             [
                 "maxretries",
-                ["", "bogus", NaN, Infinity, -Infinity, -1, 0.5, Number.MAX_SAFE_INTEGER + 1, null, undefined],
-                "Retries must be a non-negative safe integer",
+                [
+                    "",
+                    "bogus",
+                    NaN,
+                    Infinity,
+                    -Infinity,
+                    -1,
+                    0.5,
+                    MAX_MONITOR_RETRIES + 1,
+                    1000,
+                    Number.MAX_SAFE_INTEGER,
+                    null,
+                    undefined,
+                ],
+                `Retries must be an integer between 0 and ${MAX_MONITOR_RETRIES}`,
             ],
             [
                 "resendInterval",
@@ -143,14 +160,40 @@ describe("monitor numeric validation", () => {
     test("validate() bounds HTTP counts and persisted response length", () => {
         expectInvalid(
             "maxredirects",
-            ["", "bogus", NaN, Infinity, -Infinity, -1, 0.5, Number.MAX_SAFE_INTEGER + 1, null, undefined],
-            "Max redirects must be a non-negative safe integer"
+            [
+                "",
+                "bogus",
+                NaN,
+                Infinity,
+                -Infinity,
+                -1,
+                0.5,
+                MAX_MONITOR_REDIRECTS + 1,
+                1000,
+                Number.MAX_SAFE_INTEGER,
+                null,
+                undefined,
+            ],
+            `Max redirects must be an integer between 0 and ${MAX_MONITOR_REDIRECTS}`
         );
         expectInvalid(
             "response_max_length",
             ["", "bogus", NaN, Infinity, -Infinity, -1, 0.5, RESPONSE_BODY_LENGTH_MAX + 1, null, undefined],
             `Response max length must be an integer between 0 and ${RESPONSE_BODY_LENGTH_MAX} bytes`
         );
+    });
+
+    test("validate() accepts retry and redirect boundary values", () => {
+        for (const value of [0, "0", MAX_MONITOR_RETRIES, String(MAX_MONITOR_RETRIES)]) {
+            const bean = monitor({ maxretries: value });
+            bean.validate();
+            expect(bean.maxretries).toBe(Number(value));
+        }
+        for (const value of [0, "0", MAX_MONITOR_REDIRECTS, String(MAX_MONITOR_REDIRECTS)]) {
+            const bean = monitor({ maxredirects: value });
+            bean.validate();
+            expect(bean.maxredirects).toBe(Number(value));
+        }
     });
 
     test("validate() normalizes optional ports and rejects invalid endpoints", () => {
@@ -236,9 +279,9 @@ describe("monitor numeric validation", () => {
             interval: "bogus",
             retryInterval: 0,
             resendInterval: Infinity,
-            maxretries: -1,
-            timeout: "bogus",
-            maxredirects: 0.5,
+            maxretries: Number.MAX_SAFE_INTEGER,
+            timeout: 0.001,
+            maxredirects: Number.MAX_SAFE_INTEGER,
             response_max_length: "bogus",
             port: "80garbage",
             packetSize: "bogus",
@@ -289,6 +332,8 @@ describe("monitor numeric validation", () => {
             [null, 48],
             [undefined, 48],
             [Number.MIN_VALUE, 48],
+            [0.001, 48],
+            [0.099, 48],
             [0.000999, 48],
         ]) {
             expect(monitor({ interval: 60, timeout: value }).getEffectiveTimeout(), String(value)).toBe(expected);

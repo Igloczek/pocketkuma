@@ -3,10 +3,13 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import grpc from "@grpc/grpc-js";
 import protoLoader from "@grpc/proto-loader";
+import dgram from "node:dgram";
+import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import snmp from "net-snmp";
 import { GrpcKeywordMonitorType } from "@/server/monitor-types/grpc";
 import { MongodbMonitorType } from "@/server/monitor-types/mongodb";
 import { MqttMonitorType } from "@/server/monitor-types/mqtt";
@@ -14,6 +17,7 @@ import { MysqlMonitorType } from "@/server/monitor-types/mysql";
 import { PostgresMonitorType } from "@/server/monitor-types/postgres";
 import { RedisMonitorType } from "@/server/monitor-types/redis";
 import { SMTPMonitorType } from "@/server/monitor-types/smtp";
+import { SNMPMonitorType } from "@/server/monitor-types/snmp";
 import { runCommand } from "@/server/process-helper";
 
 let Monitor;
@@ -104,6 +108,86 @@ async function createHangingTcpServer() {
     };
 }
 
+async function createHangingUdpServer() {
+    const requestArrived = deferred();
+    const server = dgram.createSocket("udp4");
+    let requests = 0;
+    server.on("message", () => {
+        requests++;
+        requestArrived.resolve();
+    });
+    await new Promise((resolve) => server.bind(0, "127.0.0.1", resolve));
+    return {
+        port: server.address().port,
+        requestArrived,
+        get requests() {
+            return requests;
+        },
+        close: () => new Promise((resolve) => server.close(resolve)),
+    };
+}
+
+function snmpMonitor(overrides = {}) {
+    return {
+        hostname: "127.0.0.1",
+        snmpVersion: "2c",
+        radiusPassword: "public",
+        snmpOid: "1.3.6.1.2.1.1.1.0",
+        timeout: 0.1,
+        maxretries: 100,
+        jsonPath: "$",
+        jsonPathOperator: "!=",
+        expectedValue: "",
+        ...overrides,
+    };
+}
+
+async function captureRealSnmpSession(run) {
+    const originalCreateSession = snmp.createSession;
+    const created = deferred();
+    let capture;
+    snmp.createSession = (...args) => {
+        const session = originalCreateSession(...args);
+        const socketClosed = deferred();
+        const originalCancelRequests = session.cancelRequests.bind(session);
+        const originalClose = session.close.bind(session);
+        capture = {
+            session,
+            socketClosed,
+            closeCalls: 0,
+            canceledPendingRequestCounts: [],
+        };
+        session.cancelRequests = (error) => {
+            capture.canceledPendingRequestCounts.push(session.reqCount);
+            return originalCancelRequests(error);
+        };
+        session.close = () => {
+            capture.closeCalls++;
+            return originalClose();
+        };
+        session.once("close", socketClosed.resolve);
+        created.resolve(capture);
+        return session;
+    };
+
+    try {
+        return await run(created);
+    } finally {
+        if (capture?.session.reqCount) {
+            capture.session.cancelRequests(new Error("test cleanup"));
+        }
+        if (capture?.closeCalls === 0) {
+            await settleWithin(capture.socketClosed.promise, 50);
+        }
+        if (capture?.closeCalls === 0) {
+            try {
+                capture.session.close();
+            } catch {}
+        }
+        snmp.createSession = originalCreateSession;
+    }
+}
+
 async function expectProviderStop(monitor, check, fixture) {
     const result = check().catch((error) => error);
     monitor.activeHeartbeat = result.then(() => {});
@@ -116,6 +200,112 @@ async function expectProviderStop(monitor, check, fixture) {
 }
 
 describe("monitor provider timeout cleanup", () => {
+    test("SNMP enforces one deadline for 100 retries and closes the live UDP session", async () => {
+        const fixture = await createHangingUdpServer();
+        try {
+            await captureRealSnmpSession(async (created) => {
+                const started = performance.now();
+                const result = new SNMPMonitorType()
+                    .check(snmpMonitor({ port: fixture.port }), {})
+                    .catch((error) => error);
+                const capture = await created.promise;
+                await fixture.requestArrived.promise;
+
+                expect(await settleWithin(result, 120)).toBe(true);
+                expect(await result).toBeInstanceOf(Error);
+                expect(performance.now() - started).toBeLessThan(160);
+                expect(await settleWithin(capture.socketClosed.promise, 100)).toBe(true);
+                expect(capture.closeCalls).toBe(1);
+                expect(capture.canceledPendingRequestCounts).toContain(1);
+                expect(capture.session.reqCount).toBe(0);
+                expect(fixture.requests).toBeGreaterThan(0);
+            });
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    test("SNMP sanitizes legacy 1000 retries and lets monitor stop await real cleanup", async () => {
+        const fixture = await createHangingUdpServer();
+        try {
+            await captureRealSnmpSession(async (created) => {
+                const monitor = new Monitor();
+                Object.assign(monitor, snmpMonitor({ port: fixture.port, maxretries: 1000 }));
+                const check = new SNMPMonitorType().check(monitor, {});
+                let settlements = 0;
+                const result = check.then(
+                    () => {
+                        settlements++;
+                    },
+                    (error) => {
+                        settlements++;
+                        return error;
+                    }
+                );
+                monitor.activeHeartbeat = result.then(() => {});
+                const capture = await created.promise;
+                await fixture.requestArrived.promise;
+
+                const stopping = monitor.stop();
+                expect(await settleWithin(stopping, 300)).toBe(true);
+                await stopping;
+                expect(await result).toBeInstanceOf(Error);
+                expect(capture.session.retries).toBe(0);
+                expect(await settleWithin(capture.socketClosed.promise, 100)).toBe(true);
+                expect(capture.closeCalls).toBe(1);
+                expect(capture.canceledPendingRequestCounts).toContain(1);
+                await Bun.sleep(25);
+                expect(settlements).toBe(1);
+                expect(capture.session.reqCount).toBe(0);
+            });
+        } finally {
+            await fixture.close();
+        }
+    });
+
+    test("SNMP closes once across success, callback error, and synchronous session creation failure", async () => {
+        const originalCreateSession = snmp.createSession;
+        try {
+            for (const outcome of ["success", "error"]) {
+                const session = new EventEmitter();
+                let callbacks = 0;
+                let closeCalls = 0;
+                session.close = () => {
+                    closeCalls++;
+                };
+                session.cancelRequests = () => {};
+                session.get = (_oids, callback) => {
+                    callbacks++;
+                    if (outcome === "success") {
+                        callback(null, [{ type: snmp.ObjectType.OctetString, value: "ok" }]);
+                        callback(new Error("late callback"));
+                    } else {
+                        callback(new Error("expected callback error"));
+                        callback(null, [{ type: snmp.ObjectType.OctetString, value: "late" }]);
+                    }
+                };
+                snmp.createSession = () => session;
+                const heartbeat = {};
+                const check = new SNMPMonitorType().check(snmpMonitor(), heartbeat);
+                if (outcome === "success") {
+                    await check;
+                    expect(heartbeat.status).toBe(1);
+                } else {
+                    await expect(check).rejects.toThrow("expected callback error");
+                }
+                expect(callbacks).toBe(1);
+                expect(closeCalls).toBe(1);
+            }
+
+            snmp.createSession = () => {
+                throw new Error("session creation failed");
+            };
+            await expect(new SNMPMonitorType().check(snmpMonitor(), {})).rejects.toThrow("session creation failed");
+        } finally {
+            snmp.createSession = originalCreateSession;
+        }
+    });
+
     test("gRPC stop enforces monitor timeout and cancels the active call", async () => {
         const fixture = await createHangingGrpcServer();
         const monitor = new Monitor();
