@@ -233,19 +233,29 @@ describe("real-browser monitor lifecycle", () => {
         "resetChrome rechecks captured process identity before escalating from TERM to KILL",
         async () => {
             const browserProcess = capturedProcess();
+            const commands = [];
+            browserProcess.stdio = Array(6);
+            browserProcess.stdio[5] = {
+                writable: true,
+                destroyed: false,
+                writableEnded: false,
+                on: () => {},
+                write(command, callback) {
+                    commands.push(command);
+                    if (command === "TERM\n") {
+                        browserProcess.exitCode = 0;
+                        browserProcess.emit("exit", 0, null);
+                        browserProcess.emit("close", 0, null);
+                    }
+                    callback();
+                },
+            };
             await launchWithCapturedProcess(browserProcess);
-            const kill = spyOn(process, "kill").mockImplementation((pid, signal) => {
-                if (pid === -browserProcess.pid && signal === "SIGTERM") {
-                    browserProcess.exitCode = 0;
-                    browserProcess.emit("exit", 0, null);
-                    browserProcess.emit("close", 0, null);
-                }
-                return true;
-            });
+            const kill = spyOn(process, "kill").mockReturnValue(true);
             try {
                 await resetChrome();
-                expect(kill.mock.calls.filter(([, signal]) => signal === "SIGTERM")).toHaveLength(1);
-                expect(kill.mock.calls.some(([, signal]) => signal === "SIGKILL")).toBe(false);
+                expect(commands).toEqual(["TERM\n"]);
+                expect(kill).not.toHaveBeenCalled();
             } finally {
                 kill.mockRestore();
             }
@@ -294,6 +304,64 @@ describe("real-browser monitor lifecycle", () => {
                     } catch {}
                 }
                 fs.rmSync(directory, { recursive: true, force: true });
+            }
+        }
+    );
+
+    test.skipIf(process.platform === "win32")(
+        "concurrent resets send one TERM and one KILL through the owned control channel",
+        async () => {
+            const browserProcess = capturedProcess();
+            const commands = [];
+            browserProcess.stdio = Array(6);
+            browserProcess.stdio[5] = {
+                writable: true,
+                destroyed: false,
+                writableEnded: false,
+                on: () => {},
+                write(command, callback) {
+                    commands.push(command);
+                    if (command === "KILL\n") {
+                        browserProcess.signalCode = "SIGKILL";
+                        browserProcess.emit("exit", null, "SIGKILL");
+                        browserProcess.emit("close", null, "SIGKILL");
+                    }
+                    callback();
+                },
+            };
+            await launchWithCapturedProcess(browserProcess);
+            const kill = spyOn(process, "kill").mockReturnValue(true);
+            try {
+                await Promise.all(Array.from({ length: 100 }, () => resetChrome()));
+                expect(commands).toEqual(["TERM\n", "KILL\n"]);
+                expect(kill).not.toHaveBeenCalled();
+            } finally {
+                kill.mockRestore();
+            }
+        }
+    );
+
+    test.skipIf(process.platform === "win32")(
+        "a lost control channel fails closed without falling back to a numeric PID",
+        async () => {
+            const browserProcess = capturedProcess();
+            browserProcess.stdio = Array(6);
+            browserProcess.stdio[5] = {
+                writable: true,
+                destroyed: false,
+                writableEnded: false,
+                on: () => {},
+                write: (_command, callback) => callback(new Error("EPIPE")),
+            };
+            await launchWithCapturedProcess(browserProcess);
+            const kill = spyOn(process, "kill").mockReturnValue(true);
+            try {
+                const result = await resetChrome().catch((error) => error);
+                expect(result).toBeInstanceOf(Error);
+                expect(result.message).toContain("has no owned control channel");
+                expect(kill).not.toHaveBeenCalled();
+            } finally {
+                kill.mockRestore();
             }
         }
     );
@@ -775,7 +843,7 @@ describe("real-browser monitor lifecycle", () => {
         expect(processKill).not.toHaveBeenCalled();
     });
 
-    test("a hung Playwright process kill falls back to one direct SIGKILL", async () => {
+    test("a hung Playwright process kill does not retry a potentially stale POSIX PID", async () => {
         const kill = mock(() => new Promise(() => {}));
         const processKill = mock(() => true);
         const browser = successfulBrowser({
@@ -798,8 +866,12 @@ describe("real-browser monitor lifecycle", () => {
 
         expect(await check).toBeInstanceOf(Error);
         expect(kill).toHaveBeenCalledTimes(1);
-        expect(processKill).toHaveBeenCalledTimes(1);
-        expect(processKill).toHaveBeenCalledWith("SIGKILL");
+        if (process.platform === "win32") {
+            expect(processKill).toHaveBeenCalledTimes(1);
+            expect(processKill).toHaveBeenCalledWith("SIGKILL");
+        } else {
+            expect(processKill).not.toHaveBeenCalled();
+        }
     });
 
     test("one shared-browser timeout fails peers once and the next check relaunches", async () => {

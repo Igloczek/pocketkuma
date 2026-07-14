@@ -21,6 +21,18 @@ const BROWSER_CLEANUP_GRACE_MS = 100;
 const BROWSER_ACQUISITION_TIMEOUT_MS = 5_000;
 const BROWSER_RETIRE_TIMEOUT_MS = BROWSER_ACQUISITION_TIMEOUT_MS + 500;
 const BROWSER_TEST_TIMEOUT_MS = 30_000;
+const BROWSER_GROUP_SUPERVISOR = `
+trap ':' TERM HUP INT
+"$@" 5>&- &
+exec 3>&- 4>&-
+while IFS= read -r command <&5; do
+    case "$command" in
+        TERM) kill -TERM -$$ 2>/dev/null || true ;;
+        KILL) kill -KILL -$$ 2>/dev/null || true ;;
+    esac
+done
+kill -KILL -$$ 2>/dev/null || exit 0
+`;
 const browserOwners = new Map();
 const localLaunchOwner = new AsyncLocalStorage();
 let chromiumPromise = null;
@@ -147,7 +159,14 @@ function captureBrowserProcess(owner, process) {
     if (!process?.pid) {
         return;
     }
-    const browserProcess = { process, retirePromise: null };
+    const browserProcess = { process, retirePromise: null, exited: false };
+    const finished = () => {
+        browserProcess.exited = true;
+        owner.acquiredProcesses.delete(browserProcess);
+    };
+    process.once?.("exit", finished);
+    process.once?.("close", finished);
+    process.stdio?.[5]?.on?.("error", () => {});
     owner.acquiredProcesses.add(browserProcess);
     if (owner.invalidated) {
         void retireCapturedProcess(browserProcess).catch((error) => log.error("chromium", error));
@@ -161,16 +180,27 @@ function startSpawnCapture() {
     }
     const original = childProcess.spawn;
     const patched = function (...args) {
-        const process = original.apply(this, args);
         const owner = localLaunchOwner.getStore();
         const processArgs = args[1];
         const options = args[2];
-        if (
+        const capturesBrowser =
             owner &&
             options?.detached === (globalThis.process.platform !== "win32") &&
             Array.isArray(processArgs) &&
-            processArgs.includes("--remote-debugging-pipe")
-        ) {
+            processArgs.includes("--remote-debugging-pipe");
+        if (capturesBrowser && globalThis.process.platform !== "win32") {
+            const stdio = Array.isArray(options.stdio)
+                ? [...options.stdio]
+                : Array.from({ length: 5 }, () => options.stdio ?? "pipe");
+            stdio[5] = "pipe";
+            args = [
+                "/bin/sh",
+                ["-c", BROWSER_GROUP_SUPERVISOR, "pocketkuma-browser-supervisor", args[0], ...processArgs],
+                { ...options, stdio },
+            ];
+        }
+        const process = original.apply(this, args);
+        if (capturesBrowser) {
             captureBrowserProcess(owner, process);
         }
         return process;
@@ -224,42 +254,48 @@ function ownedBrowserProcess(browser) {
 
 async function attachBrowser(owner, browser, browserProcess, deadline) {
     if (owner.invalidated || deadline <= Date.now()) {
-        await disposeBrowser(browser, browserProcess, owner.reason ?? new Error("Browser monitor timed out"));
+        await disposeBrowser(browser, browserProcess, owner.reason ?? new Error("Browser monitor timed out"), owner);
         throw owner.reason ?? new Error("Browser monitor timed out");
     }
     owner.browser = browser;
     owner.browserProcess = browserProcess;
 }
 
-function processGroupExists(pid) {
-    try {
-        globalThis.process.kill(globalThis.process.platform === "win32" ? pid : -pid, 0);
-        return true;
-    } catch (error) {
-        return error?.code !== "ESRCH";
-    }
+function capturedProcessIsLive(browserProcess) {
+    const process = browserProcess.process;
+    return Boolean(process?.pid && !browserProcess.exited && process.exitCode === null && process.signalCode === null);
 }
 
-function signalProcessGroup(browserProcess, signal) {
-    const pid = browserProcess.process?.pid;
-    if (!pid || !processGroupExists(pid)) {
-        return;
+function childProcessHasExited(process) {
+    return Boolean(process && (process.exitCode != null || process.signalCode != null));
+}
+
+async function signalCapturedProcess(browserProcess, signal) {
+    if (!capturedProcessIsLive(browserProcess)) {
+        return false;
     }
     try {
         if (globalThis.process.platform === "win32") {
-            browserProcess.process.kill(signal);
-        } else {
-            globalThis.process.kill(-pid, signal);
+            return browserProcess.process.kill(signal);
         }
-    } catch {}
+        const control = browserProcess.process.stdio?.[5];
+        if (!control?.writable || control.destroyed || control.writableEnded) {
+            return false;
+        }
+        return await new Promise((resolve) => {
+            control.write(`${signal === "SIGTERM" ? "TERM" : "KILL"}\n`, (error) => resolve(!error));
+        });
+    } catch {
+        return false;
+    }
 }
 
-async function waitForProcessGroup(pid, timeout) {
+async function waitForCapturedProcess(browserProcess, timeout) {
     const deadline = Date.now() + timeout;
-    while (processGroupExists(pid) && Date.now() < deadline) {
+    while (capturedProcessIsLive(browserProcess) && Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, 10));
     }
-    return !processGroupExists(pid);
+    return !capturedProcessIsLive(browserProcess);
 }
 
 async function retireCapturedProcess(browserProcess) {
@@ -268,15 +304,25 @@ async function retireCapturedProcess(browserProcess) {
     }
     browserProcess.retirePromise = (async () => {
         const pid = browserProcess.process?.pid;
-        if (!pid || !processGroupExists(pid)) {
+        if (!pid || !capturedProcessIsLive(browserProcess)) {
             return;
         }
-        signalProcessGroup(browserProcess, "SIGTERM");
-        if (await waitForProcessGroup(pid, BROWSER_CLEANUP_GRACE_MS)) {
+        if (!(await signalCapturedProcess(browserProcess, "SIGTERM"))) {
+            if (!capturedProcessIsLive(browserProcess)) {
+                return;
+            }
+            throw new Error(`Chromium process group ${pid} has no owned control channel`);
+        }
+        if (await waitForCapturedProcess(browserProcess, BROWSER_CLEANUP_GRACE_MS)) {
             return;
         }
-        signalProcessGroup(browserProcess, "SIGKILL");
-        if (!(await waitForProcessGroup(pid, BROWSER_CLEANUP_GRACE_MS * 5))) {
+        if (!(await signalCapturedProcess(browserProcess, "SIGKILL"))) {
+            if (!capturedProcessIsLive(browserProcess)) {
+                return;
+            }
+            throw new Error(`Chromium process group ${pid} lost its owned control channel`);
+        }
+        if (!(await waitForCapturedProcess(browserProcess, BROWSER_CLEANUP_GRACE_MS * 5))) {
             throw new Error(`Chromium process group ${pid} did not exit after SIGKILL`);
         }
     })();
@@ -323,7 +369,7 @@ async function retireBrowserOwner(owner) {
     const browserProcess = owner.browserProcess;
     owner.browser = null;
     owner.browserProcess = null;
-    await disposeBrowser(browser, browserProcess, owner.reason);
+    await disposeBrowser(browser, browserProcess, owner.reason, owner);
     await Promise.all(Array.from(owner.acquiredProcesses, retireCapturedProcess));
     if (
         !(await bounded(
@@ -336,7 +382,7 @@ async function retireBrowserOwner(owner) {
     await Promise.all(Array.from(owner.acquiredProcesses, retireCapturedProcess));
 }
 
-async function disposeBrowser(browser, browserProcess, reason) {
+async function disposeBrowser(browser, browserProcess, reason, owner) {
     if (!browser) {
         return;
     }
@@ -344,20 +390,29 @@ async function disposeBrowser(browser, browserProcess, reason) {
     try {
         closePromise = browser.close({ reason: reason.message });
     } catch {}
-    const closed = await bounded(closePromise);
+    let closed = await bounded(closePromise);
+    if (!closed && owner?.acquiredProcesses.size) {
+        await Promise.all(Array.from(owner.acquiredProcesses, retireCapturedProcess));
+        closed = await bounded(closePromise, BROWSER_CLEANUP_GRACE_MS * 5);
+    }
     if (!closed && browserProcess) {
         let killed = false;
-        try {
-            killed = await bounded(browserProcess.kill());
-        } catch {}
-        if (!killed) {
+        const child = browserProcess.process;
+        if (childProcessHasExited(child)) {
+            killed = true;
+        } else {
             try {
-                const child = browserProcess.process;
-                child?.kill("SIGKILL");
-                if (child?.once && child.exitCode === null) {
-                    await bounded(new Promise((resolve) => child.once("exit", resolve)));
-                }
+                killed = await bounded(browserProcess.kill());
             } catch {}
+        }
+        if (!killed) {
+            // The captured POSIX supervisor owns descendant cleanup. A direct PID retry could target a reused PID.
+            if (globalThis.process.platform === "win32" && child && !childProcessHasExited(child)) {
+                try {
+                    child.kill("SIGKILL");
+                    await bounded(new Promise((resolve) => child.once("exit", resolve)));
+                } catch {}
+            }
         }
     }
     if (!closed) {

@@ -1450,7 +1450,8 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
                     )
                 ).ok
             ).toBe(true);
-            expect((await realtime.request("testChrome", realBrowserExecutable)).ok).toBe(true);
+            const chromeTest = await realtime.request("testChrome", realBrowserExecutable);
+            expect(chromeTest.ok, JSON.stringify(chromeTest)).toBe(true);
 
             let monitorID;
             let barrier;
@@ -1469,7 +1470,9 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
                 );
                 expect(created.ok).toBe(true);
                 monitorID = created.monitorID;
-                await realtime.waitFor("heartbeat", heartbeatFor(monitorID, 1), mark, 20_000);
+                await realtime
+                    .waitFor("heartbeat", heartbeatFor(monitorID, 1), mark, 20_000)
+                    .catch((error) => Promise.reject(new Error(`${error.message}\n${appLogs.join("")}`)));
 
                 const configuredBrowserPIDs = descendantProcesses(appProcess.pid)
                     .filter((process) => process.command.includes("playwright_chromiumdev_profile"))
