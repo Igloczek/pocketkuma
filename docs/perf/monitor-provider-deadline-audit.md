@@ -264,6 +264,48 @@ headers required by the connection and timed out, including across separate proc
 on the public `chromium.launch()` API. The only internal adapter is isolated in `ownedBrowserProcess()` and reads the
 exact-version Playwright 1.61.0 browser-process handle so an unresponsive owned child can receive `SIGKILL`.
 
+### Browser-owner invalidation follow-up
+
+The lifecycle campaign later found one remaining idle-owner gap. A successful check left its shared Chromium owner
+cached after an E2E SQLite restore. The restore returned HTTP 200 with the old process tree still alive even though
+the restored database had no monitor and `chromeExecutable = null`; a later monitor could reuse that pre-restore
+browser and its old launch configuration. Direct settings changes outside the general-settings socket had the same
+identity problem because every local browser used the constant cache key `local`.
+
+The exact chain is:
+
+- baseline: `2ad99a638f31ec396476d11ae491f09a55e671b8`;
+- RED tests: `26f8ef17`;
+- runtime and expanded tests: `e5f62c87`.
+
+Local owner identity now contains the persisted executable setting. A different setting retires the previous owner,
+while identical settings still reuse one healthy browser. Every owner also carries an abort signal, so global reset,
+monitor stop, timeout, and peer invalidation cancel checks in launch, context, page, navigation, screenshot, and close
+phases. Snapshot quiescence and graceful process shutdown both await the same idempotent global reset after stopping
+monitors. Remote owners already included user, record, and URL identity; the audit confirmed that remote edit/delete
+also await the targeted reset.
+
+The final focused file passes `27/27` in three consecutive runs. It covers concurrent reset calls, reset while a
+replacement starts, pending local launch and remote connect, all active page phases, URL and executable changes,
+late results, close escalation, a 200-check shared-owner deadline race, and one reset of 100 independent remote
+owners. A real local Chrome run verifies source and compiled settings mutation, screenshot serving, pause/resume,
+PID replacement, and bounded shutdown. The source-only snapshot run additionally forces a post-swap schema failure:
+the old browser disappears, the original database and setting are recovered, the monitor relaunches with a new PID,
+and a later successful restore retires that recovered owner before responding.
+
+Verification on this follow-up:
+
+- standard backend gate: unit `327 pass / 8 skip / 0 fail / 3,198 expect()`, authentication `13/13 / 424`, and
+  maintenance `9/9 / 143`;
+- backend-all: `400 pass / 8 skip / 0 fail / 3,321 expect()` across 48 files; the skips are the two separately run
+  browser opt-ins and six public-network TLS cases;
+- compiled binary: SMTP `1/1 / 6`, authentication `13/13 / 424`, maintenance `9/9 / 143`, SNMP lifecycle `1/1 / 6`,
+  and real-Chrome lifecycle all pass;
+- full Playwright E2E: `40/40` twice, including 200 serialized snapshot restores in total, SMTP through a local sink,
+  and no `error.log` after either run;
+- frozen build and lint pass with only the repository's existing warning categories. Production snapshot paths still
+  return the ordinary SPA HTML and expose no E2E operation or state.
+
 ## Measurements
 
 All cleanup measurements use a configured provider timeout of 50 ms and deterministic loopback peers. Test duration
@@ -384,6 +426,50 @@ startup final:            1984.829, 302.733, 299.839, 299.009, 298.604, 303.069,
 RSS baseline:             195472, 187520, 187328, 187456, 196240, 191840, 187648 KiB
 RSS final:                187360, 195920, 190896, 193216, 187328, 195872, 187344 KiB
 ```
+
+### Browser-owner invalidation measurements
+
+The follow-up comparison uses the exact baseline `2ad99a63` and runtime `e5f62c87`, Bun 1.3.14, Playwright 1.61.0,
+and local Chrome on the same Apple arm64 host. The mocked healthy reuse benchmark ran seven processes with 100,000
+checks after 1,000 warmups. Its median changed from 9.891167 to 9.924540 microseconds/check (+0.033373 microseconds,
++0.34%). The added settings read and identity comparison therefore do not materially affect an unchanged monitor.
+
+An idle-owner reset benchmark ran 10,000 reset/reacquire cycles per process. Reset itself changed from 1.808035 to
+2.104475 microseconds (+0.296440 microseconds). Alternating executable identity exposed the baseline bug directly:
+10,000 changes produced one launch and zero closes. The result produced 10,001 launches and 10,000 closes at a
+15.954754-microsecond median per mocked change cycle. That number is the bookkeeping cost; a real configuration
+change intentionally includes actual browser close and launch time.
+
+```text
+healthy baseline: 9.972180, 9.891167, 9.790845, 9.932835, 9.766917, 9.782113, 10.039155 us/check
+healthy result:   9.802763, 9.939340, 9.916915, 9.925700, 9.918998, 9.924540, 9.982964 us/check
+reset baseline:   1.923604, 1.770225, 1.872642, 1.745159, 1.876845, 1.808035, 1.753280 us/reset
+reset result:     2.019885, 2.294919, 2.091469, 2.161440, 2.104475, 2.100370, 2.105627 us/reset
+changed baseline: 8.900983, 8.947967, 8.819617, 8.834571, 8.856246, 8.985171, 8.965658 us/check
+changed result:   16.283004, 15.819604, 15.939271, 15.892467, 16.022654, 15.954754, 16.129025 us/check
+```
+
+A real Chrome was idle during five compiled shutdown samples. Median graceful shutdown changed from 2,019.971 to
+2,036.317 ms (+16.346 ms), and every final response waited until all captured Chromium PIDs disappeared. A real
+development snapshot restore changed from a 13.500 ms ten-sample baseline median that returned with the old PID alive
+to a 43.101 ms five-sample result median with the full old tree gone. This dev-only operation deliberately pays the
+extra 29.601 ms for real process cleanup.
+
+Seven fresh-data compiled starts show no production idle regression: median readiness changed from 302.889 to
+299.756 ms (-3.133 ms), and median RSS from 197,152 to 197,040 KiB (-112 KiB). Graceful shutdown with no browser
+owner changed from 2,037.057 to 2,042.233 ms (+5.176 ms). Cold first samples are retained below.
+
+```text
+startup baseline: 1443.551, 294.570, 306.324, 280.122, 302.889, 303.697, 277.310 ms
+startup result:    389.382, 278.145, 301.731, 276.320, 309.698, 299.756, 280.345 ms
+RSS baseline:      196768, 197152, 197136, 197264, 197168, 197392, 196832 KiB
+RSS result:        197040, 196640, 197280, 196816, 197072, 197168, 196752 KiB
+shutdown baseline: 2042.837, 2035.305, 2035.048, 2037.057, 2041.512, 2036.446, 2041.983 ms
+shutdown result:   2043.122, 2031.106, 2043.770, 2042.233, 2036.860, 2035.178, 2042.507 ms
+```
+
+The final arm64 executable is 91,400,930 bytes with SHA-256
+`ef19c8e4ed88122580212e99276d9e4d04bdb78ab5812a7ca843756732ed6def`.
 
 ## Residual limits
 
