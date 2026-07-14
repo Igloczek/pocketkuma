@@ -212,4 +212,67 @@ describe("monitor numeric validation", () => {
             );
         }
     });
+
+    test("normalizeRuntimeConfig() gives malformed legacy rows finite safe defaults without a database write", () => {
+        const bean = monitor({
+            type: "ping",
+            interval: "bogus",
+            retryInterval: 0,
+            resendInterval: Infinity,
+            maxretries: -1,
+            timeout: "bogus",
+            maxredirects: 0.5,
+            response_max_length: "bogus",
+            port: "80garbage",
+            packetSize: "bogus",
+            ping_count: Infinity,
+            ping_per_request_timeout: 0,
+        });
+
+        bean.normalizeRuntimeConfig();
+
+        expect({
+            interval: bean.interval,
+            retryInterval: bean.retryInterval,
+            resendInterval: bean.resendInterval,
+            maxretries: bean.maxretries,
+            timeout: bean.timeout,
+            maxredirects: bean.maxredirects,
+            response_max_length: bean.response_max_length,
+            port: bean.port,
+            packetSize: bean.packetSize,
+            ping_count: bean.ping_count,
+            ping_per_request_timeout: bean.ping_per_request_timeout,
+        }).toEqual({
+            interval: 1,
+            retryInterval: 1,
+            resendInterval: 0,
+            maxretries: 0,
+            timeout: 0.8,
+            maxredirects: 10,
+            response_max_length: 1024,
+            port: null,
+            packetSize: 56,
+            ping_count: 1,
+            ping_per_request_timeout: 2,
+        });
+    });
+
+    test("getEffectiveTimeout() preserves finite values and replaces zero, missing, malformed, and overflow values", () => {
+        for (const [value, expected] of [
+            ["0.25", 0.25],
+            [0, 48],
+            ["0", 48],
+            ["", 48],
+            ["bogus", 48],
+            [NaN, 48],
+            [Infinity, 48],
+            [-1, 48],
+            [MAX_INTERVAL_SECOND + 1, 48],
+            [null, 48],
+            [undefined, 48],
+        ]) {
+            expect(monitor({ interval: 60, timeout: value }).getEffectiveTimeout(), String(value)).toBe(expected);
+        }
+    });
 });
