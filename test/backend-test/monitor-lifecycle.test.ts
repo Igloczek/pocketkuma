@@ -429,6 +429,15 @@ function countMonitors() {
     }
 }
 
+function queryScreenshotDelay(monitorID) {
+    const db = new BunDatabase(path.join(dataDir, "kuma.db"), { readonly: true, strict: true });
+    try {
+        return db.query("SELECT screenshot_delay FROM monitor WHERE id = ?").get(monitorID)?.screenshot_delay;
+    } finally {
+        db.close();
+    }
+}
+
 function updateMonitorStorage(monitorID, values) {
     const db = new BunDatabase(path.join(dataDir, "kuma.db"), { strict: true });
     try {
@@ -524,6 +533,51 @@ afterAll(async () => {
 });
 
 describe("monitor lifecycle over the production WebSocket transport", () => {
+    test("real-browser monitor responses preserve the configured screenshot delay", async () => {
+        const created = await realtime.request(
+            "add",
+            monitorPayload({
+                type: "real-browser",
+                active: false,
+                interval: 2,
+                screenshot_delay: 250,
+            })
+        );
+        expect(created.ok).toBe(true);
+        try {
+            const response = await realtime.request("getMonitor", created.monitorID);
+            expect(response.ok).toBe(true);
+            expect(response.monitor.screenshot_delay).toBe(250);
+        } finally {
+            await realtime.request("deleteMonitor", created.monitorID, false);
+        }
+    });
+
+    test("real-browser monitor edits persist a changed screenshot delay", async () => {
+        const created = await realtime.request(
+            "add",
+            monitorPayload({
+                type: "real-browser",
+                active: false,
+                interval: 2,
+                screenshot_delay: 250,
+            })
+        );
+        expect(created.ok).toBe(true);
+        try {
+            const response = await realtime.request("getMonitor", created.monitorID);
+            expect(response.ok).toBe(true);
+            const edited = await realtime.request("editMonitor", {
+                ...response.monitor,
+                screenshot_delay: 500,
+            });
+            expect(edited.ok).toBe(true);
+            expect(queryScreenshotDelay(created.monitorID)).toBe(500);
+        } finally {
+            await realtime.request("deleteMonitor", created.monitorID, false);
+        }
+    });
+
     test("add and edit normalize numeric strings and reject invalid timeouts without partial writes", async () => {
         const timeoutError = `Timeout must be 0 or a finite number between 0.1 and ${MAX_INTERVAL_SECOND} seconds`;
         const countBefore = countMonitors();
