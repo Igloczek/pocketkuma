@@ -573,6 +573,15 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
             });
             expect(edited.ok).toBe(true);
             expect(queryScreenshotDelay(created.monitorID)).toBe(500);
+
+            const current = await realtime.request("getMonitor", created.monitorID);
+            const rejected = await realtime.request("editMonitor", {
+                ...current.monitor,
+                screenshot_delay: 1_000,
+            });
+            expect(rejected.ok).toBe(false);
+            expect(rejected.msg).toBe("Screenshot delay must be less than 1000ms (0.5 × interval)");
+            expect(queryScreenshotDelay(created.monitorID)).toBe(500);
         } finally {
             await realtime.request("deleteMonitor", created.monitorID, false);
         }

@@ -307,6 +307,7 @@ class Monitor extends BeanModel {
             kafkaProducerAllowAutoTopicCreation: this.getKafkaProducerAllowAutoTopicCreation(),
             kafkaProducerMessage: this.kafkaProducerMessage,
             screenshot,
+            screenshot_delay: this.screenshot_delay,
             cacheBust: this.getCacheBust(),
             remote_browser: this.remote_browser,
             snmpOid: this.snmpOid,
