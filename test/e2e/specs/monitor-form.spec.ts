@@ -105,6 +105,36 @@ test.describe("Monitor Form", () => {
         await screenshot(testInfo, page);
     });
 
+    test("exposes retry, redirect, and timeout bounds to the browser", async ({ page }) => {
+        await page.goto("./add");
+        await login(page);
+        await selectMonitorType(page, "http");
+
+        const retries = page.locator("#maxRetries");
+        await expect(retries).toHaveAttribute("min", "0");
+        await expect(retries).toHaveAttribute("max", "100");
+        await retries.fill("101");
+        expect(await retries.evaluate((input) => input.checkValidity())).toBe(false);
+        await retries.fill("100");
+        expect(await retries.evaluate((input) => input.checkValidity())).toBe(true);
+
+        const redirects = page.locator("#maxRedirects");
+        await expect(redirects).toHaveAttribute("min", "0");
+        await expect(redirects).toHaveAttribute("max", "100");
+        await redirects.fill("101");
+        expect(await redirects.evaluate((input) => input.checkValidity())).toBe(false);
+        await redirects.fill("100");
+        expect(await redirects.evaluate((input) => input.checkValidity())).toBe(true);
+
+        const timeout = page.locator("#timeout");
+        await expect(timeout).toHaveAttribute("min", "0");
+        await expect(timeout).toHaveAttribute("step", "0.1");
+        await timeout.fill("0.01");
+        expect(await timeout.evaluate((input) => input.checkValidity())).toBe(false);
+        await timeout.fill("0.1");
+        expect(await timeout.evaluate((input) => input.checkValidity())).toBe(true);
+    });
+
     test("successful condition", async ({ page }, testInfo) => {
         await page.goto("./add");
         await login(page);
