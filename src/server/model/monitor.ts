@@ -12,6 +12,9 @@ import {
     flipStatus,
     MAX_INTERVAL_SECOND,
     MIN_INTERVAL_SECOND,
+    MIN_PROVIDER_TIMEOUT_SECOND,
+    MAX_MONITOR_RETRIES,
+    MAX_MONITOR_REDIRECTS,
     SQL_DATETIME_FORMAT,
     evaluateJsonQuery,
     PING_PACKET_SIZE_MIN,
@@ -58,8 +61,6 @@ import { buildProxyFetchOption, resolveCoreHttpProxy } from "@/server/proxy-vali
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const version = packageJson.version;
-const MIN_PROVIDER_TIMEOUT_SECOND = 0.001;
-
 const rootCertificates = rootCertificatesFingerprints();
 
 function normalizeNumber(value, { error, integer = false, safeInteger = false, min, max }) {
@@ -108,8 +109,9 @@ class Monitor extends BeanModel {
             min: MIN_INTERVAL_SECOND,
             max: MAX_INTERVAL_SECOND,
         });
-        return runtimeNumber(this.timeout, interval * 0.8, {
-            min: MIN_PROVIDER_TIMEOUT_SECOND,
+        const minimum = this.type === "oracledb" ? 1 : MIN_PROVIDER_TIMEOUT_SECOND;
+        return runtimeNumber(this.timeout, Math.max(minimum, interval * 0.8), {
+            min: minimum,
             max: MAX_INTERVAL_SECOND,
         });
     }
@@ -133,13 +135,13 @@ class Monitor extends BeanModel {
         this.maxretries = runtimeNumber(this.maxretries, 0, {
             safeInteger: true,
             min: 0,
-            max: Number.MAX_SAFE_INTEGER,
+            max: MAX_MONITOR_RETRIES,
         });
         this.timeout = this.getEffectiveTimeout();
         this.maxredirects = runtimeNumber(this.maxredirects, 10, {
             safeInteger: true,
             min: 0,
-            max: Number.MAX_SAFE_INTEGER,
+            max: MAX_MONITOR_REDIRECTS,
         });
         this.response_max_length = runtimeNumber(
             this.response_max_length !== undefined ? this.response_max_length : this.responseMaxLength,
@@ -1760,21 +1762,22 @@ class Monitor extends BeanModel {
             max: Number.MAX_SAFE_INTEGER,
         });
         this.maxretries = normalizeNumber(this.maxretries, {
-            error: "Retries must be a non-negative safe integer",
+            error: `Retries must be an integer between 0 and ${MAX_MONITOR_RETRIES}`,
             safeInteger: true,
             min: 0,
-            max: Number.MAX_SAFE_INTEGER,
+            max: MAX_MONITOR_RETRIES,
         });
+        const minimumTimeout = this.type === "oracledb" ? 1 : MIN_PROVIDER_TIMEOUT_SECOND;
         this.timeout = normalizeNumber(this.timeout, {
-            error: `Timeout must be 0 or a finite number between ${MIN_PROVIDER_TIMEOUT_SECOND} and ${MAX_INTERVAL_SECOND} seconds`,
-            min: Number(this.timeout) === 0 ? 0 : MIN_PROVIDER_TIMEOUT_SECOND,
+            error: `${this.type === "oracledb" ? "Oracle timeout" : "Timeout"} must be 0 or a finite number between ${minimumTimeout} and ${MAX_INTERVAL_SECOND} seconds`,
+            min: Number(this.timeout) === 0 ? 0 : minimumTimeout,
             max: MAX_INTERVAL_SECOND,
         });
         this.maxredirects = normalizeNumber(this.maxredirects, {
-            error: "Max redirects must be a non-negative safe integer",
+            error: `Max redirects must be an integer between 0 and ${MAX_MONITOR_REDIRECTS}`,
             safeInteger: true,
             min: 0,
-            max: Number.MAX_SAFE_INTEGER,
+            max: MAX_MONITOR_REDIRECTS,
         });
         this.response_max_length = normalizeNumber(
             this.response_max_length !== undefined ? this.response_max_length : this.responseMaxLength,

@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { beforeAll, describe, expect, test } from "bun:test";
+import { beforeAll, describe, expect, jest, test } from "bun:test";
 import grpc from "@grpc/grpc-js";
 import protoLoader from "@grpc/proto-loader";
 import dgram from "node:dgram";
@@ -266,7 +266,7 @@ describe("monitor provider timeout cleanup", () => {
     test("SNMP closes once across success, callback error, and synchronous session creation failure", async () => {
         const originalCreateSession = snmp.createSession;
         try {
-            for (const outcome of ["success", "error"]) {
+            for (const outcome of ["success", "error", "empty"]) {
                 const session = new EventEmitter();
                 let callbacks = 0;
                 let closeCalls = 0;
@@ -279,9 +279,11 @@ describe("monitor provider timeout cleanup", () => {
                     if (outcome === "success") {
                         callback(null, [{ type: snmp.ObjectType.OctetString, value: "ok" }]);
                         callback(new Error("late callback"));
-                    } else {
+                    } else if (outcome === "error") {
                         callback(new Error("expected callback error"));
                         callback(null, [{ type: snmp.ObjectType.OctetString, value: "late" }]);
+                    } else {
+                        callback(null, []);
                     }
                 };
                 snmp.createSession = () => session;
@@ -290,6 +292,8 @@ describe("monitor provider timeout cleanup", () => {
                 if (outcome === "success") {
                     await check;
                     expect(heartbeat.status).toBe(1);
+                } else if (outcome === "empty") {
+                    await expect(check).rejects.toThrow("No varbinds returned from SNMP session");
                 } else {
                     await expect(check).rejects.toThrow("expected callback error");
                 }
@@ -306,11 +310,59 @@ describe("monitor provider timeout cleanup", () => {
         }
     });
 
+    test("SNMP deadline deterministically cancels once and ignores a late callback", async () => {
+        const originalCreateSession = snmp.createSession;
+        const session = new EventEmitter();
+        let callback;
+        let cancelCalls = 0;
+        let closeCalls = 0;
+        let settlements = 0;
+        session.get = (_oids, response) => {
+            callback = response;
+        };
+        session.cancelRequests = (error) => {
+            cancelCalls++;
+            callback(error);
+        };
+        session.close = () => {
+            closeCalls++;
+        };
+        snmp.createSession = () => session;
+        jest.useFakeTimers();
+        try {
+            const result = new SNMPMonitorType().check(snmpMonitor(), {}).then(
+                () => {
+                    settlements++;
+                },
+                (error) => {
+                    settlements++;
+                    return error;
+                }
+            );
+            jest.advanceTimersByTime(99);
+            await Promise.resolve();
+            expect(settlements).toBe(0);
+            jest.advanceTimersByTime(1);
+            expect(await result).toBeInstanceOf(Error);
+            expect(cancelCalls).toBe(1);
+            expect(closeCalls).toBe(1);
+            expect(settlements).toBe(1);
+
+            callback(null, [{ type: snmp.ObjectType.OctetString, value: "late" }]);
+            await Promise.resolve();
+            expect(settlements).toBe(1);
+            expect(closeCalls).toBe(1);
+        } finally {
+            jest.useRealTimers();
+            snmp.createSession = originalCreateSession;
+        }
+    });
+
     test("gRPC stop enforces monitor timeout and cancels the active call", async () => {
         const fixture = await createHangingGrpcServer();
         const monitor = new Monitor();
         Object.assign(monitor, {
-            timeout: 0.05,
+            timeout: 0.1,
             grpcUrl: `127.0.0.1:${fixture.port}`,
             grpcProtobuf: testProto,
             grpcServiceName: "test.TestService",
@@ -344,7 +396,7 @@ describe("monitor provider timeout cleanup", () => {
         const fixture = await createHangingTcpServer();
         const monitor = new Monitor();
         Object.assign(monitor, {
-            timeout: 0.05,
+            timeout: 0.1,
             databaseConnectionString: `postgresql://user:pass@127.0.0.1:${fixture.port}/db`,
             databaseQuery: "SELECT 1",
         });
@@ -395,7 +447,7 @@ describe("monitor provider timeout cleanup", () => {
         const fixture = await createHangingTcpServer();
         const monitor = new Monitor();
         Object.assign(monitor, {
-            timeout: 0.05,
+            timeout: 0.1,
             databaseConnectionString: `mongodb://127.0.0.1:${fixture.port}/db?directConnection=true`,
         });
         try {
@@ -409,7 +461,7 @@ describe("monitor provider timeout cleanup", () => {
         const fixture = await createHangingTcpServer();
         const monitor = new Monitor();
         Object.assign(monitor, {
-            timeout: 0.05,
+            timeout: 0.1,
             databaseConnectionString: `mysql://user:pass@127.0.0.1:${fixture.port}/db`,
             databaseQuery: "SELECT 1",
         });
@@ -424,7 +476,7 @@ describe("monitor provider timeout cleanup", () => {
         const fixture = await createHangingTcpServer();
         const monitor = new Monitor();
         Object.assign(monitor, {
-            timeout: 0.05,
+            timeout: 0.1,
             databaseConnectionString: `redis://127.0.0.1:${fixture.port}`,
             ignoreTls: false,
         });
@@ -439,7 +491,7 @@ describe("monitor provider timeout cleanup", () => {
         const fixture = await createHangingTcpServer();
         const monitor = new Monitor();
         Object.assign(monitor, {
-            timeout: 0.05,
+            timeout: 0.1,
             hostname: "127.0.0.1",
             port: fixture.port,
             smtpSecurity: "nostarttls",
@@ -455,7 +507,7 @@ describe("monitor provider timeout cleanup", () => {
         const fixture = await createHangingTcpServer();
         const monitor = new Monitor();
         Object.assign(monitor, {
-            timeout: 0.05,
+            timeout: 0.1,
             hostname: "127.0.0.1",
             port: fixture.port,
             mqttTopic: "health",

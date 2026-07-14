@@ -2,6 +2,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database as BunDatabase } from "bun:sqlite";
+import dgram from "node:dgram";
 import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";
@@ -96,6 +97,28 @@ async function createHangingTcpServer() {
             this.destroySockets();
             await closeServer(server);
         },
+    };
+}
+
+async function createHangingUdpServer() {
+    let requestArrived;
+    const arrived = new Promise((resolve) => {
+        requestArrived = resolve;
+    });
+    const server = dgram.createSocket("udp4");
+    let requests = 0;
+    server.on("message", () => {
+        requests++;
+        requestArrived();
+    });
+    await new Promise((resolve) => server.bind(0, "127.0.0.1", resolve));
+    return {
+        port: server.address().port,
+        requestArrived: arrived,
+        get requests() {
+            return requests;
+        },
+        close: () => new Promise((resolve) => server.close(resolve)),
     };
 }
 
@@ -681,6 +704,57 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
         } finally {
             fixture.destroySockets();
             await pause?.catch(() => {});
+            if (!appProcess || appProcess.exitCode !== null) {
+                await startApp();
+                await login();
+            }
+            if (monitorID) {
+                await realtime.request("deleteMonitor", monitorID, false).catch(() => {});
+            }
+            await fixture.close();
+        }
+    }, 20_000);
+
+    test("legacy excessive SNMP retries stay bounded across restart and pause", async () => {
+        const fixture = await createHangingUdpServer();
+        let monitorID;
+        try {
+            const created = await realtime.request(
+                "add",
+                monitorPayload({
+                    type: "snmp",
+                    active: false,
+                    hostname: "127.0.0.1",
+                    port: fixture.port,
+                    timeout: 0.1,
+                    maxretries: 100,
+                    radiusPassword: "public",
+                    snmpVersion: "2c",
+                    snmpOid: "1.3.6.1.2.1.1.1.0",
+                    jsonPath: "$",
+                    jsonPathOperator: "!=",
+                    expectedValue: "",
+                })
+            );
+            expect(created.ok).toBe(true);
+            monitorID = created.monitorID;
+
+            await stopApp();
+            updateMonitorStorage(monitorID, { maxretries: 1000, active: 1 });
+            await startApp();
+            await login();
+            await withTimeout(fixture.requestArrived, 5_000, "legacy SNMP monitor did not send a request");
+
+            const started = performance.now();
+            expect(
+                (await withTimeout(realtime.request("pauseMonitor", monitorID), 500, "SNMP pause timed out")).ok
+            ).toBe(true);
+            expect(performance.now() - started).toBeLessThan(500);
+            expect(queryMonitorStorage(monitorID)).toMatchObject({ maxretries: 1000, maxretries_type: "integer" });
+            const requestsAfterPause = fixture.requests;
+            await Bun.sleep(200);
+            expect(fixture.requests).toBe(requestsAfterPause);
+        } finally {
             if (!appProcess || appProcess.exitCode !== null) {
                 await startApp();
                 await login();
