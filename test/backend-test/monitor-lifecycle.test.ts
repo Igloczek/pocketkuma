@@ -26,6 +26,7 @@ let targetServer;
 let targetUrl;
 let realtime;
 let targetBarrier;
+let appNoProxy = "";
 const proxyRequests = [];
 const envProxyRequests = [];
 const targetRequests = [];
@@ -346,7 +347,7 @@ async function startApp() {
             NODE_ENV: binaryPath ? "production" : "development",
             HTTP_PROXY: envProxyUrl,
             HTTPS_PROXY: envProxyUrl,
-            NO_PROXY: "",
+            NO_PROXY: appNoProxy,
             UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
             UPTIME_KUMA_LOG_FORMAT: "json",
             UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC: pendingBrowserAcquisition
@@ -1631,6 +1632,161 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
                 if (monitorID) {
                     await realtime.request("deleteMonitor", monitorID, false).catch(() => {});
                 }
+            }
+        },
+        30_000
+    );
+
+    test.skipIf(!pendingBrowserAcquisition || process.platform === "win32")(
+        "Chromium test callback waits for a pre-handshake process tree to retire",
+        async () => {
+            const { executable, pidFile } = preparePendingBrowserWrapper();
+            let processGroup;
+            try {
+                const testing = realtime.request("testChrome", executable);
+                processGroup = (await pendingBrowserProcesses(pidFile)).processGroup;
+
+                const result = await testing;
+
+                expect(result.ok).toBe(false);
+                expect(processGroupSurvives(processGroup)).toBe(false);
+            } finally {
+                if (processGroup) {
+                    try {
+                        process.kill(-processGroup, "SIGKILL");
+                    } catch {}
+                }
+            }
+        },
+        15_000
+    );
+
+    test.skipIf(!pendingBrowserAcquisition)(
+        "remote-browser test callback waits for its pending WebSocket to close",
+        async () => {
+            await stopApp();
+            appNoProxy = "127.0.0.1,localhost";
+            let fixture;
+            try {
+                await startApp();
+                await login();
+                fixture = await createHangingTcpServer();
+                const testing = realtime.request("testRemoteBrowser", {
+                    name: "Pending remote browser",
+                    url: `ws://127.0.0.1:${fixture.port}`,
+                });
+                const opened = await Promise.race([
+                    fixture.requestArrived.then(() => true),
+                    testing.then(() => false),
+                    Bun.sleep(2_000).then(() => false),
+                ]);
+
+                const result = await testing;
+
+                expect(opened, JSON.stringify(result)).toBe(true);
+                expect(result.ok).toBe(false);
+                await withTimeout(fixture.socketClosed, 1_000, "remote-browser test left its WebSocket open");
+            } finally {
+                await fixture?.close();
+                await stopApp();
+                appNoProxy = "";
+                await startApp();
+                await login();
+            }
+        },
+        15_000
+    );
+
+    test.skipIf(!pendingBrowserAcquisition)(
+        "remote-browser edit and delete callbacks retire their pending WebSockets",
+        async () => {
+            await stopApp();
+            appNoProxy = "127.0.0.1,localhost";
+            let firstFixture;
+            let secondFixture;
+            let monitorID;
+            let remoteBrowserID;
+            try {
+                await startApp();
+                await login();
+                firstFixture = await createHangingTcpServer();
+                secondFixture = await createHangingTcpServer();
+
+                const added = await realtime.request(
+                    "addRemoteBrowser",
+                    {
+                        name: "Pending remote browser",
+                        url: `ws://127.0.0.1:${firstFixture.port}`,
+                    },
+                    null
+                );
+                expect(added.ok).toBe(true);
+                remoteBrowserID = added.id;
+
+                const created = await realtime.request(
+                    "add",
+                    monitorPayload({
+                        type: "real-browser",
+                        name: "Pending remote-browser lifecycle",
+                        interval: 1,
+                        timeout: 30,
+                        screenshot_delay: 0,
+                        remote_browser: remoteBrowserID,
+                    })
+                );
+                expect(created.ok).toBe(true);
+                monitorID = created.monitorID;
+                await withTimeout(
+                    firstFixture.requestArrived,
+                    5_000,
+                    "remote-browser monitor did not start its first connection"
+                );
+
+                const editOrder = [];
+                firstFixture.socketClosed.then(() => editOrder.push("socket closed"));
+                const editing = realtime
+                    .request(
+                        "addRemoteBrowser",
+                        {
+                            name: "Updated pending remote browser",
+                            url: `ws://127.0.0.1:${secondFixture.port}`,
+                        },
+                        remoteBrowserID
+                    )
+                    .then((result) => {
+                        editOrder.push("callback");
+                        return result;
+                    });
+                expect((await editing).ok).toBe(true);
+                expect(editOrder).toEqual(["socket closed", "callback"]);
+                await withTimeout(
+                    secondFixture.requestArrived,
+                    10_000,
+                    "remote-browser monitor did not use its edited connection"
+                );
+
+                const deleteOrder = [];
+                secondFixture.socketClosed.then(() => deleteOrder.push("socket closed"));
+                const deleting = realtime.request("deleteRemoteBrowser", remoteBrowserID).then((result) => {
+                    deleteOrder.push("callback");
+                    return result;
+                });
+                expect((await deleting).ok).toBe(true);
+                remoteBrowserID = null;
+                expect(deleteOrder).toEqual(["socket closed", "callback"]);
+                expect((await realtime.request("getMonitor", monitorID)).monitor.remote_browser).toBeNull();
+            } finally {
+                if (monitorID && appProcess?.exitCode === null) {
+                    await realtime.request("deleteMonitor", monitorID, false).catch(() => {});
+                }
+                if (remoteBrowserID && appProcess?.exitCode === null) {
+                    await realtime.request("deleteRemoteBrowser", remoteBrowserID).catch(() => {});
+                }
+                await Promise.all([firstFixture?.close(), secondFixture?.close()]);
+                await stopApp();
+                appNoProxy = "";
+                await startApp();
+                await login();
             }
         },
         30_000
