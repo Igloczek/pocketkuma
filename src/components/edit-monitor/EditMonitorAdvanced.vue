@@ -271,6 +271,7 @@
                 class="form-control"
                 required
                 min="0"
+                :max="maxRedirects"
                 step="1"
             />
             <div class="form-text">
@@ -389,7 +390,7 @@
 
 <script>
 import VueMultiselect from "vue-multiselect";
-import { TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/util";
+import { MAX_MONITOR_REDIRECTS, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/constants";
 
 export default {
     name: "EditMonitorAdvanced",
@@ -418,6 +419,10 @@ export default {
     },
 
     computed: {
+        maxRedirects() {
+            return MAX_MONITOR_REDIRECTS;
+        },
+
         showDomainExpiryNotification() {
             return this.monitor.type in TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD;
         },

@@ -88,6 +88,20 @@ describe("monitor numeric validation", () => {
         }
     });
 
+    test("validate() respects Oracle's one-second connection timeout granularity", () => {
+        const error = `Oracle timeout must be 0 or a finite number between 1 and ${MAX_INTERVAL_SECOND} seconds`;
+        for (const value of [0.1, 0.999]) {
+            expect(() => monitor({ type: "oracledb", timeout: value }).validate()).toThrow(error);
+            expect(monitor({ type: "oracledb", interval: 60, timeout: value }).getEffectiveTimeout()).toBe(48);
+        }
+        expect(monitor({ type: "oracledb", interval: 1, timeout: 0.1 }).getEffectiveTimeout()).toBe(1);
+        for (const value of [0, 1, "1", MAX_INTERVAL_SECOND]) {
+            const bean = monitor({ type: "oracledb", timeout: value });
+            bean.validate();
+            expect(bean.timeout).toBe(Number(value));
+        }
+    });
+
     test("validate() rejects malformed, non-finite, negative, missing, and overflowing timeouts", () => {
         expectInvalid(
             "timeout",

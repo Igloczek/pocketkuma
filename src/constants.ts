@@ -20,6 +20,9 @@ export const SQL_DATETIME_FORMAT_WITHOUT_SECOND = "YYYY-MM-DD HH:mm";
 
 export const MAX_INTERVAL_SECOND = 2073600; // 24 days
 export const MIN_INTERVAL_SECOND = 1; // 1 second
+export const MIN_PROVIDER_TIMEOUT_SECOND = 0.1;
+export const MAX_MONITOR_RETRIES = 100;
+export const MAX_MONITOR_REDIRECTS = 100;
 
 export const INCIDENT_PAGE_SIZE = 10;
 
