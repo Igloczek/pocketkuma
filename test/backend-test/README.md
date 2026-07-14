@@ -73,7 +73,8 @@ The unit subset runs fast, hermetic tests (no Docker or public network):
 - `monitor-provider-timeout.test.ts` — loopback deadlines, SNMP retry quantization/cancellation, socket cleanup, and
   process-kill behavior
 - `real-browser-monitor-lifecycle.test.ts` — browser acquisition/context/page deadlines, stop/reset cancellation,
-  configuration identity, shared-owner races, late-result cleanup, and local/remote force-cleanup behavior
+  configuration identity, pending-acquisition retirement, targeted remote-owner reset, shared-owner races, late-result
+  cleanup, and local/remote force-cleanup behavior
 - `check-translations.test.ts` — translation key and placeholder safety
 - `monitors/{gamedig,grpc,steam,tcp,websocket}.test.ts` — mocked or loopback protocol behavior
 - `notification-providers/notification-provider.test.ts` — provider error normalization
@@ -125,4 +126,20 @@ completion, post-swap database recovery, restored settings, and a fresh owner af
 ```bash
 POCKETKUMA_REAL_BROWSER_CHROME=/usr/bin/chromium \
 bun test ./test/backend-test/monitor-lifecycle.test.ts --test-name-pattern "SQLite restore retires"
+```
+
+A separate test-only opt-in uses a Chromium wrapper that stalls before the Playwright handshake and a loopback remote
+WebSocket that never answers. It verifies settings and test callbacks, remote-browser edit/delete, SQLite restore,
+and `SIGTERM` cannot return while the matching process tree or socket is still live. The snapshot cases run only
+against source; the other cases exercise source or the compiled executable:
+
+```bash
+POCKETKUMA_PENDING_BROWSER_ACQUISITION=1 \
+bun test ./test/backend-test/monitor-lifecycle.test.ts \
+  --test-name-pattern "pre-handshake|remote-browser (test|edit)|SIGTERM"
+
+POCKETKUMA_PENDING_BROWSER_ACQUISITION=1 \
+POCKETKUMA_BINARY=./pocketkuma \
+bun test ./test/backend-test/monitor-lifecycle.test.ts \
+  --test-name-pattern "pre-handshake|remote-browser (test|edit)|SIGTERM"
 ```

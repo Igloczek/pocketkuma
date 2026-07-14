@@ -108,3 +108,7 @@ Then place that `kuma.db` into the PocketKuma data directory before starting the
 ### Notes for real-browser monitors
 
 `real-browser` monitors use Chromium via `playwright-core`. That package is optional and loaded only when such a monitor runs. Regular HTTP/keyword/redis monitors do not need it.
+
+Browser launch and remote-connect handshakes have a five-second hard limit. Configuration changes, remote-browser
+deletion, SQLite restore, and graceful shutdown do not report completion until an in-progress browser acquisition has
+settled and its owned process or connection has been retired.
