@@ -72,8 +72,8 @@ The unit subset runs fast, hermetic tests (no Docker or public network):
 - `monitor-scheduler.test.ts` — scheduler timer control
 - `monitor-provider-timeout.test.ts` — loopback deadlines, SNMP retry quantization/cancellation, socket cleanup, and
   process-kill behavior
-- `real-browser-monitor-lifecycle.test.ts` — browser acquisition/context/page deadlines, stop cancellation,
-  shared-owner races, and local/remote force-cleanup behavior
+- `real-browser-monitor-lifecycle.test.ts` — browser acquisition/context/page deadlines, stop/reset cancellation,
+  configuration identity, shared-owner races, late-result cleanup, and local/remote force-cleanup behavior
 - `check-translations.test.ts` — translation key and placeholder safety
 - `monitors/{gamedig,grpc,steam,tcp,websocket}.test.ts` — mocked or loopback protocol behavior
 - `notification-providers/notification-provider.test.ts` — provider error normalization
@@ -109,11 +109,20 @@ The production WebSocket lifecycle tests can also target a compiled executable w
 POCKETKUMA_BINARY=./pocketkuma bun test ./test/backend-test/monitor-lifecycle.test.ts
 ```
 
-An opt-in production-binary case exercises a real local Chrome/Chromium process, screenshot serving, pause during an
-active navigation, relaunch, and process cleanup on shutdown:
+An opt-in case exercises a real local Chrome/Chromium process, screenshot serving, settings-triggered owner
+replacement, pause during an active navigation, relaunch, and process cleanup on shutdown. Without
+`POCKETKUMA_BINARY` it runs against source; with the variable it runs against the compiled executable:
 
 ```bash
 POCKETKUMA_BINARY=./pocketkuma \
 POCKETKUMA_REAL_BROWSER_CHROME=/usr/bin/chromium \
-bun test ./test/backend-test/monitor-lifecycle.test.ts --test-name-pattern "compiled real-browser"
+bun test ./test/backend-test/monitor-lifecycle.test.ts --test-name-pattern "real-browser monitor completes"
+```
+
+Source runs also include a development-only SQLite snapshot scenario. It verifies browser cleanup before restore
+completion, post-swap database recovery, restored settings, and a fresh owner after rehydration:
+
+```bash
+POCKETKUMA_REAL_BROWSER_CHROME=/usr/bin/chromium \
+bun test ./test/backend-test/monitor-lifecycle.test.ts --test-name-pattern "SQLite restore retires"
 ```

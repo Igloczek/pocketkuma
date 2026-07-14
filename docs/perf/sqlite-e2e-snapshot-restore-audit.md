@@ -61,8 +61,34 @@ On `77ac6df5`:
   fallback, never restore text or snapshot phase JSON.
 - Final focused snapshot repeat after formatting: `14/14`, empty `error.log`, zero monitor errors, zero FK errors.
 
-README was not changed because snapshot restore is an internal development-test route, not a supported production
-backup/restore feature or operator interface.
+The root README was not changed because snapshot restore is an internal development-test route, not a supported
+production backup/restore feature or operator interface.
+
+## Idle browser-owner follow-up
+
+A later real-Chrome probe found that monitor quiescence alone did not retire a successful, idle shared browser. On
+baseline `2ad99a63`, restore returned HTTP 200 while the captured `playwright_chromiumdev_profile` process remained
+alive and the restored database contained no monitor and a null executable setting. RED commit `26f8ef17` preserves
+that exact process-level failure. Runtime `e5f62c87` adds the browser cache to the same quiescence boundary: monitors
+stop first, then the global browser reset is awaited before SQLite is closed or replaced.
+
+The real-browser snapshot regression starts from a snapshot with no browser config or monitor, saves a local
+executable through the production WebSocket API, waits for a successful screenshot heartbeat, and captures the
+complete descendant PID set. It then checks both recovery directions:
+
+- a SQLite-valid snapshot with a structurally invalid `setting` table fails after the swap; the old browser is gone,
+  the original database and executable setting are restored, and the recovered monitor starts on a different PID;
+- a valid restore removes that recovered browser before HTTP completion, restores the null setting and empty monitor
+  list, and a subsequent saved setting/check starts a third, distinct owner.
+
+Five final real-Chrome restore samples had a 43.101 ms median versus 13.500 ms across ten baseline samples. The
+baseline number is not a successful cleanup latency: each response left its captured process alive. The extra
+29.601 ms is the intended cost of waiting for Chrome before a dev-only snapshot response. The ordinary no-browser
+restore measurements above remain the relevant steady E2E cost.
+
+The full E2E suite remains `40/40` in two complete Playwright runs, including 100 queued restores per run, forced
+post-swap recovery, later monitor creation, and no `error.log`. The compiled production executable still exposes
+neither restore semantics nor snapshot state; both paths return only the normal SPA HTML.
 
 ## Measurements
 
