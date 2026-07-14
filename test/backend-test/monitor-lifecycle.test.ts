@@ -12,6 +12,7 @@ import { MAX_INTERVAL_SECOND } from "@/constants";
 
 const projectRoot = path.join(import.meta.dirname, "../..");
 const binaryPath = process.env.POCKETKUMA_BINARY ? path.resolve(projectRoot, process.env.POCKETKUMA_BINARY) : null;
+const realBrowserExecutable = process.env.POCKETKUMA_REAL_BROWSER_CHROME || null;
 const credentials = { username: "monitor-test", password: "monitor-test-password" };
 
 let appProcess;
@@ -129,6 +130,38 @@ async function collectProcessOutput(stream) {
     for await (const chunk of stream) {
         appLogs.push(Buffer.from(chunk).toString());
     }
+}
+
+function processTable() {
+    const result = Bun.spawnSync(["ps", "-axo", "pid=,ppid=,command="], {
+        stdout: "pipe",
+        stderr: "pipe",
+    });
+    if (result.exitCode !== 0) {
+        throw new Error(`ps failed: ${Buffer.from(result.stderr).toString()}`);
+    }
+    return Buffer.from(result.stdout)
+        .toString()
+        .split("\n")
+        .map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/))
+        .filter(Boolean)
+        .map((match) => ({ pid: Number(match[1]), ppid: Number(match[2]), command: match[3] }));
+}
+
+function descendantProcesses(parentPID) {
+    const rows = processTable();
+    const descendants = new Set([parentPID]);
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const row of rows) {
+            if (descendants.has(row.ppid) && !descendants.has(row.pid)) {
+                descendants.add(row.pid);
+                changed = true;
+            }
+        }
+    }
+    return rows.filter((row) => row.pid !== parentPID && descendants.has(row.pid));
 }
 
 function startTargetServer() {
@@ -1363,4 +1396,120 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
             expect(allLogs).not.toContain(basicValue);
         }
     }, 60_000);
+
+    test.skipIf(!binaryPath || !realBrowserExecutable || process.platform === "win32")(
+        "compiled real-browser monitor completes screenshots, cancels navigation, relaunches, and cleans Chromium",
+        async () => {
+            fs.accessSync(realBrowserExecutable, fs.constants.X_OK);
+            const settings = await realtime.request("getSettings");
+            expect(settings.ok).toBe(true);
+            expect(
+                (
+                    await realtime.request(
+                        "setSettings",
+                        { ...settings.data, chromeExecutable: realBrowserExecutable },
+                        credentials.password
+                    )
+                ).ok
+            ).toBe(true);
+            expect((await realtime.request("testChrome", realBrowserExecutable)).ok).toBe(true);
+
+            let monitorID;
+            let barrier;
+            try {
+                const mark = realtime.mark();
+                const created = await realtime.request(
+                    "add",
+                    monitorPayload({
+                        type: "real-browser",
+                        name: "Compiled real-browser lifecycle",
+                        interval: 2,
+                        timeout: 5,
+                        screenshot_delay: 100,
+                        remote_browser: null,
+                    })
+                );
+                expect(created.ok).toBe(true);
+                monitorID = created.monitorID;
+                await realtime.waitFor("heartbeat", heartbeatFor(monitorID, 1), mark, 20_000);
+
+                const response = await realtime.request("getMonitor", monitorID);
+                expect(response.ok).toBe(true);
+                expect(response.monitor.screenshot_delay).toBe(100);
+                const screenshot = await fetch(`http://127.0.0.1:${appPort}${response.monitor.screenshot}`);
+                expect(screenshot.status).toBe(200);
+                expect(screenshot.headers.get("content-type")).toBe("image/png");
+                expect(Array.from(new Uint8Array(await screenshot.arrayBuffer()).slice(0, 8))).toEqual([
+                    137, 80, 78, 71, 13, 10, 26, 10,
+                ]);
+
+                barrier = armTargetBarrier();
+                const monitor = (await realtime.request("getMonitor", monitorID)).monitor;
+                expect(
+                    (
+                        await realtime.request("editMonitor", {
+                            ...monitor,
+                            url: `${targetUrl}/barrier`,
+                            screenshot_delay: 0,
+                        })
+                    ).ok
+                ).toBe(true);
+                await withTimeout(barrier.arrived, 10_000, "real-browser navigation did not reach the barrier");
+
+                const pauseStarted = performance.now();
+                expect(
+                    (
+                        await withTimeout(
+                            realtime.request("pauseMonitor", monitorID),
+                            2_000,
+                            "real-browser pause did not cancel active navigation"
+                        )
+                    ).ok
+                ).toBe(true);
+                expect(performance.now() - pauseStarted).toBeLessThan(2_000);
+                barrier.release();
+                barrier = null;
+                targetBarrier = null;
+
+                const paused = (await realtime.request("getMonitor", monitorID)).monitor;
+                expect(
+                    (
+                        await realtime.request("editMonitor", {
+                            ...paused,
+                            url: `${targetUrl}/first`,
+                            screenshot_delay: 100,
+                        })
+                    ).ok
+                ).toBe(true);
+                const resumedMark = realtime.mark();
+                expect((await realtime.request("resumeMonitor", monitorID)).ok).toBe(true);
+                await realtime.waitFor("heartbeat", heartbeatFor(monitorID, 1), resumedMark, 20_000);
+
+                expect((await realtime.request("deleteMonitor", monitorID, false)).ok).toBe(true);
+                monitorID = null;
+                const ownedBrowserPIDs = descendantProcesses(appProcess.pid)
+                    .filter((process) => process.command.includes("playwright_chromiumdev_profile"))
+                    .map((process) => process.pid);
+                expect(ownedBrowserPIDs.length).toBeGreaterThan(0);
+
+                await stopApp();
+                await withTimeout(
+                    (async () => {
+                        while (processTable().some((process) => ownedBrowserPIDs.includes(process.pid))) {
+                            await Bun.sleep(25);
+                        }
+                    })(),
+                    5_000,
+                    "Chromium processes survived PocketKuma shutdown"
+                );
+            } finally {
+                barrier?.release();
+                targetBarrier = null;
+                if (monitorID && appProcess?.exitCode === null) {
+                    await realtime.request("deleteMonitor", monitorID, false).catch(() => {});
+                }
+            }
+        },
+        60_000
+    );
 });
