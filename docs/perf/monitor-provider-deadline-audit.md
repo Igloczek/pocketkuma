@@ -6,6 +6,10 @@ Date: 2026-07-14
 - Runtime implementation: `2045324bf7e83d805088e1b73c4687294e789659`
 - Audit documentation: `98defe4b`
 - Final integration harness: `e48a377751543b322db71a1601724f25396b993f`
+- Numeric-validation RED tests: `aed6b97cf96fd6266689d1828f1a415eaeaa70a8`
+- Legacy-runtime RED tests: `02739620`
+- Numeric-validation runtime: `f48b6f7dba188f7f845846dc79c492858cfeb83c`
+- Compiled lifecycle harness: `f57f53f5`
 
 `5add23ce` adds the deterministic RED tests only, so its runtime is identical to `295ca265`.
 
@@ -21,6 +25,11 @@ the active heartbeat, but a stalled network request or subprocess no longer leav
 provider bound and cleanup path. The timeout fallback also remains in seconds (`interval * 0.8`) before providers
 convert it to milliseconds; the previous multiplication by 1,000 at assignment time could turn an interval-derived
 timeout into an unexpectedly long wait.
+
+The original provider audit covered valid numeric monitor records. A follow-up adversarial pass found that malformed
+numeric strings could still be stored through the production WebSocket add/edit path, and a legacy malformed timeout
+could bypass the provider deadline after restart. The numeric-validation commits listed above close that separate
+input and legacy-data gap without rewriting legacy rows during a read.
 
 The implementation does not add a second cancellation setting or an operator workflow. The existing monitor timeout
 is the source of the audited I/O bounds and their cleanup triggers.
@@ -113,6 +122,44 @@ tests, ports `30001` and `51283` had no listeners, no PocketKuma, Bun test-serve
 and the test suites left no owned containers. The only residual verification limits are the six opt-in public TLS
 cases. Lint and build completed with only the repository's baseline lint, deprecation, and bundle-size warnings.
 
+### Numeric configuration follow-up
+
+`Monitor.validate()` now parses and validates the numeric fields accepted by monitor add/edit before persistence.
+Numeric strings remain compatible with the Vue/WebSocket payload contract, while blank values, malformed strings,
+booleans, non-finite numbers, fractions in integer-only fields, negative values, unsafe integers, and values outside
+their field bounds are rejected with stable messages. The covered fields are interval and retry timing, resend and
+retry counts, provider timeout, redirects, saved-response length, optional port, ping packet/count/per-request
+settings, and real-browser screenshot delay. SQLite assertions verify that accepted values are stored as numeric
+`INTEGER`/`REAL` values and that failed add/edit requests do not partially mutate rows.
+
+Provider timeout keeps its existing operator contract: `0` means automatic `interval * 0.8`; otherwise values from
+`0.001` through `MAX_INTERVAL_SECOND` are accepted, including fractions. Runtime normalization gives malformed
+legacy rows finite safe values before the first provider operation or push schedule. It deliberately does not write
+those repaired values back to SQLite. Scheduler delay normalization independently prevents invalid legacy timing
+from becoming an immediate loop or overflowing Bun's timer range.
+
+The RED baseline demonstrated both boundaries through the public transport: invalid add/edit requests succeeded,
+and a loopback PostgreSQL handshake with `timeout = 'bogus'` remained pending after 1,500 ms with its socket open.
+After `f48b6f7d`, the same legacy fixture uses the 0.8-second fallback for a one-second interval and closes the peer
+socket before pause returns. The source and compiled-executable lifecycle paths exercise the same assertions.
+
+Final follow-up verification:
+
+- `bun run test:backend:all`: `363 pass / 6 skip / 0 fail / 3,126 expect()` across 47 files; the six skips are the
+  explicitly opt-in public TLS cases.
+- `bun run test:backend`: unit `290 pass / 6 skip / 0 fail / 3,003 expect()`, authentication `13/13`, and maintenance
+  `9/9`.
+- Numeric validation, provider cleanup, scheduler defense, and lifecycle targeted suite repeated three times:
+  `25 pass / 5 filtered / 0 fail / 220 expect()` on every run.
+- Compiled executable: SMTP production WebSocket flow `1/1`, authentication `13/13`, and numeric/legacy monitor
+  lifecycle `2/2`; a fresh production data directory served entry-page/manifest readiness and exited `0` on
+  `SIGTERM`.
+- Full Playwright E2E: `39/39` twice from fresh state, including SMTP test/save/edit/delete through a local sink.
+- Final executable SHA-256:
+  `439b2d5cb63b3e968b61f57796618c0c99dd8f12eaabc4e6f4acf4201432be07`.
+- Cleanup: no owned PocketKuma, Bun test-server, or Playwright process and no owned test container remained. Existing
+  containers from another workspace were left untouched.
+
 The Docker-backed cases use real protocol servers, not mocked clients. The updated multi-case MySQL, Microsoft SQL
 Server, Oracle, RabbitMQ, and MQTT harnesses keep one container per suite. PostgreSQL and SNMP start a container only
 for their single live-service case. The suites use explicit startup or test bounds and await teardown so provider
@@ -149,6 +196,31 @@ MQTT:      84.95, 60.90, 61.18, 58.67, 59.30 ms
 process:   54.07, 53.45, 55.30, 53.58, 56.05 ms
 ```
 
+### Numeric-validation measurements
+
+The validation microbenchmark calls `Monitor.validate()` with one valid numeric monitor payload one million times
+per sample. The median increased from 4.291625 ns/call to 7.098375 ns/call: +2.80675 ns/call (+65.4%), an absolute
+increase of about 2.8 milliseconds per million monitor saves. This path runs on monitor mutation, not on every
+heartbeat.
+
+The legacy PostgreSQL measurement uses a loopback peer that accepts the connection and never completes its protocol
+handshake. At the RED baseline it was still pending after 1,500 ms and required manual socket destruction. The final
+five samples were 808.819, 804.511, 803.797, 803.275, and 803.993 ms (median 803.993 ms), matching the intended
+0.8-second fallback plus fixture overhead.
+
+Compiled startup and resident memory did not regress in the sample medians. Startup changed from 300.136 ms to
+299.535 ms (-0.601 ms), and RSS changed from 187,808 KiB to 187,264 KiB (-544 KiB). The first final startup sample
+was a cold 1,366.973 ms outlier; it is retained below rather than discarded from the record.
+
+```text
+validate baseline: 3.024209, 3.115917, 3.190833, 4.291625, 4.796666, 5.151208, 6.239417 ms / 1,000,000
+validate final:    6.640042, 6.662000, 6.707209, 7.098375, 9.907541, 10.430126, 11.085959 ms / 1,000,000
+startup baseline:  325.373000, 296.083750, 303.422292, 300.135999, 298.176458 ms
+startup final:     1366.973000, 281.315917, 303.245583, 296.258583, 299.535292 ms
+RSS baseline:      188304, 186528, 194000, 187088, 187808 KiB
+RSS final:         195312, 187264, 187536, 187120, 187072 KiB
+```
+
 ## Residual limits
 
 - GameDig exposes per-attempt and socket timeouts, but no public top-level `AbortSignal` or socket handle. PocketKuma
@@ -167,6 +239,8 @@ process:   54.07, 53.45, 55.30, 53.58, 56.05 ms
 - Graceful pause, delete, shutdown, and test snapshot restore can intentionally wait until an already active provider
   reaches its configured phase bounds and finishes cleanup. They wait for real cleanup rather than reporting a false
   stop.
+- Malformed legacy values are normalized in memory but intentionally left unchanged on disk. A later successful edit
+  persists canonical numeric values; this avoids hidden writes during startup or push requests.
 
 The root README is unchanged because this work introduces no configuration, command, distribution path, or new
 operator-visible workflow. The existing per-monitor timeout is the only control.
