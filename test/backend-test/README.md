@@ -74,7 +74,7 @@ The unit subset runs fast, hermetic tests (no Docker or public network):
   process-kill behavior
 - `real-browser-monitor-lifecycle.test.ts` — browser acquisition/context/page deadlines, stop/reset cancellation,
   configuration identity, pending-acquisition retirement, targeted remote-owner reset, shared-owner races, late-result
-  cleanup, and local/remote force-cleanup behavior
+  cleanup, supervised POSIX process-group identity, stale-PID rejection, and local/remote force-cleanup behavior
 - `check-translations.test.ts` — translation key and placeholder safety
 - `monitors/{gamedig,grpc,steam,tcp,websocket}.test.ts` — mocked or loopback protocol behavior
 - `notification-providers/notification-provider.test.ts` — provider error normalization

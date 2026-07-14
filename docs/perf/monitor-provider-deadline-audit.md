@@ -540,6 +540,87 @@ passed `1/1`, compiled authentication `13/13`, and source and compiled real-Chro
 expectations. Full Playwright E2E passed `40/40` twice. Frozen install, lint, and build passed with only the existing
 warning categories.
 
+### Browser process-identity follow-up
+
+The pending-acquisition cleanup still treated `kill(-pid, 0)` as proof that a captured process group belonged to
+PocketKuma. A captured `ChildProcess` remained in `acquiredProcesses` after exit. If its numeric PID was later reused
+by an unrelated process-group leader, reset, snapshot restore, or shutdown could send TERM and KILL to that foreign
+group. The deterministic RED commit `11840bd4` marks a captured child exited, simulates a reused group, and proves the
+old cleanup still signalled it. It also changes identity between the TERM grace period and KILL. Commit `68ce85c7`
+adds a real detached fixture whose launcher exits while leaving a sleeping descendant; it proves that simply refusing
+to signal after leader exit would exchange the foreign-process bug for an orphan leak.
+
+The POSIX launch path now inserts a minimal `/bin/sh` supervisor as the detached process-group leader. Chromium
+inherits Playwright's fd 3/4 transport, does not inherit the private fd 5 control channel, and the supervisor closes
+its own copies of fd 3/4. The supervisor deliberately remains alive after Chromium exits. PocketKuma writes TERM or
+KILL to fd 5; the still-owned leader then signals its own group, so there is no numeric-PID ownership guess or
+check-to-signal race. EOF also kills the group if PocketKuma exits without completing normal retirement. Exit and
+close listeners immediately remove the captured record, concurrent cleanup shares one promise, and a lost control
+pipe fails closed instead of falling back to a PID. Windows retains its existing direct-child path.
+
+The first real-Chrome run exposed a related ordering issue: keeping the supervisor alive made `browser.close()` cross
+the 100 ms bound, after which the old fallback closed Playwright's shared connection. One successful `testChrome`
+therefore made every later launch fail with `launch: close: Chromium test complete`. Local owner disposal now starts
+the browser close, retires the captured supervisor through fd 5, and waits for Playwright's process cleanup before it
+considers force-disconnecting the channel. Three consecutive real `testChrome` calls, subsequent monitor launch, and
+source and compiled full-Chrome lifecycles all pass.
+
+Runtime commit `7c6a3403` implements the ownership protocol and `65978cb4` corrects the process-tree fixture to read
+the wrapper's actual PGID now that the supervisor, rather than Chromium, is the group leader. The focused lifecycle
+file passes `37/37`; its new cases cover stale exit/close state, identity loss between TERM and KILL, a naturally
+exited launcher with a live descendant, 100 concurrent resets producing exactly one TERM/KILL pair, and control-pipe
+failure without a numeric fallback. The real pending wrapper still ignores TERM and carries a child and grandchild;
+settings, Chrome-test, snapshot success/rollback, and `SIGTERM` callbacks all observe the entire actual group gone.
+
+Verification on the follow-up:
+
+- frozen install, lint, and single-executable build passed;
+- standard backend gate passed unit `337 pass / 15 skip / 0 fail / 3,239 expect()`, authentication `13/13 / 424`,
+  and maintenance `9/9 / 143`;
+- backend-all passed `410 pass / 15 skip / 0 fail / 3,362 expect()` across 48 files;
+- compiled SMTP passed `1/1 / 6`, authentication `13/13 / 424`, maintenance `9/9 / 143`, and SNMP lifecycle
+  `1/1 / 6`;
+- source and compiled real-Chrome settings, test, screenshot, pause/resume, relaunch, and shutdown passed repeatedly;
+- source pending snapshot success and rollback passed `2/2`, and the real-Chrome snapshot recovery passed `1/1`;
+- full Playwright E2E passed `40/40` twice from fresh state;
+- cleanup left no PocketKuma, Chromium, supervisor, pending wrapper, or sleeping fixture process.
+
+Healthy same-owner reuse ran seven fresh processes with 100,000 mocked checks after 1,000 warmups. Its median changed
+from 15.604245 to 15.582110 microseconds/check (-0.022135 microseconds, -0.14%). The supervisor is created only on a
+new local launch, so the normal cached-check path has no measurable regression. The complete real-Chrome lifecycle,
+which intentionally performs several owner retirements, changed from a 7,224.16 ms three-sample median to 7,592.46
+ms (+368.30 ms); each retirement includes the 100 ms TERM grace.
+
+A naturally exited launcher with one live descendant changed from a 12.811 ms unsafe reset median to 124.398 ms
+(+111.587 ms) with retained ownership and confirmed cleanup. The compiled pending settings callback changed from
+628.68 to 660.30 ms (+31.62 ms) in five-sample medians. Both increases are cleanup-boundary cost, not heartbeat cost.
+
+```text
+healthy reuse baseline: 15.604245, 15.814623, 15.651678, 15.430522, 15.600122, 15.605015, 15.489897 us/check
+healthy reuse final:    15.859961, 15.416958, 15.552504, 15.582110, 15.741528, 15.668954, 15.429702 us/check
+natural exit baseline:  12.879, 12.804, 12.804, 12.829, 12.811 ms (numeric PGID ownership was unsafe)
+natural exit final:     125.520, 121.797, 121.700, 124.398, 125.377 ms (descendant gone before callback)
+forced reset baseline:  854.89, 647.35, 628.63, 620.96, 628.68 ms
+forced reset final:     669.78, 660.30, 653.54, 630.64, 661.53 ms
+real lifecycle base:    7613.84, 7224.16, 7201.04 ms
+real lifecycle final:   7592.46, 7625.45, 7591.78 ms
+```
+
+Seven fresh-data compiled starts show no idle regression. Excluding each cold first sample, median readiness changed
+from 282.884 to 281.397 ms (-1.487 ms); all-sample RSS median changed from 196,880 to 196,736 KiB (-144 KiB), and
+idle shutdown was unchanged at 2,016.306 versus 2,016.309 ms. Binary size changed from 91,516,514 to 91,400,930
+bytes (-115,584 bytes). The final arm64 checksum is
+`954b29a6aec01698260ed965029f8512779c37866323fe50302d9898e8fd2e2e`.
+
+```text
+startup baseline: 1452.515, 289.830, 281.937, 286.694, 282.337, 281.648, 283.430 ms
+startup final:    368.651, 279.913, 281.760, 279.763, 287.242, 287.478, 281.033 ms
+RSS baseline:     196768, 196880, 196864, 196928, 196944, 196864, 196880 KiB
+RSS final:        196736, 196784, 196736, 196736, 196560, 196736, 196768 KiB
+shutdown baseline: 2016.912, 2016.483, 2018.407, 2016.306, 2016.122, 2016.281, 2016.003 ms
+shutdown final:    2018.862, 2018.247, 2015.912, 2016.309, 2017.486, 2015.313, 2016.279 ms
+```
+
 ## Residual limits
 
 - GameDig exposes per-attempt and socket timeouts, but no public top-level `AbortSignal` or socket handle. PocketKuma
@@ -549,9 +630,9 @@ warning categories.
   ping operations are abortable or killable.
 - Playwright does not expose native timeout options for `browser.newContext()` or `context.close()`, a public remote
   force-disconnect API, or a public process handle from `chromium.launch()`. PocketKuma supplies its own cancellation
-  boundary, bounds close, captures the exact POSIX local process group before handshake, and uses a bounded
-  remote-channel fallback. Pre-handshake process-tree escalation remains POSIX-specific; Windows uses direct-process
-  cleanup and is excluded from the process-group fixture.
+  boundary, bounds close, and supervises the POSIX local process group over an owned pipe before handshake. This
+  requires `/bin/sh`, which is present on the supported POSIX hosts. Pre-handshake tree escalation remains
+  POSIX-specific; Windows uses direct-process cleanup and is excluded from the process-group fixture.
 - Some sequential paths cap individual phases rather than carrying one absolute deadline: ping can make an IPv6
   fallback attempt, MySQL caps connection and query operations separately, SMTP uses half-timeout phase caps, and
   TCP/STARTTLS/WebSocket OAuth paths can enter another bounded phase. Their worst-case wall time can therefore exceed
