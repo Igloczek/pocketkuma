@@ -111,4 +111,7 @@ Then place that `kuma.db` into the PocketKuma data directory before starting the
 
 Browser launch and remote-connect handshakes have a five-second hard limit. Configuration changes, remote-browser
 deletion, SQLite restore, and graceful shutdown do not report completion until an in-progress browser acquisition has
-settled and its owned process or connection has been retired.
+settled and its owned process or connection has been retired. On POSIX systems, a small `/bin/sh` supervisor remains
+the owned process-group leader until cleanup and receives TERM/KILL commands over a private pipe. PocketKuma therefore
+never decides ownership from a numeric PID alone and cannot signal an unrelated group after PID reuse. Windows keeps
+direct-process cleanup because it does not support the POSIX process-group path.
