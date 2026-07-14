@@ -68,6 +68,7 @@ The unit subset runs fast, hermetic tests (no Docker or public network):
 - `monitor-conditions/*.test.ts` — condition parsing and evaluation
 - `monitor-response.test.ts` — saved response serialization and truncation
 - `monitor-runtime-loading.test.ts` — lazy monitor/notification loading
+- `monitor-numeric-validation.test.ts` — numeric save boundaries and safe legacy-runtime fallbacks
 - `monitor-scheduler.test.ts` — scheduler timer control
 - `monitor-provider-timeout.test.ts` — loopback deadline, cancellation, socket cleanup, and process-kill behavior
 - `check-translations.test.ts` — translation key and placeholder safety
@@ -98,3 +99,9 @@ keeping protocol coverage realistic while avoiding unnecessary startup noise and
 
 Use `test:backend` for the normal repository gate: it runs this unit subset, then the auth-security and maintenance
 integration suites. Use `test:backend:unit` for a focused offline iteration.
+
+The production WebSocket lifecycle tests can also target a compiled executable without changing their assertions:
+
+```bash
+POCKETKUMA_BINARY=./pocketkuma bun test ./test/backend-test/monitor-lifecycle.test.ts
+```
