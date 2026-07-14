@@ -500,7 +500,7 @@ afterAll(async () => {
 
 describe("monitor lifecycle over the production WebSocket transport", () => {
     test("add and edit normalize numeric strings and reject invalid timeouts without partial writes", async () => {
-        const timeoutError = `Timeout must be a finite number between 0 and ${MAX_INTERVAL_SECOND} seconds`;
+        const timeoutError = `Timeout must be 0 or a finite number between 0.001 and ${MAX_INTERVAL_SECOND} seconds`;
         const countBefore = countMonitors();
         const invalidValues = ["", "   ", "bogus", -1, MAX_INTERVAL_SECOND + 1, null];
         const invalidAdds = [];

@@ -16,7 +16,7 @@ beforeAll(async () => {
     Monitor = (await import("@/server/model/monitor")).default;
 });
 
-const TIMEOUT_ERROR = `Timeout must be a finite number between 0 and ${MAX_INTERVAL_SECOND} seconds`;
+const TIMEOUT_ERROR = `Timeout must be 0 or a finite number between 0.001 and ${MAX_INTERVAL_SECOND} seconds`;
 
 function monitor(overrides = {}) {
     const bean = new Monitor();
@@ -79,7 +79,7 @@ describe("monitor numeric validation", () => {
     });
 
     test("validate() preserves zero and fractional provider timeout values", () => {
-        for (const value of [0, "0", 0.001, "0.25", MAX_INTERVAL_SECOND]) {
+        for (const value of [0, "0", "0.0", 0.001, "0.25", MAX_INTERVAL_SECOND]) {
             const bean = monitor({ timeout: value });
             bean.validate();
             expect(bean.timeout).toBe(Number(value));
@@ -89,7 +89,24 @@ describe("monitor numeric validation", () => {
     test("validate() rejects malformed, non-finite, negative, missing, and overflowing timeouts", () => {
         expectInvalid(
             "timeout",
-            ["", "   ", "bogus", NaN, Infinity, -Infinity, -0.001, MAX_INTERVAL_SECOND + 1, null, undefined],
+            [
+                "",
+                "   ",
+                "bogus",
+                NaN,
+                Infinity,
+                -Infinity,
+                Number.MIN_VALUE,
+                0.000999,
+                -0.001,
+                MAX_INTERVAL_SECOND + 1,
+                null,
+                undefined,
+                true,
+                false,
+                {},
+                [],
+            ],
             TIMEOUT_ERROR
         );
     });
@@ -271,6 +288,8 @@ describe("monitor numeric validation", () => {
             [MAX_INTERVAL_SECOND + 1, 48],
             [null, 48],
             [undefined, 48],
+            [Number.MIN_VALUE, 48],
+            [0.000999, 48],
         ]) {
             expect(monitor({ interval: 60, timeout: value }).getEffectiveTimeout(), String(value)).toBe(expected);
         }

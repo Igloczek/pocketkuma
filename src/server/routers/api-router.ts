@@ -82,6 +82,7 @@ async function pushResponse(url, pushToken, server, disableFrameSameOrigin) {
         if (!monitor) {
             throw new Error("Monitor not found or not active.");
         }
+        monitor.normalizeRuntimeConfig();
 
         const previousHeartbeat = await Monitor.getPreviousHeartbeat(monitor.id);
 

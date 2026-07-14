@@ -22,7 +22,9 @@ class PostgresMonitorType extends MonitorType {
         if (!query || (typeof query === "string" && query.trim() === "")) {
             query = "SELECT 1";
         }
-        await this.postgresQuery(monitor.databaseConnectionString, query, (monitor.timeout ?? 20) * 1000);
+        const configuredTimeout = monitor.getEffectiveTimeout?.() ?? Number(monitor.timeout);
+        const timeout = Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 20;
+        await this.postgresQuery(monitor.databaseConnectionString, query, timeout * 1000);
 
         heartbeat.msg = "";
         heartbeat.status = UP;

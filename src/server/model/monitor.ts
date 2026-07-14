@@ -58,8 +58,41 @@ import { buildProxyFetchOption, resolveCoreHttpProxy } from "@/server/proxy-vali
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const version = packageJson.version;
+const MIN_PROVIDER_TIMEOUT_SECOND = 0.001;
 
 const rootCertificates = rootCertificatesFingerprints();
+
+function normalizeNumber(value, { error, integer = false, safeInteger = false, min, max }) {
+    if (
+        (typeof value !== "number" && typeof value !== "string") ||
+        (typeof value === "string" && value.trim() === "")
+    ) {
+        throw new Error(error);
+    }
+
+    const number = Number(value);
+    if (
+        !Number.isFinite(number) ||
+        (integer && !Number.isInteger(number)) ||
+        (safeInteger && !Number.isSafeInteger(number)) ||
+        number < min ||
+        number > max
+    ) {
+        throw new Error(error);
+    }
+    return number;
+}
+
+function runtimeNumber(value, fallback, { integer = false, safeInteger = false, min, max }) {
+    const number = Number(value);
+    return Number.isFinite(number) &&
+        (!integer || Number.isInteger(number)) &&
+        (!safeInteger || Number.isSafeInteger(number)) &&
+        number >= min &&
+        number <= max
+        ? number
+        : fallback;
+}
 
 /**
  * status:
@@ -69,6 +102,90 @@ const rootCertificates = rootCertificatesFingerprints();
  *      3 = MAINTENANCE
  */
 class Monitor extends BeanModel {
+    getEffectiveTimeout() {
+        const interval = runtimeNumber(this.interval, MIN_INTERVAL_SECOND, {
+            integer: true,
+            min: MIN_INTERVAL_SECOND,
+            max: MAX_INTERVAL_SECOND,
+        });
+        return runtimeNumber(this.timeout, interval * 0.8, {
+            min: MIN_PROVIDER_TIMEOUT_SECOND,
+            max: MAX_INTERVAL_SECOND,
+        });
+    }
+
+    normalizeRuntimeConfig() {
+        this.interval = runtimeNumber(this.interval, MIN_INTERVAL_SECOND, {
+            integer: true,
+            min: MIN_INTERVAL_SECOND,
+            max: MAX_INTERVAL_SECOND,
+        });
+        this.retryInterval = runtimeNumber(this.retryInterval, this.interval, {
+            integer: true,
+            min: MIN_INTERVAL_SECOND,
+            max: MAX_INTERVAL_SECOND,
+        });
+        this.resendInterval = runtimeNumber(this.resendInterval, 0, {
+            safeInteger: true,
+            min: 0,
+            max: Number.MAX_SAFE_INTEGER,
+        });
+        this.maxretries = runtimeNumber(this.maxretries, 0, {
+            safeInteger: true,
+            min: 0,
+            max: Number.MAX_SAFE_INTEGER,
+        });
+        this.timeout = this.getEffectiveTimeout();
+        this.maxredirects = runtimeNumber(this.maxredirects, 10, {
+            safeInteger: true,
+            min: 0,
+            max: Number.MAX_SAFE_INTEGER,
+        });
+        this.response_max_length = runtimeNumber(
+            this.response_max_length !== undefined ? this.response_max_length : this.responseMaxLength,
+            RESPONSE_BODY_LENGTH_DEFAULT,
+            {
+                integer: true,
+                min: 0,
+                max: RESPONSE_BODY_LENGTH_MAX,
+            }
+        );
+        this.port =
+            this.port === null || this.port === undefined || (typeof this.port === "string" && !this.port.trim())
+                ? null
+                : runtimeNumber(this.port, null, { integer: true, min: 0, max: 65535 });
+
+        if (this.type === "ping") {
+            this.packetSize = runtimeNumber(this.packetSize, PING_PACKET_SIZE_DEFAULT, {
+                integer: true,
+                min: PING_PACKET_SIZE_MIN,
+                max: PING_PACKET_SIZE_MAX,
+            });
+            this.ping_count = runtimeNumber(this.ping_count, PING_COUNT_DEFAULT, {
+                integer: true,
+                min: PING_COUNT_MIN,
+                max: PING_COUNT_MAX,
+            });
+            this.ping_per_request_timeout = runtimeNumber(
+                this.ping_per_request_timeout,
+                PING_PER_REQUEST_TIMEOUT_DEFAULT,
+                {
+                    integer: true,
+                    min: PING_PER_REQUEST_TIMEOUT_MIN,
+                    max: PING_PER_REQUEST_TIMEOUT_MAX,
+                }
+            );
+        }
+
+        if (this.type === "real-browser") {
+            this.screenshot_delay = runtimeNumber(this.screenshot_delay, 0, {
+                safeInteger: true,
+                min: 0,
+                max: Number.MAX_SAFE_INTEGER,
+            });
+        }
+    }
+
     /**
      * Return an object that ready to parse to JSON for public Only show
      * necessary data to public
@@ -404,6 +521,7 @@ class Monitor extends BeanModel {
      * @returns {Promise<void>}
      */
     async start(io) {
+        this.normalizeRuntimeConfig();
         this.clearHeartbeatTimer();
         this.isStop = false;
         const generation = (this.heartbeatGeneration || 0) + 1;
@@ -459,12 +577,6 @@ class Monitor extends BeanModel {
 
             if (this.isUpsideDown()) {
                 bean.status = flipStatus(bean.status);
-            }
-
-            // Runtime patch timeout if it is 0
-            // See https://github.com/louislam/uptime-kuma/pull/3961#issuecomment-1804149144
-            if (!this.timeout || this.timeout <= 0) {
-                this.timeout = this.interval * 0.8;
             }
 
             try {
@@ -1090,7 +1202,11 @@ class Monitor extends BeanModel {
      */
     scheduleHeartbeat(callback, delay) {
         this.clearHeartbeatTimer();
-        this.heartbeatInterval = setTimeout(callback, delay);
+        const safeDelay = runtimeNumber(delay, MIN_INTERVAL_SECOND * 1000, {
+            min: 1,
+            max: MAX_INTERVAL_SECOND * 1000,
+        });
+        this.heartbeatInterval = setTimeout(callback, safeDelay);
     }
 
     /**
@@ -1625,28 +1741,62 @@ class Monitor extends BeanModel {
      * @throws Interval is outside of range
      */
     validate() {
-        if (this.interval > MAX_INTERVAL_SECOND) {
-            throw new Error(`Interval cannot be more than ${MAX_INTERVAL_SECOND} seconds`);
-        }
-        if (this.interval < MIN_INTERVAL_SECOND) {
-            throw new Error(`Interval cannot be less than ${MIN_INTERVAL_SECOND} seconds`);
-        }
-
-        if (this.retryInterval > MAX_INTERVAL_SECOND) {
-            throw new Error(`Retry interval cannot be more than ${MAX_INTERVAL_SECOND} seconds`);
-        }
-        if (this.retryInterval < MIN_INTERVAL_SECOND) {
-            throw new Error(`Retry interval cannot be less than ${MIN_INTERVAL_SECOND} seconds`);
-        }
-
-        if (this.response_max_length !== undefined) {
-            if (this.response_max_length < 0) {
-                throw new Error(`Response max length cannot be less than 0`);
+        this.interval = normalizeNumber(this.interval, {
+            error: `Interval must be an integer between ${MIN_INTERVAL_SECOND} and ${MAX_INTERVAL_SECOND} seconds`,
+            integer: true,
+            min: MIN_INTERVAL_SECOND,
+            max: MAX_INTERVAL_SECOND,
+        });
+        this.retryInterval = normalizeNumber(this.retryInterval, {
+            error: `Retry interval must be an integer between ${MIN_INTERVAL_SECOND} and ${MAX_INTERVAL_SECOND} seconds`,
+            integer: true,
+            min: MIN_INTERVAL_SECOND,
+            max: MAX_INTERVAL_SECOND,
+        });
+        this.resendInterval = normalizeNumber(this.resendInterval, {
+            error: "Resend interval must be a non-negative safe integer",
+            safeInteger: true,
+            min: 0,
+            max: Number.MAX_SAFE_INTEGER,
+        });
+        this.maxretries = normalizeNumber(this.maxretries, {
+            error: "Retries must be a non-negative safe integer",
+            safeInteger: true,
+            min: 0,
+            max: Number.MAX_SAFE_INTEGER,
+        });
+        this.timeout = normalizeNumber(this.timeout, {
+            error: `Timeout must be 0 or a finite number between ${MIN_PROVIDER_TIMEOUT_SECOND} and ${MAX_INTERVAL_SECOND} seconds`,
+            min: Number(this.timeout) === 0 ? 0 : MIN_PROVIDER_TIMEOUT_SECOND,
+            max: MAX_INTERVAL_SECOND,
+        });
+        this.maxredirects = normalizeNumber(this.maxredirects, {
+            error: "Max redirects must be a non-negative safe integer",
+            safeInteger: true,
+            min: 0,
+            max: Number.MAX_SAFE_INTEGER,
+        });
+        this.response_max_length = normalizeNumber(
+            this.response_max_length !== undefined ? this.response_max_length : this.responseMaxLength,
+            {
+                error: `Response max length must be an integer between 0 and ${RESPONSE_BODY_LENGTH_MAX} bytes`,
+                integer: true,
+                min: 0,
+                max: RESPONSE_BODY_LENGTH_MAX,
             }
-
-            if (this.response_max_length > RESPONSE_BODY_LENGTH_MAX) {
-                throw new Error(`Response max length cannot be more than ${RESPONSE_BODY_LENGTH_MAX} bytes`);
-            }
+        );
+        if (this.responseMaxLength !== undefined) {
+            this.responseMaxLength = this.response_max_length;
+        }
+        if (this.port === null || this.port === undefined || (typeof this.port === "string" && !this.port.trim())) {
+            this.port = null;
+        } else {
+            this.port = normalizeNumber(this.port, {
+                error: "Port must be an integer between 0 and 65535",
+                integer: true,
+                min: 0,
+                max: 65535,
+            });
         }
 
         // Validate JSON fields to prevent invalid JSON from being stored in database
@@ -1700,30 +1850,27 @@ class Monitor extends BeanModel {
 
         if (this.type === "ping") {
             // ping parameters validation
-            if (this.packetSize && (this.packetSize < PING_PACKET_SIZE_MIN || this.packetSize > PING_PACKET_SIZE_MAX)) {
-                throw new Error(
-                    `Packet size must be between ${PING_PACKET_SIZE_MIN} and ${PING_PACKET_SIZE_MAX} (default: ${PING_PACKET_SIZE_DEFAULT})`
-                );
-            }
-
-            if (
-                this.ping_per_request_timeout &&
-                (this.ping_per_request_timeout < PING_PER_REQUEST_TIMEOUT_MIN ||
-                    this.ping_per_request_timeout > PING_PER_REQUEST_TIMEOUT_MAX)
-            ) {
-                throw new Error(
-                    `Per-ping timeout must be between ${PING_PER_REQUEST_TIMEOUT_MIN} and ${PING_PER_REQUEST_TIMEOUT_MAX} seconds (default: ${PING_PER_REQUEST_TIMEOUT_DEFAULT})`
-                );
-            }
-
-            if (this.ping_count && (this.ping_count < PING_COUNT_MIN || this.ping_count > PING_COUNT_MAX)) {
-                throw new Error(
-                    `Echo requests count must be between ${PING_COUNT_MIN} and ${PING_COUNT_MAX} (default: ${PING_COUNT_DEFAULT})`
-                );
-            }
+            this.packetSize = normalizeNumber(this.packetSize, {
+                error: `Packet size must be an integer between ${PING_PACKET_SIZE_MIN} and ${PING_PACKET_SIZE_MAX}`,
+                integer: true,
+                min: PING_PACKET_SIZE_MIN,
+                max: PING_PACKET_SIZE_MAX,
+            });
+            this.ping_per_request_timeout = normalizeNumber(this.ping_per_request_timeout, {
+                error: `Per-ping timeout must be an integer between ${PING_PER_REQUEST_TIMEOUT_MIN} and ${PING_PER_REQUEST_TIMEOUT_MAX} seconds`,
+                integer: true,
+                min: PING_PER_REQUEST_TIMEOUT_MIN,
+                max: PING_PER_REQUEST_TIMEOUT_MAX,
+            });
+            this.ping_count = normalizeNumber(this.ping_count, {
+                error: `Echo requests count must be an integer between ${PING_COUNT_MIN} and ${PING_COUNT_MAX}`,
+                integer: true,
+                min: PING_COUNT_MIN,
+                max: PING_COUNT_MAX,
+            });
 
             if (this.timeout) {
-                const pingGlobalTimeout = Math.round(Number(this.timeout));
+                const pingGlobalTimeout = Math.round(this.timeout);
 
                 if (
                     pingGlobalTimeout < this.ping_per_request_timeout ||
@@ -1741,24 +1888,25 @@ class Monitor extends BeanModel {
 
         if (this.type === "real-browser") {
             // screenshot_delay validation
-            if (this.screenshot_delay !== undefined && this.screenshot_delay !== null) {
-                const delay = Number(this.screenshot_delay);
-                if (isNaN(delay) || delay < 0) {
-                    throw new Error("Screenshot delay must be a non-negative number");
-                }
+            const delay = normalizeNumber(this.screenshot_delay, {
+                error: "Screenshot delay must be a non-negative safe integer",
+                safeInteger: true,
+                min: 0,
+                max: Number.MAX_SAFE_INTEGER,
+            });
 
-                // Must not exceed 0.8 * timeout (page.goto timeout is interval * 1000 * 0.8)
-                const maxDelayFromTimeout = this.interval * 1000 * 0.8;
-                if (delay >= maxDelayFromTimeout) {
-                    throw new Error(`Screenshot delay must be less than ${maxDelayFromTimeout}ms (0.8 × interval)`);
-                }
-
-                // Must not exceed 0.5 * interval to prevent blocking next check
-                const maxDelayFromInterval = this.interval * 1000 * 0.5;
-                if (delay >= maxDelayFromInterval) {
-                    throw new Error(`Screenshot delay must be less than ${maxDelayFromInterval}ms (0.5 × interval)`);
-                }
+            // Must not exceed 0.8 * timeout (page.goto timeout is interval * 1000 * 0.8)
+            const maxDelayFromTimeout = this.interval * 1000 * 0.8;
+            if (delay >= maxDelayFromTimeout) {
+                throw new Error(`Screenshot delay must be less than ${maxDelayFromTimeout}ms (0.8 × interval)`);
             }
+
+            // Must not exceed 0.5 * interval to prevent blocking next check
+            const maxDelayFromInterval = this.interval * 1000 * 0.5;
+            if (delay >= maxDelayFromInterval) {
+                throw new Error(`Screenshot delay must be less than ${maxDelayFromInterval}ms (0.5 × interval)`);
+            }
+            this.screenshot_delay = delay;
         }
 
         if (this.type === "mongodb" && this.databaseQuery) {
