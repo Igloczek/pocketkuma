@@ -189,7 +189,11 @@ async function pendingBrowserProcesses(pidFile) {
         "pending Chromium wrapper did not spawn its process tree"
     );
     const pids = fs.readFileSync(pidFile, "utf8").trim().split("\n").map(Number);
-    return { processGroup: pids[0], pids };
+    const processGroup = processTable().find((process) => process.pid === pids[0])?.pgid;
+    if (!processGroup) {
+        throw new Error("pending Chromium wrapper exited before its process group was observed");
+    }
+    return { processGroup, pids };
 }
 
 function processGroupSurvives(processGroup) {
