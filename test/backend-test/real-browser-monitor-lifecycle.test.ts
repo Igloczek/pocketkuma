@@ -2,6 +2,8 @@
 
 import { afterEach, beforeAll, describe, expect, jest, mock, spyOn, test } from "bun:test";
 import { RemoteBrowser } from "@/server/remote-browser";
+import childProcess from "node:child_process";
+import { EventEmitter } from "node:events";
 
 const chromium = {
     connect: mock(() => undefined),
@@ -89,6 +91,31 @@ function successfulPage() {
 
 function useBrowser(browser) {
     chromium.launch.mockResolvedValue(browser);
+}
+
+function capturedProcess(pid = 43210) {
+    return Object.assign(new EventEmitter(), {
+        pid,
+        exitCode: null,
+        signalCode: null,
+        kill: mock(() => true),
+    });
+}
+
+async function launchWithCapturedProcess(process, browser = successfulBrowser()) {
+    const originalSpawn = childProcess.spawn;
+    childProcess.spawn = mock(() => process);
+    chromium.launch.mockImplementation(async () => {
+        childProcess.spawn("chromium", ["--remote-debugging-pipe"], {
+            detached: globalThis.process.platform !== "win32",
+        });
+        return browser;
+    });
+    try {
+        await new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
+    } finally {
+        childProcess.spawn = originalSpawn;
+    }
 }
 
 function successfulContext(overrides = {}) {
@@ -180,6 +207,47 @@ describe("real-browser monitor lifecycle", () => {
         expect(await check).toBeInstanceOf(Error);
         expect(lateBrowser.close).toHaveBeenCalledTimes(1);
     });
+
+    test.skipIf(process.platform === "win32")(
+        "resetChrome never signals a reused process group after its captured leader exits",
+        async () => {
+            const browserProcess = capturedProcess();
+            await launchWithCapturedProcess(browserProcess);
+            browserProcess.exitCode = 0;
+            browserProcess.emit("exit", 0, null);
+            browserProcess.emit("close", 0, null);
+            const kill = spyOn(process, "kill").mockReturnValue(true);
+            try {
+                await resetChrome();
+                expect(kill).not.toHaveBeenCalled();
+            } finally {
+                kill.mockRestore();
+            }
+        }
+    );
+
+    test.skipIf(process.platform === "win32")(
+        "resetChrome rechecks captured process identity before escalating from TERM to KILL",
+        async () => {
+            const browserProcess = capturedProcess();
+            await launchWithCapturedProcess(browserProcess);
+            const kill = spyOn(process, "kill").mockImplementation((pid, signal) => {
+                if (pid === -browserProcess.pid && signal === "SIGTERM") {
+                    browserProcess.exitCode = 0;
+                    browserProcess.emit("exit", 0, null);
+                    browserProcess.emit("close", 0, null);
+                }
+                return true;
+            });
+            try {
+                await resetChrome();
+                expect(kill.mock.calls.filter(([, signal]) => signal === "SIGTERM")).toHaveLength(1);
+                expect(kill.mock.calls.some(([, signal]) => signal === "SIGKILL")).toBe(false);
+            } finally {
+                kill.mockRestore();
+            }
+        }
+    );
 
     test("two resets retire one pending local acquisition shared by one hundred checks", async () => {
         const launch = deferred();
