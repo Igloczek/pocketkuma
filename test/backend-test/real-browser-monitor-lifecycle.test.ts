@@ -4,6 +4,9 @@ import { afterEach, beforeAll, describe, expect, jest, mock, spyOn, test } from 
 import { RemoteBrowser } from "@/server/remote-browser";
 import childProcess from "node:child_process";
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 const chromium = {
     connect: mock(() => undefined),
@@ -245,6 +248,52 @@ describe("real-browser monitor lifecycle", () => {
                 expect(kill.mock.calls.some(([, signal]) => signal === "SIGKILL")).toBe(false);
             } finally {
                 kill.mockRestore();
+            }
+        }
+    );
+
+    test.skipIf(process.platform === "win32")(
+        "a captured browser keeps an owned group leader until orphan descendants retire",
+        async () => {
+            const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-browser-owner-"));
+            const pidFile = path.join(directory, "descendant.pid");
+            let launched;
+            chromium.launch.mockImplementation(async () => {
+                launched = childProcess.spawn(
+                    "/bin/sh",
+                    [
+                        "-c",
+                        'sleep 300 & printf "%s\\n" "$!" > "$1"',
+                        "pocketkuma-browser-fixture",
+                        pidFile,
+                        "--remote-debugging-pipe",
+                    ],
+                    { detached: true, stdio: "ignore" }
+                );
+                return successfulBrowser();
+            });
+            try {
+                await new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
+                for (let i = 0; i < 100 && !fs.existsSync(pidFile); i++) {
+                    await Bun.sleep(5);
+                }
+                const descendantPID = Number(fs.readFileSync(pidFile, "utf8"));
+                for (let i = 0; i < 100 && launched.exitCode === null; i++) {
+                    await Bun.sleep(5);
+                }
+
+                expect(launched.exitCode).toBeNull();
+                expect(() => process.kill(descendantPID, 0)).not.toThrow();
+                await resetChrome();
+                expect(() => process.kill(descendantPID, 0)).toThrow();
+            } finally {
+                await resetChrome().catch(() => {});
+                if (fs.existsSync(pidFile)) {
+                    try {
+                        process.kill(Number(fs.readFileSync(pidFile, "utf8")), "SIGKILL");
+                    } catch {}
+                }
+                fs.rmSync(directory, { recursive: true, force: true });
             }
         }
     );
