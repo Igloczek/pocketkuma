@@ -120,6 +120,17 @@ POCKETKUMA_REAL_BROWSER_CHROME=/usr/bin/chromium \
 bun test ./test/backend-test/monitor-lifecycle.test.ts --test-name-pattern "real-browser monitor completes"
 ```
 
+To verify the single-file release contract, the standalone variant copies the executable into a fresh temporary
+directory with no package manifest or `node_modules`, starts it from that directory without Bun module paths, and
+runs the same real Chromium, screenshot, pause, delete, and shutdown checks:
+
+```bash
+POCKETKUMA_BINARY=./pocketkuma \
+POCKETKUMA_STANDALONE_BINARY=1 \
+POCKETKUMA_REAL_BROWSER_CHROME=/usr/bin/chromium \
+bun test ./test/backend-test/monitor-lifecycle.test.ts --test-name-pattern "copied standalone binary"
+```
+
 Source runs also include a development-only SQLite snapshot scenario. It verifies browser cleanup before restore
 completion, post-swap database recovery, restored settings, and a fresh owner after rehydration:
 

@@ -23,7 +23,7 @@ PocketKuma keeps the same product surface — monitors, notifications, status pa
 ### Dependencies
 
 - **What changed:** compared to upstream Uptime Kuma v2.4.0, PocketKuma drops **50 direct** `package.json` entries (**41** from production dependencies) and about **200** fewer packages in the full install tree. Common utilities were replaced with Bun builtins or small in-repo helpers — for example `Bun.password` for hashing, native JWT handling, and built-in SQLite access.
-- **Effect:** less dependency churn, faster installs for development, and a leaner production footprint. Monitor-specific packages (Postgres, MQTT, SNMP, Playwright, and similar) are still there, but optional monitor and notification code loads on demand instead of at process start.
+- **Effect:** less dependency churn, faster installs for development, and a leaner production footprint. Monitor-specific code (Postgres, MQTT, SNMP, Playwright, and similar) loads on demand instead of at process start; dependencies needed at runtime are embedded in the executable.
 
 ### Database
 
@@ -107,7 +107,9 @@ Then place that `kuma.db` into the PocketKuma data directory before starting the
 
 ### Notes for real-browser monitors
 
-`real-browser` monitors use Chromium via `playwright-core`. That package is optional and loaded only when such a monitor runs. Regular HTTP/keyword/redis monitors do not need it.
+`real-browser` monitors use an installed Chrome/Chromium through `playwright-core`. Playwright is embedded in the
+release executable and loaded only when a browser monitor runs, so the binary does not need `node_modules` beside it.
+Regular HTTP/keyword/redis monitors do not load Playwright.
 
 Browser launch and remote-connect handshakes have a five-second hard limit. Configuration changes, remote-browser
 deletion, SQLite restore, and graceful shutdown do not report completion until an in-progress browser acquisition has
