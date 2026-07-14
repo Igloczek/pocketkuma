@@ -168,6 +168,9 @@ function captureBrowserProcess(owner, process) {
     process.once?.("close", finished);
     process.stdio?.[5]?.on?.("error", () => {});
     owner.acquiredProcesses.add(browserProcess);
+    if (childProcessHasExited(process)) {
+        finished();
+    }
     if (owner.invalidated) {
         void retireCapturedProcess(browserProcess).catch((error) => log.error("chromium", error));
     }
@@ -267,7 +270,11 @@ function capturedProcessIsLive(browserProcess) {
 }
 
 function childProcessHasExited(process) {
-    return Boolean(process && (process.exitCode != null || process.signalCode != null));
+    return Boolean(
+        process &&
+        ((process.exitCode !== null && process.exitCode !== undefined) ||
+            (process.signalCode !== null && process.signalCode !== undefined))
+    );
 }
 
 async function signalCapturedProcess(browserProcess, signal) {
@@ -400,7 +407,7 @@ async function disposeBrowser(browser, browserProcess, reason, owner) {
         const child = browserProcess.process;
         if (childProcessHasExited(child)) {
             killed = true;
-        } else {
+        } else if (globalThis.process.platform === "win32") {
             try {
                 killed = await bounded(browserProcess.kill());
             } catch {}
