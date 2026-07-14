@@ -13,6 +13,7 @@ import { MAX_INTERVAL_SECOND } from "@/constants";
 const projectRoot = path.join(import.meta.dirname, "../..");
 const binaryPath = process.env.POCKETKUMA_BINARY ? path.resolve(projectRoot, process.env.POCKETKUMA_BINARY) : null;
 const realBrowserExecutable = process.env.POCKETKUMA_REAL_BROWSER_CHROME || null;
+const pendingBrowserAcquisition = process.env.POCKETKUMA_PENDING_BROWSER_ACQUISITION === "1";
 const credentials = { username: "monitor-test", password: "monitor-test-password" };
 
 let appProcess;
@@ -318,6 +319,12 @@ async function startApp() {
             NO_PROXY: "",
             UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
             UPTIME_KUMA_LOG_FORMAT: "json",
+            UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC: pendingBrowserAcquisition
+                ? "1"
+                : process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC,
+            POCKETKUMA_PENDING_BROWSER_PID_FILE: pendingBrowserAcquisition
+                ? path.join(dataDir, "pending-browser-pids")
+                : undefined,
         },
         stdout: "pipe",
         stderr: "pipe",
@@ -1535,6 +1542,84 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
             }
         },
         60_000
+    );
+
+    test.skipIf(!pendingBrowserAcquisition || process.platform === "win32")(
+        "settings reset retires a pre-handshake browser process tree before replying",
+        async () => {
+            const executable = path.join(dataDir, "pending-chromium");
+            const pidFile = path.join(dataDir, "pending-browser-pids");
+            fs.writeFileSync(
+                executable,
+                '#!/bin/sh\nprintf \'%s\\n\' "$$" > "$POCKETKUMA_PENDING_BROWSER_PID_FILE"\nsh -c \'sleep 300 & wait\' &\nprintf \'%s\\n\' "$!" >> "$POCKETKUMA_PENDING_BROWSER_PID_FILE"\nwait\n'
+            );
+            fs.chmodSync(executable, 0o755);
+
+            const settings = await realtime.request("getSettings");
+            expect(settings.ok).toBe(true);
+            expect(
+                (
+                    await realtime.request(
+                        "setSettings",
+                        { ...settings.data, chromeExecutable: executable },
+                        credentials.password
+                    )
+                ).ok
+            ).toBe(true);
+
+            let monitorID;
+            let processGroup;
+            try {
+                const created = await realtime.request(
+                    "add",
+                    monitorPayload({
+                        type: "real-browser",
+                        name: "Pending browser acquisition",
+                        interval: 30,
+                        timeout: 30,
+                        screenshot_delay: 0,
+                        remote_browser: null,
+                    })
+                );
+                expect(created.ok).toBe(true);
+                monitorID = created.monitorID;
+                await withTimeout(
+                    (async () => {
+                        while (
+                            !fs.existsSync(pidFile) ||
+                            fs.readFileSync(pidFile, "utf8").trim().split("\n").length < 2
+                        ) {
+                            await Bun.sleep(10);
+                        }
+                    })(),
+                    10_000,
+                    "pending Chromium wrapper did not spawn its process tree"
+                );
+                processGroup = Number(fs.readFileSync(pidFile, "utf8").trim().split("\n")[0]);
+                const ownedPIDs = fs.readFileSync(pidFile, "utf8").trim().split("\n").map(Number);
+                expect(ownedPIDs.every((pid) => processTable().some((process) => process.pid === pid))).toBe(true);
+
+                const current = await realtime.request("getSettings");
+                const reset = await realtime.request(
+                    "setSettings",
+                    { ...current.data, chromeExecutable: null },
+                    credentials.password
+                );
+
+                expect(reset.ok).toBe(true);
+                expect(processTable().some((process) => ownedPIDs.includes(process.pid))).toBe(false);
+            } finally {
+                if (processGroup) {
+                    try {
+                        process.kill(-processGroup, "SIGKILL");
+                    } catch {}
+                }
+                if (monitorID) {
+                    await realtime.request("deleteMonitor", monitorID, false).catch(() => {});
+                }
+            }
+        },
+        30_000
     );
 
     test.skipIf(binaryPath || !realBrowserExecutable || process.platform === "win32")(
