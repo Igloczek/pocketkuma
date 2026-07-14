@@ -10,6 +10,7 @@ import path from "node:path";
 import { MAX_INTERVAL_SECOND } from "@/constants";
 
 const projectRoot = path.join(import.meta.dirname, "../..");
+const binaryPath = process.env.POCKETKUMA_BINARY ? path.resolve(projectRoot, process.env.POCKETKUMA_BINARY) : null;
 const credentials = { username: "monitor-test", password: "monitor-test-password" };
 
 let appProcess;
@@ -248,23 +249,23 @@ async function waitForApp() {
 
 async function startApp() {
     appPort = reservePort();
-    appProcess = Bun.spawn(
-        ["bun", "src/server/server.ts", `--port=${appPort}`, "--host=127.0.0.1", `--data-dir=${dataDir}`, "--test"],
-        {
-            cwd: projectRoot,
-            env: {
-                ...process.env,
-                NODE_ENV: "development",
-                HTTP_PROXY: envProxyUrl,
-                HTTPS_PROXY: envProxyUrl,
-                NO_PROXY: "",
-                UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
-                UPTIME_KUMA_LOG_FORMAT: "json",
-            },
-            stdout: "pipe",
-            stderr: "pipe",
-        }
-    );
+    const command = binaryPath
+        ? [binaryPath, `--port=${appPort}`, "--host=127.0.0.1", `--data-dir=${dataDir}`, "--test"]
+        : ["bun", "src/server/server.ts", `--port=${appPort}`, "--host=127.0.0.1", `--data-dir=${dataDir}`, "--test"];
+    appProcess = Bun.spawn(command, {
+        cwd: projectRoot,
+        env: {
+            ...process.env,
+            NODE_ENV: binaryPath ? "production" : "development",
+            HTTP_PROXY: envProxyUrl,
+            HTTPS_PROXY: envProxyUrl,
+            NO_PROXY: "",
+            UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
+            UPTIME_KUMA_LOG_FORMAT: "json",
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+    });
     appLogReaders = [collectProcessOutput(appProcess.stdout), collectProcessOutput(appProcess.stderr)];
     await waitForApp();
 }
