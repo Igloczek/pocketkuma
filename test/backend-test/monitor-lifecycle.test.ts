@@ -134,7 +134,7 @@ async function collectProcessOutput(stream) {
 }
 
 function processTable() {
-    const result = Bun.spawnSync(["ps", "-axo", "pid=,ppid=,command="], {
+    const result = Bun.spawnSync(["ps", "-axo", "pid=,ppid=,pgid=,command="], {
         stdout: "pipe",
         stderr: "pipe",
     });
@@ -144,9 +144,9 @@ function processTable() {
     return Buffer.from(result.stdout)
         .toString()
         .split("\n")
-        .map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/))
+        .map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/))
         .filter(Boolean)
-        .map((match) => ({ pid: Number(match[1]), ppid: Number(match[2]), command: match[3] }));
+        .map((match) => ({ pid: Number(match[1]), ppid: Number(match[2]), pgid: Number(match[3]), command: match[4] }));
 }
 
 function descendantProcesses(parentPID) {
@@ -163,6 +163,36 @@ function descendantProcesses(parentPID) {
         }
     }
     return rows.filter((row) => row.pid !== parentPID && descendants.has(row.pid));
+}
+
+function preparePendingBrowserWrapper() {
+    const executable = path.join(dataDir, "pending-chromium");
+    const pidFile = path.join(dataDir, "pending-browser-pids");
+    fs.rmSync(pidFile, { force: true });
+    fs.writeFileSync(
+        executable,
+        '#!/bin/sh\ntrap \'\' TERM\nprintf \'%s\\n\' "$$" > "$POCKETKUMA_PENDING_BROWSER_PID_FILE"\nsh -c \'sleep 300 & printf "%s\\n" "$!" >> "$POCKETKUMA_PENDING_BROWSER_PID_FILE"; wait\' &\nprintf \'%s\\n\' "$!" >> "$POCKETKUMA_PENDING_BROWSER_PID_FILE"\nwait\n'
+    );
+    fs.chmodSync(executable, 0o755);
+    return { executable, pidFile };
+}
+
+async function pendingBrowserProcesses(pidFile) {
+    await withTimeout(
+        (async () => {
+            while (!fs.existsSync(pidFile) || fs.readFileSync(pidFile, "utf8").trim().split("\n").length < 3) {
+                await Bun.sleep(10);
+            }
+        })(),
+        10_000,
+        "pending Chromium wrapper did not spawn its process tree"
+    );
+    const pids = fs.readFileSync(pidFile, "utf8").trim().split("\n").map(Number);
+    return { processGroup: pids[0], pids };
+}
+
+function processGroupSurvives(processGroup) {
+    return processTable().some((process) => process.pgid === processGroup);
 }
 
 function startTargetServer() {
@@ -1547,13 +1577,7 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
     test.skipIf(!pendingBrowserAcquisition || process.platform === "win32")(
         "settings reset retires a pre-handshake browser process tree before replying",
         async () => {
-            const executable = path.join(dataDir, "pending-chromium");
-            const pidFile = path.join(dataDir, "pending-browser-pids");
-            fs.writeFileSync(
-                executable,
-                '#!/bin/sh\nprintf \'%s\\n\' "$$" > "$POCKETKUMA_PENDING_BROWSER_PID_FILE"\nsh -c \'sleep 300 & wait\' &\nprintf \'%s\\n\' "$!" >> "$POCKETKUMA_PENDING_BROWSER_PID_FILE"\nwait\n'
-            );
-            fs.chmodSync(executable, 0o755);
+            const { executable, pidFile } = preparePendingBrowserWrapper();
 
             const settings = await realtime.request("getSettings");
             expect(settings.ok).toBe(true);
@@ -1583,20 +1607,9 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
                 );
                 expect(created.ok).toBe(true);
                 monitorID = created.monitorID;
-                await withTimeout(
-                    (async () => {
-                        while (
-                            !fs.existsSync(pidFile) ||
-                            fs.readFileSync(pidFile, "utf8").trim().split("\n").length < 2
-                        ) {
-                            await Bun.sleep(10);
-                        }
-                    })(),
-                    10_000,
-                    "pending Chromium wrapper did not spawn its process tree"
-                );
-                processGroup = Number(fs.readFileSync(pidFile, "utf8").trim().split("\n")[0]);
-                const ownedPIDs = fs.readFileSync(pidFile, "utf8").trim().split("\n").map(Number);
+                const pending = await pendingBrowserProcesses(pidFile);
+                processGroup = pending.processGroup;
+                const ownedPIDs = pending.pids;
                 expect(ownedPIDs.every((pid) => processTable().some((process) => process.pid === pid))).toBe(true);
 
                 const current = await realtime.request("getSettings");
@@ -1608,6 +1621,7 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
 
                 expect(reset.ok).toBe(true);
                 expect(processTable().some((process) => ownedPIDs.includes(process.pid))).toBe(false);
+                expect(processGroupSurvives(processGroup)).toBe(false);
             } finally {
                 if (processGroup) {
                     try {
@@ -1616,6 +1630,132 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
                 }
                 if (monitorID) {
                     await realtime.request("deleteMonitor", monitorID, false).catch(() => {});
+                }
+            }
+        },
+        30_000
+    );
+
+    test.skipIf(binaryPath || !pendingBrowserAcquisition || process.platform === "win32")(
+        "SQLite restore retires a pre-handshake browser process tree before replying",
+        async () => {
+            const baseline = await realtime.request("getSettings");
+            expect(baseline.ok).toBe(true);
+            expect((await fetch(`http://127.0.0.1:${appPort}/_e2e/take-sqlite-snapshot`)).ok).toBe(true);
+            const { executable, pidFile } = preparePendingBrowserWrapper();
+            expect(
+                (
+                    await realtime.request(
+                        "setSettings",
+                        { ...baseline.data, chromeExecutable: executable },
+                        credentials.password
+                    )
+                ).ok
+            ).toBe(true);
+
+            let monitorID;
+            let processGroup;
+            try {
+                const created = await realtime.request(
+                    "add",
+                    monitorPayload({
+                        type: "real-browser",
+                        name: "Pending browser snapshot restore",
+                        interval: 30,
+                        timeout: 30,
+                        screenshot_delay: 0,
+                        remote_browser: null,
+                    })
+                );
+                expect(created.ok).toBe(true);
+                monitorID = created.monitorID;
+                processGroup = (await pendingBrowserProcesses(pidFile)).processGroup;
+
+                const restored = await fetch(`http://127.0.0.1:${appPort}/_e2e/restore-sqlite-snapshot`);
+
+                expect(restored.ok).toBe(true);
+                expect(processGroupSurvives(processGroup)).toBe(false);
+                monitorID = null;
+                expect((await realtime.request("getSettings")).data.chromeExecutable).toBe(
+                    baseline.data.chromeExecutable
+                );
+            } finally {
+                if (processGroup) {
+                    try {
+                        process.kill(-processGroup, "SIGKILL");
+                    } catch {}
+                }
+                if (monitorID) {
+                    await realtime.request("deleteMonitor", monitorID, false).catch(() => {});
+                }
+            }
+        },
+        30_000
+    );
+
+    test.skipIf(binaryPath || !pendingBrowserAcquisition || process.platform === "win32")(
+        "SQLite restore rollback retires the old pre-handshake process tree before replying",
+        async () => {
+            const baseline = await realtime.request("getSettings");
+            expect(baseline.ok).toBe(true);
+            expect((await fetch(`http://127.0.0.1:${appPort}/_e2e/take-sqlite-snapshot`)).ok).toBe(true);
+            const snapshotPath = path.join(dataDir, "kuma.db.e2e-snapshot");
+            const malformed = new BunDatabase(snapshotPath, { strict: true });
+            malformed.run("DROP TABLE setting");
+            malformed.run("CREATE TABLE setting (id INTEGER PRIMARY KEY)");
+            malformed.close();
+            const { executable, pidFile } = preparePendingBrowserWrapper();
+            expect(
+                (
+                    await realtime.request(
+                        "setSettings",
+                        { ...baseline.data, chromeExecutable: executable },
+                        credentials.password
+                    )
+                ).ok
+            ).toBe(true);
+
+            let monitorID;
+            let processGroup;
+            try {
+                const created = await realtime.request(
+                    "add",
+                    monitorPayload({
+                        type: "real-browser",
+                        name: "Pending browser snapshot rollback",
+                        interval: 30,
+                        timeout: 30,
+                        screenshot_delay: 0,
+                        remote_browser: null,
+                    })
+                );
+                expect(created.ok).toBe(true);
+                monitorID = created.monitorID;
+                processGroup = (await pendingBrowserProcesses(pidFile)).processGroup;
+
+                const restored = await fetch(`http://127.0.0.1:${appPort}/_e2e/restore-sqlite-snapshot`);
+
+                expect(restored.status).toBe(500);
+                expect(processGroupSurvives(processGroup)).toBe(false);
+                expect((await realtime.request("getSettings")).data.chromeExecutable).toBe(executable);
+            } finally {
+                if (processGroup) {
+                    try {
+                        process.kill(-processGroup, "SIGKILL");
+                    } catch {}
+                }
+                if (monitorID) {
+                    await realtime.request("deleteMonitor", monitorID, false).catch(() => {});
+                }
+                const current = await realtime.request("getSettings").catch(() => null);
+                if (current?.ok) {
+                    await realtime
+                        .request(
+                            "setSettings",
+                            { ...current.data, chromeExecutable: baseline.data.chromeExecutable },
+                            credentials.password
+                        )
+                        .catch(() => {});
                 }
             }
         },
@@ -1744,5 +1884,51 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
             }
         },
         60_000
+    );
+
+    test.skipIf(!pendingBrowserAcquisition || process.platform === "win32")(
+        "SIGTERM retires a pre-handshake browser process tree before PocketKuma exits",
+        async () => {
+            const baseline = await realtime.request("getSettings");
+            expect(baseline.ok).toBe(true);
+            const { executable, pidFile } = preparePendingBrowserWrapper();
+            expect(
+                (
+                    await realtime.request(
+                        "setSettings",
+                        { ...baseline.data, chromeExecutable: executable },
+                        credentials.password
+                    )
+                ).ok
+            ).toBe(true);
+
+            let processGroup;
+            try {
+                const created = await realtime.request(
+                    "add",
+                    monitorPayload({
+                        type: "real-browser",
+                        name: "Pending browser shutdown",
+                        interval: 30,
+                        timeout: 30,
+                        screenshot_delay: 0,
+                        remote_browser: null,
+                    })
+                );
+                expect(created.ok).toBe(true);
+                processGroup = (await pendingBrowserProcesses(pidFile)).processGroup;
+
+                await stopApp();
+
+                expect(processGroupSurvives(processGroup)).toBe(false);
+            } finally {
+                if (processGroup) {
+                    try {
+                        process.kill(-processGroup, "SIGKILL");
+                    } catch {}
+                }
+            }
+        },
+        30_000
     );
 });
