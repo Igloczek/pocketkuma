@@ -816,7 +816,7 @@ describe("real-browser monitor lifecycle", () => {
         }
     );
 
-    test("a hung browser close escalates to the exact owned process kill", async () => {
+    test("a hung browser close never trusts an untracked POSIX process handle", async () => {
         const close = deferred();
         const kill = mock(async () => undefined);
         const processKill = mock(() => true);
@@ -839,7 +839,7 @@ describe("real-browser monitor lifecycle", () => {
 
         expect(await check).toBeInstanceOf(Error);
         expect(browser.close).toHaveBeenCalledTimes(1);
-        expect(kill).toHaveBeenCalledTimes(1);
+        expect(kill).toHaveBeenCalledTimes(process.platform === "win32" ? 1 : 0);
         expect(processKill).not.toHaveBeenCalled();
     });
 
@@ -865,11 +865,12 @@ describe("real-browser monitor lifecycle", () => {
         await instance.stop();
 
         expect(await check).toBeInstanceOf(Error);
-        expect(kill).toHaveBeenCalledTimes(1);
         if (process.platform === "win32") {
+            expect(kill).toHaveBeenCalledTimes(1);
             expect(processKill).toHaveBeenCalledTimes(1);
             expect(processKill).toHaveBeenCalledWith("SIGKILL");
         } else {
+            expect(kill).not.toHaveBeenCalled();
             expect(processKill).not.toHaveBeenCalled();
         }
     });
