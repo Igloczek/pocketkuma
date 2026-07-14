@@ -18,6 +18,9 @@ Date: 2026-07-14
 - Screenshot-delay transport RED tests: `a8f96e9c`
 - Screenshot-delay transport runtime: `97b70906`
 - Compiled real-Chromium lifecycle harness: `51b39d14`
+- Pending-acquisition RED tests: `5746e720`
+- Pending-acquisition runtime: `c09b3b0f`
+- Pending-acquisition boundary tests: `83511617`
 
 `5add23ce` adds the deterministic RED tests only, so its runtime is identical to `295ca265`.
 
@@ -469,7 +472,73 @@ shutdown result:   2043.122, 2031.106, 2043.770, 2042.233, 2036.860, 2035.178, 2
 ```
 
 The final arm64 executable is 91,400,930 bytes with SHA-256
-`ef19c8e4ed88122580212e99276d9e4d04bdb78ab5812a7ca843756732ed6def`.
+`f1d576adc344cc2a2893281f339e87b46ca917833ec03e25d193d721417135b9`.
+
+### Pending browser-acquisition follow-up
+
+The final adversarial pass found a narrower gap before Playwright completed its launch or remote-connect handshake.
+The owner stored only the acquisition promise, while its browser and process fields were populated after that promise
+resolved. A settings reset could therefore invalidate the owner and return while the detached Chromium wrapper and
+its descendants were still alive. SQLite restore inherited the same false cleanup boundary. Remote connections had
+the equivalent risk because Playwright exposes no public transport handle before `connect()` resolves.
+
+Local launch now captures the exact detached Playwright child synchronously, before the handshake promise can settle.
+The capture is scoped to the launch owner with `AsyncLocalStorage`, reference-counts the temporary spawn hook, and
+accepts only Playwright's `detached` process carrying `--remote-debugging-pipe`; unrelated children are not eligible.
+On POSIX, retirement sends `SIGTERM` to that process group, waits 100 ms, escalates to `SIGKILL`, and confirms the
+group is gone. Acquisition is capped at five seconds and owner retirement at 5.5 seconds. Remote connect uses the same
+hard acquisition cap and waits for Playwright's rejected connection to close its socket. Late browser results are
+closed instead of entering the owner cache.
+
+The regression suite covers one and 100 pending local acquisitions, 100 independent remote owners, exact
+user/browser targeting, `Monitor.stop()`, configuration replacement serialization, a connection that ignores its
+mocked timeout, source and compiled settings/test callbacks, remote add/edit/delete callbacks, source snapshot success
+and rollback, and compiled `SIGTERM`. The real shell fixture puts a wrapper, shell child, and sleeping grandchild in
+one process group; every relevant callback asserts the complete group or socket is gone first.
+
+The comparison uses the exact RED commit `5746e720` (runtime-identical to `8b9b4755`) and final runtime `c09b3b0f`,
+Bun 1.3.14, Playwright 1.61.0, and the same Apple arm64 host. Healthy browser reuse ran 100,000 mocked checks after
+1,000 warmups. Its seven-sample median changed from 10.204573 to 10.028223 microseconds/check (-0.176350
+microseconds, -1.73%), which is benchmark noise rather than a regression because the capture path runs only while
+creating a local owner.
+
+The deliberately stalled compiled settings switch changed from an 8.019 ms median that returned with owned PIDs
+alive to 129.581 ms with the complete group gone. Source SQLite restore changed from a 14.872 ms median with the
+group alive after HTTP success to 129.566 ms with it gone. The additional 114–122 ms is the intentional cleanup
+barrier, dominated by the 100 ms graceful-termination window. Pending compiled shutdown changed from 2,018.663 to
+2,137.971 ms (+119.308 ms); both versions eventually lost the fixture when the whole application exited, while the
+final runtime now performs and verifies explicit owner retirement before completing shutdown.
+
+```text
+healthy reuse baseline: 10.027957, 10.047098, 10.059291, 10.204573, 10.250360, 10.299252, 10.395419 us/check
+healthy reuse final:     9.855532, 9.919225, 10.028223, 9.989963, 10.104248, 10.187022, 10.220255 us/check
+settings reset baseline: 7.760625, 8.120458, 8.018708, 8.030584, 7.670208 ms (owned PIDs alive)
+settings reset final:    130.928750, 129.581166, 130.021042, 125.160666, 129.319000 ms (group gone)
+snapshot baseline:       14.872125, 18.795042, 12.836459, 13.957333, 15.853583 ms (group alive)
+snapshot final:          128.483625, 119.276417, 129.566000, 129.689250, 131.913166 ms (group gone)
+pending shutdown base:   2018.662500, 2015.873792, 2016.463292, 2019.087083, 2019.126709 ms
+pending shutdown final:  2139.614000, 2138.299667, 2137.970625, 2132.590000, 2133.042375 ms
+```
+
+Seven fresh-data compiled starts show no idle cost. Excluding each cold first sample, median readiness changed from
+286.635 to 286.615 ms (-0.020 ms); all-sample RSS median changed from 198,688 to 198,576 KiB (-112 KiB), and idle
+shutdown changed from 2,020.629 to 2,021.164 ms (+0.535 ms). The executable remains 91,400,930 bytes.
+
+```text
+startup baseline: 1451.569, 282.729, 286.046, 285.505, 287.224, 292.637, 288.314 ms
+startup final:    372.166, 287.052, 282.792, 285.097, 290.587, 286.541, 286.689 ms
+RSS baseline:     198848, 198688, 199024, 198768, 198544, 198688, 198592 KiB
+RSS final:        198720, 198352, 198576, 198752, 198656, 198432, 198576 KiB
+shutdown baseline: 2025.148, 2017.222, 2019.304, 2024.831, 2026.209, 2020.629, 2019.528 ms
+shutdown final:    2021.720, 2026.397, 2021.164, 2018.984, 2021.069, 2023.951, 2018.953 ms
+```
+
+Final verification passed backend unit `332 pass / 15 skip`, authentication `13/13`, maintenance `9/9`, and
+backend-all `405 pass / 15 skip` across 48 files. The 15 default skips are six public-network TLS cases and nine
+browser opt-ins; the relevant browser opt-ins passed separately on source and the compiled executable. Compiled SMTP
+passed `1/1`, compiled authentication `13/13`, and source and compiled real-Chrome lifecycle each passed with 22
+expectations. Full Playwright E2E passed `40/40` twice. Frozen install, lint, and build passed with only the existing
+warning categories.
 
 ## Residual limits
 
@@ -480,7 +549,9 @@ The final arm64 executable is 91,400,930 bytes with SHA-256
   ping operations are abortable or killable.
 - Playwright does not expose native timeout options for `browser.newContext()` or `context.close()`, a public remote
   force-disconnect API, or a public process handle from `chromium.launch()`. PocketKuma supplies its own cancellation
-  boundary, bounds close, and isolates the exact-version local process and remote-channel fallbacks described above.
+  boundary, bounds close, captures the exact POSIX local process group before handshake, and uses a bounded
+  remote-channel fallback. Pre-handshake process-tree escalation remains POSIX-specific; Windows uses direct-process
+  cleanup and is excluded from the process-group fixture.
 - Some sequential paths cap individual phases rather than carrying one absolute deadline: ping can make an IPv6
   fallback attempt, MySQL caps connection and query operations separately, SMTP uses half-timeout phase caps, and
   TCP/STARTTLS/WebSocket OAuth paths can enter another bounded phase. Their worst-case wall time can therefore exceed
@@ -491,5 +562,5 @@ The final arm64 executable is 91,400,930 bytes with SHA-256
 - Malformed legacy values are normalized in memory but intentionally left unchanged on disk. A later successful edit
   persists canonical numeric values; this avoids hidden writes during startup or push requests.
 
-The root README is unchanged because this work introduces no command, distribution path, or new operator workflow.
-The backend test README now names the real-browser lifecycle suite and documents the opt-in compiled Chromium command.
+The root README records the browser acquisition bound and lifecycle barrier. The backend test README documents both
+real-Chromium and pending-acquisition opt-ins for source and compiled runs.
