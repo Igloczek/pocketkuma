@@ -634,6 +634,10 @@ shutdown final:    2018.862, 2018.247, 2015.912, 2016.309, 2017.486, 2015.313, 2
   boundary, bounds close, and supervises the POSIX local process group over an owned pipe before handshake. This
   requires `/bin/sh`, which is present on the supported POSIX hosts. Pre-handshake tree escalation remains
   POSIX-specific; Windows uses direct-process cleanup and is excluded from the process-group fixture.
+- If an external actor stops the whole supervisor group so it cannot read its control pipe, cleanup fails closed and
+  reports the owned group instead of attempting a numeric-PID fallback. Resuming or explicitly retiring that owned
+  group is then an operator action; the safety boundary deliberately prefers an owned leak under hostile process
+  manipulation to signalling a potentially unrelated process after PID reuse.
 - Some sequential paths cap individual phases rather than carrying one absolute deadline: ping can make an IPv6
   fallback attempt, MySQL caps connection and query operations separately, SMTP uses half-timeout phase caps, and
   TCP/STARTTLS/WebSocket OAuth paths can enter another bounded phase. Their worst-case wall time can therefore exceed
