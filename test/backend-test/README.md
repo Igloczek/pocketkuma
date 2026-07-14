@@ -68,9 +68,10 @@ The unit subset runs fast, hermetic tests (no Docker or public network):
 - `monitor-conditions/*.test.ts` — condition parsing and evaluation
 - `monitor-response.test.ts` — saved response serialization and truncation
 - `monitor-runtime-loading.test.ts` — lazy monitor/notification loading
-- `monitor-numeric-validation.test.ts` — numeric save boundaries and safe legacy-runtime fallbacks
+- `monitor-numeric-validation.test.ts` — timeout/retry/redirect save bounds and safe legacy-runtime fallbacks
 - `monitor-scheduler.test.ts` — scheduler timer control
-- `monitor-provider-timeout.test.ts` — loopback deadline, cancellation, socket cleanup, and process-kill behavior
+- `monitor-provider-timeout.test.ts` — loopback deadlines, SNMP retry quantization/cancellation, socket cleanup, and
+  process-kill behavior
 - `check-translations.test.ts` — translation key and placeholder safety
 - `monitors/{gamedig,grpc,steam,tcp,websocket}.test.ts` — mocked or loopback protocol behavior
 - `notification-providers/notification-provider.test.ts` — provider error normalization
