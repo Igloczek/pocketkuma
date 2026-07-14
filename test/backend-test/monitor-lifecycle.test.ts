@@ -1397,8 +1397,8 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
         }
     }, 60_000);
 
-    test.skipIf(!binaryPath || !realBrowserExecutable || process.platform === "win32")(
-        "compiled real-browser monitor completes screenshots, cancels navigation, relaunches, and cleans Chromium",
+    test.skipIf(!realBrowserExecutable || process.platform === "win32")(
+        "real-browser monitor completes screenshots, cancels navigation, relaunches, and cleans Chromium",
         async () => {
             fs.accessSync(realBrowserExecutable, fs.constants.X_OK);
             const settings = await realtime.request("getSettings");
@@ -1432,6 +1432,30 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
                 expect(created.ok).toBe(true);
                 monitorID = created.monitorID;
                 await realtime.waitFor("heartbeat", heartbeatFor(monitorID, 1), mark, 20_000);
+
+                const configuredBrowserPIDs = descendantProcesses(appProcess.pid)
+                    .filter((process) => process.command.includes("playwright_chromiumdev_profile"))
+                    .map((process) => process.pid);
+                expect(configuredBrowserPIDs.length).toBeGreaterThan(0);
+                const currentSettings = await realtime.request("getSettings");
+                const relaunchedMark = realtime.mark();
+                expect(
+                    (
+                        await realtime.request(
+                            "setSettings",
+                            { ...currentSettings.data, chromeExecutable: null },
+                            credentials.password
+                        )
+                    ).ok
+                ).toBe(true);
+                expect(processTable().some((process) => configuredBrowserPIDs.includes(process.pid))).toBe(false);
+                expect((await realtime.request("getSettings")).data.chromeExecutable).toBeNull();
+                await realtime.waitFor("heartbeat", heartbeatFor(monitorID, 1), relaunchedMark, 20_000);
+                const autoDetectedBrowserPIDs = descendantProcesses(appProcess.pid)
+                    .filter((process) => process.command.includes("playwright_chromiumdev_profile"))
+                    .map((process) => process.pid);
+                expect(autoDetectedBrowserPIDs.length).toBeGreaterThan(0);
+                expect(autoDetectedBrowserPIDs.some((pid) => configuredBrowserPIDs.includes(pid))).toBe(false);
 
                 const response = await realtime.request("getMonitor", monitorID);
                 expect(response.ok).toBe(true);
@@ -1569,9 +1593,27 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
                     .map((process) => process.pid);
                 expect(oldBrowserPIDs.length).toBeGreaterThan(0);
 
+                const snapshotPath = path.join(dataDir, "kuma.db.e2e-snapshot");
+                const validSnapshot = fs.readFileSync(snapshotPath);
+                const malformed = new BunDatabase(snapshotPath, { strict: true });
+                malformed.run("DROP TABLE setting");
+                malformed.run("CREATE TABLE setting (id INTEGER PRIMARY KEY)");
+                malformed.close();
+                const recoveryMark = realtime.mark();
+                expect((await fetch(`http://127.0.0.1:${appPort}/_e2e/restore-sqlite-snapshot`)).status).toBe(500);
+                expect(processTable().some((process) => oldBrowserPIDs.includes(process.pid))).toBe(false);
+                expect((await realtime.request("getSettings")).data.chromeExecutable).toBe(realBrowserExecutable);
+                await realtime.waitFor("heartbeat", heartbeatFor(firstMonitorID, 1), recoveryMark, 20_000);
+                const recoveredBrowserPIDs = descendantProcesses(appProcess.pid)
+                    .filter((process) => process.command.includes("playwright_chromiumdev_profile"))
+                    .map((process) => process.pid);
+                expect(recoveredBrowserPIDs.length).toBeGreaterThan(0);
+                expect(recoveredBrowserPIDs.some((pid) => oldBrowserPIDs.includes(pid))).toBe(false);
+                fs.writeFileSync(snapshotPath, validSnapshot);
+
                 const restored = await fetch(`http://127.0.0.1:${appPort}/_e2e/restore-sqlite-snapshot`);
                 expect(restored.ok).toBe(true);
-                expect(processTable().some((process) => oldBrowserPIDs.includes(process.pid))).toBe(false);
+                expect(processTable().some((process) => recoveredBrowserPIDs.includes(process.pid))).toBe(false);
                 firstMonitorID = null;
                 expect((await realtime.request("getSettings")).data.chromeExecutable).toBe(
                     baselineSettings.data.chromeExecutable
@@ -1606,6 +1648,7 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
                     .map((process) => process.pid);
                 expect(newBrowserPIDs.length).toBeGreaterThan(0);
                 expect(newBrowserPIDs.some((pid) => oldBrowserPIDs.includes(pid))).toBe(false);
+                expect(newBrowserPIDs.some((pid) => recoveredBrowserPIDs.includes(pid))).toBe(false);
             } finally {
                 if (secondMonitorID) {
                     await realtime.request("deleteMonitor", secondMonitorID, false).catch(() => {});

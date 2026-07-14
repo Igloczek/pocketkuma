@@ -88,6 +88,8 @@ async function stopRuntimeForSnapshot(server) {
         maintenance.stop();
     }
     await Promise.all(Object.values(server.monitorList).map((monitor) => monitor.stop()));
+    const { resetChrome } = await import("@/server/monitor-types/real-browser-monitor-type");
+    await resetChrome();
     server.monitorList = {};
     server.maintenanceList = {};
     await UptimeCalculator.removeAll();
