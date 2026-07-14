@@ -14,11 +14,17 @@ import config from "@/server/config";
 import { RemoteBrowser } from "@/server/remote-browser";
 import { commandExists } from "@/server/util-server";
 import { runCommand, runCommandChecked } from "@/server/process-helper";
+import childProcess from "node:child_process";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 const BROWSER_CLEANUP_GRACE_MS = 100;
+const BROWSER_ACQUISITION_TIMEOUT_MS = 5_000;
+const BROWSER_RETIRE_TIMEOUT_MS = BROWSER_ACQUISITION_TIMEOUT_MS + 500;
 const BROWSER_TEST_TIMEOUT_MS = 30_000;
 const browserOwners = new Map();
+const localLaunchOwner = new AsyncLocalStorage();
 let chromiumPromise = null;
+let spawnCapture = null;
 
 /**
  * Lazy-load playwright-core only when a real-browser check actually runs.
@@ -102,9 +108,9 @@ async function createLocalBrowser(owner, executablePath, deadline) {
 
     const chromium = await getChromium();
     assertOwnerActive(owner, deadline);
-    const launchedBrowser = await chromium.launch({
+    const launchedBrowser = await launchLocalBrowser(owner, chromium, {
         executablePath,
-        timeout: remaining(deadline),
+        timeout: acquisitionTimeout(deadline),
     });
     await attachBrowser(owner, launchedBrowser, ownedBrowserProcess(launchedBrowser), deadline);
     return launchedBrowser;
@@ -120,7 +126,7 @@ async function createRemoteBrowser(owner, remoteBrowser, deadline) {
     log.debug("chromium", `Using remote browser: ${remoteBrowser.name} (${remoteBrowser.id})`);
     const chromium = await getChromium();
     assertOwnerActive(owner, deadline);
-    const connectedBrowser = await chromium.connect(remoteBrowser.url, { timeout: remaining(deadline) });
+    const connectedBrowser = await chromium.connect(remoteBrowser.url, { timeout: acquisitionTimeout(deadline) });
     await attachBrowser(owner, connectedBrowser, null, deadline);
     return connectedBrowser;
 }
@@ -131,6 +137,65 @@ function remaining(deadline) {
         throw new Error("Browser monitor timed out");
     }
     return milliseconds;
+}
+
+function acquisitionTimeout(deadline) {
+    return Math.min(remaining(deadline), BROWSER_ACQUISITION_TIMEOUT_MS);
+}
+
+function captureBrowserProcess(owner, process) {
+    if (!process?.pid) {
+        return;
+    }
+    const browserProcess = { process, retirePromise: null };
+    owner.acquiredProcesses.add(browserProcess);
+    if (owner.invalidated) {
+        void retireCapturedProcess(browserProcess).catch((error) => log.error("chromium", error));
+    }
+}
+
+function startSpawnCapture() {
+    if (spawnCapture) {
+        spawnCapture.users++;
+        return;
+    }
+    const original = childProcess.spawn;
+    const patched = function (...args) {
+        const process = original.apply(this, args);
+        const owner = localLaunchOwner.getStore();
+        const processArgs = args[1];
+        const options = args[2];
+        if (
+            owner &&
+            options?.detached === (globalThis.process.platform !== "win32") &&
+            Array.isArray(processArgs) &&
+            processArgs.includes("--remote-debugging-pipe")
+        ) {
+            captureBrowserProcess(owner, process);
+        }
+        return process;
+    };
+    childProcess.spawn = patched;
+    spawnCapture = { original, patched, users: 1 };
+}
+
+function stopSpawnCapture() {
+    if (!spawnCapture || --spawnCapture.users > 0) {
+        return;
+    }
+    if (childProcess.spawn === spawnCapture.patched) {
+        childProcess.spawn = spawnCapture.original;
+    }
+    spawnCapture = null;
+}
+
+async function launchLocalBrowser(owner, chromium, options) {
+    startSpawnCapture();
+    try {
+        return await localLaunchOwner.run(owner, () => chromium.launch(options));
+    } finally {
+        stopSpawnCapture();
+    }
 }
 
 function assertOwnerActive(owner, deadline) {
@@ -166,6 +231,58 @@ async function attachBrowser(owner, browser, browserProcess, deadline) {
     owner.browserProcess = browserProcess;
 }
 
+function processGroupExists(pid) {
+    try {
+        globalThis.process.kill(globalThis.process.platform === "win32" ? pid : -pid, 0);
+        return true;
+    } catch (error) {
+        return error?.code !== "ESRCH";
+    }
+}
+
+function signalProcessGroup(browserProcess, signal) {
+    const pid = browserProcess.process?.pid;
+    if (!pid || !processGroupExists(pid)) {
+        return;
+    }
+    try {
+        if (globalThis.process.platform === "win32") {
+            browserProcess.process.kill(signal);
+        } else {
+            globalThis.process.kill(-pid, signal);
+        }
+    } catch {}
+}
+
+async function waitForProcessGroup(pid, timeout) {
+    const deadline = Date.now() + timeout;
+    while (processGroupExists(pid) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    return !processGroupExists(pid);
+}
+
+async function retireCapturedProcess(browserProcess) {
+    if (browserProcess.retirePromise) {
+        return await browserProcess.retirePromise;
+    }
+    browserProcess.retirePromise = (async () => {
+        const pid = browserProcess.process?.pid;
+        if (!pid || !processGroupExists(pid)) {
+            return;
+        }
+        signalProcessGroup(browserProcess, "SIGTERM");
+        if (await waitForProcessGroup(pid, BROWSER_CLEANUP_GRACE_MS)) {
+            return;
+        }
+        signalProcessGroup(browserProcess, "SIGKILL");
+        if (!(await waitForProcessGroup(pid, BROWSER_CLEANUP_GRACE_MS * 5))) {
+            throw new Error(`Chromium process group ${pid} did not exit after SIGKILL`);
+        }
+    })();
+    return await browserProcess.retirePromise;
+}
+
 async function bounded(promise, timeout = BROWSER_CLEANUP_GRACE_MS) {
     let timer;
     try {
@@ -197,8 +314,26 @@ async function invalidateBrowser(owner, reason = new Error("Browser monitor canc
         return await owner.closePromise;
     }
 
-    owner.closePromise = disposeBrowser(owner.browser, owner.browserProcess, owner.reason);
+    owner.closePromise = retireBrowserOwner(owner);
     return await owner.closePromise;
+}
+
+async function retireBrowserOwner(owner) {
+    const browser = owner.browser;
+    const browserProcess = owner.browserProcess;
+    owner.browser = null;
+    owner.browserProcess = null;
+    await disposeBrowser(browser, browserProcess, owner.reason);
+    await Promise.all(Array.from(owner.acquiredProcesses, retireCapturedProcess));
+    if (
+        !(await bounded(
+            owner.acquisition.catch(() => {}),
+            BROWSER_RETIRE_TIMEOUT_MS
+        ))
+    ) {
+        throw new Error("Browser acquisition did not retire within 5.5 seconds");
+    }
+    await Promise.all(Array.from(owner.acquiredProcesses, retireCapturedProcess));
 }
 
 async function disposeBrowser(browser, browserProcess, reason) {
@@ -238,14 +373,15 @@ function newBrowserOwner(key, create) {
         closePromise: null,
         invalidated: false,
         reason: null,
+        acquisition: null,
+        acquiredProcesses: new Set(),
         ready: null,
         abortController: new AbortController(),
     };
     browserOwners.set(key, owner);
-    owner.ready = create(owner).catch(async (error) => {
-        await invalidateBrowser(owner, error);
-        throw error;
-    });
+    owner.acquisition = Promise.resolve().then(() => create(owner));
+    owner.ready = owner.acquisition;
+    owner.acquisition.catch((error) => invalidateBrowser(owner, error)).catch(() => {});
     return owner;
 }
 
@@ -415,7 +551,10 @@ async function testChrome(executablePath) {
         executablePath = await prepareChromeExecutable(executablePath, deadline);
         const chromium = await getChromium();
         assertOwnerActive(candidate, deadline);
-        const launchedBrowser = await chromium.launch({ executablePath, timeout: remaining(deadline) });
+        const launchedBrowser = await launchLocalBrowser(candidate, chromium, {
+            executablePath,
+            timeout: acquisitionTimeout(deadline),
+        });
         await attachBrowser(candidate, launchedBrowser, ownedBrowserProcess(launchedBrowser), deadline);
         return launchedBrowser;
     });
@@ -448,7 +587,7 @@ async function testRemoteBrowser(remoteBrowserURL) {
     const owner = newBrowserOwner(`test-remote:${crypto.randomUUID()}`, async (candidate) => {
         const chromium = await getChromium();
         assertOwnerActive(candidate, deadline);
-        const connectedBrowser = await chromium.connect(remoteBrowserURL, { timeout: remaining(deadline) });
+        const connectedBrowser = await chromium.connect(remoteBrowserURL, { timeout: acquisitionTimeout(deadline) });
         await attachBrowser(candidate, connectedBrowser, null, deadline);
         return connectedBrowser;
     });

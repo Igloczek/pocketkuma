@@ -180,6 +180,67 @@ describe("real-browser monitor lifecycle", () => {
         expect(lateBrowser.close).toHaveBeenCalledTimes(1);
     });
 
+    test("two resets retire one pending local acquisition shared by one hundred checks", async () => {
+        const launch = deferred();
+        const lateBrowser = successfulBrowser();
+        chromium.launch.mockReturnValue(launch.promise);
+        const checks = Array.from({ length: 100 }, (_, index) => {
+            const instance = monitor();
+            instance.id = index + 1;
+            return new RealBrowserMonitorType().check(instance, {}, { jwtSecret: "test" }).catch((error) => error);
+        });
+        for (let i = 0; i < 20 && chromium.launch.mock.calls.length === 0; i++) {
+            await Bun.sleep(1);
+        }
+
+        const resets = Promise.all([resetChrome(), resetChrome()]);
+        const resetReturnedBeforeRetirement = await settleWithin(resets, 25);
+        launch.resolve(lateBrowser);
+        await resets;
+        const results = await Promise.all(checks);
+
+        expect(resetReturnedBeforeRetirement).toBe(false);
+        expect(chromium.launch).toHaveBeenCalledTimes(1);
+        expect(results.every((result) => result instanceof Error)).toBe(true);
+        expect(lateBrowser.close).toHaveBeenCalledTimes(1);
+    });
+
+    test("a pending local configuration retires before its replacement launches", async () => {
+        const originalAllowAll = process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC;
+        process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC = "1";
+        const firstLaunch = deferred();
+        const firstBrowser = successfulBrowser();
+        const replacement = successfulBrowser();
+        chromium.launch.mockReturnValueOnce(firstLaunch.promise).mockResolvedValueOnce(replacement);
+        configuredExecutable = "/first/chromium";
+        try {
+            const first = new RealBrowserMonitorType()
+                .check(monitor(), {}, { jwtSecret: "test" })
+                .catch((error) => error);
+            for (let i = 0; i < 20 && chromium.launch.mock.calls.length === 0; i++) {
+                await Bun.sleep(1);
+            }
+            configuredExecutable = "/second/chromium";
+            const second = new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
+            await Bun.sleep(25);
+            const launchesBeforeRetirement = chromium.launch.mock.calls.length;
+            firstLaunch.resolve(firstBrowser);
+
+            expect(await first).toBeInstanceOf(Error);
+            await second;
+            expect(launchesBeforeRetirement).toBe(1);
+            expect(chromium.launch).toHaveBeenCalledTimes(2);
+            expect(firstBrowser.close).toHaveBeenCalledTimes(1);
+            expect(replacement.close).not.toHaveBeenCalled();
+        } finally {
+            if (originalAllowAll === undefined) {
+                delete process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC;
+            } else {
+                process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC = originalAllowAll;
+            }
+        }
+    });
+
     test("resetChrome cancels an active context without closing a replacement owner", async () => {
         const firstContext = deferred();
         const firstBrowser = successfulBrowser({ newContext: mock(() => firstContext.promise) });
@@ -296,6 +357,40 @@ describe("real-browser monitor lifecycle", () => {
             expect(await settleWithin(check, 100)).toBe(true);
             expect(await check).toBeInstanceOf(Error);
             expect(lateBrowser.close).toHaveBeenCalledTimes(1);
+        } finally {
+            remote.mockRestore();
+        }
+    });
+
+    test("one reset retires one hundred pending remote acquisitions before returning", async () => {
+        const connections = Array.from({ length: 100 }, () => deferred());
+        const browsers = Array.from({ length: 100 }, () => successfulBrowser());
+        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (id) => ({
+            id,
+            name: `remote ${id}`,
+            url: `ws://remote-${id}.test/browser`,
+        }));
+        chromium.connect.mockImplementation((url) => connections[Number(url.match(/remote-(\d+)/)?.[1]) - 1].promise);
+        try {
+            const checks = browsers.map((_, index) => {
+                const instance = monitor();
+                Object.assign(instance, { id: index + 1, remote_browser: index + 1, user_id: 11 });
+                return new RealBrowserMonitorType().check(instance, {}, { jwtSecret: "test" }).catch((error) => error);
+            });
+            for (let i = 0; i < 50 && chromium.connect.mock.calls.length < 100; i++) {
+                await Bun.sleep(1);
+            }
+
+            const resetting = resetChrome();
+            const resetReturnedBeforeRetirement = await settleWithin(resetting, 25);
+            connections.forEach((connection, index) => connection.resolve(browsers[index]));
+            await resetting;
+            const results = await Promise.all(checks);
+
+            expect(resetReturnedBeforeRetirement).toBe(false);
+            expect(chromium.connect).toHaveBeenCalledTimes(100);
+            expect(results.every((result) => result instanceof Error)).toBe(true);
+            expect(browsers.every((browser) => browser.close.mock.calls.length === 1)).toBe(true);
         } finally {
             remote.mockRestore();
         }
@@ -420,6 +515,7 @@ describe("real-browser monitor lifecycle", () => {
         const lateBrowser = successfulBrowser();
         chromium.launch.mockReturnValue(launch.promise);
         const instance = monitor();
+        instance.activeHeartbeatAbortController = new AbortController();
         const check = new RealBrowserMonitorType().check(instance, {}, { jwtSecret: "test" }).catch((error) => error);
         instance.activeHeartbeat = check.then(() => {});
         for (let i = 0; i < 20 && chromium.launch.mock.calls.length === 0; i++) {
@@ -439,6 +535,35 @@ describe("real-browser monitor lifecycle", () => {
         await new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
         expect(chromium.launch).toHaveBeenCalledTimes(2);
     });
+
+    test("resetChrome hard-bounds an acquisition that ignores its Playwright timeout", async () => {
+        const launch = deferred();
+        const lateBrowser = successfulBrowser();
+        chromium.launch.mockReturnValue(launch.promise);
+        const instance = monitor();
+        instance.timeout = 30;
+        const check = new RealBrowserMonitorType().check(instance, {}, { jwtSecret: "test" }).catch((error) => error);
+        for (let i = 0; i < 20 && chromium.launch.mock.calls.length === 0; i++) {
+            await Bun.sleep(1);
+        }
+
+        const started = performance.now();
+        const resetting = resetChrome().catch((error) => error);
+        expect(await settleWithin(resetting, 6_000)).toBe(true);
+        const resetResult = await resetting;
+        const elapsed = performance.now() - started;
+        launch.resolve(lateBrowser);
+        for (let i = 0; i < 20 && lateBrowser.close.mock.calls.length === 0; i++) {
+            await Bun.sleep(5);
+        }
+
+        expect(elapsed).toBeGreaterThanOrEqual(5_400);
+        expect(elapsed).toBeLessThan(6_000);
+        expect(resetResult).toBeInstanceOf(Error);
+        expect(resetResult.message).toBe("Browser acquisition did not retire within 5.5 seconds");
+        expect(await check).toBeInstanceOf(Error);
+        expect(lateBrowser.close).toHaveBeenCalledTimes(1);
+    }, 7_000);
 
     test.each(["newPage", "goto", "screenshot"])(
         "the whole-check deadline cancels a hung %s operation",
@@ -590,15 +715,13 @@ describe("real-browser monitor lifecycle", () => {
         const instance = monitor();
         Object.assign(instance, { remote_browser: 7, user_id: 11 });
         try {
-            const result = await new RealBrowserMonitorType()
+            const check = new RealBrowserMonitorType()
                 .check(instance, {}, { jwtSecret: "test" })
                 .catch((error) => error);
-            expect(result).toBeInstanceOf(Error);
-
+            expect(await settleWithin(check, 150)).toBe(false);
             connection.resolve(lateBrowser);
-            for (let i = 0; i < 20 && lateBrowser.close.mock.calls.length === 0; i++) {
-                await Bun.sleep(5);
-            }
+            const result = await check;
+            expect(result).toBeInstanceOf(Error);
             expect(lateBrowser.close).toHaveBeenCalledTimes(1);
         } finally {
             remote.mockRestore();
