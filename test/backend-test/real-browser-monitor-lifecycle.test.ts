@@ -149,6 +149,184 @@ describe("real-browser monitor lifecycle", () => {
         expect(chromium.launch).toHaveBeenCalledTimes(2);
     });
 
+    test("an unchanged local executable keeps reusing one healthy browser", async () => {
+        const browser = successfulBrowser();
+        useBrowser(browser);
+
+        await new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
+        await new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
+
+        expect(chromium.launch).toHaveBeenCalledTimes(1);
+        expect(browser.close).not.toHaveBeenCalled();
+    });
+
+    test("resetChrome cancels a check waiting for a late local launch and disposes the late browser", async () => {
+        const launch = deferred();
+        const lateBrowser = successfulBrowser();
+        chromium.launch.mockReturnValue(launch.promise);
+        const check = new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" }).catch((error) => error);
+        for (let i = 0; i < 20 && chromium.launch.mock.calls.length === 0; i++) {
+            await Bun.sleep(1);
+        }
+
+        await resetChrome();
+        expect(await settleWithin(check, 100)).toBe(true);
+        expect(await check).toBeInstanceOf(Error);
+        launch.resolve(lateBrowser);
+        for (let i = 0; i < 20 && lateBrowser.close.mock.calls.length === 0; i++) {
+            await Bun.sleep(5);
+        }
+
+        expect(lateBrowser.close).toHaveBeenCalledTimes(1);
+    });
+
+    test("resetChrome cancels an active context without closing a replacement owner", async () => {
+        const firstContext = deferred();
+        const firstBrowser = successfulBrowser({ newContext: mock(() => firstContext.promise) });
+        firstBrowser.close.mockImplementation(async () => firstContext.reject(new Error("browser closed")));
+        const replacement = successfulBrowser();
+        chromium.launch.mockResolvedValueOnce(firstBrowser).mockResolvedValueOnce(replacement);
+        const firstCheck = new RealBrowserMonitorType()
+            .check(monitor(), {}, { jwtSecret: "test" })
+            .catch((error) => error);
+        for (let i = 0; i < 20 && firstBrowser.newContext.mock.calls.length === 0; i++) {
+            await Bun.sleep(1);
+        }
+
+        const resetting = resetChrome();
+        await new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
+        await resetting;
+
+        expect(await firstCheck).toBeInstanceOf(Error);
+        expect(firstBrowser.close).toHaveBeenCalledTimes(1);
+        expect(replacement.close).not.toHaveBeenCalled();
+        expect(chromium.launch).toHaveBeenCalledTimes(2);
+    });
+
+    test.each(["newContext", "newPage", "goto", "screenshot", "close"])(
+        "resetChrome cancels an active %s phase",
+        async (phase) => {
+            const hung = deferred();
+            const page = successfulPage();
+            const context = successfulContext();
+            const browser = successfulBrowser({ newContext: mock(async () => context) });
+            if (phase === "newContext") {
+                browser.newContext.mockReturnValue(hung.promise);
+            } else if (phase === "newPage") {
+                context.newPage.mockReturnValue(hung.promise);
+            } else if (phase === "close") {
+                context.close.mockReturnValue(hung.promise);
+            } else {
+                page[phase].mockReturnValue(hung.promise);
+                context.newPage.mockResolvedValue(page);
+            }
+            useBrowser(browser);
+            const heartbeat = {};
+            const check = new RealBrowserMonitorType()
+                .check(monitor(), heartbeat, { jwtSecret: "test" })
+                .catch((error) => error);
+            const activeCall =
+                phase === "newContext"
+                    ? browser.newContext
+                    : phase === "newPage"
+                      ? context.newPage
+                      : phase === "close"
+                        ? context.close
+                        : page[phase];
+            for (let i = 0; i < 20 && activeCall.mock.calls.length === 0; i++) {
+                await Bun.sleep(1);
+            }
+
+            await resetChrome();
+
+            expect(await settleWithin(check, 100)).toBe(true);
+            expect(await check).toBeInstanceOf(Error);
+            expect(browser.close).toHaveBeenCalledTimes(1);
+            expect(heartbeat.status).toBeUndefined();
+        }
+    );
+
+    test("a changed remote URL retires only the previous connection owner", async () => {
+        let remoteURL = "ws://first.remote.test/browser";
+        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (id) => ({
+            id,
+            name: "test remote",
+            url: remoteURL,
+        }));
+        const firstBrowser = successfulBrowser();
+        const secondBrowser = successfulBrowser();
+        chromium.connect.mockResolvedValueOnce(firstBrowser).mockResolvedValueOnce(secondBrowser);
+        const instance = monitor();
+        Object.assign(instance, { remote_browser: 7, user_id: 11 });
+        try {
+            await new RealBrowserMonitorType().check(instance, {}, { jwtSecret: "test" });
+            remoteURL = "ws://second.remote.test/browser";
+            await new RealBrowserMonitorType().check(instance, {}, { jwtSecret: "test" });
+
+            expect(chromium.connect).toHaveBeenCalledTimes(2);
+            expect(firstBrowser.close).toHaveBeenCalledTimes(1);
+            expect(secondBrowser.close).not.toHaveBeenCalled();
+        } finally {
+            remote.mockRestore();
+        }
+    });
+
+    test("resetChrome cancels a pending remote connection and disconnects its late result", async () => {
+        const remote = spyOn(RemoteBrowser, "get").mockResolvedValue({
+            id: 7,
+            name: "test remote",
+            url: "ws://remote.test/browser",
+        });
+        const connection = deferred();
+        const lateBrowser = successfulBrowser();
+        chromium.connect.mockReturnValue(connection.promise);
+        const instance = monitor();
+        Object.assign(instance, { remote_browser: 7, user_id: 11 });
+        const check = new RealBrowserMonitorType().check(instance, {}, { jwtSecret: "test" }).catch((error) => error);
+        try {
+            for (let i = 0; i < 20 && chromium.connect.mock.calls.length === 0; i++) {
+                await Bun.sleep(1);
+            }
+            await resetChrome();
+            expect(await settleWithin(check, 100)).toBe(true);
+            expect(await check).toBeInstanceOf(Error);
+
+            connection.resolve(lateBrowser);
+            for (let i = 0; i < 20 && lateBrowser.close.mock.calls.length === 0; i++) {
+                await Bun.sleep(5);
+            }
+            expect(lateBrowser.close).toHaveBeenCalledTimes(1);
+        } finally {
+            remote.mockRestore();
+        }
+    });
+
+    test("one reset retires one hundred independent remote owners", async () => {
+        const browsers = Array.from({ length: 100 }, () => successfulBrowser());
+        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (id) => ({
+            id,
+            name: `remote ${id}`,
+            url: `ws://remote-${id}.test/browser`,
+        }));
+        chromium.connect.mockImplementation(async (url) => browsers[Number(url.match(/remote-(\d+)/)?.[1]) - 1]);
+        try {
+            await Promise.all(
+                browsers.map((_, index) => {
+                    const instance = monitor();
+                    Object.assign(instance, { id: index + 1, remote_browser: index + 1, user_id: 11 });
+                    return new RealBrowserMonitorType().check(instance, {}, { jwtSecret: "test" });
+                })
+            );
+
+            await resetChrome();
+
+            expect(chromium.connect).toHaveBeenCalledTimes(100);
+            expect(browsers.every((browser) => browser.close.mock.calls.length === 1)).toBe(true);
+        } finally {
+            remote.mockRestore();
+        }
+    });
+
     test("Monitor.stop() cancels a hung browser.newContext() and closes its browser", async () => {
         const newContext = deferred();
         const close = mock(async () => undefined);

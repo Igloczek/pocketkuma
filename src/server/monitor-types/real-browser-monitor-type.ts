@@ -96,9 +96,7 @@ async function isAllowedChromeExecutable(executablePath) {
  * it.
  * @returns {Promise<import ("playwright-core").Browser>} The browser
  */
-async function createLocalBrowser(owner, deadline) {
-    let executablePath = await Settings.get("chromeExecutable");
-    assertOwnerActive(owner, deadline);
+async function createLocalBrowser(owner, executablePath, deadline) {
     executablePath = await prepareChromeExecutable(executablePath, deadline);
     assertOwnerActive(owner, deadline);
 
@@ -191,6 +189,7 @@ async function invalidateBrowser(owner, reason = new Error("Browser monitor canc
     }
     owner.invalidated = true;
     owner.reason ??= reason;
+    owner.abortController.abort(owner.reason);
     if (browserOwners.get(owner.key) === owner) {
         browserOwners.delete(owner.key);
     }
@@ -240,6 +239,7 @@ function newBrowserOwner(key, create) {
         invalidated: false,
         reason: null,
         ready: null,
+        abortController: new AbortController(),
     };
     browserOwners.set(key, owner);
     owner.ready = create(owner).catch(async (error) => {
@@ -256,7 +256,8 @@ async function getBrowserOwner(key, create, signal) {
         owner = null;
     }
     owner ??= newBrowserOwner(key, create);
-    await cancellable(owner.ready, signal, () => invalidateBrowser(owner, signal.reason));
+    const combinedSignal = AbortSignal.any([signal, owner.abortController.signal]);
+    await cancellable(owner.ready, combinedSignal, () => invalidateBrowser(owner, combinedSignal.reason));
     return owner;
 }
 
@@ -483,6 +484,7 @@ class RealBrowserMonitorType extends MonitorType {
         const stop = () => controller.abort(heartbeatSignal.reason ?? new Error("Browser monitor stopped"));
         heartbeatSignal?.addEventListener("abort", stop, { once: true });
         let owner;
+        let ownerInvalidated;
         let context;
         let success;
         try {
@@ -513,11 +515,27 @@ class RealBrowserMonitorType extends MonitorType {
                     controller.signal
                 );
             } else {
+                const executablePath = await cancellable(
+                    Settings.get("chromeExecutable"),
+                    controller.signal,
+                    async () => {}
+                );
+                const key = `local:${JSON.stringify(executablePath ?? null)}`;
+                for (const [existingKey, existingOwner] of browserOwners) {
+                    if (existingKey.startsWith("local:") && existingKey !== key) {
+                        await invalidateBrowser(existingOwner, new Error("Chrome executable changed"));
+                    }
+                }
                 owner = await getBrowserOwner(
-                    "local",
-                    (candidate) => createLocalBrowser(candidate, deadline),
+                    key,
+                    (candidate) => createLocalBrowser(candidate, executablePath, deadline),
                     controller.signal
                 );
+            }
+            ownerInvalidated = () => controller.abort(owner.reason);
+            owner.abortController.signal.addEventListener("abort", ownerInvalidated, { once: true });
+            if (owner.invalidated) {
+                ownerInvalidated();
             }
 
             context = await cancellable(
@@ -583,6 +601,7 @@ class RealBrowserMonitorType extends MonitorType {
                 }
             } finally {
                 clearTimeout(deadlineTimer);
+                owner?.abortController.signal.removeEventListener("abort", ownerInvalidated);
                 heartbeatSignal?.removeEventListener("abort", stop);
             }
         }

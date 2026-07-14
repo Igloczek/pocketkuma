@@ -1898,6 +1898,8 @@ async function shutdownFunction(signal) {
         let monitor = server.monitorList[id];
         await monitor.stop();
     }
+    const { resetChrome } = await import("@/server/monitor-types/real-browser-monitor-type");
+    await resetChrome();
     await sleep(2000);
     if (R.isOpen()) {
         await Database.close();
