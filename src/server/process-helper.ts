@@ -73,7 +73,7 @@ function startProcess(command, args = [], options = {}) {
     });
 }
 
-async function commandExists(command) {
+async function commandExists(command, timeout = 5000) {
     if (!command) {
         return false;
     }
@@ -89,8 +89,8 @@ async function commandExists(command) {
 
     const result =
         process.platform === "win32"
-            ? await runCommand("where", [command], { timeout: 5000 })
-            : await runCommand("sh", ["-c", `command -v "$1"`, "sh", command], { timeout: 5000 });
+            ? await runCommand("where", [command], { timeout })
+            : await runCommand("sh", ["-c", `command -v "$1"`, "sh", command], { timeout });
     return result.code === 0;
 }
 

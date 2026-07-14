@@ -1161,6 +1161,8 @@ class Monitor extends BeanModel {
          * @returns {void}
          */
         const safeBeat = () => {
+            const heartbeatAbortController = new AbortController();
+            this.activeHeartbeatAbortController = heartbeatAbortController;
             const activeHeartbeat = (async () => {
                 try {
                     await beat();
@@ -1182,6 +1184,9 @@ class Monitor extends BeanModel {
             return activeHeartbeat.finally(() => {
                 if (this.activeHeartbeat === activeHeartbeat) {
                     this.activeHeartbeat = null;
+                }
+                if (this.activeHeartbeatAbortController === heartbeatAbortController) {
+                    this.activeHeartbeatAbortController = null;
                 }
             });
         };
@@ -1327,6 +1332,7 @@ class Monitor extends BeanModel {
         this.clearHeartbeatTimer();
         this.isStop = true;
         this.heartbeatGeneration = (this.heartbeatGeneration || 0) + 1;
+        this.activeHeartbeatAbortController?.abort(new Error("Monitor stopped"));
 
         if (this.activeHeartbeat) {
             await this.activeHeartbeat;

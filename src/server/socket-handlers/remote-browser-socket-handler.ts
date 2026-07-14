@@ -16,6 +16,10 @@ export const remoteBrowserSocketHandler = (socket) => {
             checkLogin(socket);
 
             let remoteBrowserBean = await RemoteBrowser.save(remoteBrowser, remoteBrowserID, socket.userID);
+            if (remoteBrowserID) {
+                const { resetRemoteBrowser } = await import("@/server/monitor-types/real-browser-monitor-type");
+                await resetRemoteBrowser(remoteBrowserID, socket.userID);
+            }
             await sendRemoteBrowserList(socket);
 
             callback({
@@ -37,6 +41,8 @@ export const remoteBrowserSocketHandler = (socket) => {
             checkLogin(socket);
 
             await RemoteBrowser.delete(dockerHostID, socket.userID);
+            const { resetRemoteBrowser } = await import("@/server/monitor-types/real-browser-monitor-type");
+            await resetRemoteBrowser(dockerHostID, socket.userID);
             await sendRemoteBrowserList(socket);
 
             callback({

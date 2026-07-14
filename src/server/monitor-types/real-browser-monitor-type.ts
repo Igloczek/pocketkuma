@@ -15,7 +15,9 @@ import { RemoteBrowser } from "@/server/remote-browser";
 import { commandExists } from "@/server/util-server";
 import { runCommand, runCommandChecked } from "@/server/process-helper";
 
-let browser = null;
+const BROWSER_CLEANUP_GRACE_MS = 100;
+const BROWSER_TEST_TIMEOUT_MS = 30_000;
+const browserOwners = new Map();
 let chromiumPromise = null;
 
 /**
@@ -94,23 +96,20 @@ async function isAllowedChromeExecutable(executablePath) {
  * it.
  * @returns {Promise<import ("playwright-core").Browser>} The browser
  */
-async function getBrowser(timeout = 30_000) {
-    if (browser && browser.isConnected()) {
-        return browser;
-    } else {
-        let executablePath = await Settings.get("chromeExecutable");
+async function createLocalBrowser(owner, deadline) {
+    let executablePath = await Settings.get("chromeExecutable");
+    assertOwnerActive(owner, deadline);
+    executablePath = await prepareChromeExecutable(executablePath, deadline);
+    assertOwnerActive(owner, deadline);
 
-        executablePath = await prepareChromeExecutable(executablePath);
-
-        const chromium = await getChromium();
-        browser = await chromium.launch({
-            //headless: false,
-            executablePath,
-            timeout,
-        });
-
-        return browser;
-    }
+    const chromium = await getChromium();
+    assertOwnerActive(owner, deadline);
+    const launchedBrowser = await chromium.launch({
+        executablePath,
+        timeout: remaining(deadline),
+    });
+    await attachBrowser(owner, launchedBrowser, ownedBrowserProcess(launchedBrowser), deadline);
+    return launchedBrowser;
 }
 
 /**
@@ -119,12 +118,178 @@ async function getBrowser(timeout = 30_000) {
  * @param {integer} userId User ID
  * @returns {Promise<Browser>} The browser
  */
-async function getRemoteBrowser(remoteBrowserID, userId, timeout = 30_000) {
-    let remoteBrowser = await RemoteBrowser.get(remoteBrowserID, userId);
+async function createRemoteBrowser(owner, remoteBrowser, deadline) {
     log.debug("chromium", `Using remote browser: ${remoteBrowser.name} (${remoteBrowser.id})`);
     const chromium = await getChromium();
-    browser = await chromium.connect(remoteBrowser.url, { timeout });
-    return browser;
+    assertOwnerActive(owner, deadline);
+    const connectedBrowser = await chromium.connect(remoteBrowser.url, { timeout: remaining(deadline) });
+    await attachBrowser(owner, connectedBrowser, null, deadline);
+    return connectedBrowser;
+}
+
+function remaining(deadline) {
+    const milliseconds = deadline - Date.now();
+    if (milliseconds <= 0) {
+        throw new Error("Browser monitor timed out");
+    }
+    return milliseconds;
+}
+
+function assertOwnerActive(owner, deadline) {
+    if (owner.invalidated) {
+        throw owner.reason;
+    }
+    remaining(deadline);
+}
+
+function forceDisconnect(browser, reason) {
+    try {
+        // Playwright 1.61 has no public remote-disconnect API. Keep this isolated while the dependency is exactly pinned.
+        browser?._connection?.close?.(reason);
+    } catch {}
+}
+
+function ownedBrowserProcess(browser) {
+    try {
+        // Bun cannot pass Playwright's required headers through BrowserType.connect(), so launchServer() is unusable.
+        // This is the single version-pinned Playwright 1.61 adapter that exposes the locally owned process for SIGKILL.
+        return browser?._connection?.toImpl?.(browser)?.options?.browserProcess ?? null;
+    } catch {
+        return null;
+    }
+}
+
+async function attachBrowser(owner, browser, browserProcess, deadline) {
+    if (owner.invalidated || deadline <= Date.now()) {
+        await disposeBrowser(browser, browserProcess, owner.reason ?? new Error("Browser monitor timed out"));
+        throw owner.reason ?? new Error("Browser monitor timed out");
+    }
+    owner.browser = browser;
+    owner.browserProcess = browserProcess;
+}
+
+async function bounded(promise, timeout = BROWSER_CLEANUP_GRACE_MS) {
+    let timer;
+    try {
+        return await Promise.race([
+            Promise.resolve(promise).then(
+                () => true,
+                () => false
+            ),
+            new Promise((resolve) => {
+                timer = setTimeout(() => resolve(false), timeout);
+            }),
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+async function invalidateBrowser(owner, reason = new Error("Browser monitor cancelled")) {
+    if (!owner) {
+        return;
+    }
+    owner.invalidated = true;
+    owner.reason ??= reason;
+    if (browserOwners.get(owner.key) === owner) {
+        browserOwners.delete(owner.key);
+    }
+    if (owner.closePromise) {
+        return await owner.closePromise;
+    }
+
+    owner.closePromise = disposeBrowser(owner.browser, owner.browserProcess, owner.reason);
+    return await owner.closePromise;
+}
+
+async function disposeBrowser(browser, browserProcess, reason) {
+    if (!browser) {
+        return;
+    }
+    let closePromise;
+    try {
+        closePromise = browser.close({ reason: reason.message });
+    } catch {}
+    const closed = await bounded(closePromise);
+    if (!closed && browserProcess) {
+        let killed = false;
+        try {
+            killed = await bounded(browserProcess.kill());
+        } catch {}
+        if (!killed) {
+            try {
+                const child = browserProcess.process;
+                child?.kill("SIGKILL");
+                if (child?.once && child.exitCode === null) {
+                    await bounded(new Promise((resolve) => child.once("exit", resolve)));
+                }
+            } catch {}
+        }
+    }
+    if (!closed) {
+        forceDisconnect(browser, reason.message);
+    }
+}
+
+function newBrowserOwner(key, create) {
+    const owner = {
+        key,
+        browser: null,
+        browserProcess: null,
+        closePromise: null,
+        invalidated: false,
+        reason: null,
+        ready: null,
+    };
+    browserOwners.set(key, owner);
+    owner.ready = create(owner).catch(async (error) => {
+        await invalidateBrowser(owner, error);
+        throw error;
+    });
+    return owner;
+}
+
+async function getBrowserOwner(key, create, signal) {
+    let owner = browserOwners.get(key);
+    if (owner?.invalidated || (owner?.browser && !owner.browser.isConnected())) {
+        await invalidateBrowser(owner, new Error("Browser disconnected"));
+        owner = null;
+    }
+    owner ??= newBrowserOwner(key, create);
+    await cancellable(owner.ready, signal, () => invalidateBrowser(owner, signal.reason));
+    return owner;
+}
+
+async function cancellable(promise, signal, cancel, lateValue) {
+    if (signal.aborted) {
+        await cancel();
+        throw signal.reason;
+    }
+    let abort;
+    const aborted = new Promise((_, reject) => {
+        abort = () => {
+            Promise.resolve(cancel()).then(
+                () => reject(signal.reason),
+                () => reject(signal.reason)
+            );
+        };
+        signal.addEventListener("abort", abort, { once: true });
+    });
+    promise
+        .then(
+            (value) => {
+                if (signal.aborted) {
+                    return lateValue?.(value);
+                }
+            },
+            () => {}
+        )
+        .catch(() => {});
+    try {
+        return await Promise.race([promise, aborted]);
+    } finally {
+        signal.removeEventListener("abort", abort);
+    }
 }
 
 /**
@@ -132,7 +297,7 @@ async function getRemoteBrowser(remoteBrowserID, userId, timeout = 30_000) {
  * @param {string} executablePath Path to chrome executable
  * @returns {Promise<string>} Executable path
  */
-async function prepareChromeExecutable(executablePath) {
+async function prepareChromeExecutable(executablePath, deadline = Date.now() + BROWSER_TEST_TIMEOUT_MS) {
     // Special code for using the playwright_chromium
     if (typeof executablePath === "string" && executablePath.toLocaleLowerCase() === "#playwright_chromium") {
         // Set to undefined = use playwright_chromium
@@ -140,9 +305,9 @@ async function prepareChromeExecutable(executablePath) {
     } else if (!executablePath) {
         if (process.env.UPTIME_KUMA_IS_CONTAINER) {
             executablePath = "/usr/bin/chromium";
-            await installChromiumViaApt(executablePath);
+            await installChromiumViaApt(executablePath, deadline);
         } else {
-            executablePath = await findChrome(allowedList);
+            executablePath = await findChrome(allowedList, deadline);
         }
     } else {
         // User specified a path
@@ -167,21 +332,25 @@ async function prepareChromeExecutable(executablePath) {
  * @throws {Error} If the APT installation fails or exits with an unexpected
  * exit code.
  */
-async function installChromiumViaApt(executablePath) {
-    if (await commandExists(executablePath)) {
+async function installChromiumViaApt(executablePath, deadline) {
+    if (await commandExists(executablePath, remaining(deadline))) {
         return;
     }
     log.info("chromium", "Installing Chromium...");
-    const result = await runCommand("sh", [
-        "-c",
-        "apt update && apt --yes --no-install-recommends install chromium fonts-indic fonts-noto fonts-noto-cjk",
-    ]);
+    const result = await runCommand(
+        "sh",
+        [
+            "-c",
+            "apt update && apt --yes --no-install-recommends install chromium fonts-indic fonts-noto fonts-noto-cjk",
+        ],
+        { timeout: remaining(deadline) }
+    );
 
     log.info("chromium", "apt install chromium exited with code " + result.code);
 
     if (result.code === 0) {
         log.info("chromium", "Installed Chromium");
-        let version = (await runCommandChecked(executablePath, ["--version"])).stdout;
+        let version = (await runCommandChecked(executablePath, ["--version"], { timeout: remaining(deadline) })).stdout;
         log.info("chromium", "Chromium version: " + version);
     } else if (result.code === 100) {
         throw new Error("Installing Chromium, please wait...");
@@ -196,16 +365,16 @@ async function installChromiumViaApt(executablePath) {
  * @returns {Promise<string>} Executable
  * @throws {Error} Could not find executable
  */
-async function findChrome(executables) {
+async function findChrome(executables, deadline = Date.now() + BROWSER_TEST_TIMEOUT_MS) {
     // Use the last working executable, so we don't have to search for it again
     if (lastAutoDetectChromeExecutable) {
-        if (await commandExists(lastAutoDetectChromeExecutable)) {
+        if (await commandExists(lastAutoDetectChromeExecutable, remaining(deadline))) {
             return lastAutoDetectChromeExecutable;
         }
     }
 
     for (let executable of executables) {
-        if (await commandExists(executable)) {
+        if (await commandExists(executable, remaining(deadline))) {
             lastAutoDetectChromeExecutable = executable;
             return executable;
         }
@@ -218,10 +387,18 @@ async function findChrome(executables) {
  * @returns {Promise<void>}
  */
 async function resetChrome() {
-    if (browser) {
-        await browser.close();
-        browser = null;
-    }
+    await Promise.all(
+        Array.from(browserOwners.values(), (owner) => invalidateBrowser(owner, new Error("Browser reset requested")))
+    );
+}
+
+async function resetRemoteBrowser(remoteBrowserID, userID) {
+    const prefix = `remote:${userID}:${remoteBrowserID}:`;
+    await Promise.all(
+        Array.from(browserOwners, ([key, owner]) =>
+            key.startsWith(prefix) ? invalidateBrowser(owner, new Error("Remote browser reset requested")) : undefined
+        )
+    );
 }
 
 /**
@@ -230,20 +407,29 @@ async function resetChrome() {
  * @returns {Promise<string>} Chrome version
  */
 async function testChrome(executablePath) {
-    try {
-        executablePath = await prepareChromeExecutable(executablePath);
-
-        log.info("chromium", "Testing Chromium executable: " + executablePath);
-
+    const deadline = Date.now() + BROWSER_TEST_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error("Chromium test timed out")), BROWSER_TEST_TIMEOUT_MS);
+    const owner = newBrowserOwner(`test-local:${crypto.randomUUID()}`, async (candidate) => {
+        executablePath = await prepareChromeExecutable(executablePath, deadline);
         const chromium = await getChromium();
-        const browser = await chromium.launch({
-            executablePath,
-        });
-        const version = browser.version();
-        await browser.close();
+        assertOwnerActive(candidate, deadline);
+        const launchedBrowser = await chromium.launch({ executablePath, timeout: remaining(deadline) });
+        await attachBrowser(candidate, launchedBrowser, ownedBrowserProcess(launchedBrowser), deadline);
+        return launchedBrowser;
+    });
+    try {
+        log.info("chromium", "Testing Chromium executable: " + executablePath);
+        const launchedBrowser = await cancellable(owner.ready, controller.signal, () =>
+            invalidateBrowser(owner, controller.signal.reason)
+        );
+        const version = launchedBrowser.version();
         return version;
     } catch (e) {
         throw new Error(e.message);
+    } finally {
+        clearTimeout(timer);
+        await invalidateBrowser(owner, new Error("Chromium test complete"));
     }
 }
 // test remote browser
@@ -252,46 +438,54 @@ async function testChrome(executablePath) {
  * @returns {Promise<boolean>} Returns if connection worked
  */
 async function testRemoteBrowser(remoteBrowserURL) {
-    try {
+    const deadline = Date.now() + BROWSER_TEST_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(
+        () => controller.abort(new Error("Remote browser test timed out")),
+        BROWSER_TEST_TIMEOUT_MS
+    );
+    const owner = newBrowserOwner(`test-remote:${crypto.randomUUID()}`, async (candidate) => {
         const chromium = await getChromium();
-        const browser = await chromium.connect(remoteBrowserURL);
-        browser.version();
-        await browser.close();
+        assertOwnerActive(candidate, deadline);
+        const connectedBrowser = await chromium.connect(remoteBrowserURL, { timeout: remaining(deadline) });
+        await attachBrowser(candidate, connectedBrowser, null, deadline);
+        return connectedBrowser;
+    });
+    try {
+        const connectedBrowser = await cancellable(owner.ready, controller.signal, () =>
+            invalidateBrowser(owner, controller.signal.reason)
+        );
+        connectedBrowser.version();
         return true;
     } catch (e) {
         throw new Error(e.message);
+    } finally {
+        clearTimeout(timer);
+        await invalidateBrowser(owner, new Error("Remote browser test complete"));
     }
 }
 class RealBrowserMonitorType extends MonitorType {
     name = "real-browser";
 
     /**
-     * Return the positive time remaining before the monitor deadline.
-     * @param {number} deadline Absolute deadline in milliseconds
-     * @returns {number} Remaining milliseconds
-     */
-    remaining(deadline) {
-        const remaining = deadline - Date.now();
-        if (remaining <= 0) {
-            throw new Error("Browser monitor timed out");
-        }
-        return remaining;
-    }
-
-    /**
      * @inheritdoc
      */
     async check(monitor, heartbeat, server) {
-        const timeout = (monitor.timeout ?? 20) * 1000;
+        const configuredTimeout = monitor.getEffectiveTimeout?.() ?? Number(monitor.timeout);
+        const timeout = (Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 20) * 1000;
         const deadline = Date.now() + timeout;
-        const browser = monitor.remote_browser
-            ? await getRemoteBrowser(monitor.remote_browser, monitor.user_id, this.remaining(deadline))
-            : await getBrowser(this.remaining(deadline));
-        const context = await browser.newContext();
+        const controller = new AbortController();
+        const deadlineTimer = setTimeout(
+            () => controller.abort(new Error("Browser monitor timed out")),
+            Math.max(1, timeout)
+        );
+        const heartbeatSignal = monitor.activeHeartbeatAbortController?.signal;
+        const stop = () => controller.abort(heartbeatSignal.reason ?? new Error("Browser monitor stopped"));
+        heartbeatSignal?.addEventListener("abort", stop, { once: true });
+        let owner;
+        let context;
+        let success;
         try {
-            const page = await context.newPage();
-            page.setDefaultTimeout(this.remaining(deadline));
-
             // Prevent Local File Inclusion
             // Accept only http:// and https://
             // https://github.com/louislam/uptime-kuma/security/advisories/GHSA-2qgm-m29m-cj2h
@@ -300,40 +494,103 @@ class RealBrowserMonitorType extends MonitorType {
                 throw new Error("Invalid url protocol, only http and https are allowed.");
             }
 
-            const res = await page.goto(monitor.url, {
-                waitUntil: "networkidle",
-                timeout: this.remaining(deadline),
-            });
+            if (monitor.remote_browser) {
+                const remoteBrowser = await cancellable(
+                    RemoteBrowser.get(monitor.remote_browser, monitor.user_id),
+                    controller.signal,
+                    async () => {}
+                );
+                const prefix = `remote:${monitor.user_id}:${monitor.remote_browser}:`;
+                const key = prefix + remoteBrowser.url;
+                for (const [existingKey, existingOwner] of browserOwners) {
+                    if (existingKey.startsWith(prefix) && existingKey !== key) {
+                        await invalidateBrowser(existingOwner, new Error("Remote browser configuration changed"));
+                    }
+                }
+                owner = await getBrowserOwner(
+                    key,
+                    (candidate) => createRemoteBrowser(candidate, remoteBrowser, deadline),
+                    controller.signal
+                );
+            } else {
+                owner = await getBrowserOwner(
+                    "local",
+                    (candidate) => createLocalBrowser(candidate, deadline),
+                    controller.signal
+                );
+            }
+
+            context = await cancellable(
+                owner.browser.newContext(),
+                controller.signal,
+                () => invalidateBrowser(owner, controller.signal.reason),
+                (lateContext) => lateContext.close().catch(() => {})
+            );
+            const page = await cancellable(context.newPage(), controller.signal, () =>
+                invalidateBrowser(owner, controller.signal.reason)
+            );
+            page.setDefaultTimeout(remaining(deadline));
+
+            const res = await cancellable(
+                page.goto(monitor.url, {
+                    waitUntil: "networkidle",
+                    timeout: remaining(deadline),
+                }),
+                controller.signal,
+                () => invalidateBrowser(owner, controller.signal.reason)
+            );
 
             // Wait for additional time before taking screenshot if configured
             if (monitor.screenshot_delay > 0) {
-                const remaining = this.remaining(deadline);
-                await page.waitForTimeout(Math.min(monitor.screenshot_delay, remaining));
-                if (monitor.screenshot_delay >= remaining) {
+                const remainingTime = remaining(deadline);
+                await cancellable(
+                    page.waitForTimeout(Math.min(monitor.screenshot_delay, remainingTime)),
+                    controller.signal,
+                    () => invalidateBrowser(owner, controller.signal.reason)
+                );
+                if (monitor.screenshot_delay >= remainingTime) {
                     throw new Error("Browser monitor timed out before screenshot");
                 }
             }
 
             let filename = jwt.sign(monitor.id, server.jwtSecret) + ".png";
 
-            await page.screenshot({
-                path: path.join(Database.screenshotDir, filename),
-                timeout: this.remaining(deadline),
-            });
+            await cancellable(
+                page.screenshot({
+                    path: path.join(Database.screenshotDir, filename),
+                    timeout: remaining(deadline),
+                }),
+                controller.signal,
+                () => invalidateBrowser(owner, controller.signal.reason)
+            );
+
+            if (controller.signal.aborted) {
+                throw controller.signal.reason;
+            }
 
             if (res.status() >= 200 && res.status() < 400) {
-                heartbeat.status = UP;
-                heartbeat.msg = res.status();
-
                 const timing = res.request().timing();
-                heartbeat.ping = timing.responseEnd;
+                success = { status: UP, msg: res.status(), ping: timing.responseEnd };
             } else {
                 throw new Error(res.status() + "");
             }
         } finally {
-            await context.close();
+            try {
+                if (context) {
+                    await cancellable(context.close(), controller.signal, () =>
+                        invalidateBrowser(owner, controller.signal.reason)
+                    );
+                }
+            } finally {
+                clearTimeout(deadlineTimer);
+                heartbeatSignal?.removeEventListener("abort", stop);
+            }
         }
+        if (controller.signal.aborted) {
+            throw controller.signal.reason;
+        }
+        Object.assign(heartbeat, success);
     }
 }
 
-export { RealBrowserMonitorType, testChrome, resetChrome, testRemoteBrowser };
+export { RealBrowserMonitorType, testChrome, resetChrome, resetRemoteBrowser, testRemoteBrowser };
