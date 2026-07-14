@@ -12,6 +12,7 @@ import { MAX_INTERVAL_SECOND } from "@/constants";
 
 const projectRoot = path.join(import.meta.dirname, "../..");
 const binaryPath = process.env.POCKETKUMA_BINARY ? path.resolve(projectRoot, process.env.POCKETKUMA_BINARY) : null;
+const standaloneBinary = process.env.POCKETKUMA_STANDALONE_BINARY === "1";
 const realBrowserExecutable = process.env.POCKETKUMA_REAL_BROWSER_CHROME || null;
 const pendingBrowserAcquisition = process.env.POCKETKUMA_PENDING_BROWSER_ACQUISITION === "1";
 const credentials = { username: "monitor-test", password: "monitor-test-password" };
@@ -32,6 +33,8 @@ const envProxyRequests = [];
 const targetRequests = [];
 const appLogs = [];
 let appLogReaders = [];
+let standaloneDir;
+let standaloneBinaryPath;
 const parentProxyEnv = Object.fromEntries(
     ["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"].map((name) => [name, process.env[name]])
 );
@@ -341,13 +344,15 @@ async function waitForApp() {
 
 async function startApp() {
     appPort = reservePort();
+    const executable = standaloneBinaryPath ?? binaryPath;
     const command = binaryPath
-        ? [binaryPath, `--port=${appPort}`, "--host=127.0.0.1", `--data-dir=${dataDir}`, "--test"]
+        ? [executable, `--port=${appPort}`, "--host=127.0.0.1", `--data-dir=${dataDir}`, "--test"]
         : ["bun", "src/server/server.ts", `--port=${appPort}`, "--host=127.0.0.1", `--data-dir=${dataDir}`, "--test"];
+    const { BUN_INSTALL: _bunInstall, NODE_PATH: _nodePath, ...env } = process.env;
     appProcess = Bun.spawn(command, {
-        cwd: projectRoot,
+        cwd: standaloneDir ?? projectRoot,
         env: {
-            ...process.env,
+            ...env,
             NODE_ENV: binaryPath ? "production" : "development",
             HTTP_PROXY: envProxyUrl,
             HTTPS_PROXY: envProxyUrl,
@@ -583,6 +588,16 @@ function heartbeatFor(monitorID, status) {
 }
 
 beforeAll(async () => {
+    if (standaloneBinary) {
+        if (!binaryPath) {
+            throw new Error("POCKETKUMA_STANDALONE_BINARY requires POCKETKUMA_BINARY");
+        }
+        standaloneDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-standalone-"));
+        standaloneBinaryPath = path.join(standaloneDir, "pocketkuma");
+        fs.copyFileSync(binaryPath, standaloneBinaryPath);
+        fs.chmodSync(standaloneBinaryPath, 0o755);
+        expect(fs.readdirSync(standaloneDir)).toEqual(["pocketkuma"]);
+    }
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-monitor-lifecycle-"));
     targetServer = startTargetServer();
     await listen(targetServer);
@@ -601,6 +616,9 @@ afterAll(async () => {
     await Promise.all([closeServer(targetServer), closeServer(proxyServer), closeServer(envProxyServer)]);
     if (dataDir) {
         fs.rmSync(dataDir, { recursive: true, force: true });
+    }
+    if (standaloneDir) {
+        fs.rmSync(standaloneDir, { recursive: true, force: true });
     }
     expect(
         Object.fromEntries(["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"].map((name) => [name, process.env[name]]))
@@ -1440,7 +1458,9 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
     }, 60_000);
 
     test.skipIf(!realBrowserExecutable || process.platform === "win32")(
-        "real-browser monitor completes screenshots, cancels navigation, relaunches, and cleans Chromium",
+        standaloneBinary
+            ? "copied standalone binary completes a real-browser monitor without node_modules"
+            : "real-browser monitor completes screenshots, cancels navigation, relaunches, and cleans Chromium",
         async () => {
             fs.accessSync(realBrowserExecutable, fs.constants.X_OK);
             const settings = await realtime.request("getSettings");
