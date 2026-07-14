@@ -4,8 +4,10 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Database as BunDatabase } from "bun:sqlite";
 import fs from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { MAX_INTERVAL_SECOND } from "@/constants";
 
 const projectRoot = path.join(import.meta.dirname, "../..");
 const credentials = { username: "monitor-test", password: "monitor-test-password" };
@@ -59,6 +61,41 @@ function closeServer(server) {
         return Promise.resolve();
     }
     return new Promise((resolve) => server.close(resolve));
+}
+
+async function createHangingTcpServer() {
+    let requestArrived;
+    let socketClosed;
+    const arrived = new Promise((resolve) => {
+        requestArrived = resolve;
+    });
+    const closed = new Promise((resolve) => {
+        socketClosed = resolve;
+    });
+    const sockets = new Set();
+    const server = net.createServer((socket) => {
+        sockets.add(socket);
+        requestArrived();
+        socket.on("close", () => {
+            sockets.delete(socket);
+            socketClosed();
+        });
+    });
+    await listen(server);
+    return {
+        port: server.address().port,
+        requestArrived: arrived,
+        socketClosed: closed,
+        destroySockets() {
+            for (const socket of sockets) {
+                socket.destroy();
+            }
+        },
+        async close() {
+            this.destroySockets();
+            await closeServer(server);
+        },
+    };
 }
 
 async function collectProcessOutput(stream) {
@@ -339,6 +376,46 @@ function updateMonitorAssignment(monitorID, proxyID, { ignoreTls = false } = {})
     }
 }
 
+function queryMonitorStorage(monitorID) {
+    const db = new BunDatabase(path.join(dataDir, "kuma.db"), { readonly: true, strict: true });
+    try {
+        return db
+            .query(
+                `SELECT timeout, typeof(timeout) AS timeout_type,
+                        interval, typeof(interval) AS interval_type,
+                        retry_interval, typeof(retry_interval) AS retry_interval_type,
+                        resend_interval, typeof(resend_interval) AS resend_interval_type,
+                        maxretries, typeof(maxretries) AS maxretries_type,
+                        port, typeof(port) AS port_type
+                 FROM monitor WHERE id = ?`
+            )
+            .get(monitorID);
+    } finally {
+        db.close();
+    }
+}
+
+function countMonitors() {
+    const db = new BunDatabase(path.join(dataDir, "kuma.db"), { readonly: true, strict: true });
+    try {
+        return db.query("SELECT COUNT(*) AS count FROM monitor").get().count;
+    } finally {
+        db.close();
+    }
+}
+
+function updateMonitorStorage(monitorID, values) {
+    const db = new BunDatabase(path.join(dataDir, "kuma.db"), { strict: true });
+    try {
+        const assignments = Object.keys(values)
+            .map((column) => `"${column}" = ?`)
+            .join(", ");
+        db.run(`UPDATE monitor SET ${assignments} WHERE id = ?`, [...Object.values(values), monitorID]);
+    } finally {
+        db.close();
+    }
+}
+
 function insertForeignProxy(port) {
     const db = new BunDatabase(path.join(dataDir, "kuma.db"), { strict: true });
     try {
@@ -422,6 +499,148 @@ afterAll(async () => {
 });
 
 describe("monitor lifecycle over the production WebSocket transport", () => {
+    test("add and edit normalize numeric strings and reject invalid timeouts without partial writes", async () => {
+        const timeoutError = `Timeout must be a finite number between 0 and ${MAX_INTERVAL_SECOND} seconds`;
+        const countBefore = countMonitors();
+        const invalidValues = ["", "   ", "bogus", -1, MAX_INTERVAL_SECOND + 1, null];
+        const invalidAdds = [];
+
+        for (const timeout of invalidValues) {
+            invalidAdds.push(await realtime.request("add", monitorPayload({ active: false, timeout })));
+        }
+        const missingTimeoutPayload = monitorPayload({ active: false });
+        delete missingTimeoutPayload.timeout;
+        invalidAdds.push(await realtime.request("add", missingTimeoutPayload));
+
+        for (const result of invalidAdds) {
+            if (result.ok) {
+                await realtime.request("deleteMonitor", result.monitorID, false);
+            }
+        }
+
+        expect(invalidAdds.every((result) => !result.ok)).toBe(true);
+        expect(invalidAdds.map((result) => result.msg)).toEqual(invalidAdds.map(() => timeoutError));
+        expect(countMonitors()).toBe(countBefore);
+
+        const created = await realtime.request(
+            "add",
+            monitorPayload({
+                active: false,
+                interval: "60",
+                retryInterval: "20",
+                resendInterval: "3",
+                maxretries: "2",
+                timeout: "0.25",
+                port: "8080",
+            })
+        );
+        expect(created.ok).toBe(true);
+        const monitorID = created.monitorID;
+        expect(queryMonitorStorage(monitorID)).toEqual({
+            timeout: 0.25,
+            timeout_type: "real",
+            interval: 60,
+            interval_type: "integer",
+            retry_interval: 20,
+            retry_interval_type: "integer",
+            resend_interval: 3,
+            resend_interval_type: "integer",
+            maxretries: 2,
+            maxretries_type: "integer",
+            port: 8080,
+            port_type: "integer",
+        });
+
+        const before = (await realtime.request("getMonitor", monitorID)).monitor;
+        const invalidEdits = [];
+        for (const timeout of invalidValues) {
+            const result = await realtime.request("editMonitor", { ...before, timeout });
+            invalidEdits.push(result);
+            if (result.ok) {
+                await realtime.request("editMonitor", { ...before, timeout: "0.25" });
+            }
+        }
+        const missingEdit = { ...before };
+        delete missingEdit.timeout;
+        const missingResult = await realtime.request("editMonitor", missingEdit);
+        invalidEdits.push(missingResult);
+        if (missingResult.ok) {
+            await realtime.request("editMonitor", { ...before, timeout: "0.25" });
+        }
+
+        expect(invalidEdits.every((result) => !result.ok)).toBe(true);
+        expect(invalidEdits.map((result) => result.msg)).toEqual(invalidEdits.map(() => timeoutError));
+        expect((await realtime.request("getMonitor", monitorID)).monitor).toMatchObject({
+            interval: 60,
+            retryInterval: 20,
+            resendInterval: 3,
+            maxretries: 2,
+            timeout: 0.25,
+            port: 8080,
+        });
+        expect(queryMonitorStorage(monitorID)).toMatchObject({ timeout: 0.25, timeout_type: "real" });
+
+        expect((await realtime.request("editMonitor", { ...before, timeout: "0" })).ok).toBe(true);
+        expect(queryMonitorStorage(monitorID)).toMatchObject({ timeout: 0, timeout_type: "real" });
+        expect((await realtime.request("deleteMonitor", monitorID, false)).ok).toBe(true);
+        expect(countMonitors()).toBe(countBefore);
+    }, 30_000);
+
+    test("legacy malformed timeout still bounds a PostgreSQL check and monitor stop", async () => {
+        const fixture = await createHangingTcpServer();
+        let monitorID;
+        let pause;
+        try {
+            const created = await realtime.request(
+                "add",
+                monitorPayload({
+                    type: "postgres",
+                    active: false,
+                    interval: 1,
+                    timeout: 1,
+                    databaseConnectionString: `postgresql://user:pass@127.0.0.1:${fixture.port}/db`,
+                    databaseQuery: "SELECT 1",
+                })
+            );
+            expect(created.ok).toBe(true);
+            monitorID = created.monitorID;
+
+            await stopApp();
+            updateMonitorStorage(monitorID, { timeout: "bogus", active: 1 });
+            expect(queryMonitorStorage(monitorID)).toMatchObject({ timeout: "bogus", timeout_type: "text" });
+            await startApp();
+            await login();
+            await withTimeout(fixture.requestArrived, 5_000, "legacy PostgreSQL monitor did not connect");
+
+            const started = performance.now();
+            pause = realtime.request("pauseMonitor", monitorID);
+            const stoppedByDeadline = await Promise.race([pause.then(() => true), Bun.sleep(1_500).then(() => false)]);
+            if (!stoppedByDeadline) {
+                fixture.destroySockets();
+            }
+            const paused = await pause;
+
+            expect(stoppedByDeadline).toBe(true);
+            expect(performance.now() - started).toBeLessThan(1_500);
+            expect(paused.ok).toBe(true);
+            expect(await Promise.race([fixture.socketClosed.then(() => true), Bun.sleep(100).then(() => false)])).toBe(
+                true
+            );
+            expect(queryMonitorStorage(monitorID)).toMatchObject({ timeout: "bogus", timeout_type: "text" });
+        } finally {
+            fixture.destroySockets();
+            await pause?.catch(() => {});
+            if (!appProcess || appProcess.exitCode !== null) {
+                await startApp();
+                await login();
+            }
+            if (monitorID) {
+                await realtime.request("deleteMonitor", monitorID, false).catch(() => {});
+            }
+            await fixture.close();
+        }
+    }, 20_000);
+
     test("delete waits for an in-flight heartbeat and prevents stale writes", async () => {
         const barrier = armTargetBarrier();
         const logMark = appLogs.length;
