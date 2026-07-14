@@ -20,6 +20,7 @@ let Monitor;
 let Database;
 let RealBrowserMonitorType;
 let resetChrome;
+let resetRemoteBrowser;
 let testChrome;
 let testRemoteBrowser;
 
@@ -28,7 +29,7 @@ beforeAll(async () => {
     Database = (await import("@/server/database")).default;
     Database.screenshotDir = "/tmp";
     Monitor = (await import("@/server/model/monitor")).default;
-    ({ RealBrowserMonitorType, resetChrome, testChrome, testRemoteBrowser } =
+    ({ RealBrowserMonitorType, resetChrome, resetRemoteBrowser, testChrome, testRemoteBrowser } =
         await import("@/server/monitor-types/real-browser-monitor-type"));
 });
 
@@ -391,6 +392,44 @@ describe("real-browser monitor lifecycle", () => {
             expect(chromium.connect).toHaveBeenCalledTimes(100);
             expect(results.every((result) => result instanceof Error)).toBe(true);
             expect(browsers.every((browser) => browser.close.mock.calls.length === 1)).toBe(true);
+        } finally {
+            remote.mockRestore();
+        }
+    });
+
+    test("resetRemoteBrowser waits only for the matching pending user and browser", async () => {
+        const connections = [deferred(), deferred()];
+        const browsers = [successfulBrowser(), successfulBrowser()];
+        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (id) => ({
+            id,
+            name: `remote ${id}`,
+            url: `ws://remote-${id}.test/browser`,
+        }));
+        chromium.connect.mockImplementation((url) => connections[Number(url.match(/remote-(\d+)/)?.[1]) - 7].promise);
+        const checks = [7, 8].map((remoteBrowser) => {
+            const instance = monitor();
+            Object.assign(instance, { remote_browser: remoteBrowser, user_id: 11 });
+            return new RealBrowserMonitorType().check(instance, {}, { jwtSecret: "test" }).catch((error) => error);
+        });
+        try {
+            for (let i = 0; i < 20 && chromium.connect.mock.calls.length < 2; i++) {
+                await Bun.sleep(1);
+            }
+
+            const resetting = resetRemoteBrowser(7, 11);
+            const resetReturnedBeforeRetirement = await settleWithin(resetting, 25);
+            connections[0].resolve(browsers[0]);
+            await resetting;
+
+            expect(resetReturnedBeforeRetirement).toBe(false);
+            expect(await checks[0]).toBeInstanceOf(Error);
+            expect(browsers[0].close).toHaveBeenCalledTimes(1);
+            expect(await settleWithin(checks[1], 25)).toBe(false);
+            expect(browsers[1].close).not.toHaveBeenCalled();
+
+            connections[1].resolve(browsers[1]);
+            expect(await checks[1]).toBeUndefined();
+            expect(browsers[1].close).not.toHaveBeenCalled();
         } finally {
             remote.mockRestore();
         }
