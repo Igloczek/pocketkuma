@@ -27,7 +27,7 @@ const result = await Bun.build({
         outfile,
         ...(target ? { target } : {}),
     },
-    external: ["playwright-core", "deasync"],
+    external: ["chromium-bidi/*", "deasync"],
     define: {
         "process.env.NODE_ENV": JSON.stringify("production"),
     },
