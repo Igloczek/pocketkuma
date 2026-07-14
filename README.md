@@ -4,11 +4,17 @@
 
 ## Why
 
-The Uptime Kuma codebase is a bit out of date and heavily relies on a large number of dependencies, which leads to unnecessary memory usage. Bun is lighter and comes with lots of built-in features, so it is a good fit for this project. The goal is to provide a simple, fast, and easy-to-deploy monitoring solution without reinventing the wheel.
+Uptime Kuma targets a broad Node-based deployment surface. PocketKuma deliberately narrows that surface to Bun,
+SQLite, and one executable, replacing dependencies where Bun already provides the required runtime feature. The goal
+is a simple self-hosted monitor without rewriting the product.
 
 ## What's different
 
 PocketKuma keeps the same product surface — monitors, notifications, status pages, and the dashboard UI — but changes how it is built, shipped, and run.
+
+See the [Uptime Kuma 2.4.0 comparison](docs/upstream-differences.md) and the
+[July 2026 stabilization audit](docs/audits/2026-07-stabilization.md) for the exact baseline, finding origins, test
+method, and residual limits.
 
 ### Distribution and deployment
 
@@ -17,12 +23,14 @@ PocketKuma keeps the same product surface — monitors, notifications, status pa
 
 ### Runtime and server stack
 
-- **What changed:** the server runs on Bun instead of Node.js. Express, Socket.IO, and the Node HTTP fallback path are gone. HTTP is served through `Bun.serve`, realtime UI updates use Bun's native WebSocket support, and outbound HTTP uses `fetch` instead of `axios`.
-- **Effect:** a smaller runtime surface, fewer moving parts at startup, and no separate web framework process layered on top of the monitor.
+- **What changed:** the server runs on Bun instead of Node.js. `Bun.serve` owns HTTP and native WebSocket traffic;
+  inherited routes run through an Express-compatible adapter, while Socket.IO and the Node HTTP listener path are
+  gone. Outbound HTTP uses `fetch` instead of `axios`.
+- **Effect:** one Bun server owns the HTTP and realtime lifecycle.
 
 ### Dependencies
 
-- **What changed:** compared to upstream Uptime Kuma v2.4.0, PocketKuma drops **50 direct** `package.json` entries (**41** from production dependencies) and about **200** fewer packages in the full install tree. Common utilities were replaced with Bun builtins or small in-repo helpers — for example `Bun.password` for hashing, native JWT handling, and built-in SQLite access.
+- **What changed:** compared with upstream Uptime Kuma v2.4.0, direct `package.json` entries fall from **83 to 35** production dependencies and from **154 to 88** total dependencies (production plus development): reductions of **48** and **66**, respectively. Common utilities were replaced with Bun builtins or small in-repo helpers — for example `Bun.password` for hashing, native JWT handling, and built-in SQLite access.
 - **Effect:** less dependency churn, faster installs for development, and a leaner production footprint. Monitor-specific code (Postgres, MQTT, SNMP, Playwright, and similar) loads on demand instead of at process start; dependencies needed at runtime are embedded in the executable.
 
 ### Database
@@ -33,7 +41,7 @@ PocketKuma keeps the same product surface — monitors, notifications, status pa
 ### Data layout
 
 - **What changed:** application state lives in a local data directory instead of an external database server.
-- **Effect:** by default, data is stored in `./data` next to the executable — easy to back up, move, or mount as a volume.
+- **Effect:** by default, data is stored in `./data` under the process working directory — easy to back up or move.
 
 ## Run
 
@@ -48,7 +56,8 @@ Open `http://localhost:3001` and complete the setup wizard on first visit.
 
 Optional flags: `--port=3001`, `--host=0.0.0.0`, `--data-dir=/path/to/data`.
 
-By default the process listens on all interfaces and stores data in `./data` next to the executable (`kuma.db`, `upload/`, `screenshots/`).
+By default the process listens on all interfaces and stores data in `./data` under its working directory (`kuma.db`,
+`upload/`, `screenshots/`).
 
 ### systemd example (Linux)
 
@@ -107,13 +116,9 @@ Then place that `kuma.db` into the PocketKuma data directory before starting the
 
 ### Notes for real-browser monitors
 
-`real-browser` monitors use an installed Chrome/Chromium through `playwright-core`. Playwright is embedded in the
-release executable and loaded only when a browser monitor runs, so the binary does not need `node_modules` beside it.
-Regular HTTP/keyword/redis monitors do not load Playwright.
+`real-browser` monitors require a configured system Chrome/Chromium executable. `playwright-core` is embedded in the
+release executable, so the binary needs no adjacent `node_modules` directory or runtime sidecar. Other monitor types
+do not require Chrome.
 
-Browser launch and remote-connect handshakes have a five-second hard limit. Configuration changes, remote-browser
-deletion, SQLite restore, and graceful shutdown do not report completion until an in-progress browser acquisition has
-settled and its owned process or connection has been retired. On POSIX systems, a small `/bin/sh` supervisor remains
-the owned process-group leader until cleanup and receives TERM/KILL commands over a private pipe. PocketKuma therefore
-never decides ownership from a numeric PID alone and cannot signal an unrelated group after PID reuse. Windows keeps
-direct-process cleanup because it does not support the POSIX process-group path.
+Browser acquisition and cleanup are bounded. POSIX builds use the host's `/bin/sh` to supervise the owned browser
+process group and fail closed instead of signalling an unrelated reused PID.
