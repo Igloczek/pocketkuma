@@ -387,6 +387,7 @@ function queryMonitorStorage(monitorID) {
                         retry_interval, typeof(retry_interval) AS retry_interval_type,
                         resend_interval, typeof(resend_interval) AS resend_interval_type,
                         maxretries, typeof(maxretries) AS maxretries_type,
+                        maxredirects, typeof(maxredirects) AS maxredirects_type,
                         port, typeof(port) AS port_type
                  FROM monitor WHERE id = ?`
             )
@@ -501,9 +502,9 @@ afterAll(async () => {
 
 describe("monitor lifecycle over the production WebSocket transport", () => {
     test("add and edit normalize numeric strings and reject invalid timeouts without partial writes", async () => {
-        const timeoutError = `Timeout must be 0 or a finite number between 0.001 and ${MAX_INTERVAL_SECOND} seconds`;
+        const timeoutError = `Timeout must be 0 or a finite number between 0.1 and ${MAX_INTERVAL_SECOND} seconds`;
         const countBefore = countMonitors();
-        const invalidValues = ["", "   ", "bogus", -1, MAX_INTERVAL_SECOND + 1, null];
+        const invalidValues = ["", "   ", "bogus", -1, 0.001, MAX_INTERVAL_SECOND + 1, null];
         const invalidAdds = [];
 
         for (const timeout of invalidValues) {
@@ -548,6 +549,8 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
             resend_interval_type: "integer",
             maxretries: 2,
             maxretries_type: "integer",
+            maxredirects: 2,
+            maxredirects_type: "integer",
             port: 8080,
             port_type: "integer",
         });
@@ -583,6 +586,53 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
 
         expect((await realtime.request("editMonitor", { ...before, timeout: "0" })).ok).toBe(true);
         expect(queryMonitorStorage(monitorID)).toMatchObject({ timeout: 0, timeout_type: "real" });
+        expect((await realtime.request("deleteMonitor", monitorID, false)).ok).toBe(true);
+        expect(countMonitors()).toBe(countBefore);
+    }, 30_000);
+
+    test("add and edit reject excessive retries and redirects atomically", async () => {
+        const countBefore = countMonitors();
+        const invalidValues = [101, 1000, Number.MAX_SAFE_INTEGER];
+        const cases = [
+            ["maxretries", "Retries must be an integer between 0 and 100"],
+            ["maxredirects", "Max redirects must be an integer between 0 and 100"],
+        ];
+
+        for (const [field, message] of cases) {
+            for (const value of invalidValues) {
+                const result = await realtime.request("add", monitorPayload({ active: false, [field]: value }));
+                expect(result.ok, `${field}=${value}`).toBe(false);
+                expect(result.msg).toBe(message);
+            }
+        }
+        expect(countMonitors()).toBe(countBefore);
+
+        const created = await realtime.request(
+            "add",
+            monitorPayload({ active: false, maxretries: "100", maxredirects: "100" })
+        );
+        expect(created.ok).toBe(true);
+        const monitorID = created.monitorID;
+        expect(queryMonitorStorage(monitorID)).toMatchObject({
+            maxretries: 100,
+            maxretries_type: "integer",
+            maxredirects: 100,
+            maxredirects_type: "integer",
+        });
+
+        const before = (await realtime.request("getMonitor", monitorID)).monitor;
+        for (const [field, message] of cases) {
+            for (const value of invalidValues) {
+                const result = await realtime.request("editMonitor", { ...before, [field]: value });
+                expect(result.ok, `${field}=${value}`).toBe(false);
+                expect(result.msg).toBe(message);
+            }
+        }
+        expect((await realtime.request("getMonitor", monitorID)).monitor).toMatchObject({
+            maxretries: 100,
+            maxredirects: 100,
+        });
+        expect(queryMonitorStorage(monitorID)).toMatchObject({ maxretries: 100, maxredirects: 100 });
         expect((await realtime.request("deleteMonitor", monitorID, false)).ok).toBe(true);
         expect(countMonitors()).toBe(countBefore);
     }, 30_000);
