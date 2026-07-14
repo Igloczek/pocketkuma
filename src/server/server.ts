@@ -794,13 +794,9 @@ let needSetup = false;
                 bean.hostname = monitor.hostname;
                 bean.game = monitor.game;
                 bean.maxretries = monitor.maxretries;
-                bean.port = parseInt(monitor.port);
+                bean.port = monitor.port;
                 bean.location = monitor.location;
                 bean.protocol = monitor.protocol;
-
-                if (isNaN(bean.port)) {
-                    bean.port = null;
-                }
 
                 bean.keyword = monitor.keyword;
                 bean.invertKeyword = monitor.invertKeyword;
@@ -862,7 +858,6 @@ let needSetup = false;
                 bean.snmpOid = monitor.snmpOid;
                 bean.jsonPathOperator = monitor.jsonPathOperator;
                 bean.retry_only_on_status_code_failure = Boolean(monitor.retryOnlyOnStatusCodeFailure);
-                bean.timeout = monitor.timeout;
                 bean.rabbitmqNodes = JSON.stringify(monitor.rabbitmqNodes);
                 bean.rabbitmqUsername = monitor.rabbitmqUsername;
                 bean.rabbitmqPassword = monitor.rabbitmqPassword;
