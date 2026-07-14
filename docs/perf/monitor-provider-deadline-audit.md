@@ -13,6 +13,11 @@ Date: 2026-07-14
 - SNMP retry-quantization RED tests: `32cf1bed529d8bf1ecac6ad4982b8f5b6b75d8d1`
 - SNMP deadline and numeric-bound runtime: `893d205450605516c0712368cc36916f9f8b7952`
 - Browser numeric-bound coverage: `0dffe846f51cd66a6914c06368f18e45d738bde6`
+- Real-browser lifecycle RED tests: `af9d84f8`
+- Real-browser lifecycle runtime: `4188beaf`
+- Screenshot-delay transport RED tests: `a8f96e9c`
+- Screenshot-delay transport runtime: `97b70906`
+- Compiled real-Chromium lifecycle harness: `51b39d14`
 
 `5add23ce` adds the deterministic RED tests only, so its runtime is identical to `295ca265`.
 
@@ -43,35 +48,42 @@ roughly one millisecond. A stored retry count could therefore multiply the inten
 whole-check watchdog in addition to its per-attempt setting, cancels pending library requests, closes the session
 exactly once, and ignores late callbacks after settlement.
 
+The real-browser follow-up closes the last unbounded lifecycle phases. One absolute deadline and the monitor's active
+heartbeat cancellation signal now cover browser acquisition, `newContext`, `newPage`, navigation, screenshot delay,
+screenshot capture, and context cleanup. Pause, delete, snapshot restore, and shutdown can therefore interrupt an
+active browser check instead of waiting indefinitely for Playwright. Browser instances are held by explicit local or
+per-user remote owners: invalidating an owner closes only that generation, late acquisitions are disposed without
+entering the cache, and a timed-out shared browser fails its peers consistently before the next check relaunches.
+
 ## Provider inventory
 
-| Monitor family                              | Deadline propagation                                                                                                                                                      | Cancellation and cleanup boundary                                                                                                                                            |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP, keyword, JSON query                   | One absolute deadline covers OAuth token acquisition, the request, a single OAuth retry, and optional TLS inspection. Every later phase receives only the remaining time. | HTTP fetches are aborted by the shared client timeout; certificate-inspection sockets are destroyed by their timeout path.                                                   |
-| Ping                                        | Each spawned ping attempt receives the monitor timeout without an extra one-second allowance.                                                                             | The subprocess helper sends `SIGKILL` at the attempt bound, including when a child ignores `SIGTERM`.                                                                        |
-| Push, manual, group                         | No outbound provider operation runs during a heartbeat.                                                                                                                   | No provider resource is opened; the monitor lifecycle generation remains the cancellation boundary.                                                                          |
-| Docker                                      | The Docker API request uses the monitor timeout instead of an interval-derived value.                                                                                     | The HTTP client aborts the request and releases its socket on timeout.                                                                                                       |
-| RADIUS                                      | The configured budget is split across the initial UDP request and one retry.                                                                                              | The shared UDP socket closes when a response, error, or final timeout settles the operation.                                                                                 |
-| Kafka producer                              | Connect and request limits fit inside one overall timer; library retries are disabled.                                                                                    | The producer disconnects after success, failure, or overall timeout.                                                                                                         |
-| DNS                                         | Half of the budget resolves configured resolver hostnames and half performs the requested DNS lookup.                                                                     | Each `Resolver` is cancelled at its phase deadline and its timer is cleared.                                                                                                 |
-| GameDig                                     | `attemptTimeout` and `socketTimeout` both derive from the monitor timeout.                                                                                                | GameDig owns the per-attempt socket lifecycle; no independent socket handle is exposed to PocketKuma.                                                                        |
-| Globalping ping, HTTP, DNS                  | One deadline covers HTTP-subtype OAuth, measurement creation, one HTTP 500 retry, and polling. Each client/fetch receives the remaining time.                             | SDK requests use abortable fetch timeouts; polling stops at the same deadline.                                                                                               |
-| gRPC keyword                                | The unary RPC receives a native gRPC deadline.                                                                                                                            | The client is closed in `finally`; expiry cancels the call and the loopback server observes cancellation.                                                                    |
-| MongoDB                                     | Connect, server-selection, socket, and command limits share the configured budget; the command receives the remaining time.                                               | The client is closed in `finally`.                                                                                                                                           |
-| PostgreSQL                                  | Connect and query limits derive from one deadline; the query receives the remaining time after connect.                                                                   | The client is ended in `finally`, including a stalled protocol handshake.                                                                                                    |
-| MySQL                                       | Connection and query operations are each capped by the configured timeout.                                                                                                | Successful connections end normally; timeout and protocol errors destroy the connection.                                                                                     |
-| Microsoft SQL Server                        | Connection and request limits derive from one deadline; the request receives the remaining time after pool connect.                                                       | The pool is closed after success or failure.                                                                                                                                 |
-| Oracle Database                             | Connection and call limits derive from one deadline; the database call receives the remaining time.                                                                       | The connection is closed after success or failure.                                                                                                                           |
-| Redis                                       | Connect and socket limits use the monitor budget, reconnect is disabled, and the command has an abort signal.                                                             | The client is destroyed in `finally`.                                                                                                                                        |
-| MQTT                                        | Connect, subscribe, and message wait share one absolute timer; automatic reconnect is disabled.                                                                           | The client is force-ended exactly once on success, error, or timeout.                                                                                                        |
-| RabbitMQ                                    | The total budget is divided among the configured nodes.                                                                                                                   | Each node's HTTP request has both a timeout and an abort signal.                                                                                                             |
-| Real browser                                | Browser launch or remote connect, navigation, screenshot delay, and screenshot receive the remaining shared budget.                                                       | The Playwright context is closed in `finally`.                                                                                                                               |
-| SMTP                                        | Connection, greeting, and socket-inactivity timeouts are each capped at half the monitor timeout.                                                                         | The SMTP connection is closed in `finally`.                                                                                                                                  |
-| SNMP                                        | Per-attempt time is derived from the configured retry count, while a separate hard watchdog enforces the whole monitor budget despite timer quantization.                 | Deadline calls `cancelRequests()`, then closes the session exactly once; success, callback errors, synchronous failures, and late callbacks share the same settlement guard. |
-| Steam                                       | Hostname lookup, Steam API request, and ping share one deadline.                                                                                                          | The HTTP request is abortable and the ping subprocess is killed at its bound; a late system DNS result is ignored.                                                           |
-| SIP OPTIONS, system service, Tailscale ping | Each host command receives the monitor timeout.                                                                                                                           | The shared subprocess helper force-kills commands at the deadline.                                                                                                           |
-| TCP, STARTTLS, TLS-alert checks             | Connect, dialogue, and TLS phases are each capped by the monitor timeout.                                                                                                 | Timeout handlers destroy the active socket and clear dialogue timers.                                                                                                        |
-| WebSocket upgrade                           | OAuth acquisition and the upgrade handshake are each capped by the monitor timeout.                                                                                       | A failed or expired handshake closes the socket; OAuth fetch is aborted at its bound.                                                                                        |
+| Monitor family                              | Deadline propagation                                                                                                                                                      | Cancellation and cleanup boundary                                                                                                                                                 |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP, keyword, JSON query                   | One absolute deadline covers OAuth token acquisition, the request, a single OAuth retry, and optional TLS inspection. Every later phase receives only the remaining time. | HTTP fetches are aborted by the shared client timeout; certificate-inspection sockets are destroyed by their timeout path.                                                        |
+| Ping                                        | Each spawned ping attempt receives the monitor timeout without an extra one-second allowance.                                                                             | The subprocess helper sends `SIGKILL` at the attempt bound, including when a child ignores `SIGTERM`.                                                                             |
+| Push, manual, group                         | No outbound provider operation runs during a heartbeat.                                                                                                                   | No provider resource is opened; the monitor lifecycle generation remains the cancellation boundary.                                                                               |
+| Docker                                      | The Docker API request uses the monitor timeout instead of an interval-derived value.                                                                                     | The HTTP client aborts the request and releases its socket on timeout.                                                                                                            |
+| RADIUS                                      | The configured budget is split across the initial UDP request and one retry.                                                                                              | The shared UDP socket closes when a response, error, or final timeout settles the operation.                                                                                      |
+| Kafka producer                              | Connect and request limits fit inside one overall timer; library retries are disabled.                                                                                    | The producer disconnects after success, failure, or overall timeout.                                                                                                              |
+| DNS                                         | Half of the budget resolves configured resolver hostnames and half performs the requested DNS lookup.                                                                     | Each `Resolver` is cancelled at its phase deadline and its timer is cleared.                                                                                                      |
+| GameDig                                     | `attemptTimeout` and `socketTimeout` both derive from the monitor timeout.                                                                                                | GameDig owns the per-attempt socket lifecycle; no independent socket handle is exposed to PocketKuma.                                                                             |
+| Globalping ping, HTTP, DNS                  | One deadline covers HTTP-subtype OAuth, measurement creation, one HTTP 500 retry, and polling. Each client/fetch receives the remaining time.                             | SDK requests use abortable fetch timeouts; polling stops at the same deadline.                                                                                                    |
+| gRPC keyword                                | The unary RPC receives a native gRPC deadline.                                                                                                                            | The client is closed in `finally`; expiry cancels the call and the loopback server observes cancellation.                                                                         |
+| MongoDB                                     | Connect, server-selection, socket, and command limits share the configured budget; the command receives the remaining time.                                               | The client is closed in `finally`.                                                                                                                                                |
+| PostgreSQL                                  | Connect and query limits derive from one deadline; the query receives the remaining time after connect.                                                                   | The client is ended in `finally`, including a stalled protocol handshake.                                                                                                         |
+| MySQL                                       | Connection and query operations are each capped by the configured timeout.                                                                                                | Successful connections end normally; timeout and protocol errors destroy the connection.                                                                                          |
+| Microsoft SQL Server                        | Connection and request limits derive from one deadline; the request receives the remaining time after pool connect.                                                       | The pool is closed after success or failure.                                                                                                                                      |
+| Oracle Database                             | Connection and call limits derive from one deadline; the database call receives the remaining time.                                                                       | The connection is closed after success or failure.                                                                                                                                |
+| Redis                                       | Connect and socket limits use the monitor budget, reconnect is disabled, and the command has an abort signal.                                                             | The client is destroyed in `finally`.                                                                                                                                             |
+| MQTT                                        | Connect, subscribe, and message wait share one absolute timer; automatic reconnect is disabled.                                                                           | The client is force-ended exactly once on success, error, or timeout.                                                                                                             |
+| RabbitMQ                                    | The total budget is divided among the configured nodes.                                                                                                                   | Each node's HTTP request has both a timeout and an abort signal.                                                                                                                  |
+| Real browser                                | One absolute deadline covers local launch or remote connect, context/page creation, navigation, screenshot delay, screenshot, and context cleanup.                        | Stop aborts the check. The exact owner is evicted; cleanup escalates from bounded Playwright close to the owned local process or remote channel, and late resources are disposed. |
+| SMTP                                        | Connection, greeting, and socket-inactivity timeouts are each capped at half the monitor timeout.                                                                         | The SMTP connection is closed in `finally`.                                                                                                                                       |
+| SNMP                                        | Per-attempt time is derived from the configured retry count, while a separate hard watchdog enforces the whole monitor budget despite timer quantization.                 | Deadline calls `cancelRequests()`, then closes the session exactly once; success, callback errors, synchronous failures, and late callbacks share the same settlement guard.      |
+| Steam                                       | Hostname lookup, Steam API request, and ping share one deadline.                                                                                                          | The HTTP request is abortable and the ping subprocess is killed at its bound; a late system DNS result is ignored.                                                                |
+| SIP OPTIONS, system service, Tailscale ping | Each host command receives the monitor timeout.                                                                                                                           | The shared subprocess helper force-kills commands at the deadline.                                                                                                                |
+| TCP, STARTTLS, TLS-alert checks             | Connect, dialogue, and TLS phases are each capped by the monitor timeout.                                                                                                 | Timeout handlers destroy the active socket and clear dialogue timers.                                                                                                             |
+| WebSocket upgrade                           | OAuth acquisition and the upgrade handshake are each capped by the monitor timeout.                                                                                       | A failed or expired handshake closes the socket; OAuth fetch is aborted at its bound.                                                                                             |
 
 ## RED to GREEN evidence
 
@@ -97,6 +109,18 @@ that pause/stop waited on that pending heartbeat. On `893d2054`, deterministic t
 100 ms whole-check boundary, and real UDP tests prove that pending requests are cancelled, the socket closes, stop
 settles, a late callback cannot settle twice, and legacy `maxretries = 1000` is sanitized in memory without rewriting
 the row.
+
+On the real-browser RED commit `af9d84f8`, mocked `browser.newContext()` and `context.close()` calls remained pending
+after the test's 350 ms observation window; both tests failed and required fixture release to finish. The final
+14-case suite covers those two hangs plus stop-before-deadline, late local launch and remote connect, hung page
+creation/navigation/screenshot, hung close and process kill, direct `SIGKILL` fallback, deterministic shared-owner
+failure, 200 concurrent cancellation races, remote force-disconnect, and the helper acquisition deadlines. It passes
+`14/14`; the original two stop cases now settle in about 102–105 ms including the 100 ms cleanup grace.
+
+The transport audit also found that a saved real-browser `screenshot_delay` was absent from `getMonitor` responses
+and ignored by `editMonitor`. Commit `a8f96e9c` records both failures through the production WebSocket transport.
+The runtime fix serializes the field and keeps its database aliases synchronized on edit, including validation before
+persistence. Both regressions pass, and an invalid boundary edit is rejected without changing the stored value.
 
 ## Verification
 
@@ -212,6 +236,34 @@ separately bounded because they are loop iterations rather than heartbeat retrie
 absolute deadline across redirects or phases. RADIUS has one fixed retry, Globalping has one fixed HTTP-500 retry,
 Kafka disables library retries and uses one overall timer, and DNS/RabbitMQ/SMTP use bounded multi-phase paths.
 
+### Real-browser lifecycle follow-up
+
+The final real-browser campaign produced these results:
+
+- The focused lifecycle suite passes `14/14`; its 200-check concurrent deadline race produces 200 errors, no late
+  successful heartbeat, and exactly one invalidation of the shared browser generation.
+- The production WebSocket lifecycle tests preserve and edit `screenshot_delay`, and reject an invalid edit without
+  mutating the row.
+- `bun run test:backend:all` passes `387 pass / 7 skip / 0 fail / 3,278 expect()` across 48 files. Six skips are the
+  existing public TLS cases; the seventh is the explicitly opt-in real-Chromium binary case.
+- The normal backend gate passes unit `314 pass / 7 skip / 0 fail / 3,155 expect()`, authentication `13/13`, and
+  maintenance `9/9`.
+- The compiled executable passes SMTP notification loading `1/1`, authentication `13/13`, and the real-Chromium
+  production lifecycle `3/3`. Each browser run verifies the setting and Chrome-test sockets, a successful heartbeat,
+  a served PNG, pause during an active navigation in under two seconds, relaunch on resume, deletion, graceful
+  shutdown, and disappearance of every owned Chromium PID.
+- Frozen install, lint, and build pass. Lint and build output contains only the repository's existing warning
+  categories.
+- Full Playwright E2E passes `40/40` twice from fresh state.
+- The final arm64 executable is 91,400,930 bytes with SHA-256
+  `bcab8972f2d4386d13ee8d100a7894694a82a0db16b6cb42a2fa780760832330`.
+
+The public `chromium.launchServer()` plus `chromium.connect()` route was tested before using an internal process
+handle. The server listened and was reachable, but Playwright 1.61.0's Bun WebSocket transport did not pass the
+headers required by the connection and timed out, including across separate processes. Local launch therefore stays
+on the public `chromium.launch()` API. The only internal adapter is isolated in `ownedBrowserProcess()` and reads the
+exact-version Playwright 1.61.0 browser-process handle so an unresponsive owned child can receive `SIGKILL`.
+
 ## Measurements
 
 All cleanup measurements use a configured provider timeout of 50 ms and deterministic loopback peers. Test duration
@@ -308,6 +360,31 @@ RSS baseline:          198496, 198528, 198272, 198096, 198128, 198464, 198096 Ki
 RSS final:             198480, 198512, 198848, 197248, 198368, 198096, 198080 KiB
 ```
 
+### Real-browser lifecycle measurements
+
+The browser baseline is the exact pre-follow-up runtime at `8b6c6a3a`. Both builds used Bun 1.3.14, Playwright
+1.61.0, and local Chrome 150.0.7871.115. A warm healthy check's seven-sample median changed from 699.680 to
+699.255 ms (-0.425 ms, -0.06%). A cold launch/check median changed from 1,096.995 to 1,101.096 ms (+4.101 ms,
++0.37%). The original hung `newContext` and `context.close` stop cases were still pending after 350 ms; the final
+mocked stop cases finish in about 102–105 ms, and a real 100 ms browser deadline completed in 122.1 ms with no
+remaining Playwright Chromium process.
+
+Seven fresh-data compiled starts measured readiness and RSS. Excluding each cold first start, median readiness changed
+from 300.652 to 299.503 ms (-1.149 ms); all-sample RSS medians changed from 187,648 to 190,896 KiB (+3,248 KiB,
++1.73%), within the observed run-to-run spread. Binary size changed from 91,500,002 to 91,400,930 bytes
+(-99,072 bytes).
+
+```text
+healthy browser baseline: 694.207, 693.015, 690.622, 700.913, 700.147, 699.680, 699.959 ms
+healthy browser final:    695.090, 699.255, 694.914, 699.726, 702.517, 699.734, 697.839 ms
+cold browser baseline:    1353.597, 1098.558, 1095.400, 1084.421, 1096.995 ms
+cold browser final:       1244.019, 1094.106, 1101.755, 1094.359, 1101.096 ms
+startup baseline:         1470.067, 299.067, 298.227, 299.978, 304.692, 302.604, 301.326 ms
+startup final:            1984.829, 302.733, 299.839, 299.009, 298.604, 303.069, 299.167 ms
+RSS baseline:             195472, 187520, 187328, 187456, 196240, 191840, 187648 KiB
+RSS final:                187360, 195920, 190896, 193216, 187328, 195872, 187344 KiB
+```
+
 ## Residual limits
 
 - GameDig exposes per-attempt and socket timeouts, but no public top-level `AbortSignal` or socket handle. PocketKuma
@@ -315,21 +392,18 @@ RSS final:             198480, 198512, 198848, 197248, 198368, 198096, 198080 Ki
 - The operating-system `dns.lookup` used by Steam cannot be actively cancelled. PocketKuma races it against the
   shared deadline, ignores a late result, and does not allow it to publish a late heartbeat; the following HTTP and
   ping operations are abortable or killable.
-- Playwright does not give this path a separate timeout for `browser.newContext()` or `context.close()`. All
-  network-facing launch, remote-connect, navigation, delay, and screenshot operations use the remaining monitor
-  budget, and the context closes in `finally`. Local Chromium discovery and the optional container-side Chromium
-  installation happen before launch and retain their existing command-specific behavior.
+- Playwright does not expose native timeout options for `browser.newContext()` or `context.close()`, a public remote
+  force-disconnect API, or a public process handle from `chromium.launch()`. PocketKuma supplies its own cancellation
+  boundary, bounds close, and isolates the exact-version local process and remote-channel fallbacks described above.
 - Some sequential paths cap individual phases rather than carrying one absolute deadline: ping can make an IPv6
   fallback attempt, MySQL caps connection and query operations separately, SMTP uses half-timeout phase caps, and
   TCP/STARTTLS/WebSocket OAuth paths can enter another bounded phase. Their worst-case wall time can therefore exceed
   one monitor timeout while remaining bounded by the finite phase count and cleanup.
-- Graceful pause, delete, shutdown, and test snapshot restore can intentionally wait until an already active provider
-  reaches its configured phase bounds and finishes cleanup. SNMP now has a hard whole-check bound even at extreme
-  retry counts; other finite multi-phase limits remain as described above. Lifecycle operations wait for real cleanup
-  rather than reporting a false stop.
+- Graceful lifecycle operations wait for real provider cleanup rather than reporting a false stop. Real browser and
+  SNMP checks now have active cancellation plus hard whole-check bounds; the other finite multi-phase limits remain as
+  described above.
 - Malformed legacy values are normalized in memory but intentionally left unchanged on disk. A later successful edit
   persists canonical numeric values; this avoids hidden writes during startup or push requests.
 
 The root README is unchanged because this work introduces no command, distribution path, or new operator workflow.
-The backend test README now names the SNMP whole-deadline and retry-quantization coverage beside the existing provider
-cleanup suite.
+The backend test README now names the real-browser lifecycle suite and documents the opt-in compiled Chromium command.
