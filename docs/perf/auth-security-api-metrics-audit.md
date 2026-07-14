@@ -27,7 +27,7 @@ detached local worktree. Each sample used a fresh temporary SQLite database and 
 
 ## Repo-native harness
 
-The deterministic harness is [scripts/benchmark/auth-security-api-metrics.ts](/Users/igloczek/Sites/pocketkuma/scripts/benchmark/auth-security-api-metrics.ts).
+The deterministic harness is [scripts/benchmark/auth-security-api-metrics.ts](../../scripts/benchmark/auth-security-api-metrics.ts).
 For each sample it boots once to create the SQLite schema, inserts exactly two Argon2id users and two active `push`
 monitors owned by different users, boots again, sends one real local `/api/push/:token` sample per monitor, warms each
 authenticated metrics request once, then measures one concurrent pair of full-body `GET /metrics` responses. It records
