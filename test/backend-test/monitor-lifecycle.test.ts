@@ -1512,4 +1512,109 @@ describe("monitor lifecycle over the production WebSocket transport", () => {
         },
         60_000
     );
+
+    test.skipIf(binaryPath || !realBrowserExecutable || process.platform === "win32")(
+        "SQLite restore retires an idle real-browser owner before using restored settings",
+        async () => {
+            fs.accessSync(realBrowserExecutable, fs.constants.X_OK);
+            if (!appProcess || appProcess.exitCode !== null) {
+                await startApp();
+                await login();
+            }
+            const currentSettings = await realtime.request("getSettings");
+            expect(currentSettings.ok).toBe(true);
+            expect(
+                (
+                    await realtime.request(
+                        "setSettings",
+                        { ...currentSettings.data, chromeExecutable: null },
+                        credentials.password
+                    )
+                ).ok
+            ).toBe(true);
+            expect((await fetch(`http://127.0.0.1:${appPort}/_e2e/take-sqlite-snapshot`)).ok).toBe(true);
+            const baselineSettings = await realtime.request("getSettings");
+            expect(baselineSettings.ok).toBe(true);
+            expect(baselineSettings.data.chromeExecutable).toBeNull();
+            expect(
+                (
+                    await realtime.request(
+                        "setSettings",
+                        { ...baselineSettings.data, chromeExecutable: realBrowserExecutable },
+                        credentials.password
+                    )
+                ).ok
+            ).toBe(true);
+
+            let firstMonitorID;
+            let secondMonitorID;
+            try {
+                const firstMark = realtime.mark();
+                const first = await realtime.request(
+                    "add",
+                    monitorPayload({
+                        type: "real-browser",
+                        name: "Browser owner before SQLite restore",
+                        interval: 30,
+                        timeout: 5,
+                        screenshot_delay: 0,
+                        remote_browser: null,
+                    })
+                );
+                expect(first.ok).toBe(true);
+                firstMonitorID = first.monitorID;
+                await realtime.waitFor("heartbeat", heartbeatFor(firstMonitorID, 1), firstMark, 20_000);
+                const oldBrowserPIDs = descendantProcesses(appProcess.pid)
+                    .filter((process) => process.command.includes("playwright_chromiumdev_profile"))
+                    .map((process) => process.pid);
+                expect(oldBrowserPIDs.length).toBeGreaterThan(0);
+
+                const restored = await fetch(`http://127.0.0.1:${appPort}/_e2e/restore-sqlite-snapshot`);
+                expect(restored.ok).toBe(true);
+                expect(processTable().some((process) => oldBrowserPIDs.includes(process.pid))).toBe(false);
+                firstMonitorID = null;
+                expect((await realtime.request("getSettings")).data.chromeExecutable).toBe(
+                    baselineSettings.data.chromeExecutable
+                );
+
+                expect(
+                    (
+                        await realtime.request(
+                            "setSettings",
+                            { ...baselineSettings.data, chromeExecutable: realBrowserExecutable },
+                            credentials.password
+                        )
+                    ).ok
+                ).toBe(true);
+                const secondMark = realtime.mark();
+                const second = await realtime.request(
+                    "add",
+                    monitorPayload({
+                        type: "real-browser",
+                        name: "Browser owner after SQLite restore",
+                        interval: 30,
+                        timeout: 5,
+                        screenshot_delay: 0,
+                        remote_browser: null,
+                    })
+                );
+                expect(second.ok).toBe(true);
+                secondMonitorID = second.monitorID;
+                await realtime.waitFor("heartbeat", heartbeatFor(secondMonitorID, 1), secondMark, 20_000);
+                const newBrowserPIDs = descendantProcesses(appProcess.pid)
+                    .filter((process) => process.command.includes("playwright_chromiumdev_profile"))
+                    .map((process) => process.pid);
+                expect(newBrowserPIDs.length).toBeGreaterThan(0);
+                expect(newBrowserPIDs.some((pid) => oldBrowserPIDs.includes(pid))).toBe(false);
+            } finally {
+                if (secondMonitorID) {
+                    await realtime.request("deleteMonitor", secondMonitorID, false).catch(() => {});
+                }
+                if (firstMonitorID) {
+                    await realtime.request("deleteMonitor", firstMonitorID, false).catch(() => {});
+                }
+            }
+        },
+        60_000
+    );
 });

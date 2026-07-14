@@ -7,11 +7,12 @@ const chromium = {
     connect: mock(() => undefined),
     launch: mock(() => undefined),
 };
+let configuredExecutable = "#playwright_chromium";
 
 mock.module("playwright-core", () => ({ chromium }));
 mock.module("@/server/settings", () => ({
     Settings: {
-        get: async () => "#playwright_chromium",
+        get: async () => configuredExecutable,
     },
 }));
 
@@ -33,6 +34,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
     await resetChrome();
+    configuredExecutable = "#playwright_chromium";
     chromium.connect.mockReset();
     chromium.launch.mockReset();
 });
@@ -106,6 +108,47 @@ function successfulBrowser(overrides = {}) {
 }
 
 describe("real-browser monitor lifecycle", () => {
+    test("a changed local executable cannot reuse the browser launched for the old setting", async () => {
+        const originalAllowAll = process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC;
+        process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC = "1";
+        const firstBrowser = successfulBrowser();
+        const secondBrowser = successfulBrowser();
+        chromium.launch.mockResolvedValueOnce(firstBrowser).mockResolvedValueOnce(secondBrowser);
+        configuredExecutable = "/first/chromium";
+        try {
+            await new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
+            configuredExecutable = "/second/chromium";
+            await new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
+
+            expect(chromium.launch).toHaveBeenCalledTimes(2);
+            expect(chromium.launch.mock.calls.map(([options]) => options.executablePath)).toEqual([
+                "/first/chromium",
+                "/second/chromium",
+            ]);
+            expect(firstBrowser.close).toHaveBeenCalledTimes(1);
+        } finally {
+            if (originalAllowAll === undefined) {
+                delete process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC;
+            } else {
+                process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC = originalAllowAll;
+            }
+        }
+    });
+
+    test("resetChrome invalidates an idle successful owner before a replacement starts", async () => {
+        const firstBrowser = successfulBrowser();
+        const secondBrowser = successfulBrowser();
+        chromium.launch.mockResolvedValueOnce(firstBrowser).mockResolvedValueOnce(secondBrowser);
+
+        await new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
+        await Promise.all([resetChrome(), resetChrome()]);
+        await new RealBrowserMonitorType().check(monitor(), {}, { jwtSecret: "test" });
+
+        expect(firstBrowser.close).toHaveBeenCalledTimes(1);
+        expect(secondBrowser.close).not.toHaveBeenCalled();
+        expect(chromium.launch).toHaveBeenCalledTimes(2);
+    });
+
     test("Monitor.stop() cancels a hung browser.newContext() and closes its browser", async () => {
         const newContext = deferred();
         const close = mock(async () => undefined);
