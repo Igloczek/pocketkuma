@@ -1052,7 +1052,7 @@
     "Copy": "Salin",
     "CopyToClipboardError": "Tidak bisa menyalin ke papan klip: {galat}",
     "CopyToClipboardSuccess": "Tersalin!",
-    "CurlDebugInfo": "Untuk pengawakutuan monitor, Anda bisa menempelkan ini ke terminal mesin Anda sendiri atau ke terminal mesin di mana uptime kuma sedang berjalan dan melihat apa yang Anda harapkan. Mohon perhatikan perbedaan jaringan seperti {firewalls}, {dns_resolvers}, atau {docker_networks}.",
+    "CurlDebugInfo": "Untuk pengawakutuan monitor, Anda bisa menempelkan ini ke terminal mesin Anda sendiri atau ke terminal mesin di mana PocketKuma sedang berjalan dan melihat apa yang Anda harapkan. Mohon perhatikan perbedaan jaringan seperti {firewalls}, {dns_resolvers}, atau {docker_networks}.",
     "aboutSlackUsername": "Mengubah nama tampilan pengirim pesan. Jika Anda ingin menyebut seseorang, sertakan dalam nama yang mudah diingat.",
     "Message format": "Format pesan",
     "Sound": "Suara",

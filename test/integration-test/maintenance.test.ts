@@ -27,7 +27,7 @@ async function startApp() {
         : [process.execPath, "src/server/server.ts", `--port=${port}`, "--host=127.0.0.1", `--data-dir=${dataDir}`];
     appProcess = Bun.spawn(command, {
         cwd: projectRoot,
-        env: { ...process.env, NODE_ENV: "production", UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass" },
+        env: { ...process.env, NODE_ENV: "production", POCKETKUMA_WS_ORIGIN_CHECK: "bypass" },
         stdout: process.env.DEBUG_MAINTENANCE_TEST ? "inherit" : "ignore",
         stderr: process.env.DEBUG_MAINTENANCE_TEST ? "inherit" : "ignore",
     });

@@ -64,7 +64,7 @@ class StatusPage extends BeanModel {
     }
 
     /**
-     * Like this: { "test-uptime.kuma.pet": "default" }
+     * Like this: { "status.example.com": "default" }
      * @type {{}}
      */
     static domainMappingList = {};
@@ -409,7 +409,7 @@ class StatusPage extends BeanModel {
 
     /**
      * Loads domain mapping from DB
-     * Return object like this: { "test-uptime.kuma.pet": "default" }
+     * Return object like this: { "status.example.com": "default" }
      * @returns {Promise<void>}
      */
     static async loadDomainMappingList() {

@@ -32,7 +32,7 @@ class Opsgenie extends NotificationProvider {
             }
 
             if (heartbeatJSON == null) {
-                let notificationTestAlias = "uptime-kuma-notification-test";
+                let notificationTestAlias = "pocketkuma-notification-test";
                 let data = {
                     message: msg,
                     alias: notificationTestAlias,

@@ -87,7 +87,7 @@ async function startApp(repoRoot, dataDir) {
             env: {
                 ...process.env,
                 NODE_ENV: "development",
-                UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
+                POCKETKUMA_WS_ORIGIN_CHECK: "bypass",
             },
             stdout: "ignore",
             stderr: "ignore",

@@ -335,9 +335,9 @@ async function rootResponse(request, server, disableFrameSameOrigin) {
         });
     }
 
-    const uptimeKumaEntryPage = server.entryPage;
-    if (uptimeKumaEntryPage && uptimeKumaEntryPage.startsWith("statusPage-")) {
-        return redirectResponse("/status/" + uptimeKumaEntryPage.replace("statusPage-", ""), {
+    const pocketKumaEntryPage = server.entryPage;
+    if (pocketKumaEntryPage && pocketKumaEntryPage.startsWith("statusPage-")) {
+        return redirectResponse("/status/" + pocketKumaEntryPage.replace("statusPage-", ""), {
             disableFrameSameOrigin,
         });
     }

@@ -128,7 +128,7 @@ class Teams extends NotificationProvider {
                                         type: "Image",
                                         width: "32px",
                                         style: "Person",
-                                        url: "https://raw.githubusercontent.com/louislam/uptime-kuma/master/public/icon.png",
+                                        url: "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png",
                                         altText: "PocketKuma Logo",
                                     },
                                 ],

@@ -1488,7 +1488,7 @@
     "halopsa_field_monitor": "Navn på overvåkingen",
     "halopsa_field_message": "Fullt varselmelding med status og detaljer",
     "halopsa_field_timestamp": "Hendelsestidspunkt i ISO 8601-format",
-    "halopsa_field_uptime_kuma_version": "PocketKuma-versjonsnummer",
+    "halopsa_field_pocketkuma_version": "PocketKuma-versjonsnummer",
     "Webhook Payload Fields": "Webhook Payload Felter",
     "halopsa_payload_desc": "Følgende felter sendes til Halo PSA-webhooken din:",
     "halopsa_field_monitor_id": "Unik overvåkings-ID (null for testvarsler) – Bruk dette for å koble varsler til saker",

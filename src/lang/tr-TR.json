@@ -1086,7 +1086,7 @@
     "Can be found on:": "Şurada bulunabilir: {0}",
     "The phone number of the recipient in E.164 format.": "Alıcının E.164 formatındaki telefon numarası.",
     "ignoredTLSError": "TLS/SSL hataları göz ardı edildi",
-    "CurlDebugInfo": "Monitörü hata ayıklamak için, bunu kendi makinenizin terminaline veya uptime kuma'nın çalıştığı makinenin terminaline yapıştırabilir ve ne istediğinizi görebilirsiniz.{newiline}Lütfen {firewalls}, {dns_resolvers} veya {docker_networks} gibi ağ farklılıklarına dikkat edin.",
+    "CurlDebugInfo": "Monitörü hata ayıklamak için, bunu kendi makinenizin terminaline veya PocketKuma'nın çalıştığı makinenin terminaline yapıştırabilir ve ne istediğinizi görebilirsiniz.{newiline}Lütfen {firewalls}, {dns_resolvers} veya {docker_networks} gibi ağ farklılıklarına dikkat edin.",
     "Time sensitive notifications will be delivered immediately, even if the device is in do not disturb mode.": "Cihaz rahatsız etmeyin modunda olsa bile, zaman açısından hassas bildirimler anında iletilecek.",
     "Either a text sender ID or a phone number in E.164 format if you want to be able to receive replies.": "Cevap alabilmek istiyorsanız E.164 formatında bir kısa mesaj gönderici kimliği veya bir telefon numarası.",
     "rabbitmqNodesRequired": "Lütfen bu monitör için sunucuları ayarlayın.",

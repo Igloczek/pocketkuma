@@ -44,12 +44,12 @@ class ServerChan extends NotificationProvider {
      * @returns {string} Formatted title
      */
     checkStatus(heartbeatJSON, monitorJSON) {
-        let title = "UptimeKuma Message";
+        let title = "PocketKuma Message";
         if (heartbeatJSON != null && heartbeatJSON["status"] === UP) {
-            title = "UptimeKuma Monitor Up " + monitorJSON["name"];
+            title = "PocketKuma Monitor Up " + monitorJSON["name"];
         }
         if (heartbeatJSON != null && heartbeatJSON["status"] === DOWN) {
-            title = "UptimeKuma Monitor Down " + monitorJSON["name"];
+            title = "PocketKuma Monitor Down " + monitorJSON["name"];
         }
         return title;
     }

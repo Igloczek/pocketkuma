@@ -10,7 +10,7 @@ import { setSetting } from "@/server/util-server";
 import dayjs from "dayjs";
 import dayjsPlugin_10 from "dayjs/plugin/utc";
 
-process.env.UPTIME_KUMA_HIDE_LOG = ["info_db", "info_server"].join(",");
+process.env.POCKETKUMA_HIDE_LOG = ["info_db", "info_server"].join(",");
 
 dayjs.extend(dayjsPlugin_10);
 

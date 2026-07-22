@@ -155,7 +155,7 @@ async function sendInfo(socket, hideVersion = false) {
     if (!hideVersion) {
         info.version = checkVersion.version;
         info.latestVersion = checkVersion.latestVersion;
-        info.isContainer = process.env.UPTIME_KUMA_IS_CONTAINER === "1";
+        info.isContainer = process.env.POCKETKUMA_IS_CONTAINER === "1";
         info.dbType = "sqlite";
         info.runtime = getRuntimeInfo();
     }

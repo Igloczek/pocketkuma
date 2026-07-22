@@ -126,19 +126,19 @@ if (!process.env.NODE_ENV) {
     process.env.NODE_ENV = "production";
 }
 
-if (!process.env.UPTIME_KUMA_WS_ORIGIN_CHECK) {
-    process.env.UPTIME_KUMA_WS_ORIGIN_CHECK = "cors-like";
+if (!process.env.POCKETKUMA_WS_ORIGIN_CHECK) {
+    process.env.POCKETKUMA_WS_ORIGIN_CHECK = "cors-like";
 }
 
 log.info("server", "Env: " + process.env.NODE_ENV);
-log.debug("server", "Inside Container: " + (process.env.UPTIME_KUMA_IS_CONTAINER === "1"));
+log.debug("server", "Inside Container: " + (process.env.POCKETKUMA_IS_CONTAINER === "1"));
 
-if (process.env.UPTIME_KUMA_WS_ORIGIN_CHECK === "bypass") {
-    log.warn("server", "WebSocket Origin Check: " + process.env.UPTIME_KUMA_WS_ORIGIN_CHECK);
+if (process.env.POCKETKUMA_WS_ORIGIN_CHECK === "bypass") {
+    log.warn("server", "WebSocket Origin Check: " + process.env.POCKETKUMA_WS_ORIGIN_CHECK);
 }
 
-if (process.env.UPTIME_KUMA_DEBUG_INSPECTOR === "1") {
-    log.warn("server", "UPTIME_KUMA_DEBUG_INSPECTOR is not supported under Bun. Start Bun with --inspect instead.");
+if (process.env.POCKETKUMA_DEBUG_INSPECTOR === "1") {
+    log.warn("server", "POCKETKUMA_DEBUG_INSPECTOR is not supported under Bun. Start Bun with --inspect instead.");
 }
 
 log.info("server", "PocketKuma Version:", checkVersion.version);
@@ -168,8 +168,8 @@ if (hostname) {
 const port = config.port;
 
 const disableFrameSameOrigin =
-    !!process.env.UPTIME_KUMA_DISABLE_FRAME_SAMEORIGIN || args["disable-frame-sameorigin"] || false;
-const cloudflaredToken = args["cloudflared-token"] || process.env.UPTIME_KUMA_CLOUDFLARED_TOKEN || undefined;
+    !!process.env.POCKETKUMA_DISABLE_FRAME_SAMEORIGIN || args["disable-frame-sameorigin"] || false;
+const cloudflaredToken = args["cloudflared-token"] || process.env.POCKETKUMA_CLOUDFLARED_TOKEN || undefined;
 
 // 2FA / notp verification defaults
 const twoFAVerifyOptions = {
@@ -418,7 +418,7 @@ let needSetup = false;
                     let newSecret = genSecret();
                     let encodedSecret = encodeSecretForUri(newSecret);
 
-                    let uri = `otpauth://totp/Uptime%20Kuma:${user.username}?secret=${encodedSecret}`;
+                    let uri = `otpauth://totp/PocketKuma:${user.username}?secret=${encodedSecret}`;
 
                     await R.exec("UPDATE `user` SET twofa_secret = ?, twofa_last_token = NULL WHERE id = ? ", [
                         newSecret,

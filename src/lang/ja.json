@@ -749,7 +749,7 @@
     "monitorToastMessagesDescription": "モニターのトースト通知は、指定された秒数後に消えます。-1に設定するとタイムアウトが無効になり、0に設定するとトースト通知が無効になります。",
     "Pick a SASL Mechanism...": "SASLメカニズムを選択してください…",
     "noGroupMonitorMsg": "利用できません。先にグループモニターを作成してください。",
-    "wayToGetFlashDutyKey": "UptimeKumaとFlashdutyを統合するには： Channels > Select a channel > Integrations > Add a new integrationでPocketKumaを選択し、Push URLをコピーしてください。",
+    "wayToGetFlashDutyKey": "PocketKumaとFlashdutyを統合するには： Channels > Select a channel > Integrations > Add a new integrationでPocketKumaを選択し、Push URLをコピーしてください。",
     "cacheBusterParamDescription": "キャッシュをスキップするためにランダム生成したパラメータ。",
     "gamedigGuessPortDescription": "Valve Server Query Protocolで使用されるポートはクライアントポートとは異なる場合があります。モニターがサーバーに接続できない場合は、この設定を試してください。",
     "receiverInfoSevenIO": "宛先の電話番号がドイツ国内のものではない場合は、番号の前に国番号を付ける必要があります（例：国番号が1の米国への場合は、017612121212ではなく117612121212と入力してください）",

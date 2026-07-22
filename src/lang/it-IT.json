@@ -1536,7 +1536,7 @@
     "Halo PSA Webhook URL": "URL Webhook Halo PSA",
     "halopsa_field_monitor": "Nome del monitor",
     "halopsa_field_timestamp": "Timestamp dell'evento nel formato ISO 8601",
-    "halopsa_field_uptime_kuma_version": "Numero di versione di PocketKuma",
+    "halopsa_field_pocketkuma_version": "Numero di versione di PocketKuma",
     "Teltonika SMS Gateway": "Gateway SMS Teltonika",
     "teltonikaUsername": "Username API",
     "TLS Alerts": "Avvisi TLS",
