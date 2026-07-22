@@ -72,7 +72,7 @@ class NotificationProvider {
      */
     async renderTemplate(template, msg, monitorJSON, heartbeatJSON) {
         const engine = new Liquid({
-            root: "./no-such-directory-uptime-kuma",
+            root: "./no-such-directory-pocketkuma",
             relativeReference: false,
             dynamicPartials: false,
         });

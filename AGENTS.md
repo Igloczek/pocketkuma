@@ -2,7 +2,7 @@
 
 ## Repository Identity
 
-PocketKuma is a performance-focused fork of Uptime Kuma. It is not an official Uptime Kuma project and is not intended to operate as a public open-source community project.
+PocketKuma is a performance-focused monitoring application derived from an upstream project. It is independently maintained and is not intended to operate as a public open-source community project.
 
 The repository is published "as is": no formal support process, no issue triage process, no release promise, and no community governance files.
 

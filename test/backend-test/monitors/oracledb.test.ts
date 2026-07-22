@@ -6,7 +6,7 @@ import { OracleDbMonitorType } from "@/server/monitor-types/oracledb";
 import { UP, PENDING } from "@/util";
 
 const ORACLE_IMAGE = "gvenzl/oracle-free:23-slim-faststart";
-const APP_USER = "uptimekuma";
+const APP_USER = "pocketkuma";
 const APP_USER_PASSWORD = "Oracle123";
 
 setDefaultTimeout(180_000);

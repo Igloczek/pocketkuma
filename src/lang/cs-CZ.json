@@ -1532,7 +1532,7 @@
     "halopsa_field_message": "Úplná výstražná zpráva se stavem a podrobnostmi",
     "halopsa_field_timestamp": "Časové razítko události ve formátu ISO 8601",
     "teltonikaModemHelptext": "ID SMS modemu musí být ve formátu {0}. Pokyny najdete na stránce https://developers.teltonika-networks.com/reference/.",
-    "halopsa_field_uptime_kuma_version": "Číslo verze PocketKuma",
+    "halopsa_field_pocketkuma_version": "Číslo verze PocketKuma",
     "360messengerEnableCustomMessage": "Povolit vlastní šablonu zprávy namísto výchozí zprávy.",
     "GlobalpingMonitorDescription": "Globalping poskytuje přístup k tisícům komunitních sond pro provádění síťových testů a měření. Pro všechny anonymní uživatele je stanoven limit 250 testů za hodinu. Chcete-li tento limit zdvojnásobit na 500 testů za hodinu, uložte si svůj token v {accountSettings}. Další informace najdete v {docs}.",
     "halopsa_field_monitor_id": "Jedinečný identifikátor dohledu (null pro testovací oznámení) – použijte k přiřazení upozornění k ticketům",

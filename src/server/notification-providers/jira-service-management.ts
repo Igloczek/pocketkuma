@@ -20,7 +20,7 @@ class JiraServiceManagement extends NotificationProvider {
         try {
             if (heartbeatJSON == null) {
                 // Test notification
-                let notificationTestAlias = "uptime-kuma-notification-test";
+                let notificationTestAlias = "pocketkuma-notification-test";
                 let data = {
                     message: msg,
                     alias: notificationTestAlias,

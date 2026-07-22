@@ -1452,6 +1452,6 @@
     "halopsa_field_monitor_id": "Uniek monitor ID (null voor test meldingen) - gebruik dit om te matchen met tickets",
     "halopsa_field_message": "Volledige meldtekst met status en details",
     "halopsa_field_timestamp": "Event tijdstempel in ISO 8601 formaat",
-    "halopsa_field_uptime_kuma_version": "PocketKuma versienummer",
+    "halopsa_field_pocketkuma_version": "PocketKuma versienummer",
     "halopsa_id_usage_hint": "💡 Tip: Gebruik monitor_id om waarschuwingen betrouwbaar te koppelen aan tickets, en heartbeat_id om de gebeurtenisgeschiedenis bij te houden"
 }

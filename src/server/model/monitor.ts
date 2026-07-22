@@ -682,7 +682,7 @@ class Monitor extends BeanModel {
                         const randomFloatString = Math.random().toString(36);
                         const cacheBust = randomFloatString.substring(2);
                         options.params = {
-                            uptime_kuma_cachebuster: cacheBust,
+                            pocketkuma_cachebuster: cacheBust,
                         };
                     }
 
@@ -725,7 +725,7 @@ class Monitor extends BeanModel {
                     }
 
                     // eslint-disable-next-line eqeqeq
-                    if (process.env.UPTIME_KUMA_LOG_RESPONSE_BODY_MONITOR_ID == this.id) {
+                    if (process.env.POCKETKUMA_LOG_RESPONSE_BODY_MONITOR_ID == this.id) {
                         log.info("monitor", res.data);
                     }
 
@@ -946,7 +946,7 @@ class Monitor extends BeanModel {
                         {
                             allowAutoTopicCreation: this.kafkaProducerAllowAutoTopicCreation,
                             ssl: this.kafkaProducerSsl,
-                            clientId: `Uptime-Kuma/${version}`,
+                            clientId: `PocketKuma/${version}`,
                             interval: this.interval,
                             timeout: this.timeout,
                             connectionTimeout: this.timeout,

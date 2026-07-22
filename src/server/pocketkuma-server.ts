@@ -438,7 +438,7 @@ class PocketKumaServer {
      * @returns {void}
      */
     async startNSCDServices() {
-        if (process.env.UPTIME_KUMA_IS_CONTAINER) {
+        if (process.env.POCKETKUMA_IS_CONTAINER) {
             try {
                 log.info("services", "Starting nscd");
                 await runCommandChecked("sudo", ["service", "nscd", "start"]);
@@ -453,7 +453,7 @@ class PocketKumaServer {
      * @returns {void}
      */
     async stopNSCDServices() {
-        if (process.env.UPTIME_KUMA_IS_CONTAINER) {
+        if (process.env.POCKETKUMA_IS_CONTAINER) {
             try {
                 log.info("services", "Stopping nscd");
                 await runCommandChecked("sudo", ["service", "nscd", "stop"]);
@@ -468,7 +468,7 @@ class PocketKumaServer {
      * @returns {string} User-Agent
      */
     getUserAgent() {
-        return "Uptime-Kuma/" + packageJson.version;
+        return "PocketKuma/" + packageJson.version;
     }
 
     /**

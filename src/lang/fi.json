@@ -1057,7 +1057,7 @@
     "Copy": "Kopioi",
     "CopyToClipboardError": "Leikepöydälle kopiointi ei onnistunut: {error}",
     "CopyToClipboardSuccess": "Kopioitu!",
-    "CurlDebugInfo": "Debugataksesi seurainta, voit joko kopioida tämän oman tietokoneesi komentoriville tai sen tietokoneen komentoriville jossa uptime kuma on käynissä nähdäksesi pyyntösi.{newiline}Otathan huomioon verkkoympäristöjen erot kuten {firewalls}, {dns_resolvers} tai {docker_networks}.",
+    "CurlDebugInfo": "Debugataksesi seurainta, voit joko kopioida tämän oman tietokoneesi komentoriville tai sen tietokoneen komentoriville jossa PocketKuma on käynissä nähdäksesi pyyntösi.{newiline}Otathan huomioon verkkoympäristöjen erot kuten {firewalls}, {dns_resolvers} tai {docker_networks}.",
     "firewalls": "palomuurit",
     "dns resolvers": "DNS-palvelimet",
     "docker networks": "Docker-verkot",

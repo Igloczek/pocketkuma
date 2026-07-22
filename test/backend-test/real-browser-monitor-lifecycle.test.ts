@@ -140,8 +140,8 @@ function successfulBrowser(overrides = {}) {
 
 describe("real-browser monitor lifecycle", () => {
     test("a changed local executable cannot reuse the browser launched for the old setting", async () => {
-        const originalAllowAll = process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC;
-        process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC = "1";
+        const originalAllowAll = process.env.POCKETKUMA_ALLOW_ALL_CHROME_EXEC;
+        process.env.POCKETKUMA_ALLOW_ALL_CHROME_EXEC = "1";
         const firstBrowser = successfulBrowser();
         const secondBrowser = successfulBrowser();
         chromium.launch.mockResolvedValueOnce(firstBrowser).mockResolvedValueOnce(secondBrowser);
@@ -159,9 +159,9 @@ describe("real-browser monitor lifecycle", () => {
             expect(firstBrowser.close).toHaveBeenCalledTimes(1);
         } finally {
             if (originalAllowAll === undefined) {
-                delete process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC;
+                delete process.env.POCKETKUMA_ALLOW_ALL_CHROME_EXEC;
             } else {
-                process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC = originalAllowAll;
+                process.env.POCKETKUMA_ALLOW_ALL_CHROME_EXEC = originalAllowAll;
             }
         }
     });
@@ -392,8 +392,8 @@ describe("real-browser monitor lifecycle", () => {
     });
 
     test("a pending local configuration retires before its replacement launches", async () => {
-        const originalAllowAll = process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC;
-        process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC = "1";
+        const originalAllowAll = process.env.POCKETKUMA_ALLOW_ALL_CHROME_EXEC;
+        process.env.POCKETKUMA_ALLOW_ALL_CHROME_EXEC = "1";
         const firstLaunch = deferred();
         const firstBrowser = successfulBrowser();
         const replacement = successfulBrowser();
@@ -420,9 +420,9 @@ describe("real-browser monitor lifecycle", () => {
             expect(replacement.close).not.toHaveBeenCalled();
         } finally {
             if (originalAllowAll === undefined) {
-                delete process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC;
+                delete process.env.POCKETKUMA_ALLOW_ALL_CHROME_EXEC;
             } else {
-                process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC = originalAllowAll;
+                process.env.POCKETKUMA_ALLOW_ALL_CHROME_EXEC = originalAllowAll;
             }
         }
     });

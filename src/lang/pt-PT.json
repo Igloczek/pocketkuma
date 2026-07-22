@@ -98,7 +98,7 @@
     "Enable Auth": "Ativar Autenticação",
     "disableauth.message1": "Tens a certeza que queres {disableAuth}?",
     "disable authentication": "desativar a autenticação",
-    "disableauth.message2": "Isso é para {intendThirdPartyAuth} em frente ao 'UpTime Kuma' como o Cloudflare Access.",
+    "disableauth.message2": "Isso é para {intendThirdPartyAuth} em frente ao 'PocketKuma' como o Cloudflare Access.",
     "where you intend to implement third-party authentication": "alguém que tem autenticação de terceiros",
     "Please use this option carefully!": "Por favor, utiliza esta opção com cuidado.",
     "Logout": "Terminar sessão",

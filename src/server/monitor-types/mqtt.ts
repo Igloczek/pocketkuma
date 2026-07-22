@@ -160,7 +160,7 @@ class MqttMonitorType extends MonitorType {
             const client = mqtt.connect(mqttUrl, {
                 username,
                 password,
-                clientId: "uptime-kuma_" + Math.random().toString(16).substr(2, 8),
+                clientId: "pocketkuma_" + Math.random().toString(16).substr(2, 8),
                 connectTimeout: timeout,
                 reconnectPeriod: 0,
             });

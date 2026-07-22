@@ -162,12 +162,12 @@ function smtpVariantFields(): NotificationFormField[] {
         textField("username", "smtpUsername", "Username", { required: false }),
         secretField("password", "smtpPassword", "Password", { required: false }),
         textField("from-email", "smtpFrom", "From Email", {
-            placeholder: '"PocketKuma" <example@kuma.pet>',
+            placeholder: '"PocketKuma" <alerts@example.com>',
         }),
         textField("to-email", "smtpTo", "To Email", {
             required: false,
             requiredUnlessRecipientGroup: true,
-            placeholder: "example2@kuma.pet, example3@kuma.pet",
+            placeholder: "ops@example.com, admin@example.com",
         }),
         textField("to-cc", "smtpCC", "smtpCC", { required: false, requiredUnlessRecipientGroup: true }),
         textField("to-bcc", "smtpBCC", "smtpBCC", { required: false, requiredUnlessRecipientGroup: true }),

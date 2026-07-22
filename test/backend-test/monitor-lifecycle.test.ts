@@ -357,11 +357,11 @@ async function startApp() {
             HTTP_PROXY: envProxyUrl,
             HTTPS_PROXY: envProxyUrl,
             NO_PROXY: appNoProxy,
-            UPTIME_KUMA_WS_ORIGIN_CHECK: "bypass",
-            UPTIME_KUMA_LOG_FORMAT: "json",
-            UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC: pendingBrowserAcquisition
+            POCKETKUMA_WS_ORIGIN_CHECK: "bypass",
+            POCKETKUMA_LOG_FORMAT: "json",
+            POCKETKUMA_ALLOW_ALL_CHROME_EXEC: pendingBrowserAcquisition
                 ? "1"
-                : process.env.UPTIME_KUMA_ALLOW_ALL_CHROME_EXEC,
+                : process.env.POCKETKUMA_ALLOW_ALL_CHROME_EXEC,
             POCKETKUMA_PENDING_BROWSER_PID_FILE: pendingBrowserAcquisition
                 ? path.join(dataDir, "pending-browser-pids")
                 : undefined,

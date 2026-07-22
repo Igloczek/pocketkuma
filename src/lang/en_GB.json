@@ -1209,7 +1209,7 @@
     "Webhook Payload Fields": "Webhook Payload Fields",
     "halopsa_payload_desc": "The following fields are sent to your Halo PSA webhook:",
     "halopsa_field_timestamp": "Event timestamp in ISO 8601 format",
-    "halopsa_field_uptime_kuma_version": "PocketKuma version number",
+    "halopsa_field_pocketkuma_version": "PocketKuma version number",
     "halopsa_id_usage_hint": "💡 Tip: Use monitor_id to reliably match alerts to tickets, and heartbeat_id to track event history",
     "teltonikaUsername": "API username",
     "teltonikaUsernameHelptext": "Recommendation: Create a separate account which is restricted to only sending SMS messages and enter its username here",

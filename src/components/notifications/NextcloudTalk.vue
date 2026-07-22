@@ -56,8 +56,8 @@
 # Setup bot
 occ talk:bot:install \
     --feature response --no-setup \
-    "Uptime Bot" "Secret" \
-    https://uptime.domain.invalid
+    "PocketKuma Bot" "Secret" \
+    https://pocketkuma.example.com
 
 # Obtain BotId
 occ talk:bot:list
@@ -68,7 +68,7 @@ occ talk:bot:setup &lt;BotId&gt; &lt;ConversationToken&gt;
 
                 <i18n-t tag="p" keypath="Read more:">
                     <a href="https://nextcloud-talk.readthedocs.io/en/latest/bot-list/#uptime-kuma" target="_blank">
-                        https://nextcloud-talk.readthedocs.io
+                        https://nextcloud-talk.readthedocs.io/en/latest/bot-list/#uptime-kuma
                     </a>
                 </i18n-t>
             </div>

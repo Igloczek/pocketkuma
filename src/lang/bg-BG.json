@@ -1564,7 +1564,7 @@
     "halopsa_field_monitor_id": "Уникален идентификатор на монитор ('null' за тестови известия) - Използвайте това, за да съпоставите известията с тикетите",
     "matrixUseTemplate": "Използвай персонализиран шаблон за съобщение",
     "matrixUseTemplateDescription": "Ако е активирано, съобщението ще бъде изпратено с помощта на персонализиран шаблон.",
-    "halopsa_field_uptime_kuma_version": "Версията номер на PocketKuma",
+    "halopsa_field_pocketkuma_version": "Версията номер на PocketKuma",
     "halopsa_setup_step5": "Конфигурирайте \"runbook\" да използва \"monitor_id\" за съпоставяне на предупреждения със съществуващи тикети",
     "teltonikaUrl": "URL адрес на Вашето устройство Teltonika",
     "teltonikaUnsafeTls": "Игнорирай валидирането на сертификата",

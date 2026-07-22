@@ -1546,7 +1546,7 @@
     "Show this Maintenance Message on which Status Pages": "Kuriuose būsenos puslapiuose rodyti šį profilaktikos darbų pranešimą",
     "labelDomainExpiry": "Domeno galioj. pab.",
     "halopsa_field_timestamp": "Įvykio laiko žyma ISO 8601 formatu",
-    "halopsa_field_uptime_kuma_version": "PocketKuma versijos numeris",
+    "halopsa_field_pocketkuma_version": "PocketKuma versijos numeris",
     "mtls-auth-server-cert-placeholder": "Sertifikato turinys",
     "halopsa_field_monitor": "Stebėjimo pavadinimas",
     "domainExpiryNotificationHelp": "Dienų skaičių iki galiojimo pabaigos galima nustatyti parametruose.",

@@ -166,7 +166,7 @@ class GlobalpingMonitorType extends MonitorType {
         if (monitor.cacheBust) {
             const randomFloatString = Math.random().toString(36);
             const cacheBust = randomFloatString.substring(2);
-            url.searchParams.set("uptime_kuma_cachebuster", cacheBust);
+            url.searchParams.set("pocketkuma_cachebuster", cacheBust);
         }
 
         const opts = {
