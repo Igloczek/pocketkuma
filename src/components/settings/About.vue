@@ -4,11 +4,6 @@
             <object class="my-4" width="200" height="200" data="/icon.svg" />
             <div class="fs-4 fw-bold">PocketKuma</div>
             <div>{{ $t("versionIs", { version: appStore.info.version }) }}</div>
-            <div class="frontend-version">{{ $t("frontendVersionIs", { version: appStore.frontendVersion }) }}</div>
-
-            <div v-if="!appStore.isFrontendBackendVersionMatched" class="alert alert-warning mt-4" role="alert">
-                ⚠️ {{ $t("Frontend Version do not match backend version!") }}
-            </div>
 
             <div class="my-3 update-link">
                 <a href="https://github.com/Igloczek/pocketkuma/releases" target="_blank" rel="noopener">
@@ -71,14 +66,5 @@ export default {
 
 .update-link {
     font-size: 0.8em;
-}
-
-.frontend-version {
-    font-size: 0.9em;
-    color: #cccccc;
-
-    .dark & {
-        color: #333333;
-    }
 }
 </style>
