@@ -159,18 +159,6 @@ export const useAppStore = defineStore("app", {
             return result;
         },
 
-        frontendVersion() {
-            // eslint-disable-next-line no-undef
-            return FRONTEND_VERSION;
-        },
-
-        isFrontendBackendVersionMatched(state) {
-            if (!state.info.version) {
-                return true;
-            }
-            return state.info.version === this.frontendVersion;
-        },
-
         publicMonitorList(state) {
             const result = {};
 
