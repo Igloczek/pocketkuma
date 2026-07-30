@@ -102,12 +102,6 @@ export default {
         stats() {
             return this.appStore.stats;
         },
-        frontendVersion() {
-            return this.appStore.frontendVersion;
-        },
-        isFrontendBackendVersionMatched() {
-            return this.appStore.isFrontendBackendVersionMatched;
-        },
         publicMonitorList() {
             return this.appStore.publicMonitorList;
         },
