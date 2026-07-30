@@ -1,0 +1,4 @@
+interface:
+    display_name: "Deploy PocketKuma"
+    short_description: "Deploy releases to the local PocketKuma host"
+    default_prompt: "Use $deploy-pocketkuma to deploy a published PocketKuma release to the local systemd instance with verification and rollback."
