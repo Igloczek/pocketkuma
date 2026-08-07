@@ -225,7 +225,7 @@ export const rootCertificatesFingerprints = () => {
  * @param {object} tlsInfoObject Information about certificate
  * @returns {Promise<void>}
  */
-export async function checkCertExpiryNotifications(store, settings, monitor, tlsInfoObject) {
+export async function checkCertExpiryNotifications(store, settings, monitor, tlsInfoObject, providerRegistry) {
     if (!tlsInfoObject || !tlsInfoObject.certInfo || !tlsInfoObject.certInfo.daysRemaining) {
         return;
     }
@@ -273,7 +273,9 @@ export async function checkCertExpiryNotifications(store, settings, monitor, tls
                     certInfo.certType,
                     certInfo.daysRemaining,
                     targetDays,
-                    notificationList
+                    notificationList,
+                    providerRegistry,
+                    store
                 );
             }
             certInfo = certInfo.issuerCertificate;

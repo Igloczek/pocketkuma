@@ -523,7 +523,7 @@ class Monitor extends BeanModel {
      * @param {Server} io Socket server instance
      * @returns {Promise<void>}
      */
-    async start(io, heartbeatData, runHeartbeatWrite = (operation) => operation()) {
+    async start(io, heartbeatData, server, runHeartbeatWrite = (operation) => operation()) {
         this.normalizeRuntimeConfig();
         this.clearHeartbeatTimer();
         this.isStop = false;
@@ -583,7 +583,7 @@ class Monitor extends BeanModel {
             }
 
             try {
-                if (await Monitor.isUnderMaintenance(heartbeatData.store, this.id, PocketKumaServer.getInstance())) {
+                if (await Monitor.isUnderMaintenance(heartbeatData.store, this.id, server)) {
                     bean.msg = "Monitor under maintenance";
                     bean.status = MAINTENANCE;
                 } else if (this.type === "http" || this.type === "keyword" || this.type === "json-query") {
@@ -711,7 +711,11 @@ class Monitor extends BeanModel {
                                 );
                                 if (inspected) {
                                     tlsInfo = inspected;
-                                    await this.handleTlsInfo(tlsInfo);
+                                    await this.handleTlsInfo(
+                                        tlsInfo,
+                                        server.notificationProviderRegistry,
+                                        heartbeatData.store
+                                    );
                                 }
                             }
                         } catch (error) {
@@ -919,13 +923,13 @@ class Monitor extends BeanModel {
                     bean.msg = resp.code;
                     bean.status = UP;
                     bean.ping = dayjs().valueOf() - startTime;
-                } else if (this.type in PocketKumaServer.monitorTypeList) {
+                } else if (this.type in server.monitorTypeList) {
                     let startTime = dayjs().valueOf();
-                    const monitorType = await PocketKumaServer.getInstance().getMonitorType(this.type);
+                    const monitorType = await server.getMonitorType(this.type);
                     if (!monitorType) {
                         throw new Error("Unknown Monitor Type");
                     }
-                    await monitorType.check(this, bean, PocketKumaServer.getInstance(), heartbeatData);
+                    await monitorType.check(this, bean, server, heartbeatData);
 
                     if (!monitorType.allowCustomStatus && bean.status !== UP) {
                         throw new Error(
@@ -1024,6 +1028,7 @@ class Monitor extends BeanModel {
                     const domainExpiryDate = await DomainExpiry.checkExpiry(supportInfo.domain);
                     if (domainExpiryDate) {
                         DomainExpiry.sendNotifications(
+                            server.notificationProviderRegistry,
                             supportInfo.domain,
                             (await Monitor.getNotificationList(this, heartbeatData.store)) || []
                         );
@@ -1062,13 +1067,7 @@ class Monitor extends BeanModel {
                         bean.status = this.isUpsideDown() ? UP : DOWN;
                         bean.downCount = previousBeat?.downCount || 0;
 
-                        if (
-                            await Monitor.isUnderMaintenance(
-                                heartbeatData.store,
-                                this.id,
-                                PocketKumaServer.getInstance()
-                            )
-                        ) {
+                        if (await Monitor.isUnderMaintenance(heartbeatData.store, this.id, server)) {
                             bean.msg = "Monitor under maintenance";
                             bean.status = MAINTENANCE;
                             retries = 0;
@@ -1168,13 +1167,13 @@ class Monitor extends BeanModel {
 
                     if (shouldNotify) {
                         log.debug("monitor", `[${this.name}] sendNotification`);
-                        await Monitor.sendNotification(isFirstBeat, this, bean, heartbeatData.store);
+                        await Monitor.sendNotification(isFirstBeat, this, bean, heartbeatData.store, server);
                     }
 
                     if (isImportant) {
                         log.debug("monitor", `[${this.name}] response cache clear`);
                         clearResponseCache();
-                        await PocketKumaServer.getInstance().sendMaintenanceListByUserID(this.user_id);
+                        await server.sendMaintenanceListByUserID(this.user_id);
                     }
 
                     log.debug("monitor", `[${this.name}] Send to socket`);
@@ -1632,7 +1631,7 @@ class Monitor extends BeanModel {
      * @param {import("@/server/model/heartbeat")} bean Status information about monitor
      * @returns {Promise<void>}
      */
-    static async sendNotification(isFirstBeat, monitor, bean, store) {
+    static async sendNotification(isFirstBeat, monitor, bean, store, server) {
         if (!isFirstBeat || bean.status === DOWN) {
             const notificationList = await Monitor.getNotificationList(monitor, store);
 
@@ -1647,7 +1646,6 @@ class Monitor extends BeanModel {
 
             const heartbeatJSON = await bean.toJSONAsync({ decodeResponse: true });
             const monitorData = [{ id: monitor.id, active: monitor.active, name: monitor.name }];
-            const server = PocketKumaServer.getInstance();
             const preloadData = await Monitor.preparePreloadData(store, monitorData, server);
             // Prevent if the msg is undefined, notifications such as Discord cannot send out.
             if (!heartbeatJSON["msg"]) {
@@ -1689,6 +1687,7 @@ class Monitor extends BeanModel {
             for (let notification of notificationList) {
                 try {
                     await Notification.send(
+                        server.notificationProviderRegistry,
                         JSON.parse(notification.config),
                         msg,
                         monitor.toJSON(preloadData, false),
@@ -1725,8 +1724,16 @@ class Monitor extends BeanModel {
      * @param {LooseObject<any>[]} notificationList List of notification providers
      * @returns {Promise<void>}
      */
-    async sendCertNotificationByTargetDays(certCN, certType, daysRemaining, targetDays, notificationList) {
-        let row = await R.getRow(
+    async sendCertNotificationByTargetDays(
+        certCN,
+        certType,
+        daysRemaining,
+        targetDays,
+        notificationList,
+        providerRegistry,
+        store = R
+    ) {
+        let row = await store.getRow(
             "SELECT * FROM notification_sent_history WHERE type = ? AND monitor_id = ? AND days <= ?",
             ["certificate", this.id, targetDays]
         );
@@ -1744,6 +1751,7 @@ class Monitor extends BeanModel {
             try {
                 log.debug("monitor", "Sending to " + notification.name);
                 await Notification.send(
+                    providerRegistry,
                     JSON.parse(notification.config),
                     `[${this.name}][${this.url}] ${certType} certificate ${certCN} will expire in ${daysRemaining} days`
                 );
@@ -1755,7 +1763,7 @@ class Monitor extends BeanModel {
         }
 
         if (sent) {
-            await R.exec("INSERT INTO notification_sent_history (type, monitor_id, days) VALUES(?, ?, ?)", [
+            await store.exec("INSERT INTO notification_sent_history (type, monitor_id, days) VALUES(?, ?, ?)", [
                 "certificate",
                 this.id,
                 targetDays,
@@ -2288,13 +2296,13 @@ class Monitor extends BeanModel {
      * @param {object} tlsInfo Information about the TLS connection
      * @returns {Promise<void>}
      */
-    async handleTlsInfo(tlsInfo) {
+    async handleTlsInfo(tlsInfo, providerRegistry, store = R) {
         await this.updateTlsInfo(tlsInfo);
         this.prometheus?.update(null, tlsInfo, null);
 
         if (!this.getIgnoreTls() && this.isEnabledExpiryNotification()) {
             log.debug("monitor", `[${this.name}] call checkCertExpiryNotifications`);
-            await checkCertExpiryNotifications(R, legacySettings, this, tlsInfo);
+            await checkCertExpiryNotifications(store, legacySettings, this, tlsInfo, providerRegistry);
         }
     }
 }

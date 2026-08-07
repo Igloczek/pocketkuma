@@ -1,12 +1,12 @@
 // @ts-nocheck
 
 import { BeanModel } from "@/server/bean-model";
-import { R } from "@/server/bun-sqlite-store";
+import { R } from "@/server/sqlite-core";
 import { log, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/util";
 import { parse as parseTld } from "tldts";
 import rdapDnsDataFallback from "@/server/assets/rdap-dns.json" with { type: "json" };
 import { setting, setSetting } from "@/server/util-server";
-import { Notification } from "@/server/notification";
+import { sendNotification } from "@/server/notification-provider-registry";
 import TranslatableError from "@/server/translatable-error";
 import dayjs from "dayjs";
 import { Settings } from "@/server/settings-legacy";
@@ -143,20 +143,28 @@ async function getRdapDomainExpiryDate(domain) {
 
 /**
  * Send a certificate notification when domain expires in less than target days
+ * @param {NotificationProviderRegistry} providerRegistry Runtime-owned provider registry
  * @param {string} domain Domain we monitor
  * @param {number} daysRemaining Number of days remaining on certificate
  * @param {number} targetDays Number of days to alert after
  * @param {LooseObject<any>[]} notificationList List of notification providers
  * @returns {Promise<void>}
  */
-async function sendDomainNotificationByTargetDays(domain, daysRemaining, targetDays, notificationList) {
+async function sendDomainNotificationByTargetDays(
+    providerRegistry,
+    domain,
+    daysRemaining,
+    targetDays,
+    notificationList
+) {
     let sent = false;
     log.debug("domain_expiry", `Send domain expiry notification for ${targetDays} deadline.`);
 
     for (let notification of notificationList) {
         try {
             log.debug("domain_expiry", `Sending to ${notification.name}`);
-            await Notification.send(
+            await sendNotification(
+                providerRegistry,
                 JSON.parse(notification.config),
                 `Domain name ${domain} will expire in ${daysRemaining} days`
             );
@@ -304,11 +312,12 @@ class DomainExpiry extends BeanModel {
     }
 
     /**
+     * @param {NotificationProviderRegistry} providerRegistry Runtime-owned provider registry
      * @param {string} domainName the domain name to send notifications for
      * @param {LooseObject<any>[]} notificationList notification List
      * @returns {Promise<void>}
      */
-    static async sendNotifications(domainName, notificationList) {
+    static async sendNotifications(providerRegistry, domainName, notificationList) {
         const domain = await DomainExpiry.findByDomainNameOrCreate(domainName);
         if (!notificationList.length > 0) {
             // fail fast. If no notification is set, all the following checks can be skipped.
@@ -352,6 +361,7 @@ class DomainExpiry extends BeanModel {
                     continue;
                 }
                 const sent = await sendDomainNotificationByTargetDays(
+                    providerRegistry,
                     domainName,
                     daysRemaining,
                     targetDays,

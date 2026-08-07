@@ -102,59 +102,65 @@ const providerLoaders = {
 };
 
 const OPTIONAL_NOTIFICATION_PROVIDERS = Object.keys(providerLoaders);
-const loadedProviders = {};
-const loadingProviders = {};
 
-function createProviderList() {
-    return Object.fromEntries(OPTIONAL_NOTIFICATION_PROVIDERS.map((name) => [name, { name }]));
+class NotificationProviderRegistry {
+    constructor(loaders = providerLoaders) {
+        this.loaders = loaders;
+        this.loaded = new Map();
+        this.loading = new Map();
+    }
+
+    get(name) {
+        const loader = this.loaders[name];
+        if (!loader) {
+            return Promise.resolve(null);
+        }
+
+        if (this.loaded.has(name)) {
+            return Promise.resolve(this.loaded.get(name));
+        }
+
+        if (!this.loading.has(name)) {
+            const loading = Promise.resolve()
+                .then(loader)
+                .then((module) => {
+                    if (typeof module?.default !== "function") {
+                        throw new Error(
+                            `Invalid notification provider factory for "${name}": expected a default constructor`
+                        );
+                    }
+                    const provider = new module.default();
+                    if (!provider || typeof provider.send !== "function" || provider.name !== name) {
+                        throw new Error(
+                            `Invalid notification provider factory for "${name}": expected name "${name}" and send()`
+                        );
+                    }
+                    this.loaded.set(name, provider);
+                    return provider;
+                })
+                .finally(() => this.loading.delete(name));
+            this.loading.set(name, loading);
+        }
+
+        return this.loading.get(name);
+    }
+
+    getLoadedProviders() {
+        return [...this.loaded.keys()];
+    }
 }
 
-async function getNotificationProvider(name) {
-    const loader = providerLoaders[name];
-    if (!loader) {
-        return null;
+async function sendNotification(providerRegistry, notification, msg, monitorJSON = null, heartbeatJSON = null) {
+    const provider = await providerRegistry.get(notification.type);
+    if (!provider) {
+        throw new Error("Notification type is not supported");
     }
-
-    if (loadedProviders[name]) {
-        return loadedProviders[name];
-    }
-
-    if (!loadingProviders[name]) {
-        loadingProviders[name] = (async () => {
-            try {
-                const module = await loader();
-                const provider = new module.default();
-                loadedProviders[name] = provider;
-                return provider;
-            } finally {
-                if (!loadedProviders[name]) {
-                    delete loadingProviders[name];
-                }
-            }
-        })();
-    }
-
-    return await loadingProviders[name];
-}
-
-function getLoadedNotificationProviders() {
-    return Object.keys(loadedProviders);
-}
-
-function resetLoadedNotificationProvidersForTests() {
-    for (const key of Object.keys(loadedProviders)) {
-        delete loadedProviders[key];
-    }
-    for (const key of Object.keys(loadingProviders)) {
-        delete loadingProviders[key];
-    }
+    return provider.send(notification, msg, monitorJSON, heartbeatJSON);
 }
 
 export {
     NOTIFICATION_PROVIDER_REGISTRY,
+    NotificationProviderRegistry,
     OPTIONAL_NOTIFICATION_PROVIDERS,
-    createProviderList,
-    getLoadedNotificationProviders,
-    getNotificationProvider,
-    resetLoadedNotificationProvidersForTests,
+    sendNotification,
 };

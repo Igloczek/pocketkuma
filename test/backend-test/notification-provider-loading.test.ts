@@ -1,16 +1,11 @@
 // @ts-nocheck
 
-import { describe, test, expect, beforeEach } from "bun:test";
+import { describe, test, expect } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { getNotificationProviderModuleMap, NOTIFICATION_PROVIDER_REGISTRY } from "@/notification-provider-metadata";
-import {
-    OPTIONAL_NOTIFICATION_PROVIDERS,
-    getNotificationProvider,
-    getLoadedNotificationProviders,
-    resetLoadedNotificationProvidersForTests,
-} from "@/server/notification-provider-registry";
+import { NotificationProviderRegistry, OPTIONAL_NOTIFICATION_PROVIDERS } from "@/server/notification-provider-registry";
 import { Notification } from "@/server/notification";
 
 const registrySourcePath = path.join(import.meta.dirname, "../../src/server/notification-provider-registry.ts");
@@ -18,10 +13,6 @@ const monitorRegistrySourcePath = path.join(import.meta.dirname, "../../src/serv
 const providersDir = path.join(import.meta.dirname, "../../src/server/notification-providers");
 
 describe("notification provider compile-safe loading", () => {
-    beforeEach(() => {
-        resetLoadedNotificationProvidersForTests();
-    });
-
     test("registry source does not use template-string dynamic imports", () => {
         const source = fs.readFileSync(registrySourcePath, "utf8");
 
@@ -45,6 +36,7 @@ describe("notification provider compile-safe loading", () => {
 
     test("every metadata provider has an on-disk module and loads through the registry", async () => {
         const moduleMap = getNotificationProviderModuleMap();
+        const providers = new NotificationProviderRegistry();
 
         const registryKeys = Object.keys(NOTIFICATION_PROVIDER_REGISTRY).sort();
         const optionalKeys = [...OPTIONAL_NOTIFICATION_PROVIDERS].sort();
@@ -58,12 +50,12 @@ describe("notification provider compile-safe loading", () => {
             const source = fs.readFileSync(modulePath, "utf8");
             expect(source).toContain("export default");
 
-            const provider = await getNotificationProvider(name);
+            const provider = await providers.get(name);
             expect(provider.name).toBe(name);
             expect(typeof provider.send).toBe("function");
         }
 
-        expect(getLoadedNotificationProviders().sort()).toEqual(registryKeys);
+        expect(providers.getLoadedProviders().sort()).toEqual(registryKeys);
     });
 
     test("compiled artifact loads every monitor and notification provider factory", async () => {
@@ -97,10 +89,9 @@ describe("notification provider compile-safe loading", () => {
     }, 120_000);
 
     test("Notification.send resolves smtp provider instead of missing-module error", async () => {
-        Notification.init();
-
+        const providers = new NotificationProviderRegistry();
         let captured = null;
-        const provider = await getNotificationProvider("smtp");
+        const provider = await providers.get("smtp");
         const originalSend = provider.send.bind(provider);
         provider.send = async (notification, msg) => {
             captured = { type: notification.type, msg };
@@ -109,6 +100,7 @@ describe("notification provider compile-safe loading", () => {
 
         try {
             const result = await Notification.send(
+                providers,
                 {
                     type: "smtp",
                     name: "Email",
@@ -128,10 +120,12 @@ describe("notification provider compile-safe loading", () => {
     });
 
     test("unknown provider type returns null and Notification.send throws clearly", async () => {
-        expect(await getNotificationProvider("definitely-not-a-provider")).toBeNull();
+        const providers = new NotificationProviderRegistry();
+        expect(await providers.get("definitely-not-a-provider")).toBeNull();
 
         await expect(
             Notification.send(
+                providers,
                 {
                     type: "definitely-not-a-provider",
                     name: "Broken",
@@ -139,5 +133,26 @@ describe("notification provider compile-safe loading", () => {
                 "test"
             )
         ).rejects.toThrow("Notification type is not supported");
+    });
+
+    test("Notification.send uses the provider registry passed by its runtime", async () => {
+        const createRegistry = (runtime) =>
+            new NotificationProviderRegistry({
+                test: async () => ({
+                    default: class {
+                        name = "test";
+                        send() {
+                            return runtime;
+                        }
+                    },
+                }),
+            });
+        const first = createRegistry("first");
+        const second = createRegistry("second");
+
+        expect(await Notification.send(first, { type: "test" }, "message")).toBe("first");
+        expect(await Notification.send(second, { type: "test" }, "message")).toBe("second");
+        expect(first.getLoadedProviders()).toEqual(["test"]);
+        expect(second.getLoadedProviders()).toEqual(["test"]);
     });
 });

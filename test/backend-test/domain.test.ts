@@ -4,7 +4,6 @@ import DomainExpiry from "@/server/model/domain_expiry";
 import mockWebhook from "./notification-providers/mock-webhook";
 import TestDB from "../mock-testdb";
 import { R } from "@/server/bun-sqlite-store";
-import { Notification } from "@/server/notification";
 import { Settings } from "@/server/settings-legacy";
 import { setSetting } from "@/server/util-server";
 import dayjs from "dayjs";
@@ -15,6 +14,9 @@ process.env.POCKETKUMA_HIDE_LOG = ["info_db", "info_server"].join(",");
 dayjs.extend(dayjsPlugin_10);
 
 const testDb = new TestDB();
+const providerRegistry = {
+    get: async () => new (await import("@/server/notification-providers/webhook")).default(),
+};
 
 describe("Domain Expiry", () => {
     const monHttpCom = {
@@ -25,12 +27,26 @@ describe("Domain Expiry", () => {
 
     beforeAll(async () => {
         await testDb.create();
-        Notification.init();
     });
 
     afterAll(async () => {
         Settings.stopCacheCleaner();
         await testDb.destroy();
+    });
+
+    test("imports directly in a fresh process without a model-registry cycle", async () => {
+        const child = Bun.spawn(
+            [process.execPath, "-e", 'await import("@/server/model/domain_expiry"); process.stdout.write("ok")'],
+            { cwd: process.cwd(), stdout: "pipe", stderr: "pipe" }
+        );
+        const [stdout, stderr, exitCode] = await Promise.all([
+            new Response(child.stdout).text(),
+            new Response(child.stderr).text(),
+            child.exited,
+        ]);
+
+        expect(exitCode, stderr).toBe(0);
+        expect(stdout).toBe("ok");
     });
 
     test("getExpiryDate() returns correct expiry date for .wiki domain with no A record", async () => {
@@ -201,7 +217,7 @@ describe("Domain Expiry", () => {
             name: "Testhook",
         });
         const [, data] = await Promise.all([
-            DomainExpiry.sendNotifications("google.com", [notif]),
+            DomainExpiry.sendNotifications(providerRegistry, "google.com", [notif]),
             mockWebhook(hook.port, hook.url),
         ]);
         expect(data.msg).toMatch(/will expire in/);
@@ -239,7 +255,7 @@ describe("Domain Expiry", () => {
             // Race between sendNotifications and mockWebhook timeout
             // If webhook is called, we fail. If it times out, we pass.
             const result = await Promise.race([
-                DomainExpiry.sendNotifications("test-null.com", [notif]),
+                DomainExpiry.sendNotifications(providerRegistry, "test-null.com", [notif]),
                 mockWebhook(hook.port, hook.url, 500)
                     .then(() => {
                         throw new Error("Webhook was called but should not have been for null expiry");
@@ -289,7 +305,7 @@ describe("Domain Expiry", () => {
             // Race between sendNotifications and mockWebhook timeout
             // If webhook is called, we fail. If it times out, we pass.
             const result = await Promise.race([
-                DomainExpiry.sendNotifications("test-undefined.com", [notif]),
+                DomainExpiry.sendNotifications(providerRegistry, "test-undefined.com", [notif]),
                 mockWebhook(hook.port, hook.url, 500)
                     .then(() => {
                         throw new Error("Webhook was called but should not have been for undefined expiry");

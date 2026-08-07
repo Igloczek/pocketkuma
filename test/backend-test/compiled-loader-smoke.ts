@@ -1,16 +1,18 @@
-import { getMonitorType, OPTIONAL_MONITOR_TYPES } from "@/server/monitor-runtime-registry";
-import { getNotificationProvider, OPTIONAL_NOTIFICATION_PROVIDERS } from "@/server/notification-provider-registry";
+import { MonitorRuntimeRegistry, OPTIONAL_MONITOR_TYPES } from "@/server/monitor-runtime-registry";
+import { NotificationProviderRegistry, OPTIONAL_NOTIFICATION_PROVIDERS } from "@/server/notification-provider-registry";
 
 const server = { getUserAgent: () => "PocketKuma compiled loader smoke" };
+const monitorRegistry = new MonitorRuntimeRegistry(server);
+const notificationRegistry = new NotificationProviderRegistry();
 
 for (const name of OPTIONAL_MONITOR_TYPES) {
-    if (!(await getMonitorType(name, server))) {
+    if (!(await monitorRegistry.get(name))) {
         throw new Error(`Monitor factory returned no instance for ${name}`);
     }
 }
 
 for (const name of OPTIONAL_NOTIFICATION_PROVIDERS) {
-    if (!(await getNotificationProvider(name))) {
+    if (!(await notificationRegistry.get(name))) {
         throw new Error(`Notification provider factory returned no instance for ${name}`);
     }
 }

@@ -1,25 +1,12 @@
 // @ts-nocheck
 
-import { log } from "@/util";
+import { sendNotification } from "@/server/notification-provider-registry";
 import { commandExists } from "@/server/util-server";
-import { createProviderList, getNotificationProvider } from "@/server/notification-provider-registry";
 
 class Notification {
-    providerList = {};
-
-    /**
-     * Initialize the notification providers
-     * @returns {void}
-     * @throws Notification provider does not have a name
-     * @throws Duplicate notification providers in list
-     */
-    static init() {
-        log.debug("notification", "Prepare Notification Providers");
-        this.providerList = createProviderList();
-    }
-
     /**
      * Send a notification
+     * @param {NotificationProviderRegistry} providerRegistry Runtime-owned provider registry
      * @param {BeanModel} notification Notification to send
      * @param {string} msg General Message
      * @param {object} monitorJSON Monitor details (For Up/Down only)
@@ -27,13 +14,8 @@ class Notification {
      * @returns {Promise<string>} Successful msg
      * @throws Error with fail msg
      */
-    static async send(notification, msg, monitorJSON = null, heartbeatJSON = null) {
-        const provider = await getNotificationProvider(notification.type);
-        if (provider) {
-            return provider.send(notification, msg, monitorJSON, heartbeatJSON);
-        } else {
-            throw new Error("Notification type is not supported");
-        }
+    static async send(providerRegistry, notification, msg, monitorJSON = null, heartbeatJSON = null) {
+        return sendNotification(providerRegistry, notification, msg, monitorJSON, heartbeatJSON);
     }
 
     /**

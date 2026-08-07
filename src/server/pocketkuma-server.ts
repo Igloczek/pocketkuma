@@ -17,7 +17,8 @@ import path from "path";
 import httpClient from "@/server/http-client";
 import { BunRealtimeAdapter } from "@/server/bun-websocket-server";
 import { runCommandChecked } from "@/server/process-helper";
-import { createMonitorTypeList, getMonitorType } from "@/server/monitor-runtime-registry";
+import { MonitorRuntimeRegistry } from "@/server/monitor-runtime-registry";
+import { NotificationProviderRegistry } from "@/server/notification-provider-registry";
 import Monitor from "@/server/model/monitor";
 import packageJson from "@/package-meta";
 import { isCompiledBinary } from "@/server/app-paths";
@@ -55,11 +56,6 @@ class PocketKumaServer {
      * @type {string}
      */
     indexHTML = "";
-
-    /**
-     * @type {{}}
-     */
-    static monitorTypeList = {};
 
     /**
      * Use for decode the auth object
@@ -112,8 +108,9 @@ class PocketKumaServer {
             }
         }
 
-        // Metadata only. Optional monitor implementations are loaded by getMonitorType() when a monitor runs.
-        PocketKumaServer.monitorTypeList = createMonitorTypeList();
+        this.monitorRuntimeRegistry = new MonitorRuntimeRegistry(this);
+        this.notificationProviderRegistry = new NotificationProviderRegistry();
+        this.monitorTypeList = this.monitorRuntimeRegistry.monitorTypeList;
     }
 
     /**
@@ -134,8 +131,8 @@ class PocketKumaServer {
      * @param {string} type Monitor type
      * @returns {Promise<import("@/server/monitor-types/monitor-type").MonitorType|null>} Monitor type instance
      */
-    async getMonitorType(type) {
-        return getMonitorType(type, this);
+    getMonitorType(type) {
+        return this.monitorRuntimeRegistry.get(type);
     }
 
     /**

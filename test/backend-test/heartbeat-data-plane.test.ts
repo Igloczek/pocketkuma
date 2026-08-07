@@ -428,18 +428,19 @@ describe("heartbeat data plane", () => {
                 },
             }),
         };
+        const server = { io, sendMaintenanceListByUserID: async () => {} };
         const monitor = await store.load("monitor", 1);
         let scheduled;
         monitor.scheduleHeartbeat = (callback, delay) => {
             scheduled = { callback, delay };
         };
-        await monitor.start(io, data);
+        await monitor.start(io, data, server);
         scheduled.callback();
         await schedulerPaused.promise;
 
         const pushed = await handleApiRequest(
             new Request("http://localhost/api/push/scheduler-token?status=up&msg=fresh-api-beat"),
-            { server: { io }, store, heartbeatData: data, settings: {}, disableFrameSameOrigin: false }
+            { server, store, heartbeatData: data, settings: {}, disableFrameSameOrigin: false }
         );
         expect(await pushed.json()).toEqual({ ok: true });
         resumeScheduler.resolve();
@@ -484,7 +485,7 @@ describe("heartbeat data plane", () => {
             monitor.scheduleHeartbeat = (callback, delay) => {
                 scheduled = { callback, delay };
             };
-            await monitor.start(io, data);
+            await monitor.start(io, data, runtimeServer);
             scheduled.callback();
             await monitor.activeHeartbeat;
         } finally {
@@ -608,7 +609,7 @@ describe("heartbeat data plane", () => {
         runtimeServer.getTimezone = async () => "UTC";
         runtimeServer.getTimezoneOffset = () => "+00:00";
         const sent = [];
-        Notification.send = async (_config, _msg, monitorJSON) => sent.push(monitorJSON);
+        Notification.send = async (_registry, _config, _msg, monitorJSON) => sent.push(monitorJSON);
 
         try {
             const firstEvents = [];
@@ -624,12 +625,19 @@ describe("heartbeat data plane", () => {
 
             const firstMonitor = await first.store.findOne("monitor", "id = ?", [1]);
             const secondMonitor = await second.store.findOne("monitor", "id = ?", [1]);
-            await Monitor.sendNotification(false, firstMonitor, heartbeat(first.store, { status: DOWN }), first.store);
+            await Monitor.sendNotification(
+                false,
+                firstMonitor,
+                heartbeat(first.store, { status: DOWN }),
+                first.store,
+                runtimeServer
+            );
             await Monitor.sendNotification(
                 false,
                 secondMonitor,
                 heartbeat(second.store, { status: DOWN }),
-                second.store
+                second.store,
+                runtimeServer
             );
             expect(sent.map((monitor) => [monitor.tags[0].name, monitor.maintenance])).toEqual([
                 ["first-tag", true],

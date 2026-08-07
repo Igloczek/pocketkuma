@@ -109,7 +109,7 @@ async function reloadRuntimeAfterSnapshot(
     const monitors = await store.find("monitor", " active = 1 ");
     for (const monitor of monitors) {
         server.monitorList[monitor.id] = monitor;
-        await monitor.start(server.io, heartbeatData, (operation) => databaseMaintenance.run(operation));
+        await monitor.start(server.io, heartbeatData, server, (operation) => databaseMaintenance.run(operation));
     }
     await initBackgroundJobs(store, databaseMaintenance, settings, heartbeatData);
     clearResponseCache();
@@ -126,7 +126,7 @@ function createSnapshotMonitorRuntime(server, heartbeatData, databaseMaintenance
         async reload() {
             await Promise.all(
                 runningMonitors.map((monitor) =>
-                    monitor.start(server.io, heartbeatData, (operation) => databaseMaintenance.run(operation))
+                    monitor.start(server.io, heartbeatData, server, (operation) => databaseMaintenance.run(operation))
                 )
             );
             runningMonitors = [];
