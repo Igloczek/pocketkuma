@@ -66,10 +66,12 @@ describe("startup memory benchmark harness", () => {
         ).rejects.toThrow("Readiness timed out");
     });
 
-    test("runTrial force-kills a SIGTERM-ignoring process and its child", async () => {
-        let childPid;
-        const childScript = 'process.on("SIGTERM", () => {}); await new Promise(() => {});';
-        const parentScript = `
+    test(
+        "runTrial force-kills a SIGTERM-ignoring process and its child",
+        async () => {
+            let childPid;
+            const childScript = 'process.on("SIGTERM", () => {}); await new Promise(() => {});';
+            const parentScript = `
             const child = Bun.spawn([${JSON.stringify(process.execPath)}, "-e", ${JSON.stringify(childScript)}], {
                 stdio: ["ignore", "ignore", "ignore"],
             });
@@ -78,19 +80,21 @@ describe("startup memory benchmark harness", () => {
             await new Promise(() => {});
         `;
 
-        const result = await runTrial({
-            name: "sigterm-ignored",
-            command: () => [process.execPath, "-e", parentScript],
-            readiness: () => ({ kind: "stdout", marker: "READY" }),
-            warmupMs: 1,
-            timeoutMs: 2_000,
-            processGroup: true,
-            measureMetrics: false,
-        });
+            const result = await runTrial({
+                name: "sigterm-ignored",
+                command: () => [process.execPath, "-e", parentScript],
+                readiness: () => ({ kind: "stdout", marker: "READY" }),
+                warmupMs: 1,
+                timeoutMs: 2_000,
+                processGroup: true,
+                measureMetrics: false,
+            });
 
-        childPid = Number(result.stdout.match(/CHILD=(\d+)/)?.[1]);
-        expect(result.forcedKill).toBe(true);
-        expect(Number.isInteger(childPid)).toBe(true);
-        expect(() => process.kill(childPid, 0)).toThrow();
-    }, 15_000);
+            childPid = Number(result.stdout.match(/CHILD=(\d+)/)?.[1]);
+            expect(result.forcedKill).toBe(true);
+            expect(Number.isInteger(childPid)).toBe(true);
+            expect(() => process.kill(childPid, 0)).toThrow();
+        },
+        { timeout: 15_000 }
+    );
 });
