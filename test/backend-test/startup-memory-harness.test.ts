@@ -11,6 +11,39 @@ import {
     variants,
 } from "@/../scripts/benchmark/startup-memory";
 
+const decoder = new TextDecoder();
+
+async function waitForProcessStopped(pid, timeoutMs = 1_500) {
+    const deadline = Date.now() + timeoutMs;
+    let lastState = "unknown";
+
+    while (Date.now() < deadline) {
+        let result;
+        try {
+            result = Bun.spawnSync(["ps", "-o", "state=", "-p", String(pid)]);
+        } catch {
+            result = null;
+        }
+        const state = result ? decoder.decode(result.stdout).trim().split(/\s+/)[0] || "" : "";
+
+        if (!result || result.exitCode !== 0 || !state) {
+            try {
+                process.kill(pid, 0);
+            } catch {
+                return;
+            }
+        } else if (state.startsWith("Z")) {
+            return;
+        } else {
+            lastState = state;
+        }
+
+        await Bun.sleep(Math.min(25, Math.max(1, deadline - Date.now())));
+    }
+
+    throw new Error(`Process ${pid} remained running after ${timeoutMs}ms (state=${lastState}).`);
+}
+
 describe("startup memory benchmark harness", () => {
     test("application variants use process-group cleanup", () => {
         for (const name of ["source-backend", "compiled-binary"]) {
@@ -93,7 +126,7 @@ describe("startup memory benchmark harness", () => {
             childPid = Number(result.stdout.match(/CHILD=(\d+)/)?.[1]);
             expect(result.forcedKill).toBe(true);
             expect(Number.isInteger(childPid)).toBe(true);
-            expect(() => process.kill(childPid, 0)).toThrow();
+            await waitForProcessStopped(childPid);
         },
         { timeout: 15_000 }
     );

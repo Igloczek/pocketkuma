@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import { BeanModel } from "@/server/bean-model";
-import { R } from "@/server/bun-sqlite-store";
 import dayjs from "dayjs";
 
 class Incident extends BeanModel {
@@ -9,11 +8,11 @@ class Incident extends BeanModel {
      * Resolve the incident and mark it as inactive
      * @returns {Promise<void>}
      */
-    async resolve() {
+    async resolve(store) {
         this.active = false;
         this.pin = false;
-        this.last_updated_date = R.isoDateTime(dayjs.utc());
-        await R.store(this);
+        this.last_updated_date = store.isoDateTime(dayjs.utc());
+        await store.store(this);
     }
 
     /**

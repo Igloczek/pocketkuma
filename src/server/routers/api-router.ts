@@ -6,12 +6,10 @@ import { R } from "@/server/bun-sqlite-store";
 import Monitor from "@/server/model/monitor";
 import dayjs from "dayjs";
 import { UP, MAINTENANCE, DOWN, PENDING, flipStatus, log, badgeConstants } from "@/util";
-import StatusPage from "@/server/model/status_page";
 import { makeBadge } from "badge-maker";
 import { Prometheus } from "@/server/prometheus";
 import Database from "@/server/database";
 import { UptimeCalculator } from "@/server/uptime-calculator";
-import { Settings } from "@/server/settings-legacy";
 import {
     cachedResponse,
     decodePathParam,
@@ -36,22 +34,22 @@ function getHostname(request) {
     return host.split(":")[0];
 }
 
-async function resolveTrustedHostname(request) {
+async function resolveTrustedHostname(request, settings) {
     let hostname = getHostname(request);
     const forwardedHost = request.headers.get("x-forwarded-host");
-    if ((await Settings.get("trustProxy")) && forwardedHost) {
+    if ((await settings.get("trustProxy")) && forwardedHost) {
         hostname = forwardedHost;
     }
     return hostname;
 }
 
-async function entryPageResponse(request, server, disableFrameSameOrigin) {
+async function entryPageResponse(request, server, settings, disableFrameSameOrigin) {
     const result = {};
-    const hostname = await resolveTrustedHostname(request);
+    const hostname = await resolveTrustedHostname(request, settings);
 
-    if (hostname in StatusPage.domainMappingList) {
+    if (hostname in server.statusPageDomainMappingList) {
         result.type = "statusPageMatchedDomain";
-        result.statusPageSlug = StatusPage.domainMappingList[hostname];
+        result.statusPageSlug = server.statusPageDomainMappingList[hostname];
     } else {
         result.type = "entryPage";
         result.entryPage = server.entryPage;
@@ -100,7 +98,7 @@ async function pushResponse(url, pushToken, server, disableFrameSameOrigin) {
             bean.duration = dayjs(bean.time).diff(dayjs(previousHeartbeat.time), "second");
         }
 
-        if (await Monitor.isUnderMaintenance(monitor.id)) {
+        if (await Monitor.isUnderMaintenance(monitor.id, server)) {
             msg = "Monitor under maintenance";
             bean.status = MAINTENANCE;
         } else {
@@ -604,12 +602,12 @@ async function isMonitorPublic(monitorID) {
     return !!publicMonitor;
 }
 
-async function handleApiRequest(request, { server, disableFrameSameOrigin }) {
+async function handleApiRequest(request, { server, settings, disableFrameSameOrigin }) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
     if ((request.method === "GET" || request.method === "HEAD") && pathname === "/api/entry-page") {
-        return entryPageResponse(request, server, disableFrameSameOrigin);
+        return entryPageResponse(request, server, settings, disableFrameSameOrigin);
     }
 
     let match = pathname.match(/^\/api\/push\/([^/]+)$/);

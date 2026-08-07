@@ -2,7 +2,6 @@
 "use strict";
 
 import StatusPage from "@/server/model/status_page";
-import { R } from "@/server/bun-sqlite-store";
 import { badgeConstants } from "@/util";
 import { makeBadge } from "badge-maker";
 import { UptimeCalculator } from "@/server/uptime-calculator";
@@ -16,16 +15,16 @@ import {
     textResponse,
 } from "@/server/bun-response";
 
-async function statusPageHTMLResponse(server, slug, disableFrameSameOrigin) {
-    const result = await StatusPage.renderHTMLBySlug(server.indexHTML, slug);
+async function statusPageHTMLResponse(store, server, slug, disableFrameSameOrigin) {
+    const result = await StatusPage.renderHTMLBySlug(store, server, slug);
     return htmlResponse(result.body, {
         status: result.status,
         disableFrameSameOrigin,
     });
 }
 
-async function statusPageRSSResponse(slug, request, disableFrameSameOrigin) {
-    const result = await StatusPage.renderRSSBySlug(slug, request);
+async function statusPageRSSResponse(store, server, settings, slug, request, disableFrameSameOrigin) {
+    const result = await StatusPage.renderRSSBySlug(store, server, settings, slug, request);
     return textResponse(result.body, {
         status: result.status,
         type: result.contentType,
@@ -33,11 +32,11 @@ async function statusPageRSSResponse(slug, request, disableFrameSameOrigin) {
     });
 }
 
-async function statusPageConfigResponse(slug, disableFrameSameOrigin) {
+async function statusPageConfigResponse(store, server, slug, disableFrameSameOrigin) {
     slug = StatusPage.normalizeSlug(slug);
 
     try {
-        const statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
+        const statusPage = await store.findOne("status_page", " slug = ? ", [slug]);
         if (!statusPage) {
             return httpErrorResponse("Status Page Not Found", {
                 devCors: true,
@@ -45,7 +44,7 @@ async function statusPageConfigResponse(slug, disableFrameSameOrigin) {
             });
         }
 
-        return jsonResponse(await StatusPage.getStatusPageData(statusPage), {
+        return jsonResponse(await StatusPage.getStatusPageData(store, server, statusPage), {
             devCors: true,
             disableFrameSameOrigin,
         });
@@ -57,15 +56,15 @@ async function statusPageConfigResponse(slug, disableFrameSameOrigin) {
     }
 }
 
-async function statusPageHeartbeatResponse(slug, disableFrameSameOrigin) {
+async function statusPageHeartbeatResponse(store, slug, disableFrameSameOrigin) {
     try {
         let heartbeatList = {};
         let uptimeList = {};
 
         slug = StatusPage.normalizeSlug(slug);
-        const statusPageID = await StatusPage.slugToID(slug);
+        const statusPageID = await StatusPage.slugToID(store, slug);
 
-        const monitorIDList = await R.getCol(
+        const monitorIDList = await store.getCol(
             `
             SELECT monitor_group.monitor_id FROM monitor_group, \`group\`
             WHERE monitor_group.group_id = \`group\`.id
@@ -76,7 +75,7 @@ async function statusPageHeartbeatResponse(slug, disableFrameSameOrigin) {
         );
 
         for (const monitorID of monitorIDList) {
-            let list = await R.getAll(
+            let list = await store.getAll(
                 `
                     SELECT * FROM heartbeat
                     WHERE monitor_id = ?
@@ -86,7 +85,7 @@ async function statusPageHeartbeatResponse(slug, disableFrameSameOrigin) {
                 [monitorID]
             );
 
-            list = R.convertToBeans("heartbeat", list);
+            list = store.convertToBeans("heartbeat", list);
             heartbeatList[monitorID] = list.reverse().map((row) => row.toPublicJSON());
 
             const uptimeCalculator = await UptimeCalculator.getUptimeCalculator(monitorID);
@@ -111,11 +110,11 @@ async function statusPageHeartbeatResponse(slug, disableFrameSameOrigin) {
     }
 }
 
-async function statusPageManifestResponse(slug, disableFrameSameOrigin) {
+async function statusPageManifestResponse(store, slug, disableFrameSameOrigin) {
     slug = StatusPage.normalizeSlug(slug);
 
     try {
-        const statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
+        const statusPage = await store.findOne("status_page", " slug = ? ", [slug]);
         if (!statusPage) {
             return httpErrorResponse("Not Found", {
                 devCors: true,
@@ -149,10 +148,10 @@ async function statusPageManifestResponse(slug, disableFrameSameOrigin) {
     }
 }
 
-async function incidentHistoryResponse(url, slug, disableFrameSameOrigin) {
+async function incidentHistoryResponse(store, url, slug, disableFrameSameOrigin) {
     try {
         slug = StatusPage.normalizeSlug(slug);
-        const statusPageID = await StatusPage.slugToID(slug);
+        const statusPageID = await StatusPage.slugToID(store, slug);
 
         if (!statusPageID) {
             return httpErrorResponse("Status Page Not Found", {
@@ -162,7 +161,7 @@ async function incidentHistoryResponse(url, slug, disableFrameSameOrigin) {
         }
 
         const cursor = url.searchParams.get("cursor") || null;
-        const result = await StatusPage.getIncidentHistory(statusPageID, cursor, true);
+        const result = await StatusPage.getIncidentHistory(store, statusPageID, cursor, true);
         return jsonResponse(
             {
                 ok: true,
@@ -181,9 +180,9 @@ async function incidentHistoryResponse(url, slug, disableFrameSameOrigin) {
     }
 }
 
-async function statusPageBadgeResponse(url, slug, disableFrameSameOrigin) {
+async function statusPageBadgeResponse(store, url, slug, disableFrameSameOrigin) {
     slug = StatusPage.normalizeSlug(slug);
-    const statusPageID = await StatusPage.slugToID(slug);
+    const statusPageID = await StatusPage.slugToID(store, slug);
     const {
         label,
         upColor = badgeConstants.defaultUpColor,
@@ -194,7 +193,7 @@ async function statusPageBadgeResponse(url, slug, disableFrameSameOrigin) {
     } = queryObject(url.searchParams);
 
     try {
-        const monitorIDList = await R.getCol(
+        const monitorIDList = await store.getCol(
             `
             SELECT monitor_group.monitor_id FROM monitor_group, \`group\`
             WHERE monitor_group.group_id = \`group\`.id
@@ -209,7 +208,7 @@ async function statusPageBadgeResponse(url, slug, disableFrameSameOrigin) {
         let hasMaintenance = false;
 
         for (const monitorID of monitorIDList) {
-            const beat = await R.getAll(
+            const beat = await store.getAll(
                 `
                     SELECT * FROM heartbeat
                     WHERE monitor_id = ?
@@ -270,7 +269,7 @@ async function statusPageBadgeResponse(url, slug, disableFrameSameOrigin) {
     }
 }
 
-async function handleStatusPageRequest(request, { server, disableFrameSameOrigin }) {
+async function handleStatusPageRequest(request, { server, store, settings, disableFrameSameOrigin }) {
     if (request.method !== "GET" && request.method !== "HEAD") {
         return null;
     }
@@ -283,7 +282,7 @@ async function handleStatusPageRequest(request, { server, disableFrameSameOrigin
     if (match) {
         const slug = decodePathParam(match[1]);
         return cachedResponse(cacheKey, "5 minutes", () =>
-            statusPageRSSResponse(slug, request, disableFrameSameOrigin)
+            statusPageRSSResponse(store, server, settings, slug, request, disableFrameSameOrigin)
         );
     }
 
@@ -291,44 +290,54 @@ async function handleStatusPageRequest(request, { server, disableFrameSameOrigin
     if (match) {
         const slug = decodePathParam(match[1]);
         return cachedResponse(cacheKey, "5 minutes", () =>
-            statusPageHTMLResponse(server, slug, disableFrameSameOrigin)
+            statusPageHTMLResponse(store, server, slug, disableFrameSameOrigin)
         );
     }
 
     if (pathname === "/status" || pathname === "/status-page") {
         return cachedResponse(cacheKey, "5 minutes", () =>
-            statusPageHTMLResponse(server, "default", disableFrameSameOrigin)
+            statusPageHTMLResponse(store, server, "default", disableFrameSameOrigin)
         );
     }
 
     match = pathname.match(/^\/api\/status-page\/heartbeat\/([^/]+)$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "1 minutes", () => statusPageHeartbeatResponse(slug, disableFrameSameOrigin));
+        return cachedResponse(cacheKey, "1 minutes", () =>
+            statusPageHeartbeatResponse(store, slug, disableFrameSameOrigin)
+        );
     }
 
     match = pathname.match(/^\/api\/status-page\/([^/]+)\/manifest\.json$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "1440 minutes", () => statusPageManifestResponse(slug, disableFrameSameOrigin));
+        return cachedResponse(cacheKey, "1440 minutes", () =>
+            statusPageManifestResponse(store, slug, disableFrameSameOrigin)
+        );
     }
 
     match = pathname.match(/^\/api\/status-page\/([^/]+)\/incident-history$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () => incidentHistoryResponse(url, slug, disableFrameSameOrigin));
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            incidentHistoryResponse(store, url, slug, disableFrameSameOrigin)
+        );
     }
 
     match = pathname.match(/^\/api\/status-page\/([^/]+)\/badge$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () => statusPageBadgeResponse(url, slug, disableFrameSameOrigin));
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            statusPageBadgeResponse(store, url, slug, disableFrameSameOrigin)
+        );
     }
 
     match = pathname.match(/^\/api\/status-page\/([^/]+)$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () => statusPageConfigResponse(slug, disableFrameSameOrigin));
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            statusPageConfigResponse(store, server, slug, disableFrameSameOrigin)
+        );
     }
 
     return null;

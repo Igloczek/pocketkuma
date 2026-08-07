@@ -26,6 +26,7 @@ describe("maintenance validation and timer lifecycle", () => {
     const originalSendMaintenanceList = PocketKumaServer.getInstance().sendMaintenanceList;
     const originalSendMaintenanceListByUserID = PocketKumaServer.getInstance().sendMaintenanceListByUserID;
     const originalGetTimezone = PocketKumaServer.getInstance().getTimezone;
+    const runtimeServer = PocketKumaServer.getInstance();
 
     afterEach(() => {
         global.clearTimeout = originalClearTimeout;
@@ -117,6 +118,49 @@ describe("maintenance validation and timer lifecycle", () => {
         expect(maintenance.beanMeta.durationTimeout).toBeUndefined();
     });
 
+    test("uses the supplied runtime server for SAME_AS_SERVER monitor maintenance", async () => {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-monitor-maintenance-"));
+        try {
+            await R.connect({
+                sqlitePath: path.join(directory, "kuma.db"),
+                templatePath: path.join(process.cwd(), "src/db/kuma.db"),
+                testMode: true,
+            });
+            await R.exec("INSERT INTO monitor (id, name, active, interval, type) VALUES (1, 'Test', 1, 60, 'http')");
+            const maintenance = Object.assign(R.dispense("maintenance"), {
+                title: "Server timezone window",
+                description: "",
+                active: true,
+                strategy: "single",
+                start_date: R.isoDateTime(dayjs.utc().subtract(1, "hour")),
+                end_date: R.isoDateTime(dayjs.utc().add(1, "hour")),
+                timezone: "SAME_AS_SERVER",
+            });
+            await R.store(maintenance);
+            await R.exec("INSERT INTO monitor_maintenance (monitor_id, maintenance_id) VALUES (1, ?)", [
+                maintenance.id,
+            ]);
+
+            let timezoneCalls = 0;
+            const runtimeServer = {
+                getMaintenance(id) {
+                    return id === maintenance.id ? maintenance : null;
+                },
+                async getTimezone() {
+                    timezoneCalls++;
+                    return "UTC";
+                },
+            };
+
+            const { default: Monitor } = await import("@/server/model/monitor");
+            expect(await Monitor.isUnderMaintenance(1, runtimeServer)).toBe(true);
+            expect(timezoneCalls).toBeGreaterThan(0);
+        } finally {
+            await R.close();
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
     test("paused schedules never recreate a cron job or timeout on reload", async () => {
         const clearedTimers = [];
         global.clearTimeout = (timer) => clearedTimers.push(timer);
@@ -131,7 +175,7 @@ describe("maintenance validation and timer lifecycle", () => {
             beanMeta: { job: { stop() {} }, durationTimeout: 99, status: "under-maintenance" },
         });
 
-        await maintenance.run(true);
+        await maintenance.run(R, runtimeServer, true);
 
         expect(maintenance.beanMeta.job).toBeUndefined();
         expect(maintenance.beanMeta.durationTimeout).toBeUndefined();
@@ -153,7 +197,7 @@ describe("maintenance validation and timer lifecycle", () => {
         maintenance.getTimezone = async () => "UTC";
         maintenance.getTimezoneOffset = async () => "+00:00";
 
-        await expect(maintenance.toJSON()).resolves.toMatchObject({
+        await expect(maintenance.toJSON(runtimeServer)).resolves.toMatchObject({
             weekdays: [],
             daysOfMonth: [],
             status: "inactive",
@@ -218,45 +262,45 @@ describe("maintenance validation and timer lifecycle", () => {
             timezone: "Europe/Warsaw",
         });
 
-        expect(await maintenance.getTimeslot(new Date("2026-03-29T00:30:00.000Z"))).toEqual({
+        expect(await maintenance.getTimeslot(runtimeServer, new Date("2026-03-29T00:30:00.000Z"))).toEqual({
             startDate: "2026-03-29T00:30:00.000Z",
             endDate: "2026-03-29T01:30:00.000Z",
         });
-        expect(await maintenance.getTimeslot(new Date("2026-10-24T23:30:00.000Z"))).toEqual({
+        expect(await maintenance.getTimeslot(runtimeServer, new Date("2026-10-24T23:30:00.000Z"))).toEqual({
             startDate: "2026-10-24T23:30:00.000Z",
             endDate: "2026-10-25T02:30:00.000Z",
         });
 
         maintenance.end_time = "02:30";
-        expect(await maintenance.getTimeslot(new Date("2026-03-29T00:30:00.000Z"))).toEqual({
+        expect(await maintenance.getTimeslot(runtimeServer, new Date("2026-03-29T00:30:00.000Z"))).toEqual({
             startDate: "2026-03-29T00:30:00.000Z",
             endDate: "2026-03-29T01:30:00.000Z",
         });
-        expect(await maintenance.getTimeslot(new Date("2026-10-24T23:30:00.000Z"))).toEqual({
+        expect(await maintenance.getTimeslot(runtimeServer, new Date("2026-10-24T23:30:00.000Z"))).toEqual({
             startDate: "2026-10-24T23:30:00.000Z",
             endDate: "2026-10-25T01:30:00.000Z",
         });
 
         maintenance.start_time = "23:30";
         maintenance.end_time = "01:15";
-        expect(await maintenance.getTimeslot(new Date("2028-02-29T22:30:00.000Z"))).toEqual({
+        expect(await maintenance.getTimeslot(runtimeServer, new Date("2028-02-29T22:30:00.000Z"))).toEqual({
             startDate: "2028-02-29T22:30:00.000Z",
             endDate: "2028-03-01T00:15:00.000Z",
         });
-        expect(await maintenance.getTimeslot(new Date("2026-03-28T22:30:00.000Z"))).toEqual({
+        expect(await maintenance.getTimeslot(runtimeServer, new Date("2026-03-28T22:30:00.000Z"))).toEqual({
             startDate: "2026-03-28T22:30:00.000Z",
             endDate: "2026-03-29T00:15:00.000Z",
         });
 
         maintenance.start_time = "02:00";
         maintenance.end_time = "03:00";
-        expect(await maintenance.getTimeslot(new Date("2026-03-29T01:00:00.000Z"))).toEqual({
+        expect(await maintenance.getTimeslot(runtimeServer, new Date("2026-03-29T01:00:00.000Z"))).toEqual({
             startDate: "2026-03-29T01:00:00.000Z",
             endDate: "2026-03-29T02:00:00.000Z",
         });
 
         maintenance.start_time = "02:30";
-        expect(await maintenance.getTimeslot(new Date("2026-03-29T01:30:00.000Z"))).toEqual({
+        expect(await maintenance.getTimeslot(runtimeServer, new Date("2026-03-29T01:30:00.000Z"))).toEqual({
             startDate: "2026-03-29T01:30:00.000Z",
             endDate: "2026-03-29T02:00:00.000Z",
         });
@@ -273,7 +317,7 @@ describe("maintenance validation and timer lifecycle", () => {
             timezone: "Mars/Olympus",
         });
 
-        await expect(maintenance.toJSON()).resolves.toMatchObject({
+        await expect(maintenance.toJSON(runtimeServer)).resolves.toMatchObject({
             id: 1,
             title: "Legacy timezone",
             timezone: expect.any(String),
@@ -295,7 +339,7 @@ describe("maintenance validation and timer lifecycle", () => {
             end_date: date(60_000),
         });
 
-        await active.run(true);
+        await active.run(R, runtimeServer, true);
         expect(active.beanMeta.job).toBeUndefined();
         expect(active.beanMeta.endJob).toBeDefined();
         const staleEnd = active.beanMeta.endJob.fn;
@@ -313,7 +357,7 @@ describe("maintenance validation and timer lifecycle", () => {
             start_date: date(60_000),
             end_date: date(120_000),
         });
-        await future.run(true);
+        await future.run(R, runtimeServer, true);
         expect(future.beanMeta.job).toBeDefined();
         expect(future.beanMeta.endJob).toBeDefined();
         future.stop();
@@ -327,7 +371,7 @@ describe("maintenance validation and timer lifecycle", () => {
             start_date: date(-120_000),
             end_date: date(-60_000),
         });
-        await ended.run(true);
+        await ended.run(R, runtimeServer, true);
         expect(ended.beanMeta.job).toBeUndefined();
         expect(ended.beanMeta.endJob).toBeUndefined();
     });
@@ -346,7 +390,7 @@ describe("maintenance validation and timer lifecycle", () => {
         const previousJobs = [];
 
         for (let index = 0; index < 20; index++) {
-            await maintenance.run(true);
+            await maintenance.run(R, runtimeServer, true);
             expect(maintenance.beanMeta.job).toBeDefined();
             expect(previousJobs.every((job) => job.isStopped())).toBe(true);
             previousJobs.push(maintenance.beanMeta.job);
@@ -361,7 +405,7 @@ describe("maintenance validation and timer lifecycle", () => {
             }
             return new Promise((resolve) => (releaseTimezone = resolve));
         };
-        await maintenance.run(true);
+        await maintenance.run(R, runtimeServer, true);
         const pendingCallback = maintenance.beanMeta.job.fn();
         maintenance.stop();
         R.store = async () => {
@@ -386,7 +430,7 @@ describe("maintenance validation and timer lifecycle", () => {
             duration: 60,
             timezone: "UTC",
         });
-        await maintenance.run(true);
+        await maintenance.run(R, runtimeServer, true);
 
         let releaseDuration;
         maintenance.inferDuration = () => new Promise((resolve) => (releaseDuration = resolve));
@@ -423,7 +467,7 @@ describe("maintenance validation and timer lifecycle", () => {
         const previousJobs = [];
 
         for (let index = 0; index < 20; index++) {
-            await maintenance.run(true, true);
+            await maintenance.run(R, runtimeServer, true, true);
             expect(maintenance.beanMeta.job).toBeDefined();
             expect(maintenance.beanMeta.durationTimeout).toBeDefined();
             expect(previousJobs.every((job) => job.isStopped())).toBe(true);
@@ -501,12 +545,16 @@ describe("maintenance validation and timer lifecycle", () => {
             };
 
             const handlers = new Map();
-            maintenanceSocketHandler({
-                userID: 1,
-                on(event, handler) {
-                    handlers.set(event, handler);
+            maintenanceSocketHandler(
+                {
+                    userID: 1,
+                    on(event, handler) {
+                        handlers.set(event, handler);
+                    },
                 },
-            });
+                R,
+                server
+            );
             const editCallbacks = [];
             const pauseCallbacks = [];
             await cachedResponse("maintenance-isolation", "1 hour", () => textResponse("before"));
@@ -588,12 +636,16 @@ describe("maintenance validation and timer lifecycle", () => {
 
         try {
             const handlers = new Map();
-            maintenanceSocketHandler({
-                userID: 1,
-                on(event, handler) {
-                    handlers.set(event, handler);
+            maintenanceSocketHandler(
+                {
+                    userID: 1,
+                    on(event, handler) {
+                        handlers.set(event, handler);
+                    },
                 },
-            });
+                R,
+                PocketKumaServer.getInstance()
+            );
             const callbacks = [];
             await handlers.get("addMaintenance")(schedule("manual", { timezoneOption: "UTC" }), (result) =>
                 callbacks.push(result)
@@ -640,12 +692,16 @@ describe("maintenance validation and timer lifecycle", () => {
 
         try {
             const handlers = new Map();
-            maintenanceSocketHandler({
-                userID: 1,
-                on(event, handler) {
-                    handlers.set(event, handler);
+            maintenanceSocketHandler(
+                {
+                    userID: 1,
+                    on(event, handler) {
+                        handlers.set(event, handler);
+                    },
                 },
-            });
+                R,
+                server
+            );
             const callbacks = [];
             await handlers.get("addMonitorMaintenance")(1, [{ id: 2 }], (result) => callbacks.push(result));
 
@@ -693,12 +749,16 @@ describe("maintenance validation and timer lifecycle", () => {
 
         try {
             const handlers = new Map();
-            maintenanceSocketHandler({
-                userID: 1,
-                on(event, handler) {
-                    handlers.set(event, handler);
+            maintenanceSocketHandler(
+                {
+                    userID: 1,
+                    on(event, handler) {
+                        handlers.set(event, handler);
+                    },
                 },
-            });
+                R,
+                server
+            );
             const callbacks = [];
             await handlers.get("editMaintenance")(
                 {
@@ -736,6 +796,80 @@ describe("maintenance validation and timer lifecycle", () => {
             server.maintenanceList = previousMaintenanceList;
             await transaction?.rollback();
             await store.close();
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+
+    test("uses the supplied store and keeps maintenance ownership isolated", async () => {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-stores-"));
+        const first = new BunSQLiteRedbean();
+        const second = new BunSQLiteRedbean();
+        const socket = (userID, handlers) => ({
+            userID,
+            on(event, handler) {
+                handlers.set(event, handler);
+            },
+        });
+        const runtime = () => ({
+            maintenanceList: {},
+            getMaintenance(id) {
+                return this.maintenanceList[id] || null;
+            },
+            async getTimezone() {
+                return "UTC";
+            },
+            async sendMaintenanceList() {},
+            async sendMaintenanceListByUserID() {},
+        });
+        try {
+            await Promise.all([
+                first.connect({
+                    sqlitePath: path.join(directory, "first.db"),
+                    templatePath: path.join(process.cwd(), "src/db/kuma.db"),
+                    testMode: true,
+                }),
+                second.connect({
+                    sqlitePath: path.join(directory, "second.db"),
+                    templatePath: path.join(process.cwd(), "src/db/kuma.db"),
+                    testMode: true,
+                }),
+            ]);
+            await Promise.all([
+                first.exec("INSERT INTO user (id, username, password, active) VALUES (1, 'first', 'hash', 1)"),
+                second.exec("INSERT INTO user (id, username, password, active) VALUES (2, 'second', 'hash', 1)"),
+            ]);
+            const firstHandlers = new Map();
+            const secondHandlers = new Map();
+            const firstRuntime = runtime();
+            const secondRuntime = runtime();
+            maintenanceSocketHandler(socket(1, firstHandlers), first, firstRuntime);
+            maintenanceSocketHandler(socket(2, secondHandlers), second, secondRuntime);
+
+            const firstResult = [];
+            const secondResult = [];
+            await firstHandlers.get("addMaintenance")(
+                { ...schedule("manual", { timezoneOption: "UTC" }), title: "First" },
+                (result) => firstResult.push(result)
+            );
+            await secondHandlers.get("addMaintenance")(
+                { ...schedule("manual", { timezoneOption: "UTC" }), title: "Second" },
+                (result) => secondResult.push(result)
+            );
+
+            expect(firstResult[0].ok).toBe(true);
+            expect(secondResult[0].ok).toBe(true);
+            expect(await first.getCell("SELECT title FROM maintenance WHERE id = 1")).toBe("First");
+            expect(await second.getCell("SELECT title FROM maintenance WHERE id = 1")).toBe("Second");
+
+            const foreignHandlers = new Map();
+            maintenanceSocketHandler(socket(3, foreignHandlers), first, firstRuntime);
+            const denied = [];
+            await foreignHandlers.get("deleteMaintenance")(1, (result) => denied.push(result));
+            expect(denied).toEqual([{ ok: false, msg: "Maintenance not found" }]);
+            expect(await first.count("maintenance")).toBe(1);
+            expect(await second.count("maintenance")).toBe(1);
+        } finally {
+            await Promise.all([first.close(), second.close()]);
             fs.rmSync(directory, { recursive: true, force: true });
         }
     });
