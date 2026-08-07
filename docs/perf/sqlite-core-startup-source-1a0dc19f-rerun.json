@@ -1,0 +1,47 @@
+{
+    "schema": 1,
+    "measuredAt": "2026-08-07T11:16:59.566Z",
+    "bunVersion": "1.3.14",
+    "os": "darwin 25.5.0",
+    "arch": "arm64",
+    "gitSha": "1a0dc19fcc73af401fb37ad1d16592cbf1c261f5",
+    "baselineSha": null,
+    "trials": 3,
+    "warmupMs": 1000,
+    "timeoutMs": 30000,
+    "metrics": {
+        "rss": "external process RSS in KiB (macOS/Linux)",
+        "physicalFootprint": "external macOS physical footprint in bytes"
+    },
+    "note": "Fixed grouped series; application readiness uses existing GET / and external RSS/footprint. Single-host only.",
+    "variants": [
+        {
+            "name": "source-backend",
+            "synthetic": false,
+            "trials": [
+                {
+                    "readinessMs": 420,
+                    "rssKb": 167856,
+                    "footprintBytes": 122178304,
+                    "synthetic": null,
+                    "forcedKill": false
+                },
+                {
+                    "readinessMs": 364,
+                    "rssKb": 168016,
+                    "footprintBytes": 122292864,
+                    "synthetic": null,
+                    "forcedKill": false
+                },
+                {
+                    "readinessMs": 364,
+                    "rssKb": 167616,
+                    "footprintBytes": 122079808,
+                    "synthetic": null,
+                    "forcedKill": false
+                }
+            ],
+            "median": { "readinessMs": 364, "rssKb": 167856, "footprintBytes": 122178304 }
+        }
+    ]
+}
