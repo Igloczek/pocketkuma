@@ -13,6 +13,7 @@ import {
 import { Notification } from "@/server/notification";
 
 const registrySourcePath = path.join(import.meta.dirname, "../../src/server/notification-provider-registry.ts");
+const monitorRegistrySourcePath = path.join(import.meta.dirname, "../../src/server/monitor-runtime-registry.ts");
 const providersDir = path.join(import.meta.dirname, "../../src/server/notification-providers");
 
 describe("notification provider compile-safe loading", () => {
@@ -25,6 +26,20 @@ describe("notification provider compile-safe loading", () => {
 
         // This pattern is what bun build --compile cannot resolve into the binary.
         expect(source).not.toMatch(/import\s*\(\s*`\.\/notification-providers\/\$\{/);
+    });
+
+    test("compile-safe loader dynamic imports keep literal specifiers", () => {
+        for (const sourcePath of [registrySourcePath, monitorRegistrySourcePath]) {
+            const source = fs.readFileSync(sourcePath, "utf8");
+            const imports = [...source.matchAll(/\bimport\s*\(\s*([^)]*?)\s*\)/g)]
+                .map((match) => match[1])
+                .filter((specifier) => specifier.trim());
+
+            expect(imports.length).toBeGreaterThan(0);
+            for (const specifier of imports) {
+                expect(specifier).toMatch(/^["'][^"']+["']$/);
+            }
+        }
     });
 
     test("every metadata provider has an on-disk module and loads through the registry", async () => {
