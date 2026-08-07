@@ -5,6 +5,8 @@ Measured core/facade implementation: `619fd33b60a5e3a0417436927ad518539b43cc08`.
 
 The current stacked parent is `7687fe5b02213d198083aae2e3099a81fb7cc0a9`. It contains test-only CI fixes; the raw measurements remain bound to the earlier production-equivalent parent/implementation SHAs above and are not relabeled.
 
+The compatibility serializer correction was applied after these measurements. It is behavior-only and does not change the import boundary or benchmark harness, so the raw records intentionally retain `619fd33b60a5e3a0417436927ad518539b43cc08` rather than claiming to measure the final head.
+
 Measured on 2026-08-07 with Bun `1.3.14`, Darwin `25.5.0`, `arm64`. Both commits use frozen lockfiles and were measured on this host; results are single-host comparisons, not portable limits.
 
 ## Fresh-process import cost

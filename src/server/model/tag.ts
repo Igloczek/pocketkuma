@@ -9,9 +9,9 @@ class Tag extends BeanModel {
      */
     toJSON() {
         return {
-            id: this._id,
-            name: this._name,
-            color: this._color,
+            id: this.id,
+            name: this.name,
+            color: this.color,
         };
     }
 }
