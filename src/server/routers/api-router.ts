@@ -131,7 +131,7 @@ async function pushResponse(url, pushToken, server, store, heartbeatData, disabl
 
             if (shouldNotify) {
                 log.debug("monitor", `[${monitor.name}] sendNotification`);
-                await Monitor.sendNotification(isFirstBeat, monitor, bean, store);
+                await Monitor.sendNotification(isFirstBeat, monitor, bean, store, server);
             }
 
             server.io.to(monitor.user_id).emit("heartbeat", bean.toJSON());

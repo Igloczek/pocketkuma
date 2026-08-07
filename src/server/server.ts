@@ -154,7 +154,6 @@ export const io = server.io;
 log.debug("server", "Importing Monitor");
 log.debug("server", "Importing Settings");
 log.debug("server", "Importing Notification");
-Notification.init();
 log.debug("server", "Importing Web-Push");
 log.debug("server", "Importing Database");
 log.debug("server", "Importing Background Jobs");
@@ -1480,7 +1479,11 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let msg = await Notification.send(notification, notification.name + " Testing");
+                let msg = await Notification.send(
+                    server.notificationProviderRegistry,
+                    notification,
+                    notification.name + " Testing"
+                );
 
                 callback({
                     ok: true,
@@ -1716,7 +1719,7 @@ async function afterLogin(socket, user) {
         sendDockerHostList(R, io, socket),
         sendAPIKeyList(R, io, socket),
         sendRemoteBrowserList(R, io, socket),
-        sendMonitorTypeList(PocketKumaServer.monitorTypeList, io, socket),
+        sendMonitorTypeList(server.monitorTypeList, io, socket),
     ]);
 
     await StatusPage.sendStatusPageList(R, io, socket, server.statusPageDomainMappingList);
@@ -1789,7 +1792,7 @@ async function startMonitor(userID, monitorID) {
     }
 
     server.monitorList[monitor.id] = monitor;
-    await monitor.start(io, heartbeatData, runHeartbeatWrite);
+    await monitor.start(io, heartbeatData, server, runHeartbeatWrite);
 }
 
 /**
@@ -1834,7 +1837,7 @@ async function startMonitors() {
 
     for (let monitor of list) {
         try {
-            await monitor.start(io, heartbeatData, runHeartbeatWrite);
+            await monitor.start(io, heartbeatData, server, runHeartbeatWrite);
         } catch (e) {
             log.error("monitor", e);
         }

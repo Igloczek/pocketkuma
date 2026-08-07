@@ -96,12 +96,10 @@ const optionalMonitorDefinitions = {
 };
 
 const OPTIONAL_MONITOR_TYPES = Object.keys(optionalMonitorDefinitions);
-const loadedMonitorTypes = {};
-const loadingMonitorTypes = {};
 
-function createMonitorTypeList() {
+function createMonitorTypeList(definitions = optionalMonitorDefinitions) {
     return Object.fromEntries(
-        Object.entries(optionalMonitorDefinitions).map(([name, definition]) => [
+        Object.entries(definitions).map(([name, definition]) => [
             name,
             {
                 supportsConditions: Boolean(definition.supportsConditions),
@@ -112,41 +110,45 @@ function createMonitorTypeList() {
     );
 }
 
-async function getMonitorType(name, server) {
-    const definition = optionalMonitorDefinitions[name];
-    if (!definition) {
-        return null;
+class MonitorRuntimeRegistry {
+    constructor(server, definitions = optionalMonitorDefinitions) {
+        this.server = server;
+        this.definitions = definitions;
+        this.monitorTypeList = createMonitorTypeList(definitions);
+        this.loaded = new Map();
+        this.loading = new Map();
     }
 
-    if (loadedMonitorTypes[name]) {
-        return loadedMonitorTypes[name];
+    get(name) {
+        const definition = this.definitions[name];
+        if (!definition) {
+            return Promise.resolve(null);
+        }
+
+        if (this.loaded.has(name)) {
+            return Promise.resolve(this.loaded.get(name));
+        }
+
+        if (!this.loading.has(name)) {
+            const loading = Promise.resolve()
+                .then(() => definition.load(this.server))
+                .then((instance) => {
+                    if (!instance || typeof instance !== "object" || typeof instance.check !== "function") {
+                        throw new Error(`Invalid monitor type factory for "${name}": expected an object with check()`);
+                    }
+                    this.loaded.set(name, instance);
+                    return instance;
+                })
+                .finally(() => this.loading.delete(name));
+            this.loading.set(name, loading);
+        }
+
+        return this.loading.get(name);
     }
 
-    if (!loadingMonitorTypes[name]) {
-        loadingMonitorTypes[name] = definition
-            .load(server)
-            .then((instance) => {
-                loadedMonitorTypes[name] = instance;
-                return instance;
-            })
-            .finally(() => {
-                if (!loadedMonitorTypes[name]) {
-                    delete loadingMonitorTypes[name];
-                }
-            });
+    getLoadedTypes() {
+        return [...this.loaded.keys()];
     }
-
-    return await loadingMonitorTypes[name];
 }
 
-function getLoadedMonitorTypes() {
-    return Object.keys(loadedMonitorTypes);
-}
-
-export {
-    CORE_MONITOR_TYPES,
-    OPTIONAL_MONITOR_TYPES,
-    createMonitorTypeList,
-    getLoadedMonitorTypes,
-    getMonitorType,
-};
+export { CORE_MONITOR_TYPES, MonitorRuntimeRegistry, OPTIONAL_MONITOR_TYPES, createMonitorTypeList };

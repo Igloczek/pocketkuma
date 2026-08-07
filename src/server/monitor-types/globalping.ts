@@ -37,7 +37,7 @@ class GlobalpingMonitorType extends MonitorType {
     /**
      * @inheritdoc
      */
-    async check(monitor, heartbeat, _server) {
+    async check(monitor, heartbeat, server) {
         const apiKey = await Settings.get("globalpingApiToken");
         const timeout = (monitor.timeout ?? 20) * 1000;
         const deadline = Date.now() + timeout;
@@ -53,7 +53,7 @@ class GlobalpingMonitorType extends MonitorType {
                 await this.ping(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline);
                 break;
             case "http":
-                await this.http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline);
+                await this.http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline, server);
                 break;
             case "dns":
                 await this.dns(client, monitor, heartbeat, hasAPIToken, R, clientOptions, deadline);
@@ -142,7 +142,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @param {boolean} hasAPIToken - Whether the monitor has an API token.
      * @returns {Promise<void>} A promise that resolves when the HTTP monitor is handled.
      */
-    async http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline) {
+    async http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline, server) {
         const url = new URL(monitor.url);
 
         let protocol = url.protocol.replace(":", "").toUpperCase();
@@ -256,7 +256,7 @@ class GlobalpingMonitorType extends MonitorType {
             return;
         }
 
-        await this.handleTLSInfo(monitor, protocol, probe, result.tls);
+        await this.handleTLSInfo(monitor, protocol, probe, result.tls, server?.notificationProviderRegistry);
 
         heartbeat.msg = this.formatResponse(probe, "OK");
         heartbeat.status = UP;
@@ -512,7 +512,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @param {object} tlsInfo - The TLS information object.
      * @returns {Promise<void>}
      */
-    async handleTLSInfo(monitor, protocol, probe, tlsInfo) {
+    async handleTLSInfo(monitor, protocol, probe, tlsInfo, providerRegistry) {
         if (!tlsInfo) {
             return;
         }
@@ -566,7 +566,7 @@ class GlobalpingMonitorType extends MonitorType {
         }
 
         if (!monitor.ignoreTls && monitor.expiryNotification) {
-            await checkCertExpiryNotifications(R, Settings, monitor, certResult);
+            await checkCertExpiryNotifications(R, Settings, monitor, certResult, providerRegistry);
         }
     }
 

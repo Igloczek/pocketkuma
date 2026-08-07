@@ -102,17 +102,17 @@ class TCPMonitorType extends MonitorType {
     /**
      * @inheritdoc
      */
-    async check(monitor, heartbeat, _server) {
+    async check(monitor, heartbeat, server, heartbeatData) {
         const expectedTlsAlert = monitor.expected_tls_alert;
 
         // If expecting a TLS alert, use TLS connection with alert detection
         if (expectedTlsAlert && expectedTlsAlert !== "none") {
-            await this.checkTlsAlert(monitor, heartbeat, expectedTlsAlert);
+            await this.checkTlsAlert(monitor, heartbeat, expectedTlsAlert, server, heartbeatData);
             return;
         }
 
         // Standard TCP check
-        await this.checkTcp(monitor, heartbeat);
+        await this.checkTcp(monitor, heartbeat, server, heartbeatData);
     }
 
     /**
@@ -121,7 +121,7 @@ class TCPMonitorType extends MonitorType {
      * @param {object} heartbeat Heartbeat object
      * @returns {Promise<void>}
      */
-    async checkTcp(monitor, heartbeat) {
+    async checkTcp(monitor, heartbeat, server, heartbeatData) {
         try {
             const resp = await tcping(monitor.hostname, monitor.port, monitor.timeout ?? TIMEOUT);
             heartbeat.ping = resp;
@@ -137,7 +137,7 @@ class TCPMonitorType extends MonitorType {
         if (["secure", "starttls"].includes(monitor.smtpSecurity) && monitor.isEnabledExpiryNotification()) {
             const reuseSocket = monitor.smtpSecurity === "starttls" ? await this.performStartTls(monitor) : {};
             socket_ = reuseSocket.socket;
-            await this.checkTlsCertificate(monitor, reuseSocket);
+            await this.checkTlsCertificate(monitor, reuseSocket, server, heartbeatData);
         }
 
         if (socket_ && !socket_.destroyed) {
@@ -239,7 +239,7 @@ class TCPMonitorType extends MonitorType {
      * @param {object} reuseSocket Socket to reuse for STARTTLS
      * @returns {Promise<void>}
      */
-    async checkTlsCertificate(monitor, reuseSocket) {
+    async checkTlsCertificate(monitor, reuseSocket, server, heartbeatData) {
         let socket = null;
         try {
             const options = reuseSocket?.socket
@@ -275,7 +275,7 @@ class TCPMonitorType extends MonitorType {
                 });
             });
 
-            await monitor.handleTlsInfo(tlsInfoObject);
+            await monitor.handleTlsInfo(tlsInfoObject, server.notificationProviderRegistry, heartbeatData.store);
             if (!tlsInfoObject.valid) {
                 throw new Error("Certificate is invalid");
             }
@@ -296,7 +296,7 @@ class TCPMonitorType extends MonitorType {
      * @param {string} expectedTlsAlert Expected TLS alert name
      * @returns {Promise<void>}
      */
-    async checkTlsAlert(monitor, heartbeat, expectedTlsAlert) {
+    async checkTlsAlert(monitor, heartbeat, expectedTlsAlert, server, heartbeatData) {
         const timeout = monitor.timeout * 1000 || 30000;
         const startTime = Date.now();
 
@@ -323,7 +323,7 @@ class TCPMonitorType extends MonitorType {
 
         // Handle TLS info for certificate expiry monitoring
         if (result.tlsInfo && monitor.isEnabledExpiryNotification()) {
-            await monitor.handleTlsInfo(result.tlsInfo);
+            await monitor.handleTlsInfo(result.tlsInfo, server.notificationProviderRegistry, heartbeatData.store);
         }
 
         // Check if we got the expected alert
