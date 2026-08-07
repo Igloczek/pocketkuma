@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import { log } from "@/util";
-import { Settings } from "@/server/settings-legacy";
 import { sendInfo } from "@/server/client";
 import { checkLogin } from "@/server/util-server";
 import fs from "fs";
@@ -44,14 +43,14 @@ async function getGameList() {
  * @param {PocketKumaServer} server PocketKuma server
  * @returns {void}
  */
-export const generalSocketHandler = (socket, server) => {
+export const generalSocketHandler = (socket, server, settings) => {
     socket.on("initServerTimezone", async (timezone) => {
         try {
             checkLogin(socket);
             log.debug("generalSocketHandler", "Timezone: " + timezone);
-            await Settings.set("initServerTimezone", true);
+            await settings.set("initServerTimezone", true);
             await server.setTimezone(timezone);
-            await sendInfo(socket);
+            await sendInfo(server, settings, socket);
         } catch (e) {
             log.warn("initServerTimezone", e.message);
         }

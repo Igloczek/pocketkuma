@@ -566,7 +566,7 @@ class GlobalpingMonitorType extends MonitorType {
         }
 
         if (!monitor.ignoreTls && monitor.expiryNotification) {
-            await checkCertExpiryNotifications(monitor, certResult);
+            await checkCertExpiryNotifications(R, Settings, monitor, certResult);
         }
     }
 

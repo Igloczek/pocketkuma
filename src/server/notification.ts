@@ -1,6 +1,5 @@
 // @ts-nocheck
 
-import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
 import { commandExists } from "@/server/util-server";
 import { createProviderList, getNotificationProvider } from "@/server/notification-provider-registry";
@@ -44,17 +43,17 @@ class Notification {
      * @param {number} userID ID of user who adds notification
      * @returns {Promise<Bean>} Notification that was saved
      */
-    static async save(notification, notificationID, userID) {
+    static async save(store, notification, notificationID, userID) {
         let bean;
 
         if (notificationID) {
-            bean = await R.findOne("notification", " id = ? AND user_id = ? ", [notificationID, userID]);
+            bean = await store.findOne("notification", " id = ? AND user_id = ? ", [notificationID, userID]);
 
             if (!bean) {
                 throw new Error("notification not found");
             }
         } else {
-            bean = R.dispense("notification");
+            bean = store.dispense("notification");
         }
 
         // applyExisting is one time only, don't save it to database.
@@ -65,10 +64,10 @@ class Notification {
         bean.user_id = userID;
         bean.config = JSON.stringify(notification);
         bean.is_default = notification.isDefault || false;
-        await R.store(bean);
+        await store.store(bean);
 
         if (applyExisting) {
-            await applyNotificationEveryMonitor(bean.id, userID);
+            await applyNotificationEveryMonitor(store, bean.id, userID);
         }
 
         return bean;
@@ -80,14 +79,14 @@ class Notification {
      * @param {number} userID ID of user who created notification
      * @returns {Promise<void>}
      */
-    static async delete(notificationID, userID) {
-        let bean = await R.findOne("notification", " id = ? AND user_id = ? ", [notificationID, userID]);
+    static async delete(store, notificationID, userID) {
+        let bean = await store.findOne("notification", " id = ? AND user_id = ? ", [notificationID, userID]);
 
         if (!bean) {
             throw new Error("notification not found");
         }
 
-        await R.trash(bean);
+        await store.trash(bean);
     }
 
     /**
@@ -105,20 +104,21 @@ class Notification {
  * @param {number} userID ID of user who created notification
  * @returns {Promise<void>}
  */
-async function applyNotificationEveryMonitor(notificationID, userID) {
-    let monitors = await R.getAll("SELECT id FROM monitor WHERE user_id = ?", [userID]);
+async function applyNotificationEveryMonitor(store, notificationID, userID) {
+    let monitors = await store.getAll("SELECT id FROM monitor WHERE user_id = ?", [userID]);
 
     for (let i = 0; i < monitors.length; i++) {
-        let checkNotification = await R.findOne("monitor_notification", " monitor_id = ? AND notification_id = ? ", [
-            monitors[i].id,
-            notificationID,
-        ]);
+        let checkNotification = await store.findOne(
+            "monitor_notification",
+            " monitor_id = ? AND notification_id = ? ",
+            [monitors[i].id, notificationID]
+        );
 
         if (!checkNotification) {
-            let relation = R.dispense("monitor_notification");
+            let relation = store.dispense("monitor_notification");
             relation.monitor_id = monitors[i].id;
             relation.notification_id = notificationID;
-            await R.store(relation);
+            await store.store(relation);
         }
     }
 }

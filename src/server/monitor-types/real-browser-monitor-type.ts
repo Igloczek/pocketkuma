@@ -12,6 +12,7 @@ import Database from "@/server/database";
 import jwt from "@/server/jwt";
 import config from "@/server/config";
 import { RemoteBrowser } from "@/server/remote-browser";
+import { R } from "@/server/bun-sqlite-store";
 import { commandExists } from "@/server/util-server";
 import { runCommand, runCommandChecked } from "@/server/process-helper";
 import childProcess from "node:child_process";
@@ -699,7 +700,7 @@ class RealBrowserMonitorType extends MonitorType {
 
             if (monitor.remote_browser) {
                 const remoteBrowser = await cancellable(
-                    RemoteBrowser.get(monitor.remote_browser, monitor.user_id),
+                    RemoteBrowser.get(R, monitor.remote_browser, monitor.user_id),
                     controller.signal,
                     async () => {}
                 );

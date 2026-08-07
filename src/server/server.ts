@@ -223,7 +223,7 @@ let needSetup = false;
     await StatusPage.loadDomainMappingList();
 
     log.debug("server", "Initializing Prometheus");
-    await Prometheus.init();
+    await Prometheus.init(R);
 
     log.debug("server", "Adding Bun.serve route handler");
 
@@ -231,7 +231,7 @@ let needSetup = false;
     io.setConnectionInitializer(async (socket) => {
         clearTwoFAState(socket);
         socket.on("disconnect", () => clearTwoFAState(socket));
-        await sendInfo(socket, true);
+        await sendInfo(server, settings, socket, true);
 
         if (needSetup) {
             log.info("server", "Redirect to setup page");
@@ -656,7 +656,7 @@ let needSetup = false;
         socket.on("add", async (monitor, callback) => {
             try {
                 checkLogin(socket);
-                await resolveCoreHttpProxy(monitor.type, monitor.proxyId, socket.userID, monitor.ignoreTls);
+                await resolveCoreHttpProxy(R, monitor.type, monitor.proxyId, socket.userID, monitor.ignoreTls);
                 let bean = R.dispense("monitor");
 
                 let notificationIDList = monitor.notificationIDList;
@@ -739,7 +739,7 @@ let needSetup = false;
                 if (bean.user_id !== socket.userID) {
                     throw new Error("Permission denied.");
                 }
-                await resolveCoreHttpProxy(monitor.type, monitor.proxyId, socket.userID, monitor.ignoreTls);
+                await resolveCoreHttpProxy(R, monitor.type, monitor.proxyId, socket.userID, monitor.ignoreTls);
 
                 // Check if Parent is Descendant (would cause endless loop)
                 if (monitor.parent !== null) {
@@ -1460,7 +1460,7 @@ let needSetup = false;
                     msgi18n: true,
                 });
 
-                await sendInfo(socket);
+                await sendInfo(server, settings, socket);
                 await server.sendMaintenanceList(socket);
             } catch (e) {
                 callback({
@@ -1475,8 +1475,8 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let notificationBean = await Notification.save(notification, notificationID, socket.userID);
-                await sendNotificationList(socket);
+                let notificationBean = await Notification.save(R, notification, notificationID, socket.userID);
+                await sendNotificationList(R, io, socket);
 
                 callback({
                     ok: true,
@@ -1496,8 +1496,8 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                await Notification.delete(notificationID, socket.userID);
-                await sendNotificationList(socket);
+                await Notification.delete(R, notificationID, socket.userID);
+                await sendNotificationList(R, io, socket);
 
                 callback({
                     ok: true,
@@ -1601,7 +1601,7 @@ let needSetup = false;
                     }
                 }
 
-                await sendHeartbeatList(socket, monitorID, true, true);
+                await sendHeartbeatList(R, io, socket, monitorID, true, true);
 
                 callback({
                     ok: true,
@@ -1645,12 +1645,12 @@ let needSetup = false;
         statusPageSocketHandler(socket);
         cloudflaredSocketHandler(socket, R);
         databaseSocketHandler(socket, R);
-        proxySocketHandler(socket);
-        dockerSocketHandler(socket);
+        proxySocketHandler(socket, R, io, server);
+        dockerSocketHandler(socket, R, io);
         maintenanceSocketHandler(socket);
-        apiKeySocketHandler(socket, settings);
-        remoteBrowserSocketHandler(socket);
-        generalSocketHandler(socket, server);
+        apiKeySocketHandler(socket, R, io, settings);
+        remoteBrowserSocketHandler(socket, R, io);
+        generalSocketHandler(socket, server, settings);
         chartSocketHandler(socket);
 
         log.debug("server", "added all socket handlers");
@@ -1746,14 +1746,14 @@ async function afterLogin(socket, user) {
 
     let monitorList = await server.sendMonitorList(socket);
     await Promise.allSettled([
-        sendInfo(socket),
+        sendInfo(server, settings, socket),
         server.sendMaintenanceList(socket),
-        sendNotificationList(socket),
-        sendProxyList(socket),
-        sendDockerHostList(socket),
-        sendAPIKeyList(socket),
-        sendRemoteBrowserList(socket),
-        sendMonitorTypeList(socket),
+        sendNotificationList(R, io, socket),
+        sendProxyList(R, io, socket),
+        sendDockerHostList(R, io, socket),
+        sendAPIKeyList(R, io, socket),
+        sendRemoteBrowserList(R, io, socket),
+        sendMonitorTypeList(PocketKumaServer.monitorTypeList, io, socket),
     ]);
 
     await StatusPage.sendStatusPageList(io, socket);
@@ -1762,7 +1762,7 @@ async function afterLogin(socket, user) {
     // immediately on login, not only after the next live check arrives.
     const monitorPromises = [];
     for (let monitorID in monitorList) {
-        monitorPromises.push(sendHeartbeatList(socket, monitorID));
+        monitorPromises.push(sendHeartbeatList(R, io, socket, monitorID));
         monitorPromises.push(Monitor.sendStats(io, monitorID, user.id));
     }
 

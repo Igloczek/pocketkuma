@@ -44,6 +44,7 @@ import {
     checkCertExpiryNotifications,
 } from "@/server/util-server";
 import { R } from "@/server/bun-sqlite-store";
+import { legacySettings } from "@/server/settings-legacy";
 import { BeanModel } from "@/server/bean-model";
 import { Notification } from "@/server/notification";
 import { demoMode } from "@/server/config";
@@ -1277,7 +1278,7 @@ class Monitor extends BeanModel {
 
         // TLS cert expiry is handled by a separate inspectRemoteCertificate() pass.
 
-        const proxy = await resolveCoreHttpProxy(this.type, this.proxy_id, this.user_id, this.getIgnoreTls());
+        const proxy = await resolveCoreHttpProxy(R, this.type, this.proxy_id, this.user_id, this.getIgnoreTls());
         if (proxy) {
             options.proxy = buildProxyFetchOption(proxy);
         }
@@ -2226,7 +2227,7 @@ class Monitor extends BeanModel {
 
         if (!this.getIgnoreTls() && this.isEnabledExpiryNotification()) {
             log.debug("monitor", `[${this.name}] call checkCertExpiryNotifications`);
-            await checkCertExpiryNotifications(this, tlsInfo);
+            await checkCertExpiryNotifications(R, legacySettings, this, tlsInfo);
         }
     }
 }

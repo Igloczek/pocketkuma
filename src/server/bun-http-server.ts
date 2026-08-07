@@ -546,7 +546,7 @@ async function metricsResponse(request, bunServer, server, store, settings, disa
         return auth.response;
     }
 
-    const metrics = await Prometheus.metrics(auth.userID);
+    const metrics = await Prometheus.metrics(store, auth.userID);
     return textResponse(metrics.body, {
         type: metrics.contentType,
         disableFrameSameOrigin,

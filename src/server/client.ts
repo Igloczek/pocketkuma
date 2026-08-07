@@ -9,20 +9,14 @@
  * @returns {Promise<Bean[]>} List of notifications
  */
 import { TimeLogger } from "@/util";
-import { R } from "@/server/bun-sqlite-store";
-import { PocketKumaServer } from "@/server/pocketkuma-server";
-import { setting } from "@/server/util-server";
-
-const server = PocketKumaServer.getInstance();
-const io = server.io;
 import * as checkVersion from "@/server/check-version";
 import { getRuntimeInfo } from "@/server/runtime";
 
-async function sendNotificationList(socket) {
+async function sendNotificationList(store, io, socket) {
     const timeLogger = new TimeLogger();
 
     let result = [];
-    let list = await R.find("notification", " user_id = ? ", [socket.userID]);
+    let list = await store.find("notification", " user_id = ? ", [socket.userID]);
 
     for (let bean of list) {
         let notificationObject = bean.export();
@@ -46,8 +40,8 @@ async function sendNotificationList(socket) {
  * @param {boolean} overwrite Overwrite client-side's heartbeat list
  * @returns {Promise<void>}
  */
-async function sendHeartbeatList(socket, monitorID, toUser = false, overwrite = false) {
-    let list = await R.getAll(
+async function sendHeartbeatList(store, io, socket, monitorID, toUser = false, overwrite = false) {
+    let list = await store.getAll(
         `
         SELECT * FROM heartbeat
         WHERE monitor_id = ?
@@ -58,7 +52,7 @@ async function sendHeartbeatList(socket, monitorID, toUser = false, overwrite = 
     );
 
     // Normalize DB rows to the same shape as live heartbeat events (monitorID, etc.).
-    let result = R.convertToBeans("heartbeat", list.reverse()).map((bean) => bean.toJSON());
+    let result = store.convertToBeans("heartbeat", list.reverse()).map((bean) => bean.toJSON());
 
     if (toUser) {
         io.to(socket.userID).emit("heartbeatList", monitorID, result, overwrite);
@@ -75,10 +69,10 @@ async function sendHeartbeatList(socket, monitorID, toUser = false, overwrite = 
  * @param {boolean} overwrite Overwrite client-side's heartbeat list
  * @returns {Promise<void>}
  */
-async function sendImportantHeartbeatList(socket, monitorID, toUser = false, overwrite = false) {
+async function sendImportantHeartbeatList(store, io, socket, monitorID, toUser = false, overwrite = false) {
     const timeLogger = new TimeLogger();
 
-    let list = await R.find(
+    let list = await store.find(
         "heartbeat",
         `
         monitor_id = ?
@@ -105,10 +99,10 @@ async function sendImportantHeartbeatList(socket, monitorID, toUser = false, ove
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<Bean[]>} List of proxies
  */
-async function sendProxyList(socket) {
+async function sendProxyList(store, io, socket) {
     const timeLogger = new TimeLogger();
 
-    const list = await R.find("proxy", " user_id = ? ", [socket.userID]);
+    const list = await store.find("proxy", " user_id = ? ", [socket.userID]);
     io.to(socket.userID).emit(
         "proxyList",
         list.map((bean) => bean.export())
@@ -124,11 +118,11 @@ async function sendProxyList(socket) {
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<void>}
  */
-async function sendAPIKeyList(socket) {
+async function sendAPIKeyList(store, io, socket) {
     const timeLogger = new TimeLogger();
 
     let result = [];
-    const list = await R.find("api_key", "user_id=?", [socket.userID]);
+    const list = await store.find("api_key", "user_id=?", [socket.userID]);
 
     for (let bean of list) {
         result.push(bean.toPublicJSON());
@@ -146,9 +140,9 @@ async function sendAPIKeyList(socket) {
  * @param {boolean} hideVersion Should we hide the version information in the response?
  * @returns {Promise<void>}
  */
-async function sendInfo(socket, hideVersion = false) {
+async function sendInfo(server, settings, socket, hideVersion = false) {
     const info = {
-        primaryBaseURL: await setting("primaryBaseURL"),
+        primaryBaseURL: await settings.get("primaryBaseURL"),
         serverTimezone: await server.getTimezone(),
         serverTimezoneOffset: server.getTimezoneOffset(),
     };
@@ -168,11 +162,11 @@ async function sendInfo(socket, hideVersion = false) {
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<Bean[]>} List of docker hosts
  */
-async function sendDockerHostList(socket) {
+async function sendDockerHostList(store, io, socket) {
     const timeLogger = new TimeLogger();
 
     let result = [];
-    let list = await R.find("docker_host", " user_id = ? ", [socket.userID]);
+    let list = await store.find("docker_host", " user_id = ? ", [socket.userID]);
 
     for (let bean of list) {
         result.push(bean.toJSON());
@@ -190,11 +184,11 @@ async function sendDockerHostList(socket) {
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<Bean[]>} List of docker hosts
  */
-async function sendRemoteBrowserList(socket) {
+async function sendRemoteBrowserList(store, io, socket) {
     const timeLogger = new TimeLogger();
 
     let result = [];
-    let list = await R.find("remote_browser", " user_id = ? ", [socket.userID]);
+    let list = await store.find("remote_browser", " user_id = ? ", [socket.userID]);
 
     for (let bean of list) {
         result.push(bean.toJSON());
@@ -212,8 +206,8 @@ async function sendRemoteBrowserList(socket) {
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<void>}
  */
-async function sendMonitorTypeList(socket) {
-    const result = Object.entries(PocketKumaServer.monitorTypeList).map(([key, type]) => {
+async function sendMonitorTypeList(monitorTypeList, io, socket) {
+    const result = Object.entries(monitorTypeList).map(([key, type]) => {
         return [
             key,
             {

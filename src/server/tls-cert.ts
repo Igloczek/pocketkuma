@@ -1,8 +1,6 @@
 // @ts-nocheck
 
-import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
-import { Settings } from "@/server/settings-legacy";
 import tls from "tls";
 import dayjs from "dayjs";
 import crypto, { X509Certificate } from "node:crypto";
@@ -227,12 +225,12 @@ export const rootCertificatesFingerprints = () => {
  * @param {object} tlsInfoObject Information about certificate
  * @returns {Promise<void>}
  */
-export async function checkCertExpiryNotifications(monitor, tlsInfoObject) {
+export async function checkCertExpiryNotifications(store, settings, monitor, tlsInfoObject) {
     if (!tlsInfoObject || !tlsInfoObject.certInfo || !tlsInfoObject.certInfo.daysRemaining) {
         return;
     }
 
-    let notificationList = await R.getAll(
+    let notificationList = await store.getAll(
         "SELECT notification.* FROM notification, monitor_notification WHERE monitor_id = ? AND monitor_notification.notification_id = notification.id ",
         [monitor.id]
     );
@@ -243,10 +241,10 @@ export async function checkCertExpiryNotifications(monitor, tlsInfoObject) {
         return;
     }
 
-    let notifyDays = await Settings.get("tlsExpiryNotifyDays");
+    let notifyDays = await settings.get("tlsExpiryNotifyDays");
     if (notifyDays == null || !Array.isArray(notifyDays)) {
         // Reset Default
-        await Settings.set("tlsExpiryNotifyDays", [7, 14, 21], "general");
+        await settings.set("tlsExpiryNotifyDays", [7, 14, 21], "general");
         notifyDays = [7, 14, 21];
     }
 
