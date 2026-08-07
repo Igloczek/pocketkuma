@@ -257,6 +257,7 @@ const variants = [
         name: "source-backend",
         synthetic: false,
         requiresPort: true,
+        processGroup: true,
         command: ({ port, dataDir }) => [
             process.execPath,
             "src/server/server.ts",
@@ -270,6 +271,7 @@ const variants = [
         name: "compiled-binary",
         synthetic: false,
         requiresPort: true,
+        processGroup: true,
         command: ({ port, dataDir }) => [
             path.join(projectRoot, "pocketkuma"),
             "--host=127.0.0.1",
@@ -319,6 +321,7 @@ async function runBenchmark({
                     command: variant.command,
                     readiness: variant.readiness,
                     requiresPort: variant.requiresPort,
+                    processGroup: variant.processGroup,
                     timeoutMs,
                     warmupMs,
                 })
@@ -409,6 +412,7 @@ export {
     readExternalMetrics,
     runTrial,
     stopProcess,
+    variants,
 };
 
 if (import.meta.main) {
