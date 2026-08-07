@@ -10,6 +10,7 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 import timezone from "dayjs/plugin/timezone";
 import { loadEnv } from "@/server/env";
 import { getRuntimeInfo, isBunRuntime } from "@/server/runtime";
+import { clearWithStoppedMonitors } from "@/server/monitor-clear";
 import { args } from "@/server/args";
 import { sleep, log, getRandomInt, genSecret } from "@/util";
 import config from "@/server/config";
@@ -65,7 +66,7 @@ import { loginRateLimiter, twoFaRateLimiter } from "@/server/rate-limiter";
 import { login } from "@/server/auth";
 import * as passwordHash from "@/server/password-hash";
 import { Prometheus } from "@/server/prometheus";
-import { UptimeCalculator } from "@/server/uptime-calculator";
+import { HeartbeatDataPlane } from "@/server/heartbeat-data-plane";
 import {
     sendNotificationList,
     sendHeartbeatList,
@@ -143,8 +144,11 @@ log.debug("server", "Importing 2FA Modules");
 
 const server = PocketKumaServer.getInstance();
 const databaseMaintenance = new DatabaseMaintenanceCoordinator();
+const heartbeatData = new HeartbeatDataPlane(R);
+const runHeartbeatWrite = (operation) => databaseMaintenance.run(operation);
 const settings = legacySettings;
 server.io.setDatabaseMaintenanceCoordinator(databaseMaintenance);
+server.io.setMaintenanceEvents(["clearEvents", "clearHeartbeats", "clearStatistics"]);
 export const io = server.io;
 
 log.debug("server", "Importing Monitor");
@@ -924,7 +928,7 @@ let needSetup = false;
 
                 let monitor = await R.findOne("monitor", " id = ? AND user_id = ? ", [monitorID, socket.userID]);
                 const monitorData = [{ id: monitor.id, active: monitor.active }];
-                const preloadData = await Monitor.preparePreloadData(monitorData, server);
+                const preloadData = await Monitor.preparePreloadData(R, monitorData, server);
                 callback({
                     ok: true,
                     monitor: monitor.toJSON(preloadData),
@@ -968,18 +972,7 @@ let needSetup = false;
                     throw new Error("Invalid period.");
                 }
 
-                const sqlHourOffset = Database.sqlHourOffset();
-
-                let list = await R.getAll(
-                    `
-                    SELECT *
-                    FROM heartbeat
-                    WHERE monitor_id = ?
-                      AND time > ${sqlHourOffset}
-                    ORDER BY time ASC
-                `,
-                    [monitorID, -period]
-                );
+                const list = await heartbeatData.recentForOwner(socket.userID, monitorID, period);
 
                 callback({
                     ok: true,
@@ -1290,12 +1283,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let count;
-                if (monitorID == null) {
-                    count = await R.count("heartbeat", "important = 1");
-                } else {
-                    count = await R.count("heartbeat", "monitor_id = ? AND important = 1", [monitorID]);
-                }
+                const count = await heartbeatData.importantCount(socket.userID, monitorID);
 
                 callback({
                     ok: true,
@@ -1313,31 +1301,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let list;
-                if (monitorID == null) {
-                    list = await R.find(
-                        "heartbeat",
-                        `
-                        important = 1
-                        ORDER BY time DESC
-                        LIMIT ?
-                        OFFSET ?
-                    `,
-                        [count, offset]
-                    );
-                } else {
-                    list = await R.find(
-                        "heartbeat",
-                        `
-                        monitor_id = ?
-                        AND important = 1
-                        ORDER BY time DESC
-                        LIMIT ?
-                        OFFSET ?
-                    `,
-                        [monitorID, count, offset]
-                    );
-                }
+                const list = await heartbeatData.importantPage(socket.userID, monitorID, offset, count);
 
                 callback({
                     ok: true,
@@ -1573,7 +1537,7 @@ let needSetup = false;
 
                 log.info("manage", `Clear Events Monitor: ${monitorID} User ID: ${socket.userID}`);
 
-                await R.exec("UPDATE heartbeat SET msg = ?, important = ? WHERE monitor_id = ? ", ["", "0", monitorID]);
+                await heartbeatData.clearEvents(socket.userID, monitorID);
 
                 callback({
                     ok: true,
@@ -1592,16 +1556,15 @@ let needSetup = false;
 
                 log.info("manage", `Clear Heartbeats Monitor: ${monitorID} User ID: ${socket.userID}`);
 
-                await UptimeCalculator.clearStatistics(monitorID);
+                const monitor = server.monitorList[monitorID];
+                const ownedMonitors = monitor?.user_id === socket.userID ? [monitor] : [];
+                await clearWithStoppedMonitors(
+                    ownedMonitors,
+                    () => heartbeatData.clearMonitor(socket.userID, monitorID),
+                    (runningMonitor) => restartMonitor(socket.userID, runningMonitor.id)
+                );
 
-                if (monitorID in server.monitorList) {
-                    const monitor = server.monitorList[monitorID];
-                    if (monitor.active) {
-                        await restartMonitor(socket.userID, monitorID);
-                    }
-                }
-
-                await sendHeartbeatList(R, io, socket, monitorID, true, true);
+                await sendHeartbeatList(heartbeatData, io, socket, monitorID, true, true);
 
                 callback({
                     ok: true,
@@ -1620,15 +1583,14 @@ let needSetup = false;
 
                 log.info("manage", `Clear Statistics User ID: ${socket.userID}`);
 
-                await UptimeCalculator.clearAllStatistics();
-
-                // Restart all monitors to reset the stats
-                for (let monitorID in server.monitorList) {
-                    const monitor = server.monitorList[monitorID];
-                    if (monitor.active) {
-                        await restartMonitor(socket.userID, monitorID);
-                    }
-                }
+                const ownedMonitors = Object.values(server.monitorList).filter(
+                    (monitor) => monitor.user_id === socket.userID
+                );
+                await clearWithStoppedMonitors(
+                    ownedMonitors,
+                    () => heartbeatData.clearAll(socket.userID),
+                    (monitor) => restartMonitor(socket.userID, monitor.id)
+                );
 
                 callback({
                     ok: true,
@@ -1651,7 +1613,7 @@ let needSetup = false;
         apiKeySocketHandler(socket, R, io, settings);
         remoteBrowserSocketHandler(socket, R, io);
         generalSocketHandler(socket, server, settings);
-        chartSocketHandler(socket);
+        chartSocketHandler(socket, R, heartbeatData);
 
         log.debug("server", "added all socket handlers");
 
@@ -1678,7 +1640,7 @@ let needSetup = false;
         await startMonitors();
 
         // Put this here. Start background jobs after the db and server is ready to prevent clear up during db migration.
-        await initBackgroundJobs(R, databaseMaintenance);
+        await initBackgroundJobs(R, databaseMaintenance, settings, heartbeatData);
 
         checkVersion.startInterval();
     };
@@ -1687,6 +1649,7 @@ let needSetup = false;
         server,
         store: R,
         databaseMaintenance,
+        heartbeatData,
         settings,
         hostname,
         port,
@@ -1762,8 +1725,8 @@ async function afterLogin(socket, user) {
     // immediately on login, not only after the next live check arrives.
     const monitorPromises = [];
     for (let monitorID in monitorList) {
-        monitorPromises.push(sendHeartbeatList(R, io, socket, monitorID));
-        monitorPromises.push(Monitor.sendStats(io, monitorID, user.id));
+        monitorPromises.push(sendHeartbeatList(heartbeatData, io, socket, monitorID));
+        monitorPromises.push(Monitor.sendStats(heartbeatData, io, monitorID, user.id));
     }
 
     await Promise.all(monitorPromises);
@@ -1826,7 +1789,7 @@ async function startMonitor(userID, monitorID) {
     }
 
     server.monitorList[monitor.id] = monitor;
-    await monitor.start(io);
+    await monitor.start(io, heartbeatData, runHeartbeatWrite);
 }
 
 /**
@@ -1871,7 +1834,7 @@ async function startMonitors() {
 
     for (let monitor of list) {
         try {
-            await monitor.start(io);
+            await monitor.start(io, heartbeatData, runHeartbeatWrite);
         } catch (e) {
             log.error("monitor", e);
         }

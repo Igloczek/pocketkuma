@@ -6,12 +6,14 @@ import { incrementalVacuum } from "@/server/jobs/incremental-vacuum";
 import Cron from "croner";
 import type { SQLiteStore } from "@/server/db-migrations";
 import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
+import { Settings } from "@/server/settings";
 
 const jobs = [
     {
         name: "clear-old-data",
         interval: "14 03 * * *",
         jobFunc: clearOldData,
+        exclusive: true,
         croner: null,
     },
     {
@@ -30,7 +32,9 @@ const scheduleBackgroundJobs = function (
     store: SQLiteStore,
     coordinator: DatabaseMaintenanceCoordinator,
     timezone,
-    CronClass = Cron
+    CronClass = Cron,
+    settings = new Settings(store),
+    heartbeatData = null
 ) {
     for (const job of jobs) {
         const cornerJob = new CronClass(
@@ -39,15 +43,20 @@ const scheduleBackgroundJobs = function (
                 name: job.name,
                 timezone,
             },
-            () => coordinator.run(() => job.jobFunc(store))
+            () => coordinator[job.exclusive ? "maintain" : "run"](() => job.jobFunc(store, settings, heartbeatData))
         );
         job.croner = cornerJob;
     }
 };
 
-const initBackgroundJobs = async function (store: SQLiteStore, coordinator: DatabaseMaintenanceCoordinator) {
+const initBackgroundJobs = async function (
+    store: SQLiteStore,
+    coordinator: DatabaseMaintenanceCoordinator,
+    settings = new Settings(store),
+    heartbeatData = null
+) {
     const timezone = await PocketKumaServer.getInstance().getTimezone();
-    scheduleBackgroundJobs(store, coordinator, timezone);
+    scheduleBackgroundJobs(store, coordinator, timezone, Cron, settings, heartbeatData);
 };
 
 /**

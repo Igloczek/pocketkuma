@@ -127,6 +127,9 @@ describe("maintenance validation and timer lifecycle", () => {
                 testMode: true,
             });
             await R.exec("INSERT INTO monitor (id, name, active, interval, type) VALUES (1, 'Test', 1, 60, 'http')");
+            await R.exec(
+                "INSERT INTO monitor (id, name, active, interval, type, parent) VALUES (2, 'Child', 1, 60, 'http', 1)"
+            );
             const maintenance = Object.assign(R.dispense("maintenance"), {
                 title: "Server timezone window",
                 description: "",
@@ -153,7 +156,8 @@ describe("maintenance validation and timer lifecycle", () => {
             };
 
             const { default: Monitor } = await import("@/server/model/monitor");
-            expect(await Monitor.isUnderMaintenance(1, runtimeServer)).toBe(true);
+            expect(await Monitor.isUnderMaintenance(R, 1, runtimeServer)).toBe(true);
+            expect(await Monitor.isUnderMaintenance(R, 2, runtimeServer)).toBe(true);
             expect(timezoneCalls).toBeGreaterThan(0);
         } finally {
             await R.close();

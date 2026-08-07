@@ -40,19 +40,8 @@ async function sendNotificationList(store, io, socket) {
  * @param {boolean} overwrite Overwrite client-side's heartbeat list
  * @returns {Promise<void>}
  */
-async function sendHeartbeatList(store, io, socket, monitorID, toUser = false, overwrite = false) {
-    let list = await store.getAll(
-        `
-        SELECT * FROM heartbeat
-        WHERE monitor_id = ?
-        ORDER BY time DESC
-        LIMIT 100
-    `,
-        [monitorID]
-    );
-
-    // Normalize DB rows to the same shape as live heartbeat events (monitorID, etc.).
-    let result = store.convertToBeans("heartbeat", list.reverse()).map((bean) => bean.toJSON());
+async function sendHeartbeatList(heartbeatData, io, socket, monitorID, toUser = false, overwrite = false) {
+    const result = (await heartbeatData.list(monitorID)).map((bean) => bean.toJSON());
 
     if (toUser) {
         io.to(socket.userID).emit("heartbeatList", monitorID, result, overwrite);
@@ -69,19 +58,10 @@ async function sendHeartbeatList(store, io, socket, monitorID, toUser = false, o
  * @param {boolean} overwrite Overwrite client-side's heartbeat list
  * @returns {Promise<void>}
  */
-async function sendImportantHeartbeatList(store, io, socket, monitorID, toUser = false, overwrite = false) {
+async function sendImportantHeartbeatList(heartbeatData, io, socket, monitorID, toUser = false, overwrite = false) {
     const timeLogger = new TimeLogger();
 
-    let list = await store.find(
-        "heartbeat",
-        `
-        monitor_id = ?
-        AND important = 1
-        ORDER BY time DESC
-        LIMIT 500
-    `,
-        [monitorID]
-    );
+    const list = await heartbeatData.importantPage(socket.userID, monitorID, 0, 500);
 
     timeLogger.print(`[Monitor: ${monitorID}] sendImportantHeartbeatList`);
 

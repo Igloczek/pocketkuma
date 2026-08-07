@@ -2,14 +2,12 @@
 "use strict";
 
 import { percentageToColor, filterAndJoin } from "@/server/util-server";
-import { R } from "@/server/bun-sqlite-store";
 import Monitor from "@/server/model/monitor";
 import dayjs from "dayjs";
 import { UP, MAINTENANCE, DOWN, PENDING, flipStatus, log, badgeConstants } from "@/util";
 import { makeBadge } from "badge-maker";
 import { Prometheus } from "@/server/prometheus";
 import Database from "@/server/database";
-import { UptimeCalculator } from "@/server/uptime-calculator";
 import {
     cachedResponse,
     decodePathParam,
@@ -61,89 +59,95 @@ async function entryPageResponse(request, server, settings, disableFrameSameOrig
     });
 }
 
-async function pushResponse(url, pushToken, server, disableFrameSameOrigin) {
+async function pushResponse(url, pushToken, server, store, heartbeatData, disableFrameSameOrigin) {
     try {
         let msg = url.searchParams.get("msg") || "OK";
-        let ping = parseFloat(url.searchParams.get("ping")) || null;
+        const pingParam = url.searchParams.get("ping");
+        let ping = pingParam === null || pingParam === "" ? null : Number.parseFloat(pingParam);
         let statusString = url.searchParams.get("status") || "up";
         const statusFromParam = statusString === "up" ? UP : DOWN;
 
         // Validate ping value - max 100 billion ms (~3.17 years).
         // Fits safely in both BIGINT and FLOAT(20,2).
         const MAX_PING_MS = 100000000000;
-        if (ping !== null && (ping < 0 || ping > MAX_PING_MS)) {
+        if (ping !== null && (!Number.isFinite(ping) || ping < 0 || ping > MAX_PING_MS)) {
             throw new Error(`Invalid ping value. Must be between 0 and ${MAX_PING_MS} ms.`);
         }
 
-        const monitor = await R.findOne("monitor", " push_token = ? AND active = 1 ", [pushToken]);
+        const monitor = await store.findOne("monitor", " push_token = ? AND active = 1 ", [pushToken]);
 
         if (!monitor) {
             throw new Error("Monitor not found or not active.");
         }
         monitor.normalizeRuntimeConfig();
 
-        const previousHeartbeat = await Monitor.getPreviousHeartbeat(monitor.id);
+        await heartbeatData.runOperation(monitor.id, async () => {
+            const previousHeartbeat = await heartbeatData.latest(monitor.id);
 
-        let isFirstBeat = true;
+            let isFirstBeat = true;
 
-        let bean = R.dispense("heartbeat");
-        bean.time = R.isoDateTimeMillis(dayjs.utc());
-        bean.monitor_id = monitor.id;
-        bean.ping = ping;
-        bean.msg = msg;
-        bean.downCount = previousHeartbeat?.downCount || 0;
+            let bean = store.dispense("heartbeat");
+            bean.time = store.isoDateTimeMillis(dayjs.utc());
+            bean.monitor_id = monitor.id;
+            bean.ping = ping;
+            bean.msg = msg;
+            bean.downCount = previousHeartbeat?.downCount || 0;
 
-        if (previousHeartbeat) {
-            isFirstBeat = false;
-            bean.duration = dayjs(bean.time).diff(dayjs(previousHeartbeat.time), "second");
-        }
-
-        if (await Monitor.isUnderMaintenance(monitor.id, server)) {
-            msg = "Monitor under maintenance";
-            bean.status = MAINTENANCE;
-        } else {
-            determineStatus(statusFromParam, previousHeartbeat, monitor.maxretries, monitor.isUpsideDown(), bean);
-        }
-
-        const uptimeCalculator = await UptimeCalculator.getUptimeCalculator(monitor.id);
-        const endTimeDayjs = await uptimeCalculator.update(bean.status, parseFloat(bean.ping));
-        bean.end_time = R.isoDateTimeMillis(endTimeDayjs);
-
-        log.debug("router", `/api/push/ called at ${dayjs().format("YYYY-MM-DD HH:mm:ss.SSS")}`);
-        log.debug("router", "PreviousStatus: " + previousHeartbeat?.status);
-        log.debug("router", "Current Status: " + bean.status);
-
-        bean.important = Monitor.isImportantBeat(isFirstBeat, previousHeartbeat?.status, bean.status);
-
-        if (Monitor.isImportantForNotification(isFirstBeat, previousHeartbeat?.status, bean.status)) {
-            bean.downCount = 0;
-
-            log.debug("monitor", `[${monitor.name}] sendNotification`);
-            await Monitor.sendNotification(isFirstBeat, monitor, bean);
-        } else if (bean.status === DOWN && monitor.resendInterval > 0) {
-            ++bean.downCount;
-            if (bean.downCount >= monitor.resendInterval) {
-                log.debug(
-                    "monitor",
-                    `[${monitor.name}] sendNotification again: Down Count: ${bean.downCount} | Resend Interval: ${monitor.resendInterval}`
-                );
-                await Monitor.sendNotification(isFirstBeat, monitor, bean);
-
-                bean.downCount = 0;
+            if (previousHeartbeat) {
+                isFirstBeat = false;
+                bean.duration = dayjs(bean.time).diff(dayjs(previousHeartbeat.time), "second");
             }
-        }
 
-        await R.store(bean);
+            if (await Monitor.isUnderMaintenance(store, monitor.id, server)) {
+                msg = "Monitor under maintenance";
+                bean.status = MAINTENANCE;
+            } else {
+                determineStatus(statusFromParam, previousHeartbeat, monitor.maxretries, monitor.isUpsideDown(), bean);
+            }
 
-        server.io.to(monitor.user_id).emit("heartbeat", bean.toJSON());
+            log.debug("router", `/api/push/ called at ${dayjs().format("YYYY-MM-DD HH:mm:ss.SSS")}`);
+            log.debug("router", "PreviousStatus: " + previousHeartbeat?.status);
+            log.debug("router", "Current Status: " + bean.status);
 
-        Monitor.sendStats(server.io, monitor.id, monitor.user_id);
+            bean.important = Monitor.isImportantBeat(isFirstBeat, previousHeartbeat?.status, bean.status);
+            let shouldNotify = false;
 
-        try {
-            new Prometheus(monitor, await monitor.getTags()).update(bean, undefined);
-        } catch (e) {
-            log.error("prometheus", "Please submit an issue to our GitHub repo. Prometheus update error: ", e.message);
-        }
+            if (Monitor.isImportantForNotification(isFirstBeat, previousHeartbeat?.status, bean.status)) {
+                bean.downCount = 0;
+                shouldNotify = true;
+            } else if (bean.status === DOWN && monitor.resendInterval > 0) {
+                ++bean.downCount;
+                if (bean.downCount >= monitor.resendInterval) {
+                    log.debug(
+                        "monitor",
+                        `[${monitor.name}] sendNotification again: Down Count: ${bean.downCount} | Resend Interval: ${monitor.resendInterval}`
+                    );
+                    shouldNotify = true;
+                    bean.downCount = 0;
+                }
+            }
+
+            await heartbeatData.commitWrite(bean);
+
+            if (shouldNotify) {
+                log.debug("monitor", `[${monitor.name}] sendNotification`);
+                await Monitor.sendNotification(isFirstBeat, monitor, bean, store);
+            }
+
+            server.io.to(monitor.user_id).emit("heartbeat", bean.toJSON());
+
+            await Monitor.sendStats(heartbeatData, server.io, monitor.id, monitor.user_id);
+
+            try {
+                new Prometheus(monitor, await monitor.getTags(store)).update(bean, undefined);
+            } catch (e) {
+                log.error(
+                    "prometheus",
+                    "Please submit an issue to our GitHub repo. Prometheus update error: ",
+                    e.message
+                );
+            }
+        });
 
         return jsonResponse(
             {
@@ -167,7 +171,7 @@ async function pushResponse(url, pushToken, server, disableFrameSameOrigin) {
     }
 }
 
-async function badgeStatusResponse(url, id, disableFrameSameOrigin) {
+async function badgeStatusResponse(store, heartbeatData, url, id, disableFrameSameOrigin) {
     const {
         label,
         upLabel = "Up",
@@ -188,14 +192,14 @@ async function badgeStatusResponse(url, id, disableFrameSameOrigin) {
             throw new Error("Invalid monitor ID");
         }
         const overrideValue = value !== undefined ? parseInt(value) : undefined;
-        const publicMonitor = await isMonitorPublic(requestedMonitorId);
+        const publicMonitor = await isMonitorPublic(store, requestedMonitorId);
         const badgeValues = { style };
 
         if (!publicMonitor) {
             badgeValues.message = "N/A";
             badgeValues.color = badgeConstants.naColor;
         } else {
-            const heartbeat = await Monitor.getPreviousHeartbeat(requestedMonitorId);
+            const heartbeat = await heartbeatData.latest(requestedMonitorId);
             const state = overrideValue !== undefined ? overrideValue : heartbeat.status;
 
             badgeValues.label = label === undefined ? "Status" : label;
@@ -231,7 +235,7 @@ async function badgeStatusResponse(url, id, disableFrameSameOrigin) {
     }
 }
 
-async function badgeUptimeResponse(url, id, duration, disableFrameSameOrigin) {
+async function badgeUptimeResponse(store, heartbeatData, url, id, duration, disableFrameSameOrigin) {
     const {
         label,
         labelPrefix,
@@ -257,14 +261,14 @@ async function badgeUptimeResponse(url, id, duration, disableFrameSameOrigin) {
             requestedDuration = `${requestedDuration}h`;
         }
 
-        const publicMonitor = await isMonitorPublic(requestedMonitorId);
+        const publicMonitor = await isMonitorPublic(store, requestedMonitorId);
         const badgeValues = { style };
 
         if (!publicMonitor) {
             badgeValues.message = "N/A";
             badgeValues.color = badgeConstants.naColor;
         } else {
-            const uptimeCalculator = await UptimeCalculator.getUptimeCalculator(requestedMonitorId);
+            const uptimeCalculator = await heartbeatData.uptime.get(requestedMonitorId);
             const uptime = overrideValue ?? uptimeCalculator.getDataByDuration(requestedDuration).uptime;
             const cleanUptime = (uptime * 100).toPrecision(4);
 
@@ -286,7 +290,7 @@ async function badgeUptimeResponse(url, id, duration, disableFrameSameOrigin) {
     }
 }
 
-async function badgePingResponse(url, id, duration, disableFrameSameOrigin) {
+async function badgePingResponse(store, heartbeatData, url, id, duration, disableFrameSameOrigin) {
     const {
         label,
         labelPrefix,
@@ -312,10 +316,7 @@ async function badgePingResponse(url, id, duration, disableFrameSameOrigin) {
             requestedDuration = `${requestedDuration}h`;
         }
 
-        const publicMonitor = await isMonitorPublic(requestedMonitorId);
-
-        const uptimeCalculator = await UptimeCalculator.getUptimeCalculator(requestedMonitorId);
-        const avgPing = uptimeCalculator.getDataByDuration(requestedDuration).avgPing;
+        const publicMonitor = await isMonitorPublic(store, requestedMonitorId);
 
         const badgeValues = { style };
 
@@ -323,6 +324,8 @@ async function badgePingResponse(url, id, duration, disableFrameSameOrigin) {
             badgeValues.message = "N/A";
             badgeValues.color = badgeConstants.naColor;
         } else {
+            const uptimeCalculator = await heartbeatData.uptime.get(requestedMonitorId);
+            const avgPing = uptimeCalculator.getDataByDuration(requestedDuration).avgPing;
             const avgPingValue = parseInt(overrideValue ?? avgPing);
 
             badgeValues.color = color;
@@ -343,7 +346,7 @@ async function badgePingResponse(url, id, duration, disableFrameSameOrigin) {
     }
 }
 
-async function badgeAvgResponseResponse(url, id, duration, disableFrameSameOrigin) {
+async function badgeAvgResponseResponse(store, url, id, duration, disableFrameSameOrigin) {
     const {
         label,
         labelPrefix,
@@ -368,7 +371,7 @@ async function badgeAvgResponseResponse(url, id, duration, disableFrameSameOrigi
         const sqlHourOffset = Database.sqlHourOffset();
 
         const publicAvgPing = parseInt(
-            await R.getCell(
+            await store.getCell(
                 `
             SELECT AVG(ping) FROM monitor_group, \`group\`, heartbeat
             WHERE monitor_group.group_id = \`group\`.id
@@ -383,7 +386,7 @@ async function badgeAvgResponseResponse(url, id, duration, disableFrameSameOrigi
 
         const badgeValues = { style };
 
-        if (!publicAvgPing) {
+        if (!Number.isFinite(publicAvgPing)) {
             badgeValues.message = "N/A";
             badgeValues.color = badgeConstants.naColor;
         } else {
@@ -408,7 +411,7 @@ async function badgeAvgResponseResponse(url, id, duration, disableFrameSameOrigi
     }
 }
 
-async function badgeCertExpResponse(url, id, disableFrameSameOrigin) {
+async function badgeCertExpResponse(store, url, id, disableFrameSameOrigin) {
     const query = queryObject(url.searchParams);
     const date = query.date;
 
@@ -435,14 +438,14 @@ async function badgeCertExpResponse(url, id, disableFrameSameOrigin) {
         }
 
         const overrideValue = value && parseFloat(value);
-        const publicMonitor = await isMonitorPublic(requestedMonitorId);
+        const publicMonitor = await isMonitorPublic(store, requestedMonitorId);
         const badgeValues = { style };
 
         if (!publicMonitor) {
             badgeValues.message = "N/A";
             badgeValues.color = badgeConstants.naColor;
         } else {
-            const tlsInfoBean = await R.findOne("monitor_tls_info", "monitor_id = ?", [requestedMonitorId]);
+            const tlsInfoBean = await store.findOne("monitor_tls_info", "monitor_id = ?", [requestedMonitorId]);
 
             if (!tlsInfoBean) {
                 badgeValues.message = "No/Bad Cert";
@@ -483,7 +486,7 @@ async function badgeCertExpResponse(url, id, disableFrameSameOrigin) {
     }
 }
 
-async function badgeResponseResponse(url, id, disableFrameSameOrigin) {
+async function badgeResponseResponse(store, heartbeatData, url, id, disableFrameSameOrigin) {
     const {
         label,
         labelPrefix,
@@ -503,16 +506,16 @@ async function badgeResponseResponse(url, id, disableFrameSameOrigin) {
         }
 
         const overrideValue = value && parseFloat(value);
-        const publicMonitor = await isMonitorPublic(requestedMonitorId);
+        const publicMonitor = await isMonitorPublic(store, requestedMonitorId);
         const badgeValues = { style };
 
         if (!publicMonitor) {
             badgeValues.message = "N/A";
             badgeValues.color = badgeConstants.naColor;
         } else {
-            const heartbeat = await Monitor.getPreviousHeartbeat(requestedMonitorId);
+            const heartbeat = await heartbeatData.latest(requestedMonitorId);
 
-            if (!heartbeat.ping) {
+            if (heartbeat.ping === null || heartbeat.ping === undefined) {
                 badgeValues.message = "N/A";
                 badgeValues.color = badgeConstants.naColor;
             } else {
@@ -589,8 +592,8 @@ function determineStatus(status, previousHeartbeat, maxretries, isUpsideDown, be
  * @param {number} monitorID Monitor id
  * @returns {Promise<boolean>} true if the monitor is public, otherwise false
  */
-async function isMonitorPublic(monitorID) {
-    const publicMonitor = await R.getRow(
+async function isMonitorPublic(store, monitorID) {
+    const publicMonitor = await store.getRow(
         `
             SELECT monitor_group.monitor_id FROM monitor_group, \`group\`
             WHERE monitor_group.group_id = \`group\`.id
@@ -602,7 +605,7 @@ async function isMonitorPublic(monitorID) {
     return !!publicMonitor;
 }
 
-async function handleApiRequest(request, { server, settings, disableFrameSameOrigin }) {
+async function handleApiRequest(request, { server, store, heartbeatData, settings, disableFrameSameOrigin }) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
@@ -613,7 +616,7 @@ async function handleApiRequest(request, { server, settings, disableFrameSameOri
     let match = pathname.match(/^\/api\/push\/([^/]+)$/);
     if (match) {
         const pushToken = decodePathParam(match[1]);
-        return pushResponse(url, pushToken, server, disableFrameSameOrigin);
+        return pushResponse(url, pushToken, server, store, heartbeatData, disableFrameSameOrigin);
     }
 
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -625,7 +628,9 @@ async function handleApiRequest(request, { server, settings, disableFrameSameOri
     match = pathname.match(/^\/api\/badge\/([^/]+)\/status$/);
     if (match) {
         const id = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () => badgeStatusResponse(url, id, disableFrameSameOrigin));
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            badgeStatusResponse(store, heartbeatData, url, id, disableFrameSameOrigin)
+        );
     }
 
     match = pathname.match(/^\/api\/badge\/([^/]+)\/uptime(?:\/([^/]+))?$/);
@@ -633,7 +638,7 @@ async function handleApiRequest(request, { server, settings, disableFrameSameOri
         const id = decodePathParam(match[1]);
         const duration = match[2] === undefined ? undefined : decodePathParam(match[2]);
         return cachedResponse(cacheKey, "5 minutes", () =>
-            badgeUptimeResponse(url, id, duration, disableFrameSameOrigin)
+            badgeUptimeResponse(store, heartbeatData, url, id, duration, disableFrameSameOrigin)
         );
     }
 
@@ -642,7 +647,7 @@ async function handleApiRequest(request, { server, settings, disableFrameSameOri
         const id = decodePathParam(match[1]);
         const duration = match[2] === undefined ? undefined : decodePathParam(match[2]);
         return cachedResponse(cacheKey, "5 minutes", () =>
-            badgePingResponse(url, id, duration, disableFrameSameOrigin)
+            badgePingResponse(store, heartbeatData, url, id, duration, disableFrameSameOrigin)
         );
     }
 
@@ -651,20 +656,24 @@ async function handleApiRequest(request, { server, settings, disableFrameSameOri
         const id = decodePathParam(match[1]);
         const duration = match[2] === undefined ? undefined : decodePathParam(match[2]);
         return cachedResponse(cacheKey, "5 minutes", () =>
-            badgeAvgResponseResponse(url, id, duration, disableFrameSameOrigin)
+            badgeAvgResponseResponse(store, url, id, duration, disableFrameSameOrigin)
         );
     }
 
     match = pathname.match(/^\/api\/badge\/([^/]+)\/cert-exp$/);
     if (match) {
         const id = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () => badgeCertExpResponse(url, id, disableFrameSameOrigin));
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            badgeCertExpResponse(store, url, id, disableFrameSameOrigin)
+        );
     }
 
     match = pathname.match(/^\/api\/badge\/([^/]+)\/response$/);
     if (match) {
         const id = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () => badgeResponseResponse(url, id, disableFrameSameOrigin));
+        return cachedResponse(cacheKey, "5 minutes", () =>
+            badgeResponseResponse(store, heartbeatData, url, id, disableFrameSameOrigin)
+        );
     }
 
     return null;

@@ -200,6 +200,10 @@ describe("database lifecycle wiring", () => {
                 calls.push("run");
                 return operation();
             },
+            maintain: async (operation) => {
+                calls.push("maintain");
+                return operation();
+            },
         };
         const fetchHandler = createBunFetchHandler({
             server: { indexHTML: "", io: {} },
@@ -212,6 +216,7 @@ describe("database lifecycle wiring", () => {
 
         const adapter = new BunRealtimeAdapter({});
         adapter.setDatabaseMaintenanceCoordinator(coordinator);
+        adapter.setMaintenanceEvents(["clear"]);
         const store = { exec: async () => calls.push("socket-store") };
         const ws = {
             data: { headers: {}, remoteAddress: "" },
@@ -222,12 +227,14 @@ describe("database lifecycle wiring", () => {
         adapter.setConnectionInitializer(async (socket) => {
             await store.exec("SELECT setting");
             socket.on("write", () => store.exec("UPDATE setting"));
+            socket.on("clear", () => store.exec("DELETE setting"));
         });
         await adapter.open(ws);
         await adapter.message(ws, JSON.stringify({ type: "event", event: "write", args: [] }));
+        await adapter.message(ws, JSON.stringify({ type: "event", event: "clear", args: [] }));
 
         expect(response.status).toBe(302);
-        expect(calls).toEqual(["run", "run", "socket-store", "run", "socket-store"]);
+        expect(calls).toEqual(["run", "run", "socket-store", "run", "socket-store", "maintain", "socket-store"]);
     });
 
     test("closes through the injected store after checkpointing WAL", async () => {
