@@ -109,6 +109,7 @@ class BunRealtimeSocket extends EventEmitter {
 
 class BunRealtimeAdapter {
     databaseMaintenance: DatabaseMaintenanceCoordinator | null = null;
+    maintenanceEvents = new Set();
     connectionInitializer = null;
 
     constructor(server) {
@@ -124,6 +125,10 @@ class BunRealtimeAdapter {
 
     setDatabaseMaintenanceCoordinator(coordinator: DatabaseMaintenanceCoordinator) {
         this.databaseMaintenance = coordinator;
+    }
+
+    setMaintenanceEvents(events) {
+        this.maintenanceEvents = new Set(events);
     }
 
     setConnectionInitializer(initializer) {
@@ -228,7 +233,10 @@ class BunRealtimeAdapter {
 
         const dispatch = () => ws.data.socket.dispatch(message);
         if (this.databaseMaintenance) {
-            await this.databaseMaintenance.run(dispatch);
+            const coordinate = this.maintenanceEvents.has(message.event)
+                ? this.databaseMaintenance.maintain.bind(this.databaseMaintenance)
+                : this.databaseMaintenance.run.bind(this.databaseMaintenance);
+            await coordinate(dispatch);
         } else {
             await dispatch();
         }

@@ -4,7 +4,6 @@
 import StatusPage from "@/server/model/status_page";
 import { badgeConstants } from "@/util";
 import { makeBadge } from "badge-maker";
-import { UptimeCalculator } from "@/server/uptime-calculator";
 import {
     cachedResponse,
     decodePathParam,
@@ -56,7 +55,7 @@ async function statusPageConfigResponse(store, server, slug, disableFrameSameOri
     }
 }
 
-async function statusPageHeartbeatResponse(store, slug, disableFrameSameOrigin) {
+async function statusPageHeartbeatResponse(store, heartbeatData, slug, disableFrameSameOrigin) {
     try {
         let heartbeatList = {};
         let uptimeList = {};
@@ -75,21 +74,8 @@ async function statusPageHeartbeatResponse(store, slug, disableFrameSameOrigin) 
         );
 
         for (const monitorID of monitorIDList) {
-            let list = await store.getAll(
-                `
-                    SELECT * FROM heartbeat
-                    WHERE monitor_id = ?
-                    ORDER BY time DESC
-                    LIMIT 100
-            `,
-                [monitorID]
-            );
-
-            list = store.convertToBeans("heartbeat", list);
-            heartbeatList[monitorID] = list.reverse().map((row) => row.toPublicJSON());
-
-            const uptimeCalculator = await UptimeCalculator.getUptimeCalculator(monitorID);
-            uptimeList[`${monitorID}_24`] = uptimeCalculator.get24Hour().uptime;
+            heartbeatList[monitorID] = await heartbeatData.publicList(monitorID);
+            uptimeList[`${monitorID}_24`] = (await heartbeatData.stats(monitorID)).day.uptime;
         }
 
         return jsonResponse(
@@ -269,7 +255,7 @@ async function statusPageBadgeResponse(store, url, slug, disableFrameSameOrigin)
     }
 }
 
-async function handleStatusPageRequest(request, { server, store, settings, disableFrameSameOrigin }) {
+async function handleStatusPageRequest(request, { server, store, heartbeatData, settings, disableFrameSameOrigin }) {
     if (request.method !== "GET" && request.method !== "HEAD") {
         return null;
     }
@@ -304,7 +290,7 @@ async function handleStatusPageRequest(request, { server, store, settings, disab
     if (match) {
         const slug = decodePathParam(match[1]);
         return cachedResponse(cacheKey, "1 minutes", () =>
-            statusPageHeartbeatResponse(store, slug, disableFrameSameOrigin)
+            statusPageHeartbeatResponse(store, heartbeatData, slug, disableFrameSameOrigin)
         );
     }
 

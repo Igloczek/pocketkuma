@@ -174,16 +174,16 @@ class DomainExpiry extends BeanModel {
      * @param {string} domain Domain name
      * @returns {Promise<DomainExpiry>} Domain bean
      */
-    static async findByName(domain) {
-        return R.findOne("domain_expiry", "domain = ?", [domain]);
+    static async findByName(domain, store = R) {
+        return store.findOne("domain_expiry", "domain = ?", [domain]);
     }
 
     /**
      * @param {string} domain Domain name
      * @returns {DomainExpiry} Domain bean
      */
-    static createByName(domain) {
-        const d = R.dispense("domain_expiry");
+    static createByName(domain, store = R) {
+        const d = store.dispense("domain_expiry");
         d.domain = domain;
         return d;
     }
@@ -250,10 +250,10 @@ class DomainExpiry extends BeanModel {
      * @param {string} domainName Domain name
      * @returns {Promise<DomainExpiry>} Domain expiry bean
      */
-    static async findByDomainNameOrCreate(domainName) {
-        let domain = await DomainExpiry.findByName(domainName);
+    static async findByDomainNameOrCreate(domainName, store = R) {
+        let domain = await DomainExpiry.findByName(domainName, store);
         if (!domain && domainName) {
-            domain = await DomainExpiry.createByName(domainName);
+            domain = await DomainExpiry.createByName(domainName, store);
         }
         return domain;
     }

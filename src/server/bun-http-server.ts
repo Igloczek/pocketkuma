@@ -13,7 +13,7 @@ import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenan
 import StatusPage from "@/server/model/status_page";
 import { Settings } from "@/server/settings";
 import { Prometheus } from "@/server/prometheus";
-import { UptimeCalculator } from "@/server/uptime-calculator";
+import { HeartbeatDataPlane } from "@/server/heartbeat-data-plane";
 import { initBackgroundJobs, stopBackgroundJobs } from "@/server/jobs";
 import { authenticateAPIRequest } from "@/server/auth";
 import { handleApiRequest } from "@/server/routers/api-router";
@@ -76,7 +76,7 @@ function validateSqliteSnapshot(snapshotPath) {
     }
 }
 
-async function stopRuntimeForSnapshot(server, settings) {
+async function stopRuntimeForSnapshot(server, settings, heartbeatData) {
     stopBackgroundJobs();
     for (const maintenance of Object.values(server.maintenanceList)) {
         maintenance.stop();
@@ -86,7 +86,7 @@ async function stopRuntimeForSnapshot(server, settings) {
     await resetChrome();
     server.monitorList = {};
     server.maintenanceList = {};
-    await UptimeCalculator.removeAll();
+    heartbeatData.reset();
     settings.cacheList = {};
     server.statusPageDomainMappingList = {};
     clearResponseCache();
@@ -96,7 +96,8 @@ async function reloadRuntimeAfterSnapshot(
     server,
     store: SQLiteStore,
     databaseMaintenance: DatabaseMaintenanceCoordinator,
-    settings
+    settings,
+    heartbeatData
 ) {
     settings.cacheList = {};
     const jwtSecret = await store.findOne("setting", " `key` = ? ", ["jwtSecret"]);
@@ -108,13 +109,13 @@ async function reloadRuntimeAfterSnapshot(
     const monitors = await store.find("monitor", " active = 1 ");
     for (const monitor of monitors) {
         server.monitorList[monitor.id] = monitor;
-        await monitor.start(server.io);
+        await monitor.start(server.io, heartbeatData, (operation) => databaseMaintenance.run(operation));
     }
-    await initBackgroundJobs(store, databaseMaintenance);
+    await initBackgroundJobs(store, databaseMaintenance, settings, heartbeatData);
     clearResponseCache();
 }
 
-function createSnapshotMonitorRuntime(server) {
+function createSnapshotMonitorRuntime(server, heartbeatData, databaseMaintenance) {
     let runningMonitors = [];
 
     return {
@@ -123,7 +124,11 @@ function createSnapshotMonitorRuntime(server) {
             await Promise.all(runningMonitors.map((monitor) => monitor.stop()));
         },
         async reload() {
-            await Promise.all(runningMonitors.map((monitor) => monitor.start(server.io)));
+            await Promise.all(
+                runningMonitors.map((monitor) =>
+                    monitor.start(server.io, heartbeatData, (operation) => databaseMaintenance.run(operation))
+                )
+            );
             runningMonitors = [];
         },
     };
@@ -193,11 +198,12 @@ async function restoreSqliteSnapshot(
     store: SQLiteStore,
     databaseMaintenance: DatabaseMaintenanceCoordinator,
     runtime = null,
-    settings = new Settings(store)
+    settings = new Settings(store),
+    heartbeatData = new HeartbeatDataPlane(store)
 ) {
     runtime ||= {
-        stop: () => stopRuntimeForSnapshot(server, settings),
-        reload: () => reloadRuntimeAfterSnapshot(server, store, databaseMaintenance, settings),
+        stop: () => stopRuntimeForSnapshot(server, settings, heartbeatData),
+        reload: () => reloadRuntimeAfterSnapshot(server, store, databaseMaintenance, settings, heartbeatData),
     };
     return databaseMaintenance.maintain(async () => {
         const snapshotPath = `${Database.sqlitePath}.e2e-snapshot`;
@@ -499,6 +505,7 @@ async function handleDevRequest(
     databaseMaintenance: DatabaseMaintenanceCoordinator,
     snapshotRuntime,
     settings,
+    heartbeatData,
     disableFrameSameOrigin,
     development = isDev
 ) {
@@ -528,7 +535,7 @@ async function handleDevRequest(
     }
 
     if (request.method === "GET" && url.pathname === "/_e2e/restore-sqlite-snapshot") {
-        await restoreSqliteSnapshot(server, store, databaseMaintenance, null, settings);
+        await restoreSqliteSnapshot(server, store, databaseMaintenance, null, settings, heartbeatData);
 
         return textResponse("Snapshot restored.", { disableFrameSameOrigin });
     }
@@ -557,10 +564,11 @@ function createBunFetchHandler({
     server,
     store,
     databaseMaintenance,
+    heartbeatData = new HeartbeatDataPlane(store),
     disableFrameSameOrigin,
     settings = new Settings(store),
     development = isDev,
-    snapshotRuntime = createSnapshotMonitorRuntime(server),
+    snapshotRuntime = createSnapshotMonitorRuntime(server, heartbeatData, databaseMaintenance),
 }) {
     const fetch = async function (request, bunServer) {
         const url = new URL(request.url);
@@ -587,6 +595,7 @@ function createBunFetchHandler({
             databaseMaintenance,
             snapshotRuntime,
             settings,
+            heartbeatData,
             disableFrameSameOrigin,
             development
         );
@@ -615,7 +624,13 @@ function createBunFetchHandler({
             return metricsResponse(request, bunServer, server, store, settings, disableFrameSameOrigin);
         }
 
-        const apiResponse = await handleApiRequest(request, { server, store, settings, disableFrameSameOrigin });
+        const apiResponse = await handleApiRequest(request, {
+            server,
+            store,
+            heartbeatData,
+            settings,
+            disableFrameSameOrigin,
+        });
         if (apiResponse) {
             return apiResponse;
         }
@@ -623,6 +638,7 @@ function createBunFetchHandler({
         const statusPageResponse = await handleStatusPageRequest(request, {
             server,
             store,
+            heartbeatData,
             settings,
             disableFrameSameOrigin,
         });
@@ -674,6 +690,7 @@ function createBunFetchHandler({
                 databaseMaintenance,
                 snapshotRuntime,
                 settings,
+                heartbeatData,
                 disableFrameSameOrigin,
                 development
             );
@@ -683,11 +700,27 @@ function createBunFetchHandler({
     };
 }
 
-function listenWithBunServe({ server, store, databaseMaintenance, settings, hostname, port, disableFrameSameOrigin }) {
+function listenWithBunServe({
+    server,
+    store,
+    databaseMaintenance,
+    heartbeatData,
+    settings,
+    hostname,
+    port,
+    disableFrameSameOrigin,
+}) {
     const bunServer = Bun.serve({
         hostname,
         port,
-        fetch: createBunFetchHandler({ server, store, databaseMaintenance, settings, disableFrameSameOrigin }),
+        fetch: createBunFetchHandler({
+            server,
+            store,
+            databaseMaintenance,
+            heartbeatData,
+            settings,
+            disableFrameSameOrigin,
+        }),
         websocket: {
             open(ws) {
                 void server.io.open(ws).catch((error) => log.error("socket", error));

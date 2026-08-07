@@ -143,6 +143,9 @@ export function beanForTable(table, row = {}) {
     const bean = new Model();
     Object.assign(bean, table === "monitor" ? normalizeMonitorRow(row) : row);
     if (table === "heartbeat") {
+        if (row.down_count !== undefined) {
+            bean.downCount = row.down_count;
+        }
         bean._monitorId = row.monitor_id;
         bean._status = row.status;
         bean._time = row.time;

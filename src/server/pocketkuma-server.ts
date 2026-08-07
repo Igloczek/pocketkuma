@@ -196,7 +196,7 @@ class PocketKumaServer {
             active: monitor.active,
             name: monitor.name,
         }));
-        const preloadData = await Monitor.preparePreloadData(monitorData, this);
+        const preloadData = await Monitor.preparePreloadData(R, monitorData, this);
 
         const result = {};
         monitorList.forEach((monitor) => (result[monitor.id] = monitor.toJSON(preloadData)));
