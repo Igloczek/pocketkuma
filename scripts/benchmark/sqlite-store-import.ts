@@ -43,7 +43,7 @@ async function waitForReady(stream) {
     }
 }
 
-async function measure(name, modulePath, trial) {
+async function measure(name, modulePath, gitSha, trial) {
     const startedAt = performance.now();
     const processHandle = Bun.spawn(
         [
@@ -57,6 +57,7 @@ async function measure(name, modulePath, trial) {
         await waitForReady(processHandle.stdout);
         return {
             name,
+            gitSha,
             trial,
             importMs: Math.round(performance.now() - startedAt),
             ...metrics(processHandle.pid),
@@ -69,22 +70,26 @@ async function measure(name, modulePath, trial) {
 
 const modules = process.argv
     .filter((arg) => arg.startsWith("--module="))
-    .map((arg) => arg.slice("--module=".length).split(",", 2))
-    .map(([name, modulePath]) => ({ name, modulePath: path.resolve(modulePath) }));
+    .map((arg) => arg.slice("--module=".length).split(",", 3))
+    .map(([name, modulePath, gitSha]) => ({ name, modulePath: path.resolve(modulePath), gitSha }));
 const trials = Number(option("trials", "5"));
 const outfile = path.resolve(option("outfile", "docs/perf/sqlite-store-import.json"));
 
-if (modules.length < 1 || modules.some(({ name, modulePath }) => !name || !fs.existsSync(modulePath)) || trials < 1) {
+if (
+    modules.length < 1 ||
+    modules.some(({ name, modulePath, gitSha }) => !name || !gitSha || !fs.existsSync(modulePath)) ||
+    trials < 1
+) {
     throw new Error(
-        "Use --module=<name>,<absolute-or-relative-module-path> at least once and --trials=<positive integer>."
+        "Use --module=<name>,<absolute-or-relative-module-path>,<git-sha> at least once and --trials=<positive integer>."
     );
 }
 
 const runs = [];
 for (let trial = 1; trial <= trials; trial++) {
-    for (const { name, modulePath } of modules) {
+    for (const { name, modulePath, gitSha } of modules) {
         console.error(`${name}: trial ${trial}/${trials}`);
-        runs.push(await measure(name, modulePath, trial));
+        runs.push(await measure(name, modulePath, gitSha, trial));
     }
 }
 

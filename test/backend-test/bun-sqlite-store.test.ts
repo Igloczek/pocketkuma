@@ -5,7 +5,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Database as BunDatabase } from "bun:sqlite";
-import { BunSQLiteRedbean } from "@/server/bun-sqlite-store";
+import { R } from "@/server/bun-sqlite-store";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import { BeanModel } from "@/server/bean-model";
 import { MODEL_REGISTRY } from "@/server/model-registry";
 
@@ -30,11 +31,11 @@ function createFaultingStore(faults) {
     });
 }
 
-function importInOrder(first, second) {
+function importInOrder(first, second, facade, registry) {
     const result = Bun.spawnSync([
         process.execPath,
         "-e",
-        `await import(${JSON.stringify(first)}); await import(${JSON.stringify(second)});`,
+        `await import(${JSON.stringify(first)}); await import(${JSON.stringify(second)}); const { R } = await import(${JSON.stringify(facade)}); const { MODEL_REGISTRY } = await import(${JSON.stringify(registry)}); if (!(R.dispense("monitor") instanceof MODEL_REGISTRY.monitor) || !(R.dispense("heartbeat") instanceof MODEL_REGISTRY.heartbeat)) throw new Error("legacy facade lost typed beans");`,
     ]);
     return { exitCode: result.exitCode, stderr: new TextDecoder().decode(result.stderr) };
 }
@@ -58,9 +59,9 @@ describe("Bun SQLite Redbean compatibility store", () => {
         fs.rmSync(dir, { recursive: true, force: true });
     });
 
-    test("keeps the store bundle outside domain and runtime boundaries", async () => {
+    test("keeps the SQLite core bundle outside domain and runtime boundaries", async () => {
         const build = await Bun.build({
-            entrypoints: [path.join(process.cwd(), "src/server/bun-sqlite-store.ts")],
+            entrypoints: [path.join(process.cwd(), "src/server/sqlite-core.ts")],
             bundle: true,
             metafile: true,
             write: false,
@@ -82,15 +83,18 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(inputs.filter((input) => forbidden.some((boundary) => input.includes(boundary)))).toEqual([]);
     });
 
-    test("allows store and model imports in either order", () => {
-        const store = path.join(process.cwd(), "src/server/bun-sqlite-store.ts");
-        const model = path.join(process.cwd(), "src/server/model/monitor.ts");
+    test("allows core, facade, and registry imports in either order", () => {
+        const core = path.join(process.cwd(), "src/server/sqlite-core.ts");
+        const facade = path.join(process.cwd(), "src/server/bun-sqlite-store.ts");
+        const registry = path.join(process.cwd(), "src/server/model-registry.ts");
 
         for (const [first, second] of [
-            [store, model],
-            [model, store],
+            [core, registry],
+            [registry, core],
+            [facade, registry],
+            [registry, facade],
         ]) {
-            const result = importInOrder(first, second);
+            const result = importInOrder(first, second, facade, registry);
             expect(result.exitCode, result.stderr).toBe(0);
         }
     });
@@ -672,6 +676,11 @@ describe("Bun SQLite Redbean compatibility store", () => {
         ]);
         expect(store.dispense("monitor")).toBeInstanceOf(MODEL_REGISTRY.monitor);
         expect(store.dispense("not_a_model")).toBeInstanceOf(BeanModel);
+    });
+
+    test("legacy R always creates typed monitor and heartbeat beans", () => {
+        expect(R.dispense("monitor")).toBeInstanceOf(MODEL_REGISTRY.monitor);
+        expect(R.convertToBean("heartbeat", { monitor_id: 1 })).toBeInstanceOf(MODEL_REGISTRY.heartbeat);
     });
 
     test("stores monitor camelCase fields in canonical snake_case columns", async () => {

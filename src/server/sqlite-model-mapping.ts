@@ -55,10 +55,6 @@ export function registerModel(table, model) {
     modelMap[table] = model;
 }
 
-export function getRegisteredModels() {
-    return { ...modelMap };
-}
-
 function resolveMonitorField(row, property, column, { forStore = false } = {}) {
     const hasColumn = forStore ? row[column] !== undefined : row[column] !== undefined && row[column] !== null;
     const hasProperty = forStore ? row[property] !== undefined : row[property] !== undefined && row[property] !== null;
