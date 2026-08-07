@@ -14,7 +14,7 @@ const rl = readline.createInterface({
 
 const main = async () => {
     Database.initDataDir(args);
-    await Database.connect();
+    await Database.connect(R);
 
     try {
         // No need to actually reset the password for testing, just make sure no connection problem. It is ok for now.
@@ -37,7 +37,7 @@ const main = async () => {
         console.error("Error: " + e.message);
     }
 
-    await Database.close();
+    await Database.close(R);
     rl.close();
 
     console.log("Finished.");

@@ -48,7 +48,7 @@ const main = async () => {
 
     try {
         Database.initDataDir(args);
-        await Database.connect(false, true);
+        await Database.connect(R, false, true);
         // No need to actually reset the password for testing, just make sure no connection problem. It is ok for now.
         if (!process.env.TEST_BACKEND) {
             const user = await R.findOne("user");
@@ -104,7 +104,7 @@ const main = async () => {
         console.error("Error: " + e.message);
     }
 
-    await Database.close();
+    await Database.close(R);
     rl.close();
 
     console.log("Finished.");

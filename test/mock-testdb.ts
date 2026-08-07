@@ -1,5 +1,6 @@
 import { sync as rimrafSync } from "rimraf";
 import Database from "@/server/database";
+import { R } from "@/server/bun-sqlite-store";
 
 class TestDB {
     dataDir;
@@ -10,11 +11,11 @@ class TestDB {
 
     async create() {
         Database.initDataDir({ "data-dir": this.dataDir });
-        await Database.connect(true);
+        await Database.connect(R, true);
     }
 
     async destroy() {
-        await Database.close();
+        await Database.close(R);
         this.dataDir && rimrafSync(this.dataDir);
     }
 }

@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { EventEmitter } from "events";
 import { log } from "@/util";
 import { Settings } from "@/server/settings";
+import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 
 const WS_PATH = "/ws";
 
@@ -106,9 +107,11 @@ class BunRealtimeSocket extends EventEmitter {
     }
 }
 
-class BunRealtimeAdapter extends EventEmitter {
+class BunRealtimeAdapter {
+    databaseMaintenance: DatabaseMaintenanceCoordinator | null = null;
+    connectionInitializer = null;
+
     constructor(server) {
-        super();
         this.server = server;
         this.rooms = new Map();
         this.sockets = {
@@ -117,6 +120,14 @@ class BunRealtimeAdapter extends EventEmitter {
                 rooms: this.rooms,
             },
         };
+    }
+
+    setDatabaseMaintenanceCoordinator(coordinator: DatabaseMaintenanceCoordinator) {
+        this.databaseMaintenance = coordinator;
+    }
+
+    setConnectionInitializer(initializer) {
+        this.connectionInitializer = initializer;
     }
 
     async canUpgrade(request, bunServer) {
@@ -192,12 +203,18 @@ class BunRealtimeAdapter extends EventEmitter {
         }
     }
 
-    open(ws) {
+    async open(ws) {
         const socket = new BunRealtimeSocket(this, ws);
         ws.data.socket = socket;
         this.sockets.sockets.set(socket.id, socket);
         this.join(socket, socket.id);
-        this.emit("connection", socket);
+
+        const initialize = () => this.connectionInitializer?.(socket);
+        if (this.databaseMaintenance) {
+            await this.databaseMaintenance.run(initialize);
+        } else {
+            await initialize();
+        }
     }
 
     async message(ws, rawMessage) {
@@ -209,7 +226,12 @@ class BunRealtimeAdapter extends EventEmitter {
             return;
         }
 
-        await ws.data.socket.dispatch(message);
+        const dispatch = () => ws.data.socket.dispatch(message);
+        if (this.databaseMaintenance) {
+            await this.databaseMaintenance.run(dispatch);
+        } else {
+            await dispatch();
+        }
     }
 
     close(ws) {

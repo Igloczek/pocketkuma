@@ -1,4 +1,3 @@
-import type { BunSQLiteRedbean } from "./bun-sqlite-store.js";
 import { upgrade001BunaBaselineData, upgrade001BunaBaselineSchema } from "../db/schema/upgrades/001-buna-baseline.js";
 import { log } from "../util.js";
 
@@ -12,6 +11,30 @@ export {
 
 export const BUNA_SCHEMA_VERSION_KEY = "buna_schema_version";
 export const LATEST_BUNA_SCHEMA_VERSION = 1;
+
+export interface SQLiteTransaction {
+    exec(sql: string, params?: unknown[]): Promise<unknown>;
+    getAll(sql: string, params?: unknown[]): Promise<unknown[]>;
+    getRow(sql: string, params?: unknown[]): Promise<unknown>;
+    getCell(sql: string, params?: unknown[]): Promise<unknown>;
+    hasTable(table: string): Promise<boolean>;
+    commit(): Promise<void>;
+    rollback(): Promise<void>;
+}
+
+export interface SQLiteStore {
+    exec(sql: string, params?: unknown[]): Promise<unknown>;
+    getAll(sql: string, params?: unknown[]): Promise<unknown[]>;
+    getRow(sql: string, params?: unknown[]): Promise<unknown>;
+    getCell(sql: string, params?: unknown[]): Promise<unknown>;
+    find(table: string, condition?: string, params?: unknown[]): Promise<unknown[]>;
+    findOne(table: string, condition?: string, params?: unknown[]): Promise<unknown>;
+    hasTable(table: string): Promise<boolean>;
+    begin(): Promise<SQLiteTransaction>;
+    connect(options: { sqlitePath: string; templatePath: string; testMode?: boolean }): Promise<void>;
+    close(): Promise<void>;
+    isOpen(): boolean;
+}
 
 /**
  * Upgrade recovery notes:
@@ -27,7 +50,7 @@ interface SchemaUpgrade {
     version: number;
     name: string;
     runSchema?: (migration: SchemaMigration) => Promise<void>;
-    runData?: (store: BunSQLiteRedbean) => Promise<void>;
+    runData?: (store: SQLiteTransaction) => Promise<void>;
 }
 
 export interface SchemaMigration {
@@ -47,7 +70,7 @@ const upgrades: SchemaUpgrade[] = [
     },
 ];
 
-export async function getBunaSchemaVersion(store: BunSQLiteRedbean) {
+export async function getBunaSchemaVersion(store: Pick<SQLiteStore, "hasTable" | "getCell">) {
     if (!(await store.hasTable("setting"))) {
         return null;
     }
@@ -61,7 +84,7 @@ export async function getBunaSchemaVersion(store: BunSQLiteRedbean) {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
-export async function setBunaSchemaVersion(store: BunSQLiteRedbean, version: number) {
+export async function setBunaSchemaVersion(store: Pick<SQLiteTransaction, "getRow" | "exec">, version: number) {
     const existing = await store.getRow('SELECT id FROM setting WHERE "key" = ?', [BUNA_SCHEMA_VERSION_KEY]);
     if (existing) {
         await store.exec('UPDATE setting SET value = ? WHERE "key" = ?', [String(version), BUNA_SCHEMA_VERSION_KEY]);
@@ -71,7 +94,7 @@ export async function setBunaSchemaVersion(store: BunSQLiteRedbean, version: num
     await store.exec('INSERT INTO setting ("key", value) VALUES (?, ?)', [BUNA_SCHEMA_VERSION_KEY, String(version)]);
 }
 
-export async function resolveCurrentSchemaVersion(store: BunSQLiteRedbean) {
+export async function resolveCurrentSchemaVersion(store: Pick<SQLiteStore, "hasTable" | "getCell">) {
     const explicitVersion = await getBunaSchemaVersion(store);
     if (explicitVersion !== null) {
         return explicitVersion;
@@ -81,7 +104,10 @@ export async function resolveCurrentSchemaVersion(store: BunSQLiteRedbean) {
     return 0;
 }
 
-export async function runPendingUpgrades(store: BunSQLiteRedbean, migration: SchemaMigration) {
+export async function runPendingUpgrades(
+    store: Pick<SQLiteStore, "hasTable" | "getCell" | "begin">,
+    migration: SchemaMigration
+) {
     let currentVersion = await resolveCurrentSchemaVersion(store);
 
     for (const upgrade of upgrades) {
@@ -99,9 +125,9 @@ export async function runPendingUpgrades(store: BunSQLiteRedbean, migration: Sch
         const transaction: any = await store.begin();
         try {
             if (upgrade.runData) {
-                await upgrade.runData(transaction as BunSQLiteRedbean);
+                await upgrade.runData(transaction);
             }
-            await setBunaSchemaVersion(transaction as BunSQLiteRedbean, upgrade.version);
+            await setBunaSchemaVersion(transaction, upgrade.version);
             await transaction.commit();
             currentVersion = upgrade.version;
             log.info("db", `Schema upgrade ${upgrade.name} completed`);
