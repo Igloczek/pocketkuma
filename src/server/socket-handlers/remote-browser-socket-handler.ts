@@ -10,17 +10,17 @@ import { checkLogin } from "@/server/util-server";
 import { RemoteBrowser } from "@/server/remote-browser";
 import { log } from "@/util";
 
-export const remoteBrowserSocketHandler = (socket) => {
+export const remoteBrowserSocketHandler = (socket, store, io) => {
     socket.on("addRemoteBrowser", async (remoteBrowser, remoteBrowserID, callback) => {
         try {
             checkLogin(socket);
 
-            let remoteBrowserBean = await RemoteBrowser.save(remoteBrowser, remoteBrowserID, socket.userID);
+            let remoteBrowserBean = await RemoteBrowser.save(store, remoteBrowser, remoteBrowserID, socket.userID);
             if (remoteBrowserID) {
                 const { resetRemoteBrowser } = await import("@/server/monitor-types/real-browser-monitor-type");
                 await resetRemoteBrowser(remoteBrowserID, socket.userID);
             }
-            await sendRemoteBrowserList(socket);
+            await sendRemoteBrowserList(store, io, socket);
 
             callback({
                 ok: true,
@@ -40,10 +40,10 @@ export const remoteBrowserSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            await RemoteBrowser.delete(dockerHostID, socket.userID);
+            await RemoteBrowser.delete(store, dockerHostID, socket.userID);
             const { resetRemoteBrowser } = await import("@/server/monitor-types/real-browser-monitor-type");
             await resetRemoteBrowser(dockerHostID, socket.userID);
-            await sendRemoteBrowserList(socket);
+            await sendRemoteBrowserList(store, io, socket);
 
             callback({
                 ok: true,

@@ -10,13 +10,13 @@ import { checkLogin } from "@/server/util-server";
 import { DockerHost } from "@/server/docker";
 import { log } from "@/util";
 
-export const dockerSocketHandler = (socket) => {
+export const dockerSocketHandler = (socket, store, io) => {
     socket.on("addDockerHost", async (dockerHost, dockerHostID, callback) => {
         try {
             checkLogin(socket);
 
-            let dockerHostBean = await DockerHost.save(dockerHost, dockerHostID, socket.userID);
-            await sendDockerHostList(socket);
+            let dockerHostBean = await DockerHost.save(store, dockerHost, dockerHostID, socket.userID);
+            await sendDockerHostList(store, io, socket);
 
             callback({
                 ok: true,
@@ -36,8 +36,8 @@ export const dockerSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            await DockerHost.delete(dockerHostID, socket.userID);
-            await sendDockerHostList(socket);
+            await DockerHost.delete(store, dockerHostID, socket.userID);
+            await sendDockerHostList(store, io, socket);
 
             callback({
                 ok: true,

@@ -1,7 +1,5 @@
 // @ts-nocheck
 
-import { R } from "@/server/bun-sqlite-store";
-import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { SUPPORTED_PROXY_PROTOCOLS, validateProxyDefinition } from "@/server/proxy-validation";
 
 class Proxy {
@@ -14,32 +12,32 @@ class Proxy {
      * @param {number} userID ID of user the proxy belongs to
      * @returns {Promise<Bean>} Updated proxy
      */
-    static async save(proxy, proxyID, userID) {
+    static async save(store, proxy, proxyID, userID) {
         const validated = validateProxyDefinition(proxy);
         let bean;
 
         if (proxyID) {
-            bean = await R.findOne("proxy", " id = ? AND user_id = ? ", [proxyID, userID]);
+            bean = await store.findOne("proxy", " id = ? AND user_id = ? ", [proxyID, userID]);
 
             if (!bean) {
                 throw new Error("proxy not found");
             }
         } else {
-            bean = R.dispense("proxy");
+            bean = store.dispense("proxy");
         }
 
         // When proxy is default update deactivate old default proxy
         if (validated.default) {
-            await R.exec("UPDATE proxy SET `default` = 0 WHERE `default` = 1 AND user_id = ?", [userID]);
+            await store.exec("UPDATE proxy SET `default` = 0 WHERE `default` = 1 AND user_id = ?", [userID]);
         }
 
         bean.user_id = userID;
         Object.assign(bean, validated);
 
-        await R.store(bean);
+        await store.store(bean);
 
         if (proxy.applyExisting) {
-            await applyProxyEveryMonitor(bean.id, userID);
+            await applyProxyEveryMonitor(store, bean.id, userID);
         }
 
         return bean;
@@ -51,31 +49,29 @@ class Proxy {
      * @param {number} userID ID of proxy owner
      * @returns {Promise<void>}
      */
-    static async delete(proxyID, userID) {
-        const bean = await R.findOne("proxy", " id = ? AND user_id = ? ", [proxyID, userID]);
+    static async delete(store, proxyID, userID) {
+        const bean = await store.findOne("proxy", " id = ? AND user_id = ? ", [proxyID, userID]);
 
         if (!bean) {
             throw new Error("proxy not found");
         }
 
         // Delete removed proxy from monitors if exists
-        await R.exec("UPDATE monitor SET proxy_id = null WHERE proxy_id = ?", [proxyID]);
+        await store.exec("UPDATE monitor SET proxy_id = null WHERE proxy_id = ?", [proxyID]);
 
         // Delete proxy from list
-        await R.trash(bean);
+        await store.trash(bean);
     }
 
     /**
      * Reload proxy settings for current monitors
      * @returns {Promise<void>}
      */
-    static async reloadProxy() {
-        const server = PocketKumaServer.getInstance();
+    static async reloadProxy(store, monitorList) {
+        let updatedList = await store.getAssoc("SELECT id, proxy_id FROM monitor");
 
-        let updatedList = await R.getAssoc("SELECT id, proxy_id FROM monitor");
-
-        for (let monitorID in server.monitorList) {
-            let monitor = server.monitorList[monitorID];
+        for (let monitorID in monitorList) {
+            let monitor = monitorList[monitorID];
 
             if (updatedList[monitorID]) {
                 monitor.proxy_id = updatedList[monitorID].proxy_id;
@@ -90,14 +86,14 @@ class Proxy {
  * @param {number} userID ID of proxy owner
  * @returns {Promise<void>}
  */
-async function applyProxyEveryMonitor(proxyID, userID) {
+async function applyProxyEveryMonitor(store, proxyID, userID) {
     // Find all monitors with id and proxy id
-    const monitors = await R.getAll("SELECT id, proxy_id FROM monitor WHERE user_id = ?", [userID]);
+    const monitors = await store.getAll("SELECT id, proxy_id FROM monitor WHERE user_id = ?", [userID]);
 
     // Update proxy id not match with given proxy id
     for (const monitor of monitors) {
         if (monitor.proxy_id !== proxyID) {
-            await R.exec("UPDATE monitor SET proxy_id = ? WHERE id = ?", [proxyID, monitor.id]);
+            await store.exec("UPDATE monitor SET proxy_id = ? WHERE id = ?", [proxyID, monitor.id]);
         }
     }
 }

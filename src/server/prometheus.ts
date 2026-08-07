@@ -2,7 +2,6 @@
 
 import PrometheusClient from "prom-client";
 import { log } from "@/util";
-import { R } from "@/server/bun-sqlite-store";
 
 let monitorCertDaysRemaining = null;
 let monitorCertIsValid = null;
@@ -37,11 +36,11 @@ class Prometheus {
      * Existing tags added to monitors will be updated automatically.
      * @returns {Promise<void>}
      */
-    static async init() {
+    static async init(store) {
         // Add all available tags as possible labels,
         // and use Set to remove possible duplicates (for when multiple tags contain non-ascii characters, and thus are sanitized to the same label)
         const tags = new Set(
-            (await R.findAll("tag"))
+            (await store.findAll("tag"))
                 .map((tag) => {
                     return Prometheus.sanitizeForPrometheus(tag.name);
                 })
@@ -102,11 +101,11 @@ class Prometheus {
      * Render the current Prometheus registry for a Bun HTTP response.
      * @returns {Promise<{ body: string, contentType: string }>} Metrics body and content type
      */
-    static async metrics(userID = null) {
+    static async metrics(store, userID = null) {
         let body = await PrometheusClient.register.metrics();
         if (userID !== null) {
             const monitorIDs = new Set(
-                (await R.getCol("SELECT id FROM monitor WHERE user_id = ?", [userID])).map(String)
+                (await store.getCol("SELECT id FROM monitor WHERE user_id = ?", [userID])).map(String)
             );
             body = body
                 .split("\n")

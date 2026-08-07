@@ -15,14 +15,16 @@ const chromium = {
 let configuredExecutable = "#playwright_chromium";
 
 mock.module("playwright-core", () => ({ chromium }));
-mock.module("@/server/settings-legacy", () => ({
-    Settings: {
+mock.module("@/server/settings-legacy", () => {
+    const Settings = {
         get: async () => configuredExecutable,
-    },
-}));
+    };
+    return { Settings, legacySettings: Settings };
+});
 
 let Monitor;
 let Database;
+let R;
 let RealBrowserMonitorType;
 let resetChrome;
 let resetRemoteBrowser;
@@ -30,7 +32,7 @@ let testChrome;
 let testRemoteBrowser;
 
 beforeAll(async () => {
-    await import("@/server/bun-sqlite-store");
+    ({ R } = await import("@/server/bun-sqlite-store"));
     Database = (await import("@/server/database")).default;
     Database.screenshotDir = "/tmp";
     Monitor = (await import("@/server/model/monitor")).default;
@@ -495,7 +497,7 @@ describe("real-browser monitor lifecycle", () => {
 
     test("a changed remote URL retires only the previous connection owner", async () => {
         let remoteURL = "ws://first.remote.test/browser";
-        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (id) => ({
+        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (_store, id, _userID) => ({
             id,
             name: "test remote",
             url: remoteURL,
@@ -511,6 +513,7 @@ describe("real-browser monitor lifecycle", () => {
             await new RealBrowserMonitorType().check(instance, {}, { jwtSecret: "test" });
 
             expect(chromium.connect).toHaveBeenCalledTimes(2);
+            expect(remote).toHaveBeenCalledWith(R, 7, 11);
             expect(firstBrowser.close).toHaveBeenCalledTimes(1);
             expect(secondBrowser.close).not.toHaveBeenCalled();
         } finally {
@@ -542,6 +545,7 @@ describe("real-browser monitor lifecycle", () => {
             expect(resetReturnedBeforeRetirement).toBe(false);
             expect(await settleWithin(check, 100)).toBe(true);
             expect(await check).toBeInstanceOf(Error);
+            expect(remote).toHaveBeenCalledWith(R, 7, 11);
             expect(lateBrowser.close).toHaveBeenCalledTimes(1);
         } finally {
             remote.mockRestore();
@@ -551,7 +555,7 @@ describe("real-browser monitor lifecycle", () => {
     test("one reset retires one hundred pending remote acquisitions before returning", async () => {
         const connections = Array.from({ length: 100 }, () => deferred());
         const browsers = Array.from({ length: 100 }, () => successfulBrowser());
-        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (id) => ({
+        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (_store, id, _userID) => ({
             id,
             name: `remote ${id}`,
             url: `ws://remote-${id}.test/browser`,
@@ -575,6 +579,7 @@ describe("real-browser monitor lifecycle", () => {
 
             expect(resetReturnedBeforeRetirement).toBe(false);
             expect(chromium.connect).toHaveBeenCalledTimes(100);
+            expect(remote.mock.calls.every(([store, _id, userID]) => store === R && userID === 11)).toBe(true);
             expect(results.every((result) => result instanceof Error)).toBe(true);
             expect(browsers.every((browser) => browser.close.mock.calls.length === 1)).toBe(true);
         } finally {
@@ -585,7 +590,7 @@ describe("real-browser monitor lifecycle", () => {
     test("resetRemoteBrowser waits only for the matching pending user and browser", async () => {
         const connections = [deferred(), deferred()];
         const browsers = [successfulBrowser(), successfulBrowser()];
-        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (id) => ({
+        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (_store, id, _userID) => ({
             id,
             name: `remote ${id}`,
             url: `ws://remote-${id}.test/browser`,
@@ -607,6 +612,10 @@ describe("real-browser monitor lifecycle", () => {
             await resetting;
 
             expect(resetReturnedBeforeRetirement).toBe(false);
+            expect(remote.mock.calls).toEqual([
+                [R, 7, 11],
+                [R, 8, 11],
+            ]);
             expect(await checks[0]).toBeInstanceOf(Error);
             expect(browsers[0].close).toHaveBeenCalledTimes(1);
             expect(await settleWithin(checks[1], 25)).toBe(false);
@@ -622,7 +631,7 @@ describe("real-browser monitor lifecycle", () => {
 
     test("one reset retires one hundred independent remote owners", async () => {
         const browsers = Array.from({ length: 100 }, () => successfulBrowser());
-        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (id) => ({
+        const remote = spyOn(RemoteBrowser, "get").mockImplementation(async (_store, id, _userID) => ({
             id,
             name: `remote ${id}`,
             url: `ws://remote-${id}.test/browser`,
@@ -640,6 +649,7 @@ describe("real-browser monitor lifecycle", () => {
             await resetChrome();
 
             expect(chromium.connect).toHaveBeenCalledTimes(100);
+            expect(remote.mock.calls.every(([store, _id, userID]) => store === R && userID === 11)).toBe(true);
             expect(browsers.every((browser) => browser.close.mock.calls.length === 1)).toBe(true);
         } finally {
             remote.mockRestore();
@@ -951,6 +961,7 @@ describe("real-browser monitor lifecycle", () => {
             connection.resolve(lateBrowser);
             const result = await check;
             expect(result).toBeInstanceOf(Error);
+            expect(remote).toHaveBeenCalledWith(R, 7, 11);
             expect(lateBrowser.close).toHaveBeenCalledTimes(1);
         } finally {
             remote.mockRestore();
@@ -984,6 +995,7 @@ describe("real-browser monitor lifecycle", () => {
         try {
             await instance.stop();
             expect(await check).toBeInstanceOf(Error);
+            expect(remote).toHaveBeenCalledWith(R, 8, 11);
             expect(browser.close).toHaveBeenCalledTimes(1);
             expect(disconnect).toHaveBeenCalledTimes(1);
         } finally {
