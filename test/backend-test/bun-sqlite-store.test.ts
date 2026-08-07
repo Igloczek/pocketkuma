@@ -683,6 +683,27 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(R.convertToBean("heartbeat", { monitor_id: 1 })).toBeInstanceOf(MODEL_REGISTRY.heartbeat);
     });
 
+    test("registered model serializers preserve stored identifiers", () => {
+        expect(R.convertToBean("tag", { id: 7, name: "monitor_name", color: "#D97706" }).toJSON()).toEqual({
+            id: 7,
+            name: "monitor_name",
+            color: "#D97706",
+        });
+        expect(
+            R.convertToBean("proxy", {
+                id: 8,
+                user_id: 3,
+                protocol: "http",
+                host: "127.0.0.1",
+                port: 8080,
+                auth: 0,
+                active: 1,
+                default: 0,
+                created_date: "2026-01-01 00:00:00",
+            }).toJSON()
+        ).toMatchObject({ id: 8, userId: 3, protocol: "http", host: "127.0.0.1", port: 8080 });
+    });
+
     test("stores monitor camelCase fields in canonical snake_case columns", async () => {
         await store.exec("INSERT INTO user (id, username, password, active) VALUES (?, ?, ?, ?)", [
             1,
