@@ -3,7 +3,6 @@
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 import { getMonitorRelativeURL, UP } from "@/util";
-import { Settings } from "@/server/settings-legacy";
 
 class GoogleChat extends NotificationProvider {
     name = "GoogleChat";
@@ -93,7 +92,7 @@ class GoogleChat extends NotificationProvider {
             }
 
             // add button for monitor link if available
-            const baseURL = await Settings.get("primaryBaseURL");
+            const baseURL = await this.settings.get("primaryBaseURL");
             if (baseURL) {
                 const urlPath = monitorJSON ? getMonitorRelativeURL(monitorJSON.id) : "/";
                 sectionWidgets.push({

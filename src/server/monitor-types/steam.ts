@@ -2,7 +2,6 @@
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { UP, PING_COUNT_DEFAULT, PING_PER_REQUEST_TIMEOUT_DEFAULT } from "@/util";
-import { Settings } from "@/server/settings-legacy";
 import { ping, checkStatusCode } from "@/server/util-server";
 import httpClient from "@/server/http-client";
 import dns from "node:dns/promises";
@@ -24,7 +23,7 @@ class SteamMonitorType extends MonitorType {
 
         this.steamApiClient = options.steamApiClient || httpClient;
         this.lookup = options.lookup || dns.lookup;
-        this.getSteamAPIKey = options.getSteamAPIKey || (() => Settings.get("steamAPIKey"));
+        this.getSteamAPIKey = options.getSteamAPIKey || (() => options.settings.get("steamAPIKey"));
         this.ping = options.ping || ping;
     }
 

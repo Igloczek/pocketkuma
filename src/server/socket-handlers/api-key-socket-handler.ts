@@ -12,7 +12,7 @@ import { clearResponseCache } from "@/server/bun-response";
 import APIKey from "@/server/model/api_key";
 import { sendAPIKeyList } from "@/server/client";
 
-export const apiKeySocketHandler = (socket, store, io, settings) => {
+export const apiKeySocketHandler = (socket, store, io, settings, responseCache) => {
     // Add a new api key
     socket.on("addAPIKey", async (key, callback) => {
         try {
@@ -77,7 +77,7 @@ export const apiKeySocketHandler = (socket, store, io, settings) => {
 
             await store.exec("DELETE FROM api_key WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -102,7 +102,7 @@ export const apiKeySocketHandler = (socket, store, io, settings) => {
 
             await store.exec("UPDATE api_key SET active = 0 WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -127,7 +127,7 @@ export const apiKeySocketHandler = (socket, store, io, settings) => {
 
             await store.exec("UPDATE api_key SET active = 1 WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,

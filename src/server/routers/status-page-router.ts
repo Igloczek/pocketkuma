@@ -255,7 +255,10 @@ async function statusPageBadgeResponse(store, url, slug, disableFrameSameOrigin)
     }
 }
 
-async function handleStatusPageRequest(request, { server, store, heartbeatData, settings, disableFrameSameOrigin }) {
+async function handleStatusPageRequest(
+    request,
+    { server, store, heartbeatData, settings, responseCache, disableFrameSameOrigin }
+) {
     if (request.method !== "GET" && request.method !== "HEAD") {
         return null;
     }
@@ -267,7 +270,7 @@ async function handleStatusPageRequest(request, { server, store, heartbeatData, 
     let match = pathname.match(/^\/status\/([^/]+)\/rss$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             statusPageRSSResponse(store, server, settings, slug, request, disableFrameSameOrigin)
         );
     }
@@ -275,13 +278,13 @@ async function handleStatusPageRequest(request, { server, store, heartbeatData, 
     match = pathname.match(/^\/status\/([^/]+)$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             statusPageHTMLResponse(store, server, slug, disableFrameSameOrigin)
         );
     }
 
     if (pathname === "/status" || pathname === "/status-page") {
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             statusPageHTMLResponse(store, server, "default", disableFrameSameOrigin)
         );
     }
@@ -289,7 +292,7 @@ async function handleStatusPageRequest(request, { server, store, heartbeatData, 
     match = pathname.match(/^\/api\/status-page\/heartbeat\/([^/]+)$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "1 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "1 minutes", () =>
             statusPageHeartbeatResponse(store, heartbeatData, slug, disableFrameSameOrigin)
         );
     }
@@ -297,7 +300,7 @@ async function handleStatusPageRequest(request, { server, store, heartbeatData, 
     match = pathname.match(/^\/api\/status-page\/([^/]+)\/manifest\.json$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "1440 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "1440 minutes", () =>
             statusPageManifestResponse(store, slug, disableFrameSameOrigin)
         );
     }
@@ -305,7 +308,7 @@ async function handleStatusPageRequest(request, { server, store, heartbeatData, 
     match = pathname.match(/^\/api\/status-page\/([^/]+)\/incident-history$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             incidentHistoryResponse(store, url, slug, disableFrameSameOrigin)
         );
     }
@@ -313,7 +316,7 @@ async function handleStatusPageRequest(request, { server, store, heartbeatData, 
     match = pathname.match(/^\/api\/status-page\/([^/]+)\/badge$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             statusPageBadgeResponse(store, url, slug, disableFrameSameOrigin)
         );
     }
@@ -321,7 +324,7 @@ async function handleStatusPageRequest(request, { server, store, heartbeatData, 
     match = pathname.match(/^\/api\/status-page\/([^/]+)$/);
     if (match) {
         const slug = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             statusPageConfigResponse(store, server, slug, disableFrameSameOrigin)
         );
     }

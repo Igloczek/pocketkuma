@@ -129,16 +129,22 @@ class BunSQLiteRedbean {
         }
     }
 
+    #beanForTable(table, row = {}) {
+        const bean = beanForTable(table, row);
+        Object.defineProperty(bean, "__store", { value: this, configurable: true });
+        return bean;
+    }
+
     dispense(table) {
-        return beanForTable(table);
+        return this.#beanForTable(table);
     }
 
     convertToBean(table, row = {}) {
-        return beanForTable(table, row);
+        return this.#beanForTable(table, row);
     }
 
     convertToBeans(table, rows = []) {
-        return rows.map((row) => beanForTable(table, row));
+        return rows.map((row) => this.#beanForTable(table, row));
     }
 
     #store(bean) {
@@ -291,12 +297,12 @@ class BunSQLiteRedbean {
 
     #find(table, condition = "", params = []) {
         const rows = this.#getAll(`SELECT * FROM "${table}" ${conditionSql(condition)}`, params);
-        return rows.map((row) => beanForTable(table, row));
+        return rows.map((row) => this.#beanForTable(table, row));
     }
 
     #findOne(table, condition = "", params = []) {
         const row = this.#getRow(`SELECT * FROM "${table}" ${conditionSql(condition)} LIMIT 1`, params);
-        return row ? beanForTable(table, row) : null;
+        return row ? this.#beanForTable(table, row) : null;
     }
 
     async exec(sql, params = []) {
@@ -513,6 +519,4 @@ class BunSQLiteRedbean {
     }
 }
 
-const R = new BunSQLiteRedbean();
-
-export { R, BeanModel, BunSQLiteRedbean, registerModel };
+export { BeanModel, BunSQLiteRedbean, registerModel };

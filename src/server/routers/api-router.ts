@@ -59,7 +59,7 @@ async function entryPageResponse(request, server, settings, disableFrameSameOrig
     });
 }
 
-async function pushResponse(url, pushToken, server, store, heartbeatData, disableFrameSameOrigin) {
+async function pushResponse(url, pushToken, server, store, heartbeatData, settings, disableFrameSameOrigin) {
     try {
         let msg = url.searchParams.get("msg") || "OK";
         const pingParam = url.searchParams.get("ping");
@@ -136,7 +136,7 @@ async function pushResponse(url, pushToken, server, store, heartbeatData, disabl
 
             server.io.to(monitor.user_id).emit("heartbeat", bean.toJSON());
 
-            await Monitor.sendStats(heartbeatData, server.io, monitor.id, monitor.user_id);
+            await Monitor.sendStats(heartbeatData, server.io, monitor.id, monitor.user_id, settings);
 
             try {
                 new Prometheus(monitor, await monitor.getTags(store)).update(bean, undefined);
@@ -605,7 +605,10 @@ async function isMonitorPublic(store, monitorID) {
     return !!publicMonitor;
 }
 
-async function handleApiRequest(request, { server, store, heartbeatData, settings, disableFrameSameOrigin }) {
+async function handleApiRequest(
+    request,
+    { server, store, heartbeatData, settings, responseCache, disableFrameSameOrigin }
+) {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
@@ -616,7 +619,7 @@ async function handleApiRequest(request, { server, store, heartbeatData, setting
     let match = pathname.match(/^\/api\/push\/([^/]+)$/);
     if (match) {
         const pushToken = decodePathParam(match[1]);
-        return pushResponse(url, pushToken, server, store, heartbeatData, disableFrameSameOrigin);
+        return pushResponse(url, pushToken, server, store, heartbeatData, settings, disableFrameSameOrigin);
     }
 
     if (request.method !== "GET" && request.method !== "HEAD") {
@@ -628,7 +631,7 @@ async function handleApiRequest(request, { server, store, heartbeatData, setting
     match = pathname.match(/^\/api\/badge\/([^/]+)\/status$/);
     if (match) {
         const id = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             badgeStatusResponse(store, heartbeatData, url, id, disableFrameSameOrigin)
         );
     }
@@ -637,7 +640,7 @@ async function handleApiRequest(request, { server, store, heartbeatData, setting
     if (match) {
         const id = decodePathParam(match[1]);
         const duration = match[2] === undefined ? undefined : decodePathParam(match[2]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             badgeUptimeResponse(store, heartbeatData, url, id, duration, disableFrameSameOrigin)
         );
     }
@@ -646,7 +649,7 @@ async function handleApiRequest(request, { server, store, heartbeatData, setting
     if (match) {
         const id = decodePathParam(match[1]);
         const duration = match[2] === undefined ? undefined : decodePathParam(match[2]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             badgePingResponse(store, heartbeatData, url, id, duration, disableFrameSameOrigin)
         );
     }
@@ -655,7 +658,7 @@ async function handleApiRequest(request, { server, store, heartbeatData, setting
     if (match) {
         const id = decodePathParam(match[1]);
         const duration = match[2] === undefined ? undefined : decodePathParam(match[2]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             badgeAvgResponseResponse(store, url, id, duration, disableFrameSameOrigin)
         );
     }
@@ -663,7 +666,7 @@ async function handleApiRequest(request, { server, store, heartbeatData, setting
     match = pathname.match(/^\/api\/badge\/([^/]+)\/cert-exp$/);
     if (match) {
         const id = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             badgeCertExpResponse(store, url, id, disableFrameSameOrigin)
         );
     }
@@ -671,7 +674,7 @@ async function handleApiRequest(request, { server, store, heartbeatData, setting
     match = pathname.match(/^\/api\/badge\/([^/]+)\/response$/);
     if (match) {
         const id = decodePathParam(match[1]);
-        return cachedResponse(cacheKey, "5 minutes", () =>
+        return cachedResponse(responseCache, cacheKey, "5 minutes", () =>
             badgeResponseResponse(store, heartbeatData, url, id, disableFrameSameOrigin)
         );
     }

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import TwoFA from "@/server/2fa";
 import { login } from "@/server/auth";
-import { BunSQLiteRedbean } from "@/server/bun-sqlite-store";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import User from "@/server/model/user";
 import passwordHash from "@/server/password-hash";
 import { initJWTSecret } from "@/server/server-auth-helpers";

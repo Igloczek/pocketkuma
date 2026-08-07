@@ -16,9 +16,11 @@ import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import Monitor from "@/server/model/monitor";
 import { Notification } from "@/server/notification";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
+import { Settings } from "@/server/settings";
 import { Prometheus } from "@/server/prometheus";
 import { handleApiRequest } from "@/server/routers/api-router";
 import { chartSocketHandler } from "@/server/socket-handlers/chart-socket-handler";
+import { createResponseCache } from "@/server/bun-response";
 import { DOWN, MAINTENANCE, PENDING, UP } from "@/util";
 
 const resources = [];
@@ -51,8 +53,11 @@ async function createRuntime(name, now = dayjs.utc("2026-08-07T12:00:00Z")) {
         [`${name}-monitor`]
     );
     const data = new HeartbeatDataPlane(store, { now: () => now });
-    resources.push({ directory, store });
-    return { data, store };
+    const settings = new Settings(store);
+    const server = new PocketKumaServer(store, settings);
+    const responseCache = createResponseCache();
+    resources.push({ directory, settings, store });
+    return { data, responseCache, server, settings, store };
 }
 
 function heartbeat(store, values = {}) {
@@ -74,7 +79,8 @@ afterEach(async () => {
     Monitor.sendNotification = originalSendNotification;
     Monitor.isUnderMaintenance = originalIsUnderMaintenance;
     Notification.send = originalNotificationSend;
-    for (const { directory, store } of resources.splice(0)) {
+    for (const { directory, settings, store } of resources.splice(0)) {
+        settings.stopCacheCleaner();
         await store.close();
         fs.rmSync(directory, { recursive: true, force: true });
     }
@@ -261,7 +267,7 @@ describe("heartbeat data plane", () => {
     });
 
     test("serializes concurrent push transitions and resend counters without lost updates", async () => {
-        const { data, store } = await createRuntime("push-race");
+        const { data, server, settings, store } = await createRuntime("push-race");
         Prometheus.prototype.update = () => {};
         await store.exec(
             "UPDATE monitor SET type = 'push', push_token = 'race-token', maxretries = 0, resend_interval = 0 WHERE id = 1"
@@ -270,7 +276,8 @@ describe("heartbeat data plane", () => {
         const notifications = [];
         Monitor.sendNotification = async (...args) => notifications.push(args);
         const io = { rooms: new Map(), to: () => ({ emit: () => {} }) };
-        const context = { server: { io }, store, heartbeatData: data, settings: {}, disableFrameSameOrigin: false };
+        server.io = io;
+        const context = { server, store, heartbeatData: data, settings, disableFrameSameOrigin: false };
 
         const responses = await Promise.all(
             [1, 2].map((request) =>
@@ -314,7 +321,7 @@ describe("heartbeat data plane", () => {
     });
 
     test("publishes concurrent push transitions in commit order and never publishes a failed commit", async () => {
-        const { data, store } = await createRuntime("push-publication-order");
+        const { data, server, settings, store } = await createRuntime("push-publication-order");
         Prometheus.prototype.update = () => {};
         await store.exec(
             "UPDATE monitor SET type = 'push', push_token = 'ordered-token', maxretries = 0, resend_interval = 0 WHERE id = 1"
@@ -342,7 +349,8 @@ describe("heartbeat data plane", () => {
                 },
             }),
         };
-        const context = { server: { io }, store, heartbeatData: data, settings: {}, disableFrameSameOrigin: false };
+        server.io = io;
+        const context = { server, store, heartbeatData: data, settings, disableFrameSameOrigin: false };
         const coordinator = new DatabaseMaintenanceCoordinator();
 
         const down = coordinator.run(() =>
@@ -392,7 +400,7 @@ describe("heartbeat data plane", () => {
     });
 
     test("revalidates a push scheduler timeout behind a concurrent API heartbeat", async () => {
-        const { data, store } = await createRuntime("push-scheduler-revalidate");
+        const { data, responseCache, server, settings, store } = await createRuntime("push-scheduler-revalidate");
         Prometheus.prototype.update = () => {};
         await store.exec(
             "UPDATE monitor SET type = 'push', push_token = 'scheduler-token', interval = 60, maxretries = 0 WHERE id = 1"
@@ -428,19 +436,20 @@ describe("heartbeat data plane", () => {
                 },
             }),
         };
-        const server = { io, sendMaintenanceListByUserID: async () => {} };
+        server.io = io;
+        server.sendMaintenanceListByUserID = async () => {};
         const monitor = await store.load("monitor", 1);
         let scheduled;
         monitor.scheduleHeartbeat = (callback, delay) => {
             scheduled = { callback, delay };
         };
-        await monitor.start(io, data, server);
+        await monitor.start(io, data, server, undefined, responseCache);
         scheduled.callback();
         await schedulerPaused.promise;
 
         const pushed = await handleApiRequest(
             new Request("http://localhost/api/push/scheduler-token?status=up&msg=fresh-api-beat"),
-            { server, store, heartbeatData: data, settings: {}, disableFrameSameOrigin: false }
+            { server, store, heartbeatData: data, settings, disableFrameSameOrigin: false }
         );
         expect(await pushed.json()).toEqual({ ok: true });
         resumeScheduler.resolve();
@@ -453,7 +462,7 @@ describe("heartbeat data plane", () => {
     });
 
     test("writes one DOWN when a push scheduler timeout remains stale", async () => {
-        const { data, store } = await createRuntime("push-scheduler-timeout");
+        const { data, responseCache, server: runtimeServer, store } = await createRuntime("push-scheduler-timeout");
         Prometheus.prototype.update = () => {};
         await store.exec("UPDATE monitor SET type = 'push', interval = 60, maxretries = 0 WHERE id = 1");
         await data.write(
@@ -476,21 +485,15 @@ describe("heartbeat data plane", () => {
                 },
             }),
         };
-        const runtimeServer = PocketKumaServer.getInstance();
-        const originalSendMaintenanceList = runtimeServer.sendMaintenanceListByUserID;
         runtimeServer.sendMaintenanceListByUserID = async () => {};
-        try {
-            const monitor = await store.load("monitor", 1);
-            let scheduled;
-            monitor.scheduleHeartbeat = (callback, delay) => {
-                scheduled = { callback, delay };
-            };
-            await monitor.start(io, data, runtimeServer);
-            scheduled.callback();
-            await monitor.activeHeartbeat;
-        } finally {
-            runtimeServer.sendMaintenanceListByUserID = originalSendMaintenanceList;
-        }
+        const monitor = await store.load("monitor", 1);
+        let scheduled;
+        monitor.scheduleHeartbeat = (callback, delay) => {
+            scheduled = { callback, delay };
+        };
+        await monitor.start(io, data, runtimeServer, undefined, responseCache);
+        scheduled.callback();
+        await monitor.activeHeartbeat;
 
         expect((await data.list(1)).map((bean) => bean.status)).toEqual([UP, DOWN]);
         expect(notifications).toEqual([DOWN]);
@@ -535,9 +538,10 @@ describe("heartbeat data plane", () => {
     });
 
     test("does not allocate uptime buckets for anonymous or read-only requests and bounds the registry", async () => {
-        const { data, store } = await createRuntime("read-only", dayjs.utc());
+        const { data, responseCache, server, settings, store } = await createRuntime("read-only", dayjs.utc());
         const io = { rooms: new Map(), to: () => ({ emit: () => {} }) };
-        const context = { server: { io }, store, heartbeatData: data, settings: {}, disableFrameSameOrigin: false };
+        server.io = io;
+        const context = { server, store, heartbeatData: data, settings, responseCache, disableFrameSameOrigin: false };
 
         for (let id = 1; id <= 50; id++) {
             const response = await handleApiRequest(
@@ -601,13 +605,14 @@ describe("heartbeat data plane", () => {
             }
         }
 
-        const runtimeServer = PocketKumaServer.getInstance();
-        const previousMaintenanceList = runtimeServer.maintenanceList;
-        const previousTimezone = runtimeServer.getTimezone;
-        const previousTimezoneOffset = runtimeServer.getTimezoneOffset;
-        runtimeServer.maintenanceList = { 1: { isUnderMaintenance: async () => true } };
-        runtimeServer.getTimezone = async () => "UTC";
-        runtimeServer.getTimezoneOffset = () => "+00:00";
+        const firstSettings = first.settings;
+        const secondSettings = second.settings;
+        const firstServer = first.server;
+        const secondServer = second.server;
+        firstServer.maintenanceList = { 1: { isUnderMaintenance: async () => true } };
+        secondServer.maintenanceList = {};
+        firstServer.getTimezone = secondServer.getTimezone = async () => "UTC";
+        firstServer.getTimezoneOffset = secondServer.getTimezoneOffset = () => "+00:00";
         const sent = [];
         Notification.send = async (_registry, _config, _msg, monitorJSON) => sent.push(monitorJSON);
 
@@ -618,8 +623,8 @@ describe("heartbeat data plane", () => {
                 rooms: new Map([[1, new Set(["client"])]]),
                 to: () => ({ emit: (...args) => events.push(args) }),
             });
-            await Monitor.sendStats(first.data, io(firstEvents), 1, 1);
-            await Monitor.sendStats(second.data, io(secondEvents), 1, 1);
+            await Monitor.sendStats(first.data, io(firstEvents), 1, 1, firstSettings);
+            await Monitor.sendStats(second.data, io(secondEvents), 1, 1, secondSettings);
             expect(firstEvents).toContainEqual(["certInfo", 1, JSON.stringify({ certInfo: "first" })]);
             expect(secondEvents).toContainEqual(["certInfo", 1, JSON.stringify({ certInfo: "second" })]);
 
@@ -630,14 +635,14 @@ describe("heartbeat data plane", () => {
                 firstMonitor,
                 heartbeat(first.store, { status: DOWN }),
                 first.store,
-                runtimeServer
+                firstServer
             );
             await Monitor.sendNotification(
                 false,
                 secondMonitor,
                 heartbeat(second.store, { status: DOWN }),
                 second.store,
-                runtimeServer
+                secondServer
             );
             expect(sent.map((monitor) => [monitor.tags[0].name, monitor.maintenance])).toEqual([
                 ["first-tag", true],
@@ -645,9 +650,8 @@ describe("heartbeat data plane", () => {
             ]);
             expect(sent.map((monitor) => Object.keys(monitor.notificationIDList))).toEqual([["1"], ["1"]]);
         } finally {
-            runtimeServer.maintenanceList = previousMaintenanceList;
-            runtimeServer.getTimezone = previousTimezone;
-            runtimeServer.getTimezoneOffset = previousTimezoneOffset;
+            firstSettings.stopCacheCleaner();
+            secondSettings.stopCacheCleaner();
         }
     });
 
@@ -729,7 +733,7 @@ describe("heartbeat data plane", () => {
     });
 
     test("keeps push retry, upside-down, live heartbeat, list, and stats payloads compatible", async () => {
-        const { data, store } = await createRuntime("payloads");
+        const { data, server, settings, store } = await createRuntime("payloads");
         await store.exec("UPDATE monitor SET push_token = 'retry-token', maxretries = 2 WHERE id = 1");
         await store.exec(
             "INSERT INTO monitor (id, name, user_id, active, interval, type, push_token, upside_down) VALUES (2, 'upside-down', 1, 1, 60, 'push', 'flip-token', 1)"
@@ -739,12 +743,12 @@ describe("heartbeat data plane", () => {
             rooms: new Map(),
             to: () => ({ emit: (...args) => emitted.push(args) }),
         };
-        const server = { io };
+        server.io = io;
         Prometheus.prototype.update = () => {};
 
         const pendingResponse = await handleApiRequest(
             new Request("http://localhost/api/push/retry-token?status=down&ping=0&msg=retry"),
-            { server, store, heartbeatData: data, settings: {}, disableFrameSameOrigin: false }
+            { server, store, heartbeatData: data, settings, disableFrameSameOrigin: false }
         );
         expect(await pendingResponse.json()).toEqual({ ok: true });
         expect((await data.latest(1)).toJSON()).toMatchObject({
@@ -757,7 +761,7 @@ describe("heartbeat data plane", () => {
 
         const flippedResponse = await handleApiRequest(
             new Request("http://localhost/api/push/flip-token?status=down&ping=0"),
-            { server, store, heartbeatData: data, settings: {}, disableFrameSameOrigin: false }
+            { server, store, heartbeatData: data, settings, disableFrameSameOrigin: false }
         );
         expect(await flippedResponse.json()).toEqual({ ok: true });
         expect((await data.latest(2)).toJSON()).toMatchObject({ status: UP, ping: 0, retries: 0 });
@@ -780,8 +784,8 @@ describe("heartbeat data plane", () => {
         Monitor.sendDomainInfo = async () => {};
         io.rooms.set(1, new Set(["client"]));
         try {
-            await Monitor.sendStats(data, io, 1, 1);
-            await Monitor.sendStats(data, io, 2, 1);
+            await Monitor.sendStats(data, io, 1, 1, settings);
+            await Monitor.sendStats(data, io, 2, 1, settings);
         } finally {
             Monitor.sendCertInfo = originalCert;
             Monitor.sendDomainInfo = originalDomain;

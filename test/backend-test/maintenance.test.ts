@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import Cron from "croner";
 import dayjs from "dayjs";
@@ -10,9 +10,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Maintenance from "@/server/model/maintenance";
-import { BunSQLiteRedbean, R } from "@/server/bun-sqlite-store";
-import { cachedResponse, clearResponseCache, textResponse } from "@/server/bun-response";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
+import "@/server/model-registry";
+import { cachedResponse, clearResponseCache, createResponseCache, textResponse } from "@/server/bun-response";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
+import { Settings } from "@/server/settings";
 import { maintenanceSocketHandler } from "@/server/socket-handlers/maintenance-socket-handler";
 
 dayjs.extend(utc);
@@ -20,22 +22,37 @@ dayjs.extend(timezone);
 
 describe("maintenance validation and timer lifecycle", () => {
     const originalClearTimeout = global.clearTimeout;
-    const originalBegin = R.begin;
-    const originalStore = R.store;
-    const originalFindOne = R.findOne;
-    const originalSendMaintenanceList = PocketKumaServer.getInstance().sendMaintenanceList;
-    const originalSendMaintenanceListByUserID = PocketKumaServer.getInstance().sendMaintenanceListByUserID;
-    const originalGetTimezone = PocketKumaServer.getInstance().getTimezone;
-    const runtimeServer = PocketKumaServer.getInstance();
+    let runtimeStore;
+    let runtimeSettings;
+    let runtimeServer;
+    let responseCache;
+    let originals;
 
-    afterEach(() => {
+    beforeEach(() => {
+        runtimeStore = new BunSQLiteRedbean();
+        runtimeSettings = new Settings(runtimeStore);
+        runtimeServer = new PocketKumaServer(runtimeStore, runtimeSettings);
+        responseCache = createResponseCache();
+        originals = {
+            begin: runtimeStore.begin,
+            store: runtimeStore.store,
+            findOne: runtimeStore.findOne,
+            sendMaintenanceList: runtimeServer.sendMaintenanceList,
+            sendMaintenanceListByUserID: runtimeServer.sendMaintenanceListByUserID,
+            getTimezone: runtimeServer.getTimezone,
+        };
+    });
+
+    afterEach(async () => {
         global.clearTimeout = originalClearTimeout;
-        R.begin = originalBegin;
-        R.store = originalStore;
-        R.findOne = originalFindOne;
-        PocketKumaServer.getInstance().sendMaintenanceList = originalSendMaintenanceList;
-        PocketKumaServer.getInstance().sendMaintenanceListByUserID = originalSendMaintenanceListByUserID;
-        PocketKumaServer.getInstance().getTimezone = originalGetTimezone;
+        runtimeStore.begin = originals.begin;
+        runtimeStore.store = originals.store;
+        runtimeStore.findOne = originals.findOne;
+        runtimeServer.sendMaintenanceList = originals.sendMaintenanceList;
+        runtimeServer.sendMaintenanceListByUserID = originals.sendMaintenanceListByUserID;
+        runtimeServer.getTimezone = originals.getTimezone;
+        runtimeSettings.stopCacheCleaner();
+        await runtimeStore.close();
     });
 
     const schedule = (strategy, overrides = {}) => ({
@@ -121,26 +138,28 @@ describe("maintenance validation and timer lifecycle", () => {
     test("uses the supplied runtime server for SAME_AS_SERVER monitor maintenance", async () => {
         const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-monitor-maintenance-"));
         try {
-            await R.connect({
+            await runtimeStore.connect({
                 sqlitePath: path.join(directory, "kuma.db"),
                 templatePath: path.join(process.cwd(), "src/db/kuma.db"),
                 testMode: true,
             });
-            await R.exec("INSERT INTO monitor (id, name, active, interval, type) VALUES (1, 'Test', 1, 60, 'http')");
-            await R.exec(
+            await runtimeStore.exec(
+                "INSERT INTO monitor (id, name, active, interval, type) VALUES (1, 'Test', 1, 60, 'http')"
+            );
+            await runtimeStore.exec(
                 "INSERT INTO monitor (id, name, active, interval, type, parent) VALUES (2, 'Child', 1, 60, 'http', 1)"
             );
-            const maintenance = Object.assign(R.dispense("maintenance"), {
+            const maintenance = Object.assign(runtimeStore.dispense("maintenance"), {
                 title: "Server timezone window",
                 description: "",
                 active: true,
                 strategy: "single",
-                start_date: R.isoDateTime(dayjs.utc().subtract(1, "hour")),
-                end_date: R.isoDateTime(dayjs.utc().add(1, "hour")),
+                start_date: runtimeStore.isoDateTime(dayjs.utc().subtract(1, "hour")),
+                end_date: runtimeStore.isoDateTime(dayjs.utc().add(1, "hour")),
                 timezone: "SAME_AS_SERVER",
             });
-            await R.store(maintenance);
-            await R.exec("INSERT INTO monitor_maintenance (monitor_id, maintenance_id) VALUES (1, ?)", [
+            await runtimeStore.store(maintenance);
+            await runtimeStore.exec("INSERT INTO monitor_maintenance (monitor_id, maintenance_id) VALUES (1, ?)", [
                 maintenance.id,
             ]);
 
@@ -156,11 +175,11 @@ describe("maintenance validation and timer lifecycle", () => {
             };
 
             const { default: Monitor } = await import("@/server/model/monitor");
-            expect(await Monitor.isUnderMaintenance(R, 1, runtimeServer)).toBe(true);
-            expect(await Monitor.isUnderMaintenance(R, 2, runtimeServer)).toBe(true);
+            expect(await Monitor.isUnderMaintenance(runtimeStore, 1, runtimeServer)).toBe(true);
+            expect(await Monitor.isUnderMaintenance(runtimeStore, 2, runtimeServer)).toBe(true);
             expect(timezoneCalls).toBeGreaterThan(0);
         } finally {
-            await R.close();
+            await runtimeStore.close();
             fs.rmSync(directory, { recursive: true, force: true });
         }
     });
@@ -179,7 +198,7 @@ describe("maintenance validation and timer lifecycle", () => {
             beanMeta: { job: { stop() {} }, durationTimeout: 99, status: "under-maintenance" },
         });
 
-        await maintenance.run(R, runtimeServer, true);
+        await maintenance.run(runtimeStore, runtimeServer, true, false, responseCache);
 
         expect(maintenance.beanMeta.job).toBeUndefined();
         expect(maintenance.beanMeta.durationTimeout).toBeUndefined();
@@ -311,7 +330,7 @@ describe("maintenance validation and timer lifecycle", () => {
     });
 
     test("falls back to the server timezone when serializing a malformed legacy timezone", async () => {
-        PocketKumaServer.getInstance().getTimezone = async () => "UTC";
+        runtimeServer.getTimezone = async () => "UTC";
         const maintenance = Object.assign(new Maintenance(), {
             id: 1,
             title: "Legacy timezone",
@@ -343,7 +362,7 @@ describe("maintenance validation and timer lifecycle", () => {
             end_date: date(60_000),
         });
 
-        await active.run(R, runtimeServer, true);
+        await active.run(runtimeStore, runtimeServer, true, false, responseCache);
         expect(active.beanMeta.job).toBeUndefined();
         expect(active.beanMeta.endJob).toBeDefined();
         const staleEnd = active.beanMeta.endJob.fn;
@@ -361,7 +380,7 @@ describe("maintenance validation and timer lifecycle", () => {
             start_date: date(60_000),
             end_date: date(120_000),
         });
-        await future.run(R, runtimeServer, true);
+        await future.run(runtimeStore, runtimeServer, true, false, responseCache);
         expect(future.beanMeta.job).toBeDefined();
         expect(future.beanMeta.endJob).toBeDefined();
         future.stop();
@@ -375,13 +394,13 @@ describe("maintenance validation and timer lifecycle", () => {
             start_date: date(-120_000),
             end_date: date(-60_000),
         });
-        await ended.run(R, runtimeServer, true);
+        await ended.run(runtimeStore, runtimeServer, true, false, responseCache);
         expect(ended.beanMeta.job).toBeUndefined();
         expect(ended.beanMeta.endJob).toBeUndefined();
     });
 
     test("keeps exactly one job across twenty reloads and blocks callbacks after stop", async () => {
-        const maintenance = Object.assign(R.dispense("maintenance"), {
+        const maintenance = Object.assign(runtimeStore.dispense("maintenance"), {
             id: 1,
             user_id: 1,
             active: 1,
@@ -394,7 +413,7 @@ describe("maintenance validation and timer lifecycle", () => {
         const previousJobs = [];
 
         for (let index = 0; index < 20; index++) {
-            await maintenance.run(R, runtimeServer, true);
+            await maintenance.run(runtimeStore, runtimeServer, true, false, responseCache);
             expect(maintenance.beanMeta.job).toBeDefined();
             expect(previousJobs.every((job) => job.isStopped())).toBe(true);
             previousJobs.push(maintenance.beanMeta.job);
@@ -409,10 +428,10 @@ describe("maintenance validation and timer lifecycle", () => {
             }
             return new Promise((resolve) => (releaseTimezone = resolve));
         };
-        await maintenance.run(R, runtimeServer, true);
+        await maintenance.run(runtimeStore, runtimeServer, true, false, responseCache);
         const pendingCallback = maintenance.beanMeta.job.fn();
         maintenance.stop();
-        R.store = async () => {
+        runtimeStore.store = async () => {
             throw new Error("stopped callbacks must not persist");
         };
         releaseTimezone("UTC");
@@ -434,14 +453,14 @@ describe("maintenance validation and timer lifecycle", () => {
             duration: 60,
             timezone: "UTC",
         });
-        await maintenance.run(R, runtimeServer, true);
+        await maintenance.run(runtimeStore, runtimeServer, true, false, responseCache);
 
         let releaseDuration;
         maintenance.inferDuration = () => new Promise((resolve) => (releaseDuration = resolve));
         const pendingCallback = maintenance.beanMeta.job.fn();
         await Bun.sleep(0);
         maintenance.stop();
-        R.store = async () => {
+        runtimeStore.store = async () => {
             throw new Error("stopped callbacks must not persist");
         };
         releaseDuration(1_000);
@@ -456,8 +475,8 @@ describe("maintenance validation and timer lifecycle", () => {
     test("rehydrates an active window without persistence or publication and keeps one timer set", async () => {
         let stores = 0;
         let publications = 0;
-        R.store = async () => stores++;
-        PocketKumaServer.getInstance().sendMaintenanceListByUserID = async () => publications++;
+        runtimeStore.store = async () => stores++;
+        runtimeServer.sendMaintenanceListByUserID = async () => publications++;
         const maintenance = Object.assign(new Maintenance(), {
             id: 1,
             user_id: 1,
@@ -471,7 +490,7 @@ describe("maintenance validation and timer lifecycle", () => {
         const previousJobs = [];
 
         for (let index = 0; index < 20; index++) {
-            await maintenance.run(R, runtimeServer, true, true);
+            await maintenance.run(runtimeStore, runtimeServer, true, true, responseCache);
             expect(maintenance.beanMeta.job).toBeDefined();
             expect(maintenance.beanMeta.durationTimeout).toBeDefined();
             expect(previousJobs.every((job) => job.isStopped())).toBe(true);
@@ -490,23 +509,23 @@ describe("maintenance validation and timer lifecycle", () => {
     test("keeps a concurrent pause outside a failed edit transaction until callback and cache publication", async () => {
         const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-isolation-"));
         const sqlitePath = path.join(directory, "kuma.db");
-        const server = PocketKumaServer.getInstance();
+        const server = runtimeServer;
         const previousMaintenanceList = server.maintenanceList;
-        clearResponseCache();
+        clearResponseCache(responseCache);
 
         try {
-            await R.connect({
+            await runtimeStore.connect({
                 sqlitePath,
                 templatePath: path.join(process.cwd(), "src/db/kuma.db"),
                 testMode: true,
             });
-            await R.exec("INSERT INTO user (id, username, password, active) VALUES (?, ?, ?, ?)", [
+            await runtimeStore.exec("INSERT INTO user (id, username, password, active) VALUES (?, ?, ?, ?)", [
                 1,
                 "owner",
                 "hash",
                 1,
             ]);
-            const bean = Object.assign(R.dispense("maintenance"), {
+            const bean = Object.assign(runtimeStore.dispense("maintenance"), {
                 title: "Before edit",
                 description: "",
                 user_id: 1,
@@ -517,14 +536,14 @@ describe("maintenance validation and timer lifecycle", () => {
                 weekdays: "[]",
                 days_of_month: "[]",
             });
-            const maintenanceID = await R.store(bean);
+            const maintenanceID = await runtimeStore.store(bean);
             server.maintenanceList = { [maintenanceID]: bean };
             server.sendMaintenanceList = async () => server.maintenanceList;
 
-            await R.exec(
+            await runtimeStore.exec(
                 "CREATE TABLE maintenance_commit_guard (parent_id INTEGER REFERENCES maintenance(id) DEFERRABLE INITIALLY DEFERRED)"
             );
-            await R.exec(`
+            await runtimeStore.exec(`
                 CREATE TRIGGER reject_isolated_maintenance_edit
                 AFTER UPDATE ON maintenance
                 WHEN NEW.title = 'Rollback edit'
@@ -537,8 +556,8 @@ describe("maintenance validation and timer lifecycle", () => {
             let releaseCommit;
             const commitStarted = new Promise((resolve) => (signalCommitStarted = resolve));
             const commitRelease = new Promise((resolve) => (releaseCommit = resolve));
-            R.begin = async function () {
-                const transaction = await originalBegin.call(this);
+            runtimeStore.begin = async function () {
+                const transaction = await originals.begin.call(this);
                 const commit = transaction.commit;
                 transaction.commit = async () => {
                     signalCommitStarted();
@@ -556,12 +575,13 @@ describe("maintenance validation and timer lifecycle", () => {
                         handlers.set(event, handler);
                     },
                 },
-                R,
-                server
+                runtimeStore,
+                server,
+                responseCache
             );
             const editCallbacks = [];
             const pauseCallbacks = [];
-            await cachedResponse("maintenance-isolation", "1 hour", () => textResponse("before"));
+            await cachedResponse(responseCache, "maintenance-isolation", "1 hour", () => textResponse("before"));
 
             const editTask = handlers.get("editMaintenance")(
                 {
@@ -605,18 +625,22 @@ describe("maintenance validation and timer lifecycle", () => {
             expect(pauseCallbacks).toEqual([{ ok: true, msg: "successPaused", msgi18n: true }]);
             expect(server.maintenanceList[maintenanceID]).toBe(bean);
             expect(bean.active).toBe(false);
-            expect(await R.getRow("SELECT title, active FROM maintenance WHERE id = ?", [maintenanceID])).toEqual({
+            expect(
+                await runtimeStore.getRow("SELECT title, active FROM maintenance WHERE id = ?", [maintenanceID])
+            ).toEqual({
                 title: "Before edit",
                 active: 0,
             });
-            const refreshed = await cachedResponse("maintenance-isolation", "1 hour", () => textResponse("after"));
+            const refreshed = await cachedResponse(responseCache, "maintenance-isolation", "1 hour", () =>
+                textResponse("after")
+            );
             expect(await refreshed.text()).toBe("after");
         } finally {
-            R.begin = originalBegin;
-            server.sendMaintenanceList = originalSendMaintenanceList;
+            runtimeStore.begin = originals.begin;
+            server.sendMaintenanceList = originals.sendMaintenanceList;
             server.maintenanceList = previousMaintenanceList;
-            clearResponseCache();
-            await R.close();
+            clearResponseCache(responseCache);
+            await runtimeStore.close();
             fs.rmSync(directory, { recursive: true, force: true });
         }
     });
@@ -624,13 +648,13 @@ describe("maintenance validation and timer lifecycle", () => {
     test("rolls back when addMaintenance fails on its first transaction operation", async () => {
         const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-add-first-error-"));
         const store = new BunSQLiteRedbean();
-        const originalBeginForTest = R.begin;
+        const originalBeginForTest = runtimeStore.begin;
         await store.connect({
             sqlitePath: path.join(directory, "kuma.db"),
             templatePath: path.join(process.cwd(), "src/db/kuma.db"),
             testMode: true,
         });
-        R.begin = async () => {
+        runtimeStore.begin = async () => {
             const transaction = await store.begin();
             transaction.store = async () => {
                 throw new Error("forced first add operation failure");
@@ -647,8 +671,9 @@ describe("maintenance validation and timer lifecycle", () => {
                         handlers.set(event, handler);
                     },
                 },
-                R,
-                PocketKumaServer.getInstance()
+                runtimeStore,
+                runtimeServer,
+                responseCache
             );
             const callbacks = [];
             await handlers.get("addMaintenance")(schedule("manual", { timezoneOption: "UTC" }), (result) =>
@@ -658,7 +683,7 @@ describe("maintenance validation and timer lifecycle", () => {
             expect(callbacks).toEqual([{ ok: false, msg: "forced first add operation failure" }]);
             await expect(store.getCell("SELECT 1")).resolves.toBe(1);
         } finally {
-            R.begin = originalBeginForTest;
+            runtimeStore.begin = originalBeginForTest;
             await store.close();
             fs.rmSync(directory, { recursive: true, force: true });
         }
@@ -667,9 +692,9 @@ describe("maintenance validation and timer lifecycle", () => {
     test("rolls back when relation replacement fails on its first transaction operation", async () => {
         const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-relation-first-error-"));
         const store = new BunSQLiteRedbean();
-        const server = PocketKumaServer.getInstance();
+        const server = runtimeServer;
         const previousMaintenanceList = server.maintenanceList;
-        const originalBeginForTest = R.begin;
+        const originalBeginForTest = runtimeStore.begin;
         await store.connect({
             sqlitePath: path.join(directory, "kuma.db"),
             templatePath: path.join(process.cwd(), "src/db/kuma.db"),
@@ -691,8 +716,8 @@ describe("maintenance validation and timer lifecycle", () => {
             END
         `);
         server.maintenanceList = { 1: { id: 1, user_id: 1 } };
-        R.findOne = async () => ({ id: 2, user_id: 1 });
-        R.begin = store.begin.bind(store);
+        runtimeStore.findOne = async () => ({ id: 2, user_id: 1 });
+        runtimeStore.begin = store.begin.bind(store);
 
         try {
             const handlers = new Map();
@@ -703,8 +728,9 @@ describe("maintenance validation and timer lifecycle", () => {
                         handlers.set(event, handler);
                     },
                 },
-                R,
-                server
+                runtimeStore,
+                server,
+                responseCache
             );
             const callbacks = [];
             await handlers.get("addMonitorMaintenance")(1, [{ id: 2 }], (result) => callbacks.push(result));
@@ -713,8 +739,8 @@ describe("maintenance validation and timer lifecycle", () => {
             await expect(store.getCell("SELECT 1")).resolves.toBe(1);
             expect(await store.count("monitor_maintenance")).toBe(1);
         } finally {
-            R.begin = originalBeginForTest;
-            R.findOne = originalFindOne;
+            runtimeStore.begin = originalBeginForTest;
+            runtimeStore.findOne = originals.findOne;
             server.maintenanceList = previousMaintenanceList;
             await store.close();
             fs.rmSync(directory, { recursive: true, force: true });
@@ -724,9 +750,9 @@ describe("maintenance validation and timer lifecycle", () => {
     test("rolls back when edit setup fails immediately after begin", async () => {
         const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-maintenance-first-error-"));
         const store = new BunSQLiteRedbean();
-        const server = PocketKumaServer.getInstance();
+        const server = runtimeServer;
         const previousMaintenanceList = server.maintenanceList;
-        const originalBeginForTest = R.begin;
+        const originalBeginForTest = runtimeStore.begin;
         await store.connect({
             sqlitePath: path.join(directory, "kuma.db"),
             templatePath: path.join(process.cwd(), "src/db/kuma.db"),
@@ -749,7 +775,7 @@ describe("maintenance validation and timer lifecycle", () => {
         };
         server.maintenanceList = { 1: bean };
         let transaction;
-        R.begin = async () => (transaction = await store.begin());
+        runtimeStore.begin = async () => (transaction = await store.begin());
 
         try {
             const handlers = new Map();
@@ -760,8 +786,9 @@ describe("maintenance validation and timer lifecycle", () => {
                         handlers.set(event, handler);
                     },
                 },
-                R,
-                server
+                runtimeStore,
+                server,
+                responseCache
             );
             const callbacks = [];
             await handlers.get("editMaintenance")(
@@ -796,7 +823,7 @@ describe("maintenance validation and timer lifecycle", () => {
                 ])
             ).resolves.toBe(1);
         } finally {
-            R.begin = originalBeginForTest;
+            runtimeStore.begin = originalBeginForTest;
             server.maintenanceList = previousMaintenanceList;
             await transaction?.rollback();
             await store.close();
@@ -846,8 +873,10 @@ describe("maintenance validation and timer lifecycle", () => {
             const secondHandlers = new Map();
             const firstRuntime = runtime();
             const secondRuntime = runtime();
-            maintenanceSocketHandler(socket(1, firstHandlers), first, firstRuntime);
-            maintenanceSocketHandler(socket(2, secondHandlers), second, secondRuntime);
+            const firstCache = createResponseCache();
+            const secondCache = createResponseCache();
+            maintenanceSocketHandler(socket(1, firstHandlers), first, firstRuntime, firstCache);
+            maintenanceSocketHandler(socket(2, secondHandlers), second, secondRuntime, secondCache);
 
             const firstResult = [];
             const secondResult = [];
@@ -866,7 +895,7 @@ describe("maintenance validation and timer lifecycle", () => {
             expect(await second.getCell("SELECT title FROM maintenance WHERE id = 1")).toBe("Second");
 
             const foreignHandlers = new Map();
-            maintenanceSocketHandler(socket(3, foreignHandlers), first, firstRuntime);
+            maintenanceSocketHandler(socket(3, foreignHandlers), first, firstRuntime, firstCache);
             const denied = [];
             await foreignHandlers.get("deleteMaintenance")(1, (result) => denied.push(result));
             expect(denied).toEqual([{ ok: false, msg: "Maintenance not found" }]);

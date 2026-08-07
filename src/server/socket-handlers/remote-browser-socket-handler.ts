@@ -10,15 +10,14 @@ import { checkLogin } from "@/server/util-server";
 import { RemoteBrowser } from "@/server/remote-browser";
 import { log } from "@/util";
 
-export const remoteBrowserSocketHandler = (socket, store, io) => {
+export const remoteBrowserSocketHandler = (socket, store, io, server) => {
     socket.on("addRemoteBrowser", async (remoteBrowser, remoteBrowserID, callback) => {
         try {
             checkLogin(socket);
 
             let remoteBrowserBean = await RemoteBrowser.save(store, remoteBrowser, remoteBrowserID, socket.userID);
             if (remoteBrowserID) {
-                const { resetRemoteBrowser } = await import("@/server/monitor-types/real-browser-monitor-type");
-                await resetRemoteBrowser(remoteBrowserID, socket.userID);
+                await server.getLoadedMonitorType("real-browser")?.resetRemoteBrowser(remoteBrowserID, socket.userID);
             }
             await sendRemoteBrowserList(store, io, socket);
 
@@ -41,8 +40,7 @@ export const remoteBrowserSocketHandler = (socket, store, io) => {
             checkLogin(socket);
 
             await RemoteBrowser.delete(store, dockerHostID, socket.userID);
-            const { resetRemoteBrowser } = await import("@/server/monitor-types/real-browser-monitor-type");
-            await resetRemoteBrowser(dockerHostID, socket.userID);
+            await server.getLoadedMonitorType("real-browser")?.resetRemoteBrowser(dockerHostID, socket.userID);
             await sendRemoteBrowserList(store, io, socket);
 
             callback({
@@ -62,8 +60,8 @@ export const remoteBrowserSocketHandler = (socket, store, io) => {
         try {
             checkLogin(socket);
 
-            const { testRemoteBrowser } = await import("@/server/monitor-types/real-browser-monitor-type");
-            let check = await testRemoteBrowser(remoteBrowser.url);
+            const monitorType = await server.getMonitorType("real-browser");
+            let check = await monitorType.testRemoteBrowser(remoteBrowser.url);
             log.info("remoteBrowser", "Tested remote browser: " + check);
             let msg;
 

@@ -5,7 +5,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Database as BunDatabase } from "bun:sqlite";
-import { R } from "@/server/bun-sqlite-store";
 import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import { BeanModel } from "@/server/bean-model";
 import { MODEL_REGISTRY } from "@/server/model-registry";
@@ -31,11 +30,11 @@ function createFaultingStore(faults) {
     });
 }
 
-function importInOrder(first, second, facade, registry) {
+function importInOrder(first, second, core, registry) {
     const result = Bun.spawnSync([
         process.execPath,
         "-e",
-        `await import(${JSON.stringify(first)}); await import(${JSON.stringify(second)}); const { R } = await import(${JSON.stringify(facade)}); const { MODEL_REGISTRY } = await import(${JSON.stringify(registry)}); if (!(R.dispense("monitor") instanceof MODEL_REGISTRY.monitor) || !(R.dispense("heartbeat") instanceof MODEL_REGISTRY.heartbeat)) throw new Error("legacy facade lost typed beans");`,
+        `await import(${JSON.stringify(first)}); await import(${JSON.stringify(second)}); const { BunSQLiteRedbean } = await import(${JSON.stringify(core)}); const { MODEL_REGISTRY } = await import(${JSON.stringify(registry)}); const store = new BunSQLiteRedbean(); if (!(store.dispense("monitor") instanceof MODEL_REGISTRY.monitor) || !(store.dispense("heartbeat") instanceof MODEL_REGISTRY.heartbeat)) throw new Error("explicit store lost typed beans");`,
     ]);
     return { exitCode: result.exitCode, stderr: new TextDecoder().decode(result.stderr) };
 }
@@ -83,18 +82,15 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(inputs.filter((input) => forbidden.some((boundary) => input.includes(boundary)))).toEqual([]);
     });
 
-    test("allows core, facade, and registry imports in either order", () => {
+    test("allows core and registry imports in either order", () => {
         const core = path.join(process.cwd(), "src/server/sqlite-core.ts");
-        const facade = path.join(process.cwd(), "src/server/bun-sqlite-store.ts");
         const registry = path.join(process.cwd(), "src/server/model-registry.ts");
 
         for (const [first, second] of [
             [core, registry],
             [registry, core],
-            [facade, registry],
-            [registry, facade],
         ]) {
-            const result = importInOrder(first, second, facade, registry);
+            const result = importInOrder(first, second, core, registry);
             expect(result.exitCode, result.stderr).toBe(0);
         }
     });
@@ -678,29 +674,31 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(store.dispense("not_a_model")).toBeInstanceOf(BeanModel);
     });
 
-    test("legacy R always creates typed monitor and heartbeat beans", () => {
-        expect(R.dispense("monitor")).toBeInstanceOf(MODEL_REGISTRY.monitor);
-        expect(R.convertToBean("heartbeat", { monitor_id: 1 })).toBeInstanceOf(MODEL_REGISTRY.heartbeat);
+    test("each explicit store creates typed monitor and heartbeat beans", () => {
+        expect(store.dispense("monitor")).toBeInstanceOf(MODEL_REGISTRY.monitor);
+        expect(store.convertToBean("heartbeat", { monitor_id: 1 })).toBeInstanceOf(MODEL_REGISTRY.heartbeat);
     });
 
     test("registered model serializers preserve stored identifiers", () => {
-        expect(R.convertToBean("tag", { id: 7, name: "monitor_name", color: "#D97706" }).toJSON()).toEqual({
+        expect(store.convertToBean("tag", { id: 7, name: "monitor_name", color: "#D97706" }).toJSON()).toEqual({
             id: 7,
             name: "monitor_name",
             color: "#D97706",
         });
         expect(
-            R.convertToBean("proxy", {
-                id: 8,
-                user_id: 3,
-                protocol: "http",
-                host: "127.0.0.1",
-                port: 8080,
-                auth: 0,
-                active: 1,
-                default: 0,
-                created_date: "2026-01-01 00:00:00",
-            }).toJSON()
+            store
+                .convertToBean("proxy", {
+                    id: 8,
+                    user_id: 3,
+                    protocol: "http",
+                    host: "127.0.0.1",
+                    port: 8080,
+                    auth: 0,
+                    active: 1,
+                    default: 0,
+                    created_date: "2026-01-01 00:00:00",
+                })
+                .toJSON()
         ).toMatchObject({ id: 8, userId: 3, protocol: "http", host: "127.0.0.1", port: 8080 });
     });
 

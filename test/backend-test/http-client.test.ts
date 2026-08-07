@@ -7,7 +7,10 @@ import https from "node:https";
 import net from "node:net";
 import path from "node:path";
 import httpClient from "@/server/http-client";
-import { R } from "@/server/bun-sqlite-store";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
+import "@/server/model-registry";
+
+const store = new BunSQLiteRedbean();
 
 let ipv6ProxyServer;
 try {
@@ -381,7 +384,7 @@ describe("fetch HTTP client", () => {
     });
 
     test("monitor keyword path can read response text through fetch wrapper", async () => {
-        const monitor = R.convertToBean("monitor");
+        const monitor = store.convertToBean("monitor");
         monitor.auth_method = null;
 
         const res = await monitor.makeHttpMonitorRequest({
@@ -394,7 +397,7 @@ describe("fetch HTTP client", () => {
     });
 
     test("monitor rejects unsupported fetch transport settings explicitly", async () => {
-        const monitor = R.convertToBean("monitor");
+        const monitor = store.convertToBean("monitor");
         monitor.auth_method = "mtls";
 
         await expect(monitor.assertFetchHttpTransportSupported()).rejects.toThrow(
@@ -421,7 +424,7 @@ describe("fetch HTTP client", () => {
     });
 
     test("monitor maps an active persisted proxy to Bun fetch options", async () => {
-        const monitor = R.convertToBean("monitor", {
+        const monitor = store.convertToBean("monitor", {
             type: "http",
             user_id: 1,
             auth_method: null,
@@ -429,8 +432,8 @@ describe("fetch HTTP client", () => {
             ignore_tls: 0,
             ip_family: null,
         });
-        const originalFindOne = R.findOne;
-        R.findOne = async () => ({
+        const originalFindOne = store.findOne;
+        store.findOne = async () => ({
             active: true,
             protocol: "http",
             host: "127.0.0.1",
@@ -444,12 +447,12 @@ describe("fetch HTTP client", () => {
             expect(options.proxy).toBe(`${proxyUrl}/`);
             expect((await monitor.makeHttpMonitorRequest(options)).data).toEqual({ ok: true });
         } finally {
-            R.findOne = originalFindOne;
+            store.findOne = originalFindOne;
         }
     });
 
     test("monitor scopes exact Basic proxy auth to a compliant proxy across targets and redirects", async () => {
-        const monitor = R.convertToBean("monitor", {
+        const monitor = store.convertToBean("monitor", {
             type: "http",
             user_id: 1,
             auth_method: null,
@@ -457,9 +460,9 @@ describe("fetch HTTP client", () => {
             ignore_tls: 0,
             ip_family: null,
         });
-        const originalFindOne = R.findOne;
+        const originalFindOne = store.findOne;
         let loadedPassword = proxyPassword;
-        R.findOne = async () => ({
+        store.findOne = async () => ({
             active: true,
             protocol: "http",
             host: "127.0.0.1",
@@ -515,12 +518,12 @@ describe("fetch HTTP client", () => {
             expect(serializedError).not.toContain(loadedPassword);
             expect(serializedError).not.toContain(rejectedAuthorization);
         } finally {
-            R.findOne = originalFindOne;
+            store.findOne = originalFindOne;
         }
     });
 
     test("persisted SOCKS proxy is rejected before fetch without exposing credentials", async () => {
-        const monitor = R.convertToBean("monitor", {
+        const monitor = store.convertToBean("monitor", {
             type: "http",
             user_id: 1,
             auth_method: null,
@@ -528,9 +531,9 @@ describe("fetch HTTP client", () => {
             ignore_tls: 0,
             ip_family: null,
         });
-        const originalFindOne = R.findOne;
+        const originalFindOne = store.findOne;
         const secret = "socks-secret%@:/密碼";
-        R.findOne = async () => ({
+        store.findOne = async () => ({
             active: true,
             protocol: "socks5h",
             host: "127.0.0.1",
@@ -548,12 +551,12 @@ describe("fetch HTTP client", () => {
             expect(error.message).not.toContain(secret);
             expect(monitor.proxy_id).toBe(9);
         } finally {
-            R.findOne = originalFindOne;
+            store.findOne = originalFindOne;
         }
     });
 
     test("monitor brackets a raw IPv6 proxy host", async () => {
-        const monitor = R.convertToBean("monitor", {
+        const monitor = store.convertToBean("monitor", {
             type: "http",
             user_id: 1,
             auth_method: null,
@@ -561,8 +564,8 @@ describe("fetch HTTP client", () => {
             ignore_tls: 0,
             ip_family: null,
         });
-        const originalFindOne = R.findOne;
-        R.findOne = async () => ({
+        const originalFindOne = store.findOne;
+        store.findOne = async () => ({
             active: true,
             protocol: "http",
             host: "::1",
@@ -576,7 +579,7 @@ describe("fetch HTTP client", () => {
             expect(options.proxy).toBe(`http://[::1]:${ipv6ProxyServer.port}/`);
             expect((await monitor.makeHttpMonitorRequest(options)).data).toEqual({ ok: true });
         } finally {
-            R.findOne = originalFindOne;
+            store.findOne = originalFindOne;
         }
     });
 
@@ -590,7 +593,7 @@ describe("fetch HTTP client", () => {
     });
 
     test("monitor rejects ignoreTls with an HTTPS proxy instead of weakening proxy validation", async () => {
-        const monitor = R.convertToBean("monitor", {
+        const monitor = store.convertToBean("monitor", {
             type: "http",
             user_id: 1,
             auth_method: null,
@@ -598,8 +601,8 @@ describe("fetch HTTP client", () => {
             ignore_tls: 1,
             ip_family: null,
         });
-        const originalFindOne = R.findOne;
-        R.findOne = async () => ({
+        const originalFindOne = store.findOne;
+        store.findOne = async () => ({
             active: true,
             protocol: "https",
             host: "127.0.0.1",
@@ -612,12 +615,12 @@ describe("fetch HTTP client", () => {
                 /ignore TLS.*HTTPS proxy.*not supported/i
             );
         } finally {
-            R.findOne = originalFindOne;
+            store.findOne = originalFindOne;
         }
     });
 
     test("monitor keeps ignoreTls working for a self-signed target through an HTTP proxy", async () => {
-        const monitor = R.convertToBean("monitor", {
+        const monitor = store.convertToBean("monitor", {
             type: "http",
             user_id: 1,
             auth_method: null,
@@ -625,8 +628,8 @@ describe("fetch HTTP client", () => {
             ignore_tls: 1,
             ip_family: null,
         });
-        const originalFindOne = R.findOne;
-        R.findOne = async () => ({
+        const originalFindOne = store.findOne;
+        store.findOne = async () => ({
             active: true,
             protocol: "http",
             host: "127.0.0.1",
@@ -639,7 +642,7 @@ describe("fetch HTTP client", () => {
             await monitor.assertFetchHttpTransportSupported(options);
             expect((await monitor.makeHttpMonitorRequest(options)).data).toBe("self-signed-ok");
         } finally {
-            R.findOne = originalFindOne;
+            store.findOne = originalFindOne;
         }
     });
 
@@ -657,7 +660,7 @@ describe("fetch HTTP client", () => {
     });
 
     test("monitor honors ignoreTls against a deterministic self-signed TLS fixture", async () => {
-        const monitor = R.convertToBean("monitor");
+        const monitor = store.convertToBean("monitor");
         monitor.auth_method = null;
         monitor.proxy_id = null;
         monitor.ignoreTls = true;
@@ -694,7 +697,7 @@ describe("fetch HTTP client", () => {
     });
 
     test("persisted forced HTTP IP family remains explicitly rejected", async () => {
-        const monitor = R.convertToBean("monitor");
+        const monitor = store.convertToBean("monitor");
         monitor.auth_method = null;
         monitor.proxy_id = null;
         monitor.ignoreTls = false;
@@ -704,13 +707,13 @@ describe("fetch HTTP client", () => {
     });
 
     test("saved response size behavior remains truncation after the response is read", async () => {
-        const monitor = R.convertToBean("monitor");
+        const monitor = store.convertToBean("monitor");
         monitor.response_max_length = 5;
         const bean = {};
 
         await monitor.saveResponseData(bean, "abcdef");
 
-        expect(await R.dispense("heartbeat").constructor.decodeResponseValue(bean.response)).toBe(
+        expect(await store.dispense("heartbeat").constructor.decodeResponseValue(bean.response)).toBe(
             "abcde... (truncated)"
         );
     });

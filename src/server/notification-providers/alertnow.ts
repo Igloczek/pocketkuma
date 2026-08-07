@@ -3,7 +3,6 @@
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 import { getMonitorRelativeURL, UP, DOWN } from "@/util";
-import { Settings } from "@/server/settings-legacy";
 
 class AlertNow extends NotificationProvider {
     name = "AlertNow";
@@ -31,7 +30,7 @@ class AlertNow extends NotificationProvider {
 
             textMsg += ` - ${msg}`;
 
-            const baseURL = await Settings.get("primaryBaseURL");
+            const baseURL = await this.settings.get("primaryBaseURL");
             if (baseURL && monitorJSON) {
                 textMsg += ` >> ${baseURL + getMonitorRelativeURL(monitorJSON.id)}`;
             }

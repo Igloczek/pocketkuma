@@ -10,7 +10,7 @@ import {
     sendProxyList,
     sendRemoteBrowserList,
 } from "@/server/client";
-import { BunSQLiteRedbean } from "@/server/bun-sqlite-store";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import { DockerHost } from "@/server/docker";
 import { Notification } from "@/server/notification";
 import { Proxy } from "@/server/proxy";

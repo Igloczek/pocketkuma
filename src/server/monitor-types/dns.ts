@@ -3,7 +3,6 @@
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { UP, log } from "@/util";
 import dayjs from "dayjs";
-import { R } from "@/server/bun-sqlite-store";
 import { ConditionVariable } from "@/server/monitor-conditions/variables";
 import { defaultStringOperators } from "@/server/monitor-conditions/operators";
 import { ConditionExpressionGroup } from "@/server/monitor-conditions/expression";
@@ -13,6 +12,11 @@ import net from "node:net";
 
 class DnsMonitorType extends MonitorType {
     name = "dns";
+
+    constructor(store) {
+        super();
+        this.store = store;
+    }
 
     supportsConditions = true;
 
@@ -97,7 +101,7 @@ class DnsMonitorType extends MonitorType {
         }
 
         if (monitor.dns_last_result !== dnsMessage && dnsMessage !== undefined) {
-            await R.exec("UPDATE `monitor` SET dns_last_result = ? WHERE id = ? ", [dnsMessage, monitor.id]);
+            await this.store.exec("UPDATE `monitor` SET dns_last_result = ? WHERE id = ? ", [dnsMessage, monitor.id]);
         }
 
         if (!conditionsResult) {

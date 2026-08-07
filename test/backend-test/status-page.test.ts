@@ -5,9 +5,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import StatusPage from "@/server/model/status_page";
-import { BunSQLiteRedbean } from "@/server/bun-sqlite-store";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import { statusPageSocketHandler } from "@/server/socket-handlers/status-page-socket-handler";
-import { Settings as legacySettings } from "@/server/settings-legacy";
+import { createResponseCache } from "@/server/bun-response";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { STATUS_PAGE_ALL_UP, STATUS_PAGE_ALL_DOWN, STATUS_PAGE_PARTIAL_DOWN, STATUS_PAGE_MAINTENANCE } from "@/util";
@@ -132,7 +132,8 @@ describe("StatusPage", () => {
                 },
                 store,
                 server,
-                { async set() {} }
+                { async set() {} },
+                createResponseCache()
             );
 
             const callbacks = [];
@@ -233,7 +234,8 @@ describe("StatusPage", () => {
                 },
                 store,
                 server,
-                { async set() {} }
+                { async set() {} },
+                createResponseCache()
             );
 
             const callbacks = [];
@@ -251,8 +253,6 @@ describe("StatusPage", () => {
 
     test("uses injected trustProxy settings for entry-page host resolution", async () => {
         const { handleApiRequest } = await import("@/server/routers/api-router");
-        const originalGet = legacySettings.get;
-        legacySettings.get = async () => true;
         const request = new Request("http://app.example/api/entry-page", {
             headers: { host: "app.example", "x-forwarded-host": "status.example.com" },
         });
@@ -260,31 +260,27 @@ describe("StatusPage", () => {
             entryPage: "dashboard",
             statusPageDomainMappingList: { "status.example.com": "status" },
         };
-        try {
-            const untrusted = await handleApiRequest(request, {
-                server,
-                settings: {
-                    async get() {
-                        return false;
-                    },
+        const untrusted = await handleApiRequest(request, {
+            server,
+            settings: {
+                async get() {
+                    return false;
                 },
-                disableFrameSameOrigin: false,
-            });
-            expect(await untrusted.json()).toEqual({ type: "entryPage", entryPage: "dashboard" });
+            },
+            disableFrameSameOrigin: false,
+        });
+        expect(await untrusted.json()).toEqual({ type: "entryPage", entryPage: "dashboard" });
 
-            const trusted = await handleApiRequest(request, {
-                server,
-                settings: {
-                    async get() {
-                        return true;
-                    },
+        const trusted = await handleApiRequest(request, {
+            server,
+            settings: {
+                async get() {
+                    return true;
                 },
-                disableFrameSameOrigin: false,
-            });
-            expect(await trusted.json()).toEqual({ type: "statusPageMatchedDomain", statusPageSlug: "status" });
-        } finally {
-            legacySettings.get = originalGet;
-        }
+            },
+            disableFrameSameOrigin: false,
+        });
+        expect(await trusted.json()).toEqual({ type: "statusPageMatchedDomain", statusPageSlug: "status" });
     });
 
     describe("getStatusDescription()", () => {

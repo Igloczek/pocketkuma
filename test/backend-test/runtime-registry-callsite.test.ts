@@ -16,12 +16,13 @@ import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { Prometheus } from "@/server/prometheus";
 import { handleApiRequest } from "@/server/routers/api-router";
 import { BunSQLiteRedbean } from "@/server/sqlite-core";
+import { Settings } from "@/server/settings";
 import { checkCertExpiryNotifications } from "@/server/tls-cert";
 import { UP } from "@/util";
+import { createResponseCache } from "@/server/bun-response";
 
 const resources = [];
 const mocks = [];
-const originalServerInstance = PocketKumaServer.instance;
 const originalPrometheusUpdate = Prometheus.prototype.update;
 
 dayjs.extend(utc);
@@ -41,12 +42,14 @@ async function createRuntime(name, type = "owned") {
         type,
     ]);
     const heartbeatData = new HeartbeatDataPlane(store);
-    resources.push({ directory, store });
-    return { heartbeatData, store };
+    const responseCache = createResponseCache();
+    const settings = new Settings(store);
+    resources.push({ directory, settings, store });
+    return { heartbeatData, responseCache, settings, store };
 }
 
-function createServer(owner, monitorInstances = [], sends = []) {
-    const server = new PocketKumaServer();
+function createServer(owner, store, settings, monitorInstances = [], sends = []) {
+    const server = new PocketKumaServer(store, settings);
     server.monitorRuntimeRegistry = new MonitorRuntimeRegistry(server, {
         owned: {
             load: async () => {
@@ -72,7 +75,7 @@ function createServer(owner, monitorInstances = [], sends = []) {
             }
         },
     });
-    server.notificationProviderRegistry = new NotificationProviderRegistry({
+    server.notificationProviderRegistry = new NotificationProviderRegistry(settings, {
         domain: provider("domain"),
         normal: provider("normal"),
         cert: provider("cert"),
@@ -88,12 +91,12 @@ function createServer(owner, monitorInstances = [], sends = []) {
 }
 
 afterEach(async () => {
-    PocketKumaServer.instance = originalServerInstance;
     Prometheus.prototype.update = originalPrometheusUpdate;
     for (const mock of mocks.splice(0)) {
         mock.mockRestore();
     }
-    for (const { directory, store } of resources.splice(0)) {
+    for (const { directory, settings, store } of resources.splice(0)) {
+        settings.stopCacheCleaner();
         await store.close();
         fs.rmSync(directory, { recursive: true, force: true });
     }
@@ -102,14 +105,12 @@ afterEach(async () => {
 describe("runtime registry production call sites", () => {
     test("parallel scheduler checks use their own monitor and domain provider owners", async () => {
         Prometheus.prototype.update = () => {};
-        const singleton = createServer("singleton");
-        PocketKumaServer.instance = singleton;
         const firstInstances = [];
         const secondInstances = [];
-        const first = createServer("first", firstInstances);
-        const second = createServer("second", secondInstances);
         const firstRuntime = await createRuntime("first");
         const secondRuntime = await createRuntime("second");
+        const first = createServer("first", firstRuntime.store, firstRuntime.settings, firstInstances);
+        const second = createServer("second", secondRuntime.store, secondRuntime.settings, secondInstances);
         await Promise.all([
             firstRuntime.store.exec("UPDATE monitor SET domain_expiry_notification = 1 WHERE id = 1"),
             secondRuntime.store.exec("UPDATE monitor SET domain_expiry_notification = 1 WHERE id = 1"),
@@ -131,8 +132,8 @@ describe("runtime registry production call sites", () => {
         firstMonitor.scheduleHeartbeat = () => {};
         secondMonitor.scheduleHeartbeat = () => {};
         await Promise.all([
-            firstMonitor.start(first.io, firstRuntime.heartbeatData, first),
-            secondMonitor.start(second.io, secondRuntime.heartbeatData, second),
+            firstMonitor.start(first.io, firstRuntime.heartbeatData, first, undefined, firstRuntime.responseCache),
+            secondMonitor.start(second.io, secondRuntime.heartbeatData, second, undefined, secondRuntime.responseCache),
         ]);
         await Promise.all([firstMonitor.activeHeartbeat, secondMonitor.activeHeartbeat].filter(Boolean));
         await Promise.all(domainLoads);
@@ -144,16 +145,12 @@ describe("runtime registry production call sites", () => {
         expect(firstInstances[0]).not.toBe(secondInstances[0]);
         expect(first.notificationProviderRegistry.getLoadedProviders()).toEqual(["domain"]);
         expect(second.notificationProviderRegistry.getLoadedProviders()).toEqual(["domain"]);
-        expect(singleton.monitorRuntimeRegistry.getLoadedTypes()).toEqual([]);
-        expect(singleton.notificationProviderRegistry.getLoadedProviders()).toEqual([]);
     });
 
     test("API push and certificate notifications resolve providers from the passed runtime", async () => {
-        const singleton = createServer("singleton");
-        PocketKumaServer.instance = singleton;
         const sends = [];
-        const runtimeServer = createServer("runtime", [], sends);
-        const { heartbeatData, store } = await createRuntime("notifications", "push");
+        const { heartbeatData, settings, store } = await createRuntime("notifications", "push");
+        const runtimeServer = createServer("runtime", store, settings, [], sends);
         Prometheus.prototype.update = () => {};
         await store.exec(
             "UPDATE monitor SET push_token = 'owner-token', maxretries = 0, kafka_producer_brokers = '[]', rabbitmq_nodes = '[]', conditions = '[]' WHERE id = 1"
@@ -181,7 +178,7 @@ describe("runtime registry production call sites", () => {
                 server: runtimeServer,
                 store,
                 heartbeatData,
-                settings: {},
+                settings,
                 disableFrameSameOrigin: false,
             }
         );
@@ -211,6 +208,5 @@ describe("runtime registry production call sites", () => {
 
         expect(runtimeServer.notificationProviderRegistry.getLoadedProviders().sort()).toEqual(["cert", "normal"]);
         expect(sends.map(({ name }) => name)).toEqual(["normal", "normal", "cert"]);
-        expect(singleton.notificationProviderRegistry.getLoadedProviders()).toEqual([]);
     });
 });

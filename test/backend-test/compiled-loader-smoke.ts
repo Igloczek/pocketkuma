@@ -1,9 +1,10 @@
 import { MonitorRuntimeRegistry, OPTIONAL_MONITOR_TYPES } from "@/server/monitor-runtime-registry";
 import { NotificationProviderRegistry, OPTIONAL_NOTIFICATION_PROVIDERS } from "@/server/notification-provider-registry";
 
-const server = { getUserAgent: () => "PocketKuma compiled loader smoke" };
+const settings = { get: async () => null };
+const server = { store: {}, settings, getUserAgent: () => "PocketKuma compiled loader smoke" };
 const monitorRegistry = new MonitorRuntimeRegistry(server);
-const notificationRegistry = new NotificationProviderRegistry();
+const notificationRegistry = new NotificationProviderRegistry(settings);
 
 for (const name of OPTIONAL_MONITOR_TYPES) {
     if (!(await monitorRegistry.get(name))) {

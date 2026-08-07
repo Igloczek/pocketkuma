@@ -8,8 +8,11 @@ const CORE_MONITOR_TYPES = ["http", "keyword", "json-query", "ping", "push", "do
 
 const optionalMonitorDefinitions = {
     "real-browser": {
-        load: async () =>
-            new (await import("@/server/monitor-types/real-browser-monitor-type")).RealBrowserMonitorType(),
+        load: async (server) =>
+            new (await import("@/server/monitor-types/real-browser-monitor-type")).RealBrowserMonitorType(
+                server.store,
+                server.settings
+            ),
     },
     "tailscale-ping": {
         load: async () => new (await import("@/server/monitor-types/tailscale-ping")).TailscalePing(),
@@ -20,7 +23,7 @@ const optionalMonitorDefinitions = {
     dns: {
         supportsConditions: true,
         conditionVariables: [new ConditionVariable("record", defaultStringOperators)],
-        load: async () => new (await import("@/server/monitor-types/dns")).DnsMonitorType(),
+        load: async (server) => new (await import("@/server/monitor-types/dns")).DnsMonitorType(server.store),
     },
     postgres: {
         load: async () => new (await import("@/server/monitor-types/postgres")).PostgresMonitorType(),
@@ -59,7 +62,8 @@ const optionalMonitorDefinitions = {
         load: async () => new (await import("@/server/monitor-types/gamedig")).GameDigMonitorType(),
     },
     steam: {
-        load: async () => new (await import("@/server/monitor-types/steam")).SteamMonitorType(),
+        load: async (server) =>
+            new (await import("@/server/monitor-types/steam")).SteamMonitorType({ settings: server.settings }),
     },
     port: {
         load: async () => new (await import("@/server/monitor-types/tcp")).TCPMonitorType(),
@@ -70,7 +74,11 @@ const optionalMonitorDefinitions = {
     },
     globalping: {
         load: async (server) =>
-            new (await import("@/server/monitor-types/globalping")).GlobalpingMonitorType(server.getUserAgent()),
+            new (await import("@/server/monitor-types/globalping")).GlobalpingMonitorType(
+                server.store,
+                server.settings,
+                server.getUserAgent()
+            ),
     },
     redis: {
         load: async () => new (await import("@/server/monitor-types/redis")).RedisMonitorType(),
@@ -148,6 +156,10 @@ class MonitorRuntimeRegistry {
 
     getLoadedTypes() {
         return [...this.loaded.keys()];
+    }
+
+    getLoaded(name) {
+        return this.loaded.get(name) || null;
     }
 }
 

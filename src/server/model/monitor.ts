@@ -43,12 +43,9 @@ import {
     encodeBase64,
     checkCertExpiryNotifications,
 } from "@/server/util-server";
-import { R } from "@/server/bun-sqlite-store";
-import { legacySettings } from "@/server/settings-legacy";
 import { BeanModel } from "@/server/bean-model";
 import { Notification } from "@/server/notification";
 import { demoMode } from "@/server/config";
-import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { DockerHost } from "@/server/docker";
 import jwt from "@/server/jwt";
 import zlib from "node:zlib";
@@ -58,6 +55,7 @@ import packageJson from "@/package-meta";
 import { clearResponseCache } from "@/server/bun-response";
 import { inspectRemoteCertificate } from "@/server/tls-cert";
 import { buildProxyFetchOption, resolveCoreHttpProxy } from "@/server/proxy-validation";
+import { writeErrorLog } from "@/server/error-log";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const version = packageJson.version;
@@ -232,7 +230,7 @@ class Monitor extends BeanModel {
         let screenshot = null;
 
         if (this.type === "real-browser") {
-            screenshot = "/screenshots/" + jwt.sign(this.id, PocketKumaServer.getInstance().jwtSecret) + ".png";
+            screenshot = "/screenshots/" + jwt.sign(this.id, preloadData.jwtSecret) + ".png";
         }
 
         const path = preloadData.paths.get(this.id) || [];
@@ -375,7 +373,7 @@ class Monitor extends BeanModel {
      * @returns {Promise<LooseObject<any>[]>} List of tags on the
      * monitor
      */
-    async getTags(store = R) {
+    async getTags(store = this.__store) {
         return await store.getAll(
             "SELECT mt.*, tag.name, tag.color FROM monitor_tag mt JOIN tag ON mt.tag_id = tag.id WHERE mt.monitor_id = ? ORDER BY tag.name",
             [this.id]
@@ -388,8 +386,8 @@ class Monitor extends BeanModel {
      * @returns {Promise<LooseObject<any>>} Certificate expiry info for
      * monitor
      */
-    async getCertExpiry(monitorID) {
-        let tlsInfoBean = await R.findOne("monitor_tls_info", "monitor_id = ?", [monitorID]);
+    async getCertExpiry(monitorID, store = this.__store) {
+        let tlsInfoBean = await store.findOne("monitor_tls_info", "monitor_id = ?", [monitorID]);
         let tlsInfo;
         if (tlsInfoBean) {
             tlsInfo = JSON.parse(tlsInfoBean?.info_json);
@@ -523,7 +521,8 @@ class Monitor extends BeanModel {
      * @param {Server} io Socket server instance
      * @returns {Promise<void>}
      */
-    async start(io, heartbeatData, server, runHeartbeatWrite = (operation) => operation()) {
+    async start(io, heartbeatData, server, runHeartbeatWrite = (operation) => operation(), responseCache) {
+        const store = heartbeatData.store;
         this.normalizeRuntimeConfig();
         this.clearHeartbeatTimer();
         this.isStop = false;
@@ -687,7 +686,7 @@ class Monitor extends BeanModel {
                     }
 
                     log.debug("monitor", `[${this.name}] Prepare Options for fetch`);
-                    await this.assertFetchHttpTransportSupported(options);
+                    await this.assertFetchHttpTransportSupported(options, store);
 
                     log.debug("monitor", `[${this.name}] Fetch Options prepared (proxy: ${Boolean(options.proxy)})`);
                     log.debug("monitor", `[${this.name}] Fetch Request`);
@@ -714,7 +713,8 @@ class Monitor extends BeanModel {
                                     await this.handleTlsInfo(
                                         tlsInfo,
                                         server.notificationProviderRegistry,
-                                        heartbeatData.store
+                                        server.settings,
+                                        store
                                     );
                                 }
                             }
@@ -844,7 +844,7 @@ class Monitor extends BeanModel {
                         },
                     };
 
-                    const dockerHost = await R.load("docker_host", this.docker_host);
+                    const dockerHost = await store.load("docker_host", this.docker_host);
 
                     if (!dockerHost) {
                         throw new Error("Failed to load docker host config");
@@ -1024,13 +1024,15 @@ class Monitor extends BeanModel {
 
             if (bean.status !== MAINTENANCE && Boolean(this.domainExpiryNotification)) {
                 try {
-                    const supportInfo = await DomainExpiry.checkSupport(this);
-                    const domainExpiryDate = await DomainExpiry.checkExpiry(supportInfo.domain);
+                    const supportInfo = await DomainExpiry.checkSupport(this, server.settings);
+                    const domainExpiryDate = await DomainExpiry.checkExpiry(supportInfo.domain, store, server.settings);
                     if (domainExpiryDate) {
                         DomainExpiry.sendNotifications(
                             server.notificationProviderRegistry,
+                            server.settings,
+                            store,
                             supportInfo.domain,
-                            (await Monitor.getNotificationList(this, heartbeatData.store)) || []
+                            (await Monitor.getNotificationList(this, store)) || []
                         );
                     } else {
                         log.debug("monitor", `Failed getting expiration date for domain ${supportInfo.domain}`);
@@ -1172,13 +1174,13 @@ class Monitor extends BeanModel {
 
                     if (isImportant) {
                         log.debug("monitor", `[${this.name}] response cache clear`);
-                        clearResponseCache();
+                        clearResponseCache(responseCache);
                         await server.sendMaintenanceListByUserID(this.user_id);
                     }
 
                     log.debug("monitor", `[${this.name}] Send to socket`);
                     io.to(this.user_id).emit("heartbeat", bean.toJSON());
-                    await Monitor.sendStats(heartbeatData, io, this.id, this.user_id);
+                    await Monitor.sendStats(heartbeatData, io, this.id, this.user_id, server.settings);
 
                     log.debug("monitor", `[${this.name}] prometheus.update`);
                     const data24h = calculator.get24Hour();
@@ -1223,7 +1225,7 @@ class Monitor extends BeanModel {
                         return;
                     }
                     console.trace(e);
-                    PocketKumaServer.errorLog(e, false);
+                    writeErrorLog(e, false);
                     log.error("monitor", "Please report to https://github.com/Igloczek/pocketkuma/issues");
 
                     if (!isStale()) {
@@ -1313,7 +1315,7 @@ class Monitor extends BeanModel {
      * @param {object} options HTTP request options
      * @returns {Promise<void>}
      */
-    async assertFetchHttpTransportSupported(options = {}) {
+    async assertFetchHttpTransportSupported(options = {}, store = this.__store) {
         if (this.auth_method === "ntlm") {
             throw new Error("NTLM monitor authentication is not supported by the Bun fetch HTTP client");
         }
@@ -1328,7 +1330,7 @@ class Monitor extends BeanModel {
 
         // TLS cert expiry is handled by a separate inspectRemoteCertificate() pass.
 
-        const proxy = await resolveCoreHttpProxy(R, this.type, this.proxy_id, this.user_id, this.getIgnoreTls());
+        const proxy = await resolveCoreHttpProxy(store, this.type, this.proxy_id, this.user_id, this.getIgnoreTls());
         if (proxy) {
             options.proxy = buildProxyFetchOption(proxy);
         }
@@ -1433,11 +1435,11 @@ class Monitor extends BeanModel {
      * @param {object} checkCertificateResult Certificate to update
      * @returns {Promise<object>} Updated certificate
      */
-    async updateTlsInfo(checkCertificateResult) {
-        let tlsInfoBean = await R.findOne("monitor_tls_info", "monitor_id = ?", [this.id]);
+    async updateTlsInfo(checkCertificateResult, store = this.__store) {
+        let tlsInfoBean = await store.findOne("monitor_tls_info", "monitor_id = ?", [this.id]);
 
         if (tlsInfoBean == null) {
-            tlsInfoBean = R.dispense("monitor_tls_info");
+            tlsInfoBean = store.dispense("monitor_tls_info");
             tlsInfoBean.monitor_id = this.id;
         } else {
             // Clear sent history if the cert changed.
@@ -1450,7 +1452,7 @@ class Monitor extends BeanModel {
                 if (isValidObjects) {
                     if (oldCertInfo.certInfo.fingerprint256 !== checkCertificateResult.certInfo.fingerprint256) {
                         log.debug("monitor", "Resetting sent_history");
-                        await R.exec(
+                        await store.exec(
                             "DELETE FROM notification_sent_history WHERE type = 'certificate' AND monitor_id = ?",
                             [this.id]
                         );
@@ -1466,7 +1468,7 @@ class Monitor extends BeanModel {
         }
 
         tlsInfoBean.info_json = JSON.stringify(checkCertificateResult);
-        await R.store(tlsInfoBean);
+        await store.store(tlsInfoBean);
 
         return checkCertificateResult;
     }
@@ -1477,7 +1479,7 @@ class Monitor extends BeanModel {
      * @param {boolean} active is active
      * @returns {Promise<boolean>} Is the monitor active?
      */
-    static async isActive(monitorID, active, store = R) {
+    static async isActive(monitorID, active, store) {
         const parentActive = await Monitor.isParentActive(monitorID, store);
 
         return active === 1 && parentActive;
@@ -1490,7 +1492,7 @@ class Monitor extends BeanModel {
      * @param {number} userID ID of user to send to
      * @returns {void}
      */
-    static async sendStats(heartbeatData, io, monitorID, userID) {
+    static async sendStats(heartbeatData, io, monitorID, userID, settings) {
         const hasClients = getTotalClientInRoom(io, userID) > 0;
 
         if (hasClients) {
@@ -1518,7 +1520,7 @@ class Monitor extends BeanModel {
             await Monitor.sendCertInfo(heartbeatData.store, io, monitorID, userID);
 
             // Send domain info
-            await Monitor.sendDomainInfo(heartbeatData.store, io, monitorID, userID);
+            await Monitor.sendDomainInfo(heartbeatData.store, settings, io, monitorID, userID);
         } else {
             log.debug("monitor", "No clients in the room, no need to send stats");
         }
@@ -1545,11 +1547,11 @@ class Monitor extends BeanModel {
      * @param {number} userID ID of user to send to
      * @returns {void}
      */
-    static async sendDomainInfo(store, io, monitorID, userID) {
+    static async sendDomainInfo(store, settings, io, monitorID, userID) {
         const monitor = await store.findOne("monitor", "id = ?", [monitorID]);
 
         try {
-            const supportInfo = await DomainExpiry.checkSupport(monitor);
+            const supportInfo = await DomainExpiry.checkSupport(monitor, settings);
             const domain = await DomainExpiry.findByDomainNameOrCreate(supportInfo.domain, store);
             if (domain?.expiry) {
                 io.to(userID).emit("domainInfo", monitorID, domain.daysRemaining, new Date(domain.expiry));
@@ -1731,7 +1733,7 @@ class Monitor extends BeanModel {
         targetDays,
         notificationList,
         providerRegistry,
-        store = R
+        store
     ) {
         let row = await store.getRow(
             "SELECT * FROM notification_sent_history WHERE type = ? AND monitor_id = ? AND days <= ?",
@@ -2110,6 +2112,7 @@ class Monitor extends BeanModel {
         }
 
         return {
+            jwtSecret: server.jwtSecret,
             notifications: notificationsMap,
             tags: tagsMap,
             maintenanceStatus: maintenanceStatusMap,
@@ -2125,7 +2128,7 @@ class Monitor extends BeanModel {
      * @param {number} monitorID ID of monitor to get
      * @returns {Promise<LooseObject<any>>} Parent
      */
-    static async getParent(monitorID, store = R) {
+    static async getParent(monitorID, store) {
         return await store.getRow(
             `
             SELECT parent.* FROM monitor parent
@@ -2142,7 +2145,7 @@ class Monitor extends BeanModel {
      * @param {number} monitorID ID of monitor to get
      * @returns {Promise<LooseObject<any>[]>} Children
      */
-    static async getChildren(monitorID, store = R) {
+    static async getChildren(monitorID, store) {
         return await store.getAll(
             `
             SELECT * FROM monitor
@@ -2158,7 +2161,7 @@ class Monitor extends BeanModel {
      * @param {string} name of the monitor to get
      * @returns {Promise<string[]>} Full path (includes groups and the name) of the monitor
      */
-    static async getAllPath(monitorID, name, store = R) {
+    static async getAllPath(monitorID, name, store) {
         const path = [name];
 
         if (this.parent === null) {
@@ -2179,7 +2182,7 @@ class Monitor extends BeanModel {
      * @param {number} monitorID ID of the monitor to get
      * @returns {Promise<Array>} IDs of all children
      */
-    static async getAllChildrenIDs(monitorID, store = R) {
+    static async getAllChildrenIDs(monitorID, store) {
         const childs = await Monitor.getChildren(monitorID, store);
 
         if (childs === null) {
@@ -2201,8 +2204,8 @@ class Monitor extends BeanModel {
      * @param {number} groupID ID of group to remove children of
      * @returns {Promise<void>}
      */
-    static async unlinkAllChildren(groupID) {
-        return await R.exec("UPDATE `monitor` SET parent = ? WHERE parent = ? ", [null, groupID]);
+    static async unlinkAllChildren(store, groupID) {
+        return await store.exec("UPDATE `monitor` SET parent = ? WHERE parent = ? ", [null, groupID]);
     }
 
     /**
@@ -2211,9 +2214,7 @@ class Monitor extends BeanModel {
      * @param {number} userID ID of the user who owns the monitor
      * @returns {Promise<void>}
      */
-    static async deleteMonitor(monitorID, userID) {
-        const server = PocketKumaServer.getInstance();
-
+    static async deleteMonitor(store, server, monitorID, userID) {
         // Stop the monitor if it's running
         if (monitorID in server.monitorList) {
             await server.monitorList[monitorID].stop();
@@ -2221,7 +2222,7 @@ class Monitor extends BeanModel {
         }
 
         // Delete from database
-        await R.exec("DELETE FROM monitor WHERE id = ? AND user_id = ? ", [monitorID, userID]);
+        await store.exec("DELETE FROM monitor WHERE id = ? AND user_id = ? ", [monitorID, userID]);
     }
 
     /**
@@ -2230,22 +2231,22 @@ class Monitor extends BeanModel {
      * @param {number} userID ID of the user who owns the monitor
      * @returns {Promise<void>}
      */
-    static async deleteMonitorRecursively(monitorID, userID) {
+    static async deleteMonitorRecursively(store, server, monitorID, userID) {
         // Check if this monitor is a group
-        const monitor = await R.findOne("monitor", " id = ? AND user_id = ? ", [monitorID, userID]);
+        const monitor = await store.findOne("monitor", " id = ? AND user_id = ? ", [monitorID, userID]);
 
         if (monitor && monitor.type === "group") {
             // Get all children and delete them recursively
-            const children = await Monitor.getChildren(monitorID);
+            const children = await Monitor.getChildren(monitorID, store);
             if (children && children.length > 0) {
                 for (const child of children) {
-                    await Monitor.deleteMonitorRecursively(child.id, userID);
+                    await Monitor.deleteMonitorRecursively(store, server, child.id, userID);
                 }
             }
         }
 
         // Delete the monitor itself
-        await Monitor.deleteMonitor(monitorID, userID);
+        await Monitor.deleteMonitor(store, server, monitorID, userID);
     }
 
     /**
@@ -2253,7 +2254,7 @@ class Monitor extends BeanModel {
      * @param {number} monitorID ID of the monitor to get
      * @returns {Promise<boolean>} Is the parent monitor active?
      */
-    static async isParentActive(monitorID, store = R) {
+    static async isParentActive(monitorID, store) {
         const parent = await Monitor.getParent(monitorID, store);
 
         if (parent === null) {
@@ -2296,13 +2297,13 @@ class Monitor extends BeanModel {
      * @param {object} tlsInfo Information about the TLS connection
      * @returns {Promise<void>}
      */
-    async handleTlsInfo(tlsInfo, providerRegistry, store = R) {
-        await this.updateTlsInfo(tlsInfo);
+    async handleTlsInfo(tlsInfo, providerRegistry, settings, store = this.__store) {
+        await this.updateTlsInfo(tlsInfo, store);
         this.prometheus?.update(null, tlsInfo, null);
 
         if (!this.getIgnoreTls() && this.isEnabledExpiryNotification()) {
             log.debug("monitor", `[${this.name}] call checkCertExpiryNotifications`);
-            await checkCertExpiryNotifications(store, legacySettings, this, tlsInfo, providerRegistry);
+            await checkCertExpiryNotifications(store, settings, this, tlsInfo, providerRegistry);
         }
     }
 }

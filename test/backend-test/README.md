@@ -61,7 +61,7 @@ bun run test:backend:all      # full suite (includes integration / Docker tests)
 
 The unit subset runs fast, hermetic tests (no Docker or public network):
 
-- `bun-sqlite-store.test.ts` — SQLite store bootstrap and queries
+- `sqlite-core.test.ts` — SQLite store bootstrap and queries
 - `cert-hostname-match.test.ts` — certificate hostname matching
 - `http-client.test.ts` — fetch wrapper behavior
 - `globalping.test.ts` — mocked Globalping monitor behavior

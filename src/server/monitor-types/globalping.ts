@@ -10,7 +10,6 @@
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { Globalping, IpVersion, MeasurementStatus } from "globalping";
-import { Settings } from "@/server/settings-legacy";
 import { log, UP, evaluateJsonQuery } from "@/util";
 import {
     checkStatusCode,
@@ -19,7 +18,6 @@ import {
     getDaysRemaining,
     checkCertExpiryNotifications,
 } from "@/server/util-server";
-import { R } from "@/server/bun-sqlite-store";
 
 class GlobalpingMonitorType extends MonitorType {
     name = "globalping";
@@ -29,8 +27,10 @@ class GlobalpingMonitorType extends MonitorType {
     /**
      * @inheritdoc
      */
-    constructor(httpUserAgent) {
+    constructor(store, settings, httpUserAgent) {
         super();
+        this.store = store;
+        this.settings = settings;
         this.httpUserAgent = httpUserAgent;
     }
 
@@ -38,7 +38,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @inheritdoc
      */
     async check(monitor, heartbeat, server) {
-        const apiKey = await Settings.get("globalpingApiToken");
+        const apiKey = await this.settings.get("globalpingApiToken");
         const timeout = (monitor.timeout ?? 20) * 1000;
         const deadline = Date.now() + timeout;
         const clientOptions = {
@@ -56,7 +56,7 @@ class GlobalpingMonitorType extends MonitorType {
                 await this.http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline, server);
                 break;
             case "dns":
-                await this.dns(client, monitor, heartbeat, hasAPIToken, R, clientOptions, deadline);
+                await this.dns(client, monitor, heartbeat, hasAPIToken, this.store, clientOptions, deadline);
                 break;
         }
     }
@@ -268,7 +268,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @param {Monitor} monitor - The monitor object.
      * @param {Heartbeat} heartbeat - The heartbeat object.
      * @param {boolean} hasAPIToken - Whether the monitor has an API token.
-     * @param {R} redbean - The redbean object.
+     * @param {object} redbean - The SQLite store.
      * @returns {Promise<void>} A promise that resolves when the HTTP monitor is handled.
      */
     async dns(client, monitor, heartbeat, hasAPIToken, redbean, clientOptions, deadline) {
@@ -521,10 +521,10 @@ class GlobalpingMonitorType extends MonitorType {
             throw new Error(this.formatResponse(probe, `TLS certificate is not authorized: ${tlsInfo.error}`));
         }
 
-        let tlsInfoBean = await R.findOne("monitor_tls_info", "monitor_id = ?", [monitor.id]);
+        let tlsInfoBean = await this.store.findOne("monitor_tls_info", "monitor_id = ?", [monitor.id]);
 
         if (tlsInfoBean == null) {
-            tlsInfoBean = R.dispense("monitor_tls_info");
+            tlsInfoBean = this.store.dispense("monitor_tls_info");
             tlsInfoBean.monitor_id = monitor.id;
         } else {
             try {
@@ -536,7 +536,7 @@ class GlobalpingMonitorType extends MonitorType {
                     oldCertInfo.certInfo.fingerprint256 !== tlsInfo.fingerprint256
                 ) {
                     log.debug("monitor", "Resetting sent_history");
-                    await R.exec(
+                    await this.store.exec(
                         "DELETE FROM notification_sent_history WHERE type = 'certificate' AND monitor_id = ?",
                         [monitor.id]
                     );
@@ -559,14 +559,14 @@ class GlobalpingMonitorType extends MonitorType {
         };
 
         tlsInfoBean.info_json = JSON.stringify(certResult);
-        await R.store(tlsInfoBean);
+        await this.store.store(tlsInfoBean);
 
         if (monitor.prometheus) {
             monitor.prometheus.update(null, certResult);
         }
 
         if (!monitor.ignoreTls && monitor.expiryNotification) {
-            await checkCertExpiryNotifications(R, Settings, monitor, certResult, providerRegistry);
+            await checkCertExpiryNotifications(this.store, this.settings, monitor, certResult, providerRegistry);
         }
     }
 

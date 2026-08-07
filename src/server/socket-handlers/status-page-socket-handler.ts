@@ -28,7 +28,7 @@ function validateIncident(incident) {
  * @param {Socket} socket Socket.io instance to add listeners on
  * @returns {void}
  */
-export const statusPageSocketHandler = (socket, store, server, settings) => {
+export const statusPageSocketHandler = (socket, store, server, settings, responseCache) => {
     // Post or edit incident
     socket.on("postIncident", async (slug, incident, callback) => {
         try {
@@ -419,7 +419,7 @@ export const statusPageSocketHandler = (socket, store, server, settings) => {
                 await settings.set("entryPage", server.entryPage, "general");
             }
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -510,7 +510,7 @@ export const statusPageSocketHandler = (socket, store, server, settings) => {
 
                 await StatusPage.loadDomainMappingList(store, server.statusPageDomainMappingList);
 
-                clearResponseCache();
+                clearResponseCache(responseCache);
             } else {
                 throw new Error("Status Page is not found");
             }

@@ -2,7 +2,6 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { setting } from "@/server/util-server";
 import { DOWN, UP, getMonitorRelativeURL } from "@/util";
 
 class Teams extends NotificationProvider {
@@ -253,7 +252,7 @@ class Teams extends NotificationProvider {
                 return okMsg;
             }
 
-            const baseURL = await setting("primaryBaseURL");
+            const baseURL = await this.settings.get("primaryBaseURL");
             let dashboardUrl;
             if (baseURL) {
                 dashboardUrl = baseURL + getMonitorRelativeURL(monitorJSON.id);

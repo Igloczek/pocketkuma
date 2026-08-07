@@ -3,7 +3,6 @@
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 import { UP, DOWN, getMonitorRelativeURL } from "@/util";
-import { Settings } from "@/server/settings-legacy";
 
 let successMessage = "Sent Successfully.";
 
@@ -97,7 +96,7 @@ class Splunk extends NotificationProvider {
             },
         };
 
-        const baseURL = await Settings.get("primaryBaseURL");
+        const baseURL = await this.settings.get("primaryBaseURL");
         if (baseURL && monitorInfo) {
             options.client = "PocketKuma";
             options.client_url = baseURL + getMonitorRelativeURL(monitorInfo.id);
