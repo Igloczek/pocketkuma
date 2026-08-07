@@ -359,7 +359,7 @@ class Maintenance extends BeanModel {
      * @param {boolean} recovery Restore an already-running timeslot without persistence or publication
      * @returns {Promise<void>}
      */
-    async run(store, server, throwError = false, recovery = false) {
+    async run(store, server, throwError = false, recovery = false, responseCache) {
         this.stop();
         if (!this.active) {
             return;
@@ -393,7 +393,7 @@ class Maintenance extends BeanModel {
                 if (!this.active || this.beanMeta.generation !== generation) {
                     return;
                 }
-                clearResponseCache();
+                clearResponseCache(responseCache);
                 await server.sendMaintenanceListByUserID(this.user_id);
             };
 
@@ -442,7 +442,7 @@ class Maintenance extends BeanModel {
                     }
 
                     if (notify) {
-                        clearResponseCache();
+                        clearResponseCache(responseCache);
                         server.sendMaintenanceListByUserID(this.user_id);
                     }
 
@@ -453,7 +453,7 @@ class Maintenance extends BeanModel {
                         // End of maintenance for this timeslot
                         this.beanMeta.status = "scheduled";
                         delete this.beanMeta.durationTimeout;
-                        clearResponseCache();
+                        clearResponseCache(responseCache);
                         server.sendMaintenanceListByUserID(this.user_id);
                     }, duration);
 

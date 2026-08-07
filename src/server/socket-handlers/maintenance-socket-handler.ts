@@ -77,7 +77,7 @@ async function publishMaintenanceList(server, socket) {
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-export const maintenanceSocketHandler = (socket, store, server) => {
+export const maintenanceSocketHandler = (socket, store, server, responseCache) => {
     // Add a new maintenance
     socket.on("addMaintenance", async (maintenance, relations, callback) => {
         if (typeof relations === "function") {
@@ -113,7 +113,7 @@ export const maintenanceSocketHandler = (socket, store, server) => {
                     "status_page_id"
                 );
             }
-            await bean.run(store, server, true, true);
+            await bean.run(store, server, true, true, responseCache);
             await transaction.commit();
             transaction = null;
         } catch (e) {
@@ -126,7 +126,7 @@ export const maintenanceSocketHandler = (socket, store, server) => {
             return;
         }
         server.maintenanceList[maintenanceID] = bean;
-        clearResponseCache();
+        clearResponseCache(responseCache);
         callback({
             ok: true,
             msg: "successAdded",
@@ -170,12 +170,12 @@ export const maintenanceSocketHandler = (socket, store, server) => {
                         "status_page_id"
                     );
                 }
-                await draft.run(store, server, true, true);
+                await draft.run(store, server, true, true, responseCache);
                 await transaction.commit();
             } catch (error) {
                 draft.stop();
                 await transaction.rollback();
-                await bean.run(store, server, true, true);
+                await bean.run(store, server, true, true, responseCache);
                 throw error;
             }
         } catch (e) {
@@ -187,7 +187,7 @@ export const maintenanceSocketHandler = (socket, store, server) => {
             return;
         }
         server.maintenanceList[bean.id] = draft;
-        clearResponseCache();
+        clearResponseCache(responseCache);
         callback({
             ok: true,
             msg: "Saved.",
@@ -207,7 +207,7 @@ export const maintenanceSocketHandler = (socket, store, server) => {
 
             await replaceRelations(store, maintenanceID, monitorIDs, "monitor_maintenance", "monitor_id");
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -233,7 +233,7 @@ export const maintenanceSocketHandler = (socket, store, server) => {
 
             await replaceRelations(store, maintenanceID, statusPageIDs, "maintenance_status_page", "status_page_id");
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -349,7 +349,7 @@ export const maintenanceSocketHandler = (socket, store, server) => {
             maintenance.stop();
             delete server.maintenanceList[maintenanceID];
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -384,7 +384,7 @@ export const maintenanceSocketHandler = (socket, store, server) => {
             }
             maintenance.stop();
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -413,7 +413,7 @@ export const maintenanceSocketHandler = (socket, store, server) => {
             maintenance.active = true;
             try {
                 await store.store(maintenance);
-                await maintenance.run(store, server, true, true);
+                await maintenance.run(store, server, true, true, responseCache);
             } catch (error) {
                 maintenance.stop();
                 maintenance.active = active;
@@ -421,7 +421,7 @@ export const maintenanceSocketHandler = (socket, store, server) => {
                 throw error;
             }
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,

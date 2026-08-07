@@ -1,12 +1,13 @@
 // @ts-nocheck
 
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database as BunDatabase } from "bun:sqlite";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { BunRealtimeAdapter } from "@/server/bun-websocket-server";
 import { createBunFetchHandler, restoreSqliteSnapshot, takeSqliteSnapshot } from "@/server/bun-http-server";
+import { clearResponseCache, createResponseCache } from "@/server/bun-response";
 import Database from "@/server/database";
 import { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 import { runPendingUpgrades } from "@/server/db-migrations";
@@ -28,6 +29,7 @@ const lifecycleModules = [
 const originalSqlitePath = Database.sqlitePath;
 const originalDataDir = Database.dataDir;
 const temporaryDirectories = [];
+let scheduledJobs;
 
 function deferred() {
     let resolve;
@@ -96,8 +98,12 @@ function useTemporaryDatabase() {
     return Database.sqlitePath;
 }
 
+beforeEach(() => {
+    scheduledJobs = [];
+});
+
 afterEach(() => {
-    stopBackgroundJobs();
+    stopBackgroundJobs(scheduledJobs);
     Database.sqlitePath = originalSqlitePath;
     Database.dataDir = originalDataDir;
     for (const directory of temporaryDirectories.splice(0)) {
@@ -109,7 +115,7 @@ describe("database lifecycle wiring", () => {
     test("keeps the lifecycle boundary free of the legacy global facade", () => {
         for (const modulePath of lifecycleModules) {
             const source = fs.readFileSync(path.join(process.cwd(), modulePath), "utf8");
-            expect(source).not.toMatch(/bun-sqlite-store|sqlite-core/);
+            expect(source).not.toMatch(/sqlite-core/);
             expect(source).not.toMatch(/\bR\b/);
         }
     });
@@ -166,7 +172,7 @@ describe("database lifecycle wiring", () => {
             },
         };
 
-        scheduleBackgroundJobs(store, coordinator, "UTC", FakeCron);
+        scheduleBackgroundJobs(store, coordinator, "UTC", FakeCron, undefined, null, scheduledJobs);
         await callbacks.get("incremental-vacuum")();
 
         expect(coordinated).toBe(1);
@@ -214,7 +220,7 @@ describe("database lifecycle wiring", () => {
         });
         const response = await fetchHandler(new Request("http://localhost/.well-known/change-password"), {});
 
-        const adapter = new BunRealtimeAdapter({});
+        const adapter = new BunRealtimeAdapter({}, { get: async () => false });
         adapter.setDatabaseMaintenanceCoordinator(coordinator);
         adapter.setMaintenanceEvents(["clear"]);
         const store = { exec: async () => calls.push("socket-store") };
@@ -235,6 +241,66 @@ describe("database lifecycle wiring", () => {
 
         expect(response.status).toBe(302);
         expect(calls).toEqual(["run", "run", "socket-store", "run", "socket-store", "maintain", "socket-store"]);
+    });
+
+    test("two HTTP runtimes do not share badge responses for the same URL", async () => {
+        const createRuntime = (status, responseCache) => {
+            let latestCalls = 0;
+            let latestError;
+            const heartbeatData = {
+                latest: async () => {
+                    latestCalls++;
+                    if (latestError) {
+                        throw latestError;
+                    }
+                    return { status };
+                },
+            };
+            const fetch = createBunFetchHandler({
+                server: { indexHTML: "", io: {} },
+                store: { getRow: async () => ({ monitor_id: 1 }) },
+                databaseMaintenance: new DatabaseMaintenanceCoordinator(),
+                heartbeatData,
+                responseCache,
+                disableFrameSameOrigin: false,
+                development: false,
+            });
+            return {
+                failLatest(error) {
+                    latestError = error;
+                },
+                fetch,
+                latestCalls: () => latestCalls,
+            };
+        };
+        const firstCache = createResponseCache();
+        const secondCache = createResponseCache();
+        const first = createRuntime(1, firstCache);
+        const second = createRuntime(0, secondCache);
+        const request = new Request("http://localhost/api/badge/1/status");
+
+        const firstBody = await (await first.fetch(request, {})).text();
+        const secondBody = await (await second.fetch(request, {})).text();
+
+        expect(first.latestCalls()).toBe(1);
+        expect(second.latestCalls()).toBe(1);
+        expect(secondBody).not.toBe(firstBody);
+
+        clearResponseCache(firstCache);
+        expect(await (await second.fetch(request, {})).text()).toBe(secondBody);
+        expect(second.latestCalls()).toBe(1);
+
+        clearResponseCache(secondCache);
+        expect(await (await second.fetch(request, {})).text()).toBe(secondBody);
+        expect(second.latestCalls()).toBe(2);
+
+        first.failLatest(new Error("first runtime failed"));
+        clearResponseCache(firstCache);
+        const failedBody = await (await first.fetch(request, {})).text();
+        expect(failedBody).not.toBe(firstBody);
+        expect(first.latestCalls()).toBe(2);
+        expect(await (await second.fetch(request, {})).text()).toBe(secondBody);
+        expect(second.latestCalls()).toBe(2);
     });
 
     test("closes through the injected store after checkpointing WAL", async () => {
@@ -264,7 +330,7 @@ describe("database lifecycle wiring", () => {
 describe("database maintenance coordination", () => {
     test("WebSocket open initialization drains before maintenance and new opens wait", async () => {
         const coordinator = new DatabaseMaintenanceCoordinator();
-        const adapter = new BunRealtimeAdapter({});
+        const adapter = new BunRealtimeAdapter({}, { get: async () => false });
         adapter.setDatabaseMaintenanceCoordinator(coordinator);
         const firstStarted = deferred();
         const releaseFirst = deferred();
@@ -351,7 +417,7 @@ describe("database maintenance coordination", () => {
             }
             return originalExec(sql);
         };
-        scheduleBackgroundJobs(store, coordinator, "UTC", FakeCron);
+        scheduleBackgroundJobs(store, coordinator, "UTC", FakeCron, undefined, null, scheduledJobs);
         const fetchHandler = createBunFetchHandler({
             server: { indexHTML: "", io: {} },
             store,

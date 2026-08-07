@@ -9,6 +9,10 @@ class NotificationProvider {
      */
     name = undefined;
 
+    constructor(settings) {
+        this.settings = settings;
+    }
+
     /**
      * Send a notification
      * @param {BeanModel} notification Notification to send

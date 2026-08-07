@@ -2,7 +2,6 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { setSettings, setting } from "@/server/util-server";
 import { getMonitorRelativeURL, UP, log } from "@/util";
 
 function isUrl(str) {
@@ -24,12 +23,12 @@ class Slack extends NotificationProvider {
      * @param {string} url The primary base URL to use
      * @returns {Promise<void>}
      */
-    static async deprecateURL(url) {
-        let currentPrimaryBaseURL = await setting("primaryBaseURL");
+    static async deprecateURL(settings, url) {
+        let currentPrimaryBaseURL = await settings.get("primaryBaseURL");
 
         if (!currentPrimaryBaseURL) {
             console.log("Move the url to be the primary base URL");
-            await setSettings("general", {
+            await settings.setSettings("general", {
                 primaryBaseURL: url,
             });
         } else {
@@ -167,7 +166,7 @@ class Slack extends NotificationProvider {
                 return okMsg;
             }
 
-            const baseURL = await setting("primaryBaseURL");
+            const baseURL = await this.settings.get("primaryBaseURL");
 
             // Check if templating is enabled
             if (notification.slackUseTemplate) {
@@ -218,7 +217,7 @@ class Slack extends NotificationProvider {
             }
 
             if (notification.slackbutton) {
-                await Slack.deprecateURL(notification.slackbutton);
+                await Slack.deprecateURL(this.settings, notification.slackbutton);
             }
 
             await httpClient.post(notification.slackwebhookURL, data, config);

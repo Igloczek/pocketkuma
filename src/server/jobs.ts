@@ -1,26 +1,22 @@
 // @ts-nocheck
 
-import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { clearOldData } from "@/server/jobs/clear-old-data";
 import { incrementalVacuum } from "@/server/jobs/incremental-vacuum";
 import Cron from "croner";
 import type { SQLiteStore } from "@/server/db-migrations";
 import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
-import { Settings } from "@/server/settings";
 
-const jobs = [
+const jobDefinitions = [
     {
         name: "clear-old-data",
         interval: "14 03 * * *",
         jobFunc: clearOldData,
         exclusive: true,
-        croner: null,
     },
     {
         name: "incremental-vacuum",
         interval: "*/5 * * * *",
         jobFunc: incrementalVacuum,
-        croner: null,
     },
 ];
 
@@ -33,10 +29,11 @@ const scheduleBackgroundJobs = function (
     coordinator: DatabaseMaintenanceCoordinator,
     timezone,
     CronClass = Cron,
-    settings = new Settings(store),
-    heartbeatData = null
+    settings,
+    heartbeatData = null,
+    scheduledJobs = []
 ) {
-    for (const job of jobs) {
+    for (const job of jobDefinitions) {
         const cornerJob = new CronClass(
             job.interval,
             {
@@ -45,30 +42,29 @@ const scheduleBackgroundJobs = function (
             },
             () => coordinator[job.exclusive ? "maintain" : "run"](() => job.jobFunc(store, settings, heartbeatData))
         );
-        job.croner = cornerJob;
+        scheduledJobs.push(cornerJob);
     }
+    return scheduledJobs;
 };
 
 const initBackgroundJobs = async function (
     store: SQLiteStore,
     coordinator: DatabaseMaintenanceCoordinator,
-    settings = new Settings(store),
-    heartbeatData = null
+    timezone,
+    settings,
+    heartbeatData = null,
+    scheduledJobs = []
 ) {
-    const timezone = await PocketKumaServer.getInstance().getTimezone();
-    scheduleBackgroundJobs(store, coordinator, timezone, Cron, settings, heartbeatData);
+    return scheduleBackgroundJobs(store, coordinator, timezone, Cron, settings, heartbeatData, scheduledJobs);
 };
 
 /**
  * Stop all background jobs if running
  * @returns {void}
  */
-const stopBackgroundJobs = function () {
-    for (const job of jobs) {
-        if (job.croner) {
-            job.croner.stop();
-            job.croner = null;
-        }
+const stopBackgroundJobs = function (scheduledJobs) {
+    for (const job of scheduledJobs.splice(0)) {
+        job.stop();
     }
 };
 

@@ -5,15 +5,13 @@ import fs from "fs";
 import path from "path";
 import { Database as SQLiteDatabase } from "bun:sqlite";
 import { isDev, log } from "@/util";
-import { setting, printServerUrls } from "@/server/util-server";
+import { printServerUrls } from "@/server/util-server";
 import config from "@/server/config";
 import Database from "@/server/database";
 import type { SQLiteStore } from "@/server/db-migrations";
 import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 import StatusPage from "@/server/model/status_page";
-import { Settings } from "@/server/settings";
 import { Prometheus } from "@/server/prometheus";
-import { HeartbeatDataPlane } from "@/server/heartbeat-data-plane";
 import { initBackgroundJobs, stopBackgroundJobs } from "@/server/jobs";
 import { authenticateAPIRequest } from "@/server/auth";
 import { handleApiRequest } from "@/server/routers/api-router";
@@ -21,13 +19,13 @@ import { handleStatusPageRequest } from "@/server/routers/status-page-router";
 import {
     applyCommonHeaders,
     clearResponseCache,
+    createResponseCache,
     htmlResponse,
     jsonResponse,
     redirectResponse,
     textResponse,
 } from "@/server/bun-response";
 import { isCompiledBinary } from "@/server/app-paths";
-import { hasEmbeddedAsset, readEmbeddedAsset } from "@/server/generated/embedded-assets";
 
 const MIME_TYPES = {
     ".br": "application/octet-stream",
@@ -50,8 +48,6 @@ const MIME_TYPES = {
     ".woff": "font/woff",
     ".woff2": "font/woff2",
 };
-
-let devSnapshotPhase = "idle";
 
 function validateSqliteSnapshot(snapshotPath) {
     const db = new SQLiteDatabase(snapshotPath, { strict: true });
@@ -76,20 +72,19 @@ function validateSqliteSnapshot(snapshotPath) {
     }
 }
 
-async function stopRuntimeForSnapshot(server, settings, heartbeatData) {
-    stopBackgroundJobs();
+async function stopRuntimeForSnapshot(server, settings, heartbeatData, backgroundJobs, responseCache) {
+    stopBackgroundJobs(backgroundJobs);
     for (const maintenance of Object.values(server.maintenanceList)) {
         maintenance.stop();
     }
     await Promise.all(Object.values(server.monitorList).map((monitor) => monitor.stop()));
-    const { resetChrome } = await import("@/server/monitor-types/real-browser-monitor-type");
-    await resetChrome();
+    await server.getLoadedMonitorType("real-browser")?.resetChrome();
     server.monitorList = {};
     server.maintenanceList = {};
     heartbeatData.reset();
     settings.cacheList = {};
     server.statusPageDomainMappingList = {};
-    clearResponseCache();
+    clearResponseCache(responseCache);
 }
 
 async function reloadRuntimeAfterSnapshot(
@@ -97,25 +92,40 @@ async function reloadRuntimeAfterSnapshot(
     store: SQLiteStore,
     databaseMaintenance: DatabaseMaintenanceCoordinator,
     settings,
-    heartbeatData
+    heartbeatData,
+    backgroundJobs,
+    responseCache
 ) {
     settings.cacheList = {};
     const jwtSecret = await store.findOne("setting", " `key` = ? ", ["jwtSecret"]);
     server.jwtSecret = jwtSecret?.value || null;
-    await server.initAfterDatabaseReady(store);
+    await server.initAfterDatabaseReady(responseCache);
     server.entryPage = await settings.get("entryPage");
     await StatusPage.loadDomainMappingList(store, server.statusPageDomainMappingList);
 
     const monitors = await store.find("monitor", " active = 1 ");
     for (const monitor of monitors) {
         server.monitorList[monitor.id] = monitor;
-        await monitor.start(server.io, heartbeatData, server, (operation) => databaseMaintenance.run(operation));
+        await monitor.start(
+            server.io,
+            heartbeatData,
+            server,
+            (operation) => databaseMaintenance.run(operation),
+            responseCache
+        );
     }
-    await initBackgroundJobs(store, databaseMaintenance, settings, heartbeatData);
-    clearResponseCache();
+    await initBackgroundJobs(
+        store,
+        databaseMaintenance,
+        await server.getTimezone(),
+        settings,
+        heartbeatData,
+        backgroundJobs
+    );
+    clearResponseCache(responseCache);
 }
 
-function createSnapshotMonitorRuntime(server, heartbeatData, databaseMaintenance) {
+function createSnapshotMonitorRuntime(server, heartbeatData, databaseMaintenance, responseCache) {
     let runningMonitors = [];
 
     return {
@@ -126,7 +136,13 @@ function createSnapshotMonitorRuntime(server, heartbeatData, databaseMaintenance
         async reload() {
             await Promise.all(
                 runningMonitors.map((monitor) =>
-                    monitor.start(server.io, heartbeatData, server, (operation) => databaseMaintenance.run(operation))
+                    monitor.start(
+                        server.io,
+                        heartbeatData,
+                        server,
+                        (operation) => databaseMaintenance.run(operation),
+                        responseCache
+                    )
                 )
             );
             runningMonitors = [];
@@ -138,18 +154,19 @@ async function takeSqliteSnapshot(
     store: SQLiteStore,
     databaseMaintenance: DatabaseMaintenanceCoordinator,
     runtime,
-    copySnapshot = fs.cpSync
+    copySnapshot = fs.cpSync,
+    snapshotState = { phase: "idle" }
 ) {
     return databaseMaintenance.maintain(async () => {
         let operationError;
         let runtimeStopped = false;
-        devSnapshotPhase = "quiescing";
+        snapshotState.phase = "quiescing";
         try {
             try {
                 runtimeStopped = true;
                 await runtime.stop();
                 await Database.close(store);
-                devSnapshotPhase = "copying";
+                snapshotState.phase = "copying";
                 try {
                     await copySnapshot(Database.sqlitePath, `${Database.sqlitePath}.e2e-snapshot`);
                 } catch (error) {
@@ -169,7 +186,7 @@ async function takeSqliteSnapshot(
             }
 
             if (runtimeStopped && store.isOpen()) {
-                devSnapshotPhase = "rehydrating";
+                snapshotState.phase = "rehydrating";
                 try {
                     await runtime.reload();
                 } catch (recoveryError) {
@@ -188,7 +205,7 @@ async function takeSqliteSnapshot(
                 throw operationError;
             }
         } finally {
-            devSnapshotPhase = "idle";
+            snapshotState.phase = "idle";
         }
     });
 }
@@ -198,12 +215,24 @@ async function restoreSqliteSnapshot(
     store: SQLiteStore,
     databaseMaintenance: DatabaseMaintenanceCoordinator,
     runtime = null,
-    settings = new Settings(store),
-    heartbeatData = new HeartbeatDataPlane(store)
+    settings,
+    heartbeatData,
+    backgroundJobs = [],
+    snapshotState = { phase: "idle" },
+    responseCache = createResponseCache()
 ) {
     runtime ||= {
-        stop: () => stopRuntimeForSnapshot(server, settings, heartbeatData),
-        reload: () => reloadRuntimeAfterSnapshot(server, store, databaseMaintenance, settings, heartbeatData),
+        stop: () => stopRuntimeForSnapshot(server, settings, heartbeatData, backgroundJobs, responseCache),
+        reload: () =>
+            reloadRuntimeAfterSnapshot(
+                server,
+                store,
+                databaseMaintenance,
+                settings,
+                heartbeatData,
+                backgroundJobs,
+                responseCache
+            ),
     };
     return databaseMaintenance.maintain(async () => {
         const snapshotPath = `${Database.sqlitePath}.e2e-snapshot`;
@@ -217,22 +246,22 @@ async function restoreSqliteSnapshot(
         let backupCreated = false;
         let runtimeStopped = false;
 
-        devSnapshotPhase = "validating";
+        snapshotState.phase = "validating";
         try {
             fs.copyFileSync(snapshotPath, restorePath);
             validateSqliteSnapshot(restorePath);
 
-            devSnapshotPhase = "quiescing";
+            snapshotState.phase = "quiescing";
             runtimeStopped = true;
             await runtime.stop();
-            devSnapshotPhase = "restoring";
+            snapshotState.phase = "restoring";
             await Database.close(store);
             fs.renameSync(Database.sqlitePath, backupPath);
             backupCreated = true;
             fs.renameSync(restorePath, Database.sqlitePath);
             await Database.connect(store);
 
-            devSnapshotPhase = "rehydrating";
+            snapshotState.phase = "rehydrating";
             await runtime.reload();
             fs.rmSync(backupPath, { force: true });
             backupCreated = false;
@@ -291,7 +320,7 @@ async function restoreSqliteSnapshot(
             throw error;
         } finally {
             fs.rmSync(restorePath, { force: true });
-            devSnapshotPhase = "idle";
+            snapshotState.phase = "idle";
         }
     });
 }
@@ -379,6 +408,7 @@ async function pickFile(filePath, request, precompressed) {
 }
 
 async function pickEmbeddedFile(webPath, request, precompressed) {
+    const { hasEmbeddedAsset, readEmbeddedAsset } = await import("@/server/generated/embedded-assets");
     if (precompressed && acceptsEncoding(request, "br") && hasEmbeddedAsset(`${webPath}.br`)) {
         const file = await readEmbeddedAsset(`${webPath}.br`);
         if (file) {
@@ -506,6 +536,9 @@ async function handleDevRequest(
     snapshotRuntime,
     settings,
     heartbeatData,
+    backgroundJobs,
+    snapshotState,
+    responseCache,
     disableFrameSameOrigin,
     development = isDev
 ) {
@@ -516,7 +549,7 @@ async function handleDevRequest(
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/_e2e/sqlite-snapshot-state") {
-        return jsonResponse({ phase: devSnapshotPhase }, { disableFrameSameOrigin });
+        return jsonResponse({ phase: snapshotState.phase }, { disableFrameSameOrigin });
     }
 
     if (
@@ -529,13 +562,23 @@ async function handleDevRequest(
     }
 
     if (request.method === "GET" && url.pathname === "/_e2e/take-sqlite-snapshot") {
-        await takeSqliteSnapshot(store, databaseMaintenance, snapshotRuntime);
+        await takeSqliteSnapshot(store, databaseMaintenance, snapshotRuntime, fs.cpSync, snapshotState);
 
         return textResponse("Snapshot taken.", { disableFrameSameOrigin });
     }
 
     if (request.method === "GET" && url.pathname === "/_e2e/restore-sqlite-snapshot") {
-        await restoreSqliteSnapshot(server, store, databaseMaintenance, null, settings, heartbeatData);
+        await restoreSqliteSnapshot(
+            server,
+            store,
+            databaseMaintenance,
+            null,
+            settings,
+            heartbeatData,
+            backgroundJobs,
+            snapshotState,
+            responseCache
+        );
 
         return textResponse("Snapshot restored.", { disableFrameSameOrigin });
     }
@@ -564,12 +607,15 @@ function createBunFetchHandler({
     server,
     store,
     databaseMaintenance,
-    heartbeatData = new HeartbeatDataPlane(store),
+    heartbeatData,
+    backgroundJobs = [],
     disableFrameSameOrigin,
-    settings = new Settings(store),
+    settings,
     development = isDev,
-    snapshotRuntime = createSnapshotMonitorRuntime(server, heartbeatData, databaseMaintenance),
+    responseCache = createResponseCache(),
+    snapshotRuntime = createSnapshotMonitorRuntime(server, heartbeatData, databaseMaintenance, responseCache),
 }) {
+    const snapshotState = { phase: "idle" };
     const fetch = async function (request, bunServer) {
         const url = new URL(request.url);
 
@@ -596,6 +642,9 @@ function createBunFetchHandler({
             snapshotRuntime,
             settings,
             heartbeatData,
+            backgroundJobs,
+            snapshotState,
+            responseCache,
             disableFrameSameOrigin,
             development
         );
@@ -605,7 +654,7 @@ function createBunFetchHandler({
 
         if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/robots.txt") {
             let body = "User-agent: *\nDisallow:";
-            if (!(await setting("searchEngineIndex"))) {
+            if (!(await settings.get("searchEngineIndex"))) {
                 body += " /";
             }
             return textResponse(body, { disableFrameSameOrigin });
@@ -629,6 +678,7 @@ function createBunFetchHandler({
             store,
             heartbeatData,
             settings,
+            responseCache,
             disableFrameSameOrigin,
         });
         if (apiResponse) {
@@ -640,6 +690,7 @@ function createBunFetchHandler({
             store,
             heartbeatData,
             settings,
+            responseCache,
             disableFrameSameOrigin,
         });
         if (statusPageResponse) {
@@ -691,6 +742,9 @@ function createBunFetchHandler({
                 snapshotRuntime,
                 settings,
                 heartbeatData,
+                backgroundJobs,
+                snapshotState,
+                responseCache,
                 disableFrameSameOrigin,
                 development
             );
@@ -705,7 +759,9 @@ function listenWithBunServe({
     store,
     databaseMaintenance,
     heartbeatData,
+    backgroundJobs,
     settings,
+    responseCache,
     hostname,
     port,
     disableFrameSameOrigin,
@@ -718,7 +774,9 @@ function listenWithBunServe({
             store,
             databaseMaintenance,
             heartbeatData,
+            backgroundJobs,
             settings,
+            responseCache,
             disableFrameSameOrigin,
         }),
         websocket: {

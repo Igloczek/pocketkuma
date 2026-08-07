@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { Database as BunDatabase } from "bun:sqlite";
 import { applySqlFile } from "@/db/schema/sql-utils";
-import { BunSQLiteRedbean } from "@/server/bun-sqlite-store";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import { BUNA_SCHEMA_VERSION_KEY, getBunaSchemaVersion } from "@/server/db-migrations";
 
 const projectRoot = path.join(import.meta.dirname, "../..");

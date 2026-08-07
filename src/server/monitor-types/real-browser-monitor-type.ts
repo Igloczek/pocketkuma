@@ -6,13 +6,11 @@
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { UP, log } from "@/util";
-import { Settings } from "@/server/settings-legacy";
 import path from "path";
 import Database from "@/server/database";
 import jwt from "@/server/jwt";
 import config from "@/server/config";
 import { RemoteBrowser } from "@/server/remote-browser";
-import { R } from "@/server/bun-sqlite-store";
 import { commandExists } from "@/server/util-server";
 import { runCommand, runCommandChecked } from "@/server/process-helper";
 import childProcess from "node:child_process";
@@ -34,7 +32,6 @@ while IFS= read -r command <&5; do
 done
 kill -KILL -$$ 2>/dev/null || exit 0
 `;
-const browserOwners = new Map();
 const localLaunchOwner = new AsyncLocalStorage();
 let chromiumPromise = null;
 let spawnCapture = null;
@@ -361,8 +358,8 @@ async function invalidateBrowser(owner, reason = new Error("Browser monitor canc
     owner.invalidated = true;
     owner.reason ??= reason;
     owner.abortController.abort(owner.reason);
-    if (browserOwners.get(owner.key) === owner) {
-        browserOwners.delete(owner.key);
+    if (owner.owners.get(owner.key) === owner) {
+        owner.owners.delete(owner.key);
     }
     if (owner.closePromise) {
         return await owner.closePromise;
@@ -428,8 +425,9 @@ async function disposeBrowser(browser, browserProcess, reason, owner) {
     }
 }
 
-function newBrowserOwner(key, create) {
+function newBrowserOwner(owners, key, create) {
     const owner = {
+        owners,
         key,
         browser: null,
         browserProcess: null,
@@ -441,20 +439,20 @@ function newBrowserOwner(key, create) {
         ready: null,
         abortController: new AbortController(),
     };
-    browserOwners.set(key, owner);
+    owners.set(key, owner);
     owner.acquisition = Promise.resolve().then(() => create(owner));
     owner.ready = owner.acquisition;
     owner.acquisition.catch((error) => invalidateBrowser(owner, error)).catch(() => {});
     return owner;
 }
 
-async function getBrowserOwner(key, create, signal) {
-    let owner = browserOwners.get(key);
+async function getBrowserOwner(owners, key, create, signal) {
+    let owner = owners.get(key);
     if (owner?.invalidated || (owner?.browser && !owner.browser.isConnected())) {
         await invalidateBrowser(owner, new Error("Browser disconnected"));
         owner = null;
     }
-    owner ??= newBrowserOwner(key, create);
+    owner ??= newBrowserOwner(owners, key, create);
     const combinedSignal = AbortSignal.any([signal, owner.abortController.signal]);
     await cancellable(owner.ready, combinedSignal, () => invalidateBrowser(owner, combinedSignal.reason));
     return owner;
@@ -586,13 +584,13 @@ async function findChrome(executables, deadline = Date.now() + BROWSER_TEST_TIME
  * Reset chrome
  * @returns {Promise<void>}
  */
-async function resetChrome() {
+async function resetChrome(browserOwners) {
     await Promise.all(
         Array.from(browserOwners.values(), (owner) => invalidateBrowser(owner, new Error("Browser reset requested")))
     );
 }
 
-async function resetRemoteBrowser(remoteBrowserID, userID) {
+async function resetRemoteBrowser(browserOwners, remoteBrowserID, userID) {
     const prefix = `remote:${userID}:${remoteBrowserID}:`;
     await Promise.all(
         Array.from(browserOwners, ([key, owner]) =>
@@ -606,11 +604,11 @@ async function resetRemoteBrowser(remoteBrowserID, userID) {
  * @param {string} executablePath Path to executable
  * @returns {Promise<string>} Chrome version
  */
-async function testChrome(executablePath) {
+async function testChrome(browserOwners, executablePath) {
     const deadline = Date.now() + BROWSER_TEST_TIMEOUT_MS;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(new Error("Chromium test timed out")), BROWSER_TEST_TIMEOUT_MS);
-    const owner = newBrowserOwner(`test-local:${crypto.randomUUID()}`, async (candidate) => {
+    const owner = newBrowserOwner(browserOwners, `test-local:${crypto.randomUUID()}`, async (candidate) => {
         executablePath = await prepareChromeExecutable(executablePath, deadline);
         const chromium = await getChromium();
         assertOwnerActive(candidate, deadline);
@@ -640,14 +638,14 @@ async function testChrome(executablePath) {
  * @param {string} remoteBrowserURL Remote Browser URL
  * @returns {Promise<boolean>} Returns if connection worked
  */
-async function testRemoteBrowser(remoteBrowserURL) {
+async function testRemoteBrowser(browserOwners, remoteBrowserURL) {
     const deadline = Date.now() + BROWSER_TEST_TIMEOUT_MS;
     const controller = new AbortController();
     const timer = setTimeout(
         () => controller.abort(new Error("Remote browser test timed out")),
         BROWSER_TEST_TIMEOUT_MS
     );
-    const owner = newBrowserOwner(`test-remote:${crypto.randomUUID()}`, async (candidate) => {
+    const owner = newBrowserOwner(browserOwners, `test-remote:${crypto.randomUUID()}`, async (candidate) => {
         const chromium = await getChromium();
         assertOwnerActive(candidate, deadline);
         const connectedBrowser = await chromium.connect(remoteBrowserURL, { timeout: acquisitionTimeout(deadline) });
@@ -669,6 +667,29 @@ async function testRemoteBrowser(remoteBrowserURL) {
 }
 class RealBrowserMonitorType extends MonitorType {
     name = "real-browser";
+
+    constructor(store, settings) {
+        super();
+        this.store = store;
+        this.settings = settings;
+        this.browserOwners = new Map();
+    }
+
+    resetChrome() {
+        return resetChrome(this.browserOwners);
+    }
+
+    resetRemoteBrowser(remoteBrowserID, userID) {
+        return resetRemoteBrowser(this.browserOwners, remoteBrowserID, userID);
+    }
+
+    testChrome(executablePath) {
+        return testChrome(this.browserOwners, executablePath);
+    }
+
+    testRemoteBrowser(remoteBrowserURL) {
+        return testRemoteBrowser(this.browserOwners, remoteBrowserURL);
+    }
 
     /**
      * @inheritdoc
@@ -700,35 +721,37 @@ class RealBrowserMonitorType extends MonitorType {
 
             if (monitor.remote_browser) {
                 const remoteBrowser = await cancellable(
-                    RemoteBrowser.get(R, monitor.remote_browser, monitor.user_id),
+                    RemoteBrowser.get(this.store, monitor.remote_browser, monitor.user_id),
                     controller.signal,
                     async () => {}
                 );
                 const prefix = `remote:${monitor.user_id}:${monitor.remote_browser}:`;
                 const key = prefix + remoteBrowser.url;
-                for (const [existingKey, existingOwner] of browserOwners) {
+                for (const [existingKey, existingOwner] of this.browserOwners) {
                     if (existingKey.startsWith(prefix) && existingKey !== key) {
                         await invalidateBrowser(existingOwner, new Error("Remote browser configuration changed"));
                     }
                 }
                 owner = await getBrowserOwner(
+                    this.browserOwners,
                     key,
                     (candidate) => createRemoteBrowser(candidate, remoteBrowser, deadline),
                     controller.signal
                 );
             } else {
                 const executablePath = await cancellable(
-                    Settings.get("chromeExecutable"),
+                    this.settings.get("chromeExecutable"),
                     controller.signal,
                     async () => {}
                 );
                 const key = `local:${JSON.stringify(executablePath ?? null)}`;
-                for (const [existingKey, existingOwner] of browserOwners) {
+                for (const [existingKey, existingOwner] of this.browserOwners) {
                     if (existingKey.startsWith("local:") && existingKey !== key) {
                         await invalidateBrowser(existingOwner, new Error("Chrome executable changed"));
                     }
                 }
                 owner = await getBrowserOwner(
+                    this.browserOwners,
                     key,
                     (candidate) => createLocalBrowser(candidate, executablePath, deadline),
                     controller.signal
@@ -814,4 +837,4 @@ class RealBrowserMonitorType extends MonitorType {
     }
 }
 
-export { RealBrowserMonitorType, testChrome, resetChrome, resetRemoteBrowser, testRemoteBrowser };
+export { RealBrowserMonitorType };

@@ -5,9 +5,13 @@ import { encodeBase64 } from "@/server/util-server";
 import { UP, PENDING } from "@/util";
 import { GlobalpingMonitorType } from "@/server/monitor-types/globalping";
 
+function createMonitorType() {
+    return new GlobalpingMonitorType({}, { get: async () => null }, "test-agent/1.0");
+}
+
 describe("GlobalpingMonitorType", () => {
     test("bounded polling aborts the active Globalping fetch at the monitor deadline", async () => {
-        const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+        const monitorType = createMonitorType();
         let aborted = false;
         const fetchSpy = spyOn(globalThis, "fetch").mockImplementation((request) => {
             return new Promise((_, reject) => {
@@ -35,7 +39,7 @@ describe("GlobalpingMonitorType", () => {
 
     describe("ping", () => {
         test("should handle successful ping", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -84,7 +88,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle failed ping with status failed", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -115,7 +119,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle API error on create measurement", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 error: {
@@ -147,7 +151,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle API error on await measurement", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -182,7 +186,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should retry create measurement on status 500", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -241,7 +245,7 @@ describe("GlobalpingMonitorType", () => {
 
     describe("http", () => {
         test("should handle successful HTTP request", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -307,7 +311,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle failed HTTP request", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -339,7 +343,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle API error on create measurement", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 error: {
@@ -372,7 +376,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle API error on await measurement", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -408,7 +412,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle invalid status code", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -445,7 +449,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle keyword check (keyword present)", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -481,7 +485,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle keyword check (keyword not present)", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -515,7 +519,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle inverted keyword check", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -551,7 +555,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle JSON query check (valid)", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -591,7 +595,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle JSON query check (invalid)", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -629,7 +633,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should retry create measurement on status 500", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -705,7 +709,7 @@ describe("GlobalpingMonitorType", () => {
 
     describe("dns", () => {
         test("should handle successful dns", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -764,7 +768,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle failed dns with status failed", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -795,7 +799,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle API error on create measurement", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 error: {
@@ -827,7 +831,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle API error on await measurement", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -862,7 +866,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle regex matched", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = {
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -907,7 +911,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should handle regex not matched", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = {
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -947,7 +951,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("should retry create measurement on status 500", async () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
             const mockClient = createGlobalpingClientMock();
             const createResponse = createMockResponse({
                 id: "2g8T7V3OwXG3JV6Y10011zF2v",
@@ -1016,7 +1020,7 @@ describe("GlobalpingMonitorType", () => {
 
     describe("helper methods", () => {
         test("formatProbeLocation should format location correctly", () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
 
             const probe = {
                 city: "New York",
@@ -1034,7 +1038,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("formatProbeLocation should handle missing state", () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
 
             const probe = {
                 city: "London",
@@ -1052,7 +1056,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("formatResponse should combine location and text", () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
 
             const probe = {
                 city: "Tokyo",
@@ -1070,7 +1074,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("formatApiError should format error with params", () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
 
             const error = {
                 type: "validation_error",
@@ -1087,7 +1091,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("formatApiError should format error without params", () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
 
             const error = {
                 type: "internal_error",
@@ -1100,7 +1104,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("formatTooManyRequestsError with API token", () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
 
             const result = monitorType.formatTooManyRequestsError(true);
 
@@ -1110,7 +1114,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("formatTooManyRequestsError without API token", () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
 
             const result = monitorType.formatTooManyRequestsError(false);
 
@@ -1120,7 +1124,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("getBasicAuthHeader should return empty for non-basic auth", () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
 
             const monitor = {
                 auth_method: "none",
@@ -1132,7 +1136,7 @@ describe("GlobalpingMonitorType", () => {
         });
 
         test("getBasicAuthHeader should return Authorization header", () => {
-            const monitorType = new GlobalpingMonitorType("test-agent/1.0");
+            const monitorType = createMonitorType();
 
             const monitor = {
                 auth_method: "basic",

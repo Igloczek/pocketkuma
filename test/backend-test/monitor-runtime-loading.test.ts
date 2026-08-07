@@ -5,6 +5,13 @@ import { MonitorRuntimeRegistry } from "@/server/monitor-runtime-registry";
 import { NotificationProviderRegistry } from "@/server/notification-provider-registry";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { sendMonitorTypeList } from "@/server/client";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
+import { Settings } from "@/server/settings";
+
+function createServer() {
+    const store = new BunSQLiteRedbean();
+    return new PocketKumaServer(store, new Settings(store));
+}
 
 describe("runtime-owned lazy registries", () => {
     test("metadata construction does not run injected monitor or provider loaders", () => {
@@ -23,11 +30,14 @@ describe("runtime-owned lazy registries", () => {
                 },
             }
         );
-        const providers = new NotificationProviderRegistry({
-            heavy: () => {
-                providerLoads++;
-            },
-        });
+        const providers = new NotificationProviderRegistry(
+            {},
+            {
+                heavy: () => {
+                    providerLoads++;
+                },
+            }
+        );
 
         expect(monitors.monitorTypeList.heavy).toEqual({
             supportsConditions: true,
@@ -40,8 +50,8 @@ describe("runtime-owned lazy registries", () => {
     });
 
     test("each PocketKumaServer owns isolated monitor and provider instances", async () => {
-        const first = new PocketKumaServer();
-        const second = new PocketKumaServer();
+        const first = createServer();
+        const second = createServer();
 
         expect(first.monitorRuntimeRegistry).not.toBe(second.monitorRuntimeRegistry);
         expect(first.notificationProviderRegistry).not.toBe(second.notificationProviderRegistry);
@@ -98,8 +108,8 @@ describe("runtime-owned lazy registries", () => {
         };
         const firstMonitors = new MonitorRuntimeRegistry({}, monitorDefinitions);
         const secondMonitors = new MonitorRuntimeRegistry({}, monitorDefinitions);
-        const firstProviders = new NotificationProviderRegistry(providerLoaders);
-        const secondProviders = new NotificationProviderRegistry(providerLoaders);
+        const firstProviders = new NotificationProviderRegistry({}, providerLoaders);
+        const secondProviders = new NotificationProviderRegistry({}, providerLoaders);
 
         await expect(firstMonitors.get("retry")).rejects.toThrow("monitor failed");
         await expect(firstProviders.get("retry")).rejects.toThrow("provider failed");
@@ -148,46 +158,49 @@ describe("runtime-owned lazy registries", () => {
         expect(monitors.getLoadedTypes()).toEqual(["retry"]);
 
         let providerAttempt = 0;
-        const providers = new NotificationProviderRegistry({
-            retry: () => {
-                providerAttempt++;
-                if (providerAttempt === 1) {
-                    throw new Error("sync provider failure");
-                }
-                if (providerAttempt === 2) {
-                    return Promise.reject(new Error("async provider failure"));
-                }
-                if (providerAttempt === 3) {
-                    return undefined;
-                }
-                if (providerAttempt === 4) {
-                    return {};
-                }
-                if (providerAttempt === 5) {
-                    return { default: {} };
-                }
-                if (providerAttempt === 6) {
+        const providers = new NotificationProviderRegistry(
+            {},
+            {
+                retry: () => {
+                    providerAttempt++;
+                    if (providerAttempt === 1) {
+                        throw new Error("sync provider failure");
+                    }
+                    if (providerAttempt === 2) {
+                        return Promise.reject(new Error("async provider failure"));
+                    }
+                    if (providerAttempt === 3) {
+                        return undefined;
+                    }
+                    if (providerAttempt === 4) {
+                        return {};
+                    }
+                    if (providerAttempt === 5) {
+                        return { default: {} };
+                    }
+                    if (providerAttempt === 6) {
+                        return {
+                            default: class {
+                                name = "retry";
+                            },
+                        };
+                    }
+                    if (providerAttempt === 7) {
+                        return {
+                            default: class {
+                                send() {}
+                            },
+                        };
+                    }
                     return {
                         default: class {
                             name = "retry";
-                        },
-                    };
-                }
-                if (providerAttempt === 7) {
-                    return {
-                        default: class {
                             send() {}
                         },
                     };
-                }
-                return {
-                    default: class {
-                        name = "retry";
-                        send() {}
-                    },
-                };
-            },
-        });
+                },
+            }
+        );
 
         await expect(providers.get("retry")).rejects.toThrow("sync provider failure");
         await expect(providers.get("retry")).rejects.toThrow("async provider failure");
@@ -201,21 +214,24 @@ describe("runtime-owned lazy registries", () => {
         expect(providers.getLoadedProviders()).toEqual(["retry"]);
 
         const otherMonitors = new MonitorRuntimeRegistry({}, { retry: { load: () => ({ check() {} }) } });
-        const otherProviders = new NotificationProviderRegistry({
-            retry: () => ({
-                default: class {
-                    name = "retry";
-                    send() {}
-                },
-            }),
-        });
+        const otherProviders = new NotificationProviderRegistry(
+            {},
+            {
+                retry: () => ({
+                    default: class {
+                        name = "retry";
+                        send() {}
+                    },
+                }),
+            }
+        );
         expect(typeof (await otherMonitors.get("retry")).check).toBe("function");
         expect((await otherProviders.get("retry")).name).toBe("retry");
     });
 
     test("unknown keys return null without changing owner caches", async () => {
         const monitors = new MonitorRuntimeRegistry({}, {});
-        const providers = new NotificationProviderRegistry({});
+        const providers = new NotificationProviderRegistry({}, {});
 
         expect(await monitors.get("missing")).toBeNull();
         expect(await providers.get("missing")).toBeNull();

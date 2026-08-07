@@ -4,7 +4,6 @@
 import { randomUUID } from "crypto";
 import { EventEmitter } from "events";
 import { log } from "@/util";
-import { Settings } from "@/server/settings-legacy";
 import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 
 const WS_PATH = "/ws";
@@ -112,8 +111,9 @@ class BunRealtimeAdapter {
     maintenanceEvents = new Set();
     connectionInitializer = null;
 
-    constructor(server) {
+    constructor(server, settings) {
         this.server = server;
+        this.settings = settings;
         this.rooms = new Map();
         this.sockets = {
             sockets: new Map(),
@@ -152,7 +152,7 @@ class BunRealtimeAdapter {
                 const originURL = new URL(origin);
                 const host = request.headers.get("host");
                 let xForwardedFor;
-                if (await Settings.get("trustProxy")) {
+                if (await this.settings.get("trustProxy")) {
                     xForwardedFor = request.headers.get("x-forwarded-for");
                 }
 

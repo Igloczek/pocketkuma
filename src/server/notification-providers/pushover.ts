@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import { getMonitorRelativeURL } from "@/util";
-import { setting } from "@/server/util-server";
 import { UP } from "@/util";
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
@@ -28,7 +27,7 @@ class Pushover extends NotificationProvider {
             html: 1,
         };
 
-        const baseURL = await setting("primaryBaseURL");
+        const baseURL = await this.settings.get("primaryBaseURL");
         if (baseURL && monitorJSON) {
             data["url"] = baseURL + getMonitorRelativeURL(monitorJSON.id);
             data["url_title"] = "Link to Monitor";

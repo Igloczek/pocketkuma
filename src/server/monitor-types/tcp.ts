@@ -275,7 +275,12 @@ class TCPMonitorType extends MonitorType {
                 });
             });
 
-            await monitor.handleTlsInfo(tlsInfoObject, server.notificationProviderRegistry, heartbeatData.store);
+            await monitor.handleTlsInfo(
+                tlsInfoObject,
+                server.notificationProviderRegistry,
+                server.settings,
+                heartbeatData.store
+            );
             if (!tlsInfoObject.valid) {
                 throw new Error("Certificate is invalid");
             }
@@ -323,7 +328,12 @@ class TCPMonitorType extends MonitorType {
 
         // Handle TLS info for certificate expiry monitoring
         if (result.tlsInfo && monitor.isEnabledExpiryNotification()) {
-            await monitor.handleTlsInfo(result.tlsInfo, server.notificationProviderRegistry, heartbeatData.store);
+            await monitor.handleTlsInfo(
+                result.tlsInfo,
+                server.notificationProviderRegistry,
+                server.settings,
+                heartbeatData.store
+            );
         }
 
         // Check if we got the expected alert

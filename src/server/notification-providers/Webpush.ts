@@ -2,7 +2,6 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import webpush from "web-push";
-import { setting } from "@/server/util-server";
 
 class Webpush extends NotificationProvider {
     name = "Webpush";
@@ -14,8 +13,8 @@ class Webpush extends NotificationProvider {
         const okMsg = "Sent Successfully.";
 
         try {
-            const publicVapidKey = await setting("webpushPublicVapidKey");
-            const privateVapidKey = await setting("webpushPrivateVapidKey");
+            const publicVapidKey = await this.settings.get("webpushPublicVapidKey");
+            const privateVapidKey = await this.settings.get("webpushPrivateVapidKey");
 
             webpush.setVapidDetails("https://github.com/Igloczek/pocketkuma", publicVapidKey, privateVapidKey);
 

@@ -104,7 +104,8 @@ const providerLoaders = {
 const OPTIONAL_NOTIFICATION_PROVIDERS = Object.keys(providerLoaders);
 
 class NotificationProviderRegistry {
-    constructor(loaders = providerLoaders) {
+    constructor(settings, loaders = providerLoaders) {
+        this.settings = settings;
         this.loaders = loaders;
         this.loaded = new Map();
         this.loading = new Map();
@@ -129,7 +130,7 @@ class NotificationProviderRegistry {
                             `Invalid notification provider factory for "${name}": expected a default constructor`
                         );
                     }
-                    const provider = new module.default();
+                    const provider = new module.default(this.settings);
                     if (!provider || typeof provider.send !== "function" || provider.name !== name) {
                         throw new Error(
                             `Invalid notification provider factory for "${name}": expected name "${name}" and send()`

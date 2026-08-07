@@ -9,7 +9,6 @@
  * @returns {Promise<Bean[]>} List of notifications
  */
 import { TimeLogger } from "@/util";
-import * as checkVersion from "@/server/check-version";
 import { getRuntimeInfo } from "@/server/runtime";
 
 async function sendNotificationList(store, io, socket) {
@@ -120,15 +119,15 @@ async function sendAPIKeyList(store, io, socket) {
  * @param {boolean} hideVersion Should we hide the version information in the response?
  * @returns {Promise<void>}
  */
-async function sendInfo(server, settings, socket, hideVersion = false) {
+async function sendInfo(server, settings, versionChecker, socket, hideVersion = false) {
     const info = {
         primaryBaseURL: await settings.get("primaryBaseURL"),
         serverTimezone: await server.getTimezone(),
         serverTimezoneOffset: server.getTimezoneOffset(),
     };
     if (!hideVersion) {
-        info.version = checkVersion.version;
-        info.latestVersion = checkVersion.latestVersion;
+        info.version = versionChecker.version;
+        info.latestVersion = versionChecker.latestVersion;
         info.isContainer = process.env.POCKETKUMA_IS_CONTAINER === "1";
         info.dbType = "sqlite";
         info.runtime = getRuntimeInfo();

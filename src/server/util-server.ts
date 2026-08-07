@@ -5,7 +5,6 @@
  * Prefer importing from the specific module when adding new code.
  */
 
-export { setting, setSetting, getSettings, setSettings } from "@/server/settings-helpers";
 export { convertToUTF8 } from "@/server/encoding";
 export { radius } from "@/server/radius";
 export { ping, pingAsync } from "@/server/ping";

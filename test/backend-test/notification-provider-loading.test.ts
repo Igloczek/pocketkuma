@@ -11,6 +11,7 @@ import { Notification } from "@/server/notification";
 const registrySourcePath = path.join(import.meta.dirname, "../../src/server/notification-provider-registry.ts");
 const monitorRegistrySourcePath = path.join(import.meta.dirname, "../../src/server/monitor-runtime-registry.ts");
 const providersDir = path.join(import.meta.dirname, "../../src/server/notification-providers");
+const settings = { get: async () => null, set: async () => {}, setSettings: async () => {} };
 
 describe("notification provider compile-safe loading", () => {
     test("registry source does not use template-string dynamic imports", () => {
@@ -36,7 +37,7 @@ describe("notification provider compile-safe loading", () => {
 
     test("every metadata provider has an on-disk module and loads through the registry", async () => {
         const moduleMap = getNotificationProviderModuleMap();
-        const providers = new NotificationProviderRegistry();
+        const providers = new NotificationProviderRegistry(settings);
 
         const registryKeys = Object.keys(NOTIFICATION_PROVIDER_REGISTRY).sort();
         const optionalKeys = [...OPTIONAL_NOTIFICATION_PROVIDERS].sort();
@@ -89,7 +90,7 @@ describe("notification provider compile-safe loading", () => {
     }, 120_000);
 
     test("Notification.send resolves smtp provider instead of missing-module error", async () => {
-        const providers = new NotificationProviderRegistry();
+        const providers = new NotificationProviderRegistry(settings);
         let captured = null;
         const provider = await providers.get("smtp");
         const originalSend = provider.send.bind(provider);
@@ -120,7 +121,7 @@ describe("notification provider compile-safe loading", () => {
     });
 
     test("unknown provider type returns null and Notification.send throws clearly", async () => {
-        const providers = new NotificationProviderRegistry();
+        const providers = new NotificationProviderRegistry(settings);
         expect(await providers.get("definitely-not-a-provider")).toBeNull();
 
         await expect(
@@ -137,7 +138,7 @@ describe("notification provider compile-safe loading", () => {
 
     test("Notification.send uses the provider registry passed by its runtime", async () => {
         const createRegistry = (runtime) =>
-            new NotificationProviderRegistry({
+            new NotificationProviderRegistry(settings, {
                 test: async () => ({
                     default: class {
                         name = "test";
