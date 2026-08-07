@@ -11,7 +11,7 @@ import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
 import Database from "@/server/database";
 import util from "util";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 import dayjs from "dayjs";
 import path from "path";
 import httpClient from "@/server/http-client";

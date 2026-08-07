@@ -7,10 +7,8 @@
  * @returns {Promise<(Bean|null)>} User or null if login failed
  */
 import passwordHash from "@/server/password-hash";
-import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
 import { loginRateLimiter, apiRateLimiter } from "@/server/rate-limiter";
-import { Settings } from "@/server/settings";
 import dayjs from "dayjs";
 import { textResponse } from "@/server/bun-response";
 
@@ -32,17 +30,17 @@ export function parseAPIKey(key) {
     };
 }
 
-export async function login(username, password) {
+export async function login(store, username, password) {
     if (typeof username !== "string" || typeof password !== "string") {
         return null;
     }
 
-    let user = await R.findOne("user", "TRIM(username) = ? AND active = 1 ", [username.trim()]);
+    let user = await store.findOne("user", "TRIM(username) = ? AND active = 1 ", [username.trim()]);
 
     if (user && (await passwordHash.verify(password, user.password))) {
         // Upgrade legacy or non-native password hashes after successful login.
         if (passwordHash.needRehash(user.password)) {
-            await R.exec("UPDATE `user` SET password = ? WHERE id = ? ", [
+            await store.exec("UPDATE `user` SET password = ? WHERE id = ? ", [
                 await passwordHash.generate(password),
                 user.id,
             ]);
@@ -58,13 +56,13 @@ export async function login(username, password) {
  * @param {string} key API key to verify
  * @returns {Promise<Bean|null>} Matching API key or null
  */
-async function verifyAPIKey(key) {
+async function verifyAPIKey(store, key) {
     const parsed = parseAPIKey(key);
     if (!parsed) {
         return null;
     }
 
-    let hash = await R.findOne("api_key", " id=? ", [parsed.id]);
+    let hash = await store.findOne("api_key", " id=? ", [parsed.id]);
 
     if (hash === null) {
         return null;
@@ -83,7 +81,7 @@ async function verifyAPIKey(key) {
  * @param {string} password Password to login with
  * @returns {Promise<number|null>} User ID when authorized
  */
-async function authorizeUser(username, password, source) {
+async function authorizeUser(store, username, password, source) {
     const rateLimitKey = typeof username === "string" ? username.trim().toLowerCase() : "invalid";
     // Login Rate Limit
     const pass = await loginRateLimiter.pass(null, 1, rateLimitKey, source);
@@ -92,7 +90,7 @@ async function authorizeUser(username, password, source) {
         return null;
     }
 
-    const user = await login(username, password);
+    const user = await login(store, username, password);
     if (user !== null) {
         loginRateLimiter.reset(rateLimitKey);
         return user.id;
@@ -107,7 +105,7 @@ async function authorizeUser(username, password, source) {
  * @param {string} password API key from the password field
  * @returns {Promise<number|null>} API key owner ID when authorized
  */
-async function authorizeAPIKey(password, source) {
+async function authorizeAPIKey(store, password, source) {
     const parsed = parseAPIKey(password);
     const rateLimitKey = parsed ? `api-key:${parsed.id}` : "invalid";
     const pass = await apiRateLimiter.pass(null, 1, rateLimitKey, source);
@@ -116,7 +114,7 @@ async function authorizeAPIKey(password, source) {
         return null;
     }
 
-    const key = await verifyAPIKey(password);
+    const key = await verifyAPIKey(store, password);
     if (!key) {
         log.warn("api-auth", "Failed API auth attempt: invalid API Key");
     } else {
@@ -168,8 +166,8 @@ function unauthorizedResponse(disableFrameSameOrigin) {
  * @param {boolean} options.disableFrameSameOrigin Disable SAMEORIGIN frame header
  * @returns {Promise<Response|null>} null when authorized, otherwise an auth response
  */
-export async function checkBasicAuthRequest(request, options = {}) {
-    const auth = await authenticateBasicAuthRequest(request, options);
+export async function checkBasicAuthRequest(store, settings, request, options = {}) {
+    const auth = await authenticateBasicAuthRequest(store, settings, request, options);
     return auth.response || null;
 }
 
@@ -179,8 +177,8 @@ export async function checkBasicAuthRequest(request, options = {}) {
  * @param {object} options Auth options
  * @returns {Promise<{userID: number|null, response?: Response}>} Auth result
  */
-export async function authenticateBasicAuthRequest(request, options = {}) {
-    const disabledAuth = await Settings.get("disableAuth");
+export async function authenticateBasicAuthRequest(store, settings, request, options = {}) {
+    const disabledAuth = await settings.get("disableAuth");
     if (disabledAuth) {
         return { userID: null };
     }
@@ -191,10 +189,10 @@ export async function authenticateBasicAuthRequest(request, options = {}) {
     }
 
     let userID;
-    if (options.apiKeys && (await Settings.get("apiKeysEnabled"))) {
-        userID = await authorizeAPIKey(credentials.password, options.source);
+    if (options.apiKeys && (await settings.get("apiKeysEnabled"))) {
+        userID = await authorizeAPIKey(store, credentials.password, options.source);
     } else {
-        userID = await authorizeUser(credentials.username, credentials.password, options.source);
+        userID = await authorizeUser(store, credentials.username, credentials.password, options.source);
     }
 
     return userID === null
@@ -208,8 +206,8 @@ export async function authenticateBasicAuthRequest(request, options = {}) {
  * @param {object} options Auth options
  * @returns {Promise<Response|null>} null when authorized, otherwise an auth response
  */
-export async function checkAPIAuthRequest(request, options = {}) {
-    return checkBasicAuthRequest(request, {
+export async function checkAPIAuthRequest(store, settings, request, options = {}) {
+    return checkBasicAuthRequest(store, settings, request, {
         ...options,
         apiKeys: true,
     });
@@ -221,8 +219,8 @@ export async function checkAPIAuthRequest(request, options = {}) {
  * @param {object} options Auth options
  * @returns {Promise<{userID: number|null, response?: Response}>} Auth result
  */
-export async function authenticateAPIRequest(request, options = {}) {
-    return authenticateBasicAuthRequest(request, {
+export async function authenticateAPIRequest(store, settings, request, options = {}) {
+    return authenticateBasicAuthRequest(store, settings, request, {
         ...options,
         apiKeys: true,
     });

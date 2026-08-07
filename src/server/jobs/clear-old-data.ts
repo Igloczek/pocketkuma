@@ -3,7 +3,7 @@
 import type { SQLiteStore } from "@/server/db-migrations";
 import { log } from "@/util";
 import Database from "@/server/database";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 import dayjs from "dayjs";
 
 const DEFAULT_KEEP_PERIOD = 365;

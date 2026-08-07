@@ -29,7 +29,7 @@ const main = async () => {
             let ans = await question("Are you sure want to remove 2FA? [y/N]");
 
             if (ans.toLowerCase() === "y") {
-                await TwoFA.disable2FA(user.id);
+                await TwoFA.disable2FA(R, user.id);
                 console.log("2FA has been removed successfully.");
             }
         }

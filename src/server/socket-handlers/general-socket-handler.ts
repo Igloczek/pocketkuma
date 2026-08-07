@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { log } from "@/util";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 import { sendInfo } from "@/server/client";
 import { checkLogin } from "@/server/util-server";
 import fs from "fs";

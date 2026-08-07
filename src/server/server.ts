@@ -54,16 +54,8 @@ import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { listenWithBunServe } from "@/server/bun-http-server";
 import Monitor from "@/server/model/monitor";
 import User from "@/server/model/user";
-import {
-    getSettings,
-    setSettings,
-    setting,
-    initJWTSecret,
-    checkLogin,
-    doubleCheckPassword,
-    shake256,
-    SHAKE256_LENGTH,
-} from "@/server/util-server";
+import { shake256, SHAKE256_LENGTH } from "@/server/util-server";
+import { initJWTSecret, checkLogin, doubleCheckPassword } from "@/server/server-auth-helpers";
 import { Notification } from "@/server/notification";
 import webpush from "web-push";
 import Database from "@/server/database";
@@ -100,7 +92,7 @@ import { dockerSocketHandler } from "@/server/socket-handlers/docker-socket-hand
 import { maintenanceSocketHandler } from "@/server/socket-handlers/maintenance-socket-handler";
 import { apiKeySocketHandler } from "@/server/socket-handlers/api-key-socket-handler";
 import { generalSocketHandler } from "@/server/socket-handlers/general-socket-handler";
-import { Settings } from "@/server/settings";
+import { legacySettings } from "@/server/settings-legacy";
 import { clearResponseCache } from "@/server/bun-response";
 import { chartSocketHandler } from "@/server/socket-handlers/chart-socket-handler";
 
@@ -151,6 +143,7 @@ log.debug("server", "Importing 2FA Modules");
 
 const server = PocketKumaServer.getInstance();
 const databaseMaintenance = new DatabaseMaintenanceCoordinator();
+const settings = legacySettings;
 server.io.setDatabaseMaintenanceCoordinator(databaseMaintenance);
 export const io = server.io;
 
@@ -226,7 +219,7 @@ let needSetup = false;
 
     // Database should be ready now
     await server.initAfterDatabaseReady();
-    server.entryPage = await Settings.get("entryPage");
+    server.entryPage = await settings.get("entryPage");
     await StatusPage.loadDomainMappingList();
 
     log.debug("server", "Initializing Prometheus");
@@ -266,7 +259,7 @@ let needSetup = false;
                     if (decoded.h !== shake256(user.password, SHAKE256_LENGTH)) {
                         throw new Error("The token is invalid due to password change or old token");
                     }
-                    if (!(await User.hasSession(decoded.sid, user.id))) {
+                    if (!(await User.hasSession(R, decoded.sid, user.id))) {
                         throw new Error("The session has been revoked");
                     }
 
@@ -323,12 +316,12 @@ let needSetup = false;
                 return;
             }
 
-            let user = await login(data.username, data.password);
+            let user = await login(R, data.username, data.password);
 
             if (user) {
                 loginRateLimiter.reset(rateLimitKey);
                 if (user.twofa_status === 0) {
-                    const session = await User.createSession(user, server.jwtSecret);
+                    const session = await User.createSession(R, user, server.jwtSecret);
                     socket.sessionID = session.id;
                     await afterLogin(socket, user);
 
@@ -357,7 +350,7 @@ let needSetup = false;
 
                     if (verify && (await consumeTwoFAToken(user.id, data.token))) {
                         twoFaRateLimiter.reset(user.id);
-                        const session = await User.createSession(user, server.jwtSecret);
+                        const session = await User.createSession(R, user, server.jwtSecret);
                         socket.sessionID = session.id;
                         await afterLogin(socket, user);
 
@@ -391,7 +384,7 @@ let needSetup = false;
         socket.on("logout", async (callback) => {
             const userID = socket.userID;
             const sessionID = socket.sessionID;
-            await User.revokeSession(sessionID, userID);
+            await User.revokeSession(R, sessionID, userID);
             for (const connectedSocket of io.sockets.sockets.values()) {
                 if (connectedSocket !== socket && connectedSocket.sessionID === sessionID) {
                     connectedSocket.disconnect();
@@ -413,7 +406,7 @@ let needSetup = false;
                 if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-                await doubleCheckPassword(socket, currentPassword);
+                await doubleCheckPassword(R, socket, currentPassword);
 
                 let user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
 
@@ -459,7 +452,7 @@ let needSetup = false;
                 if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-                await doubleCheckPassword(socket, currentPassword);
+                await doubleCheckPassword(R, socket, currentPassword);
                 if (
                     !socket.pendingTwoFASecret ||
                     !socket.twoFAVerified ||
@@ -505,8 +498,8 @@ let needSetup = false;
                 if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-                await doubleCheckPassword(socket, currentPassword);
-                await TwoFA.disable2FA(socket.userID);
+                await doubleCheckPassword(R, socket, currentPassword);
+                await TwoFA.disable2FA(R, socket.userID);
                 clearTwoFAState(socket);
                 twoFaRateLimiter.reset(socket.userID);
 
@@ -533,7 +526,7 @@ let needSetup = false;
                 if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-                await doubleCheckPassword(socket, currentPassword);
+                await doubleCheckPassword(R, socket, currentPassword);
 
                 let user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
                 if (!socket.pendingTwoFASecret) {
@@ -1370,10 +1363,10 @@ let needSetup = false;
                     throw new TranslatableError("passwordTooWeak");
                 }
 
-                let user = await doubleCheckPassword(socket, password.currentPassword);
-                await user.resetPassword(password.newPassword);
-                await User.revokeAllSessions(user.id);
-                const session = await User.createSession(user, server.jwtSecret);
+                let user = await doubleCheckPassword(R, socket, password.currentPassword);
+                await user.resetPassword(R, password.newPassword);
+                await User.revokeAllSessions(R, user.id);
+                const session = await User.createSession(R, user, server.jwtSecret);
                 socket.sessionID = session.id;
 
                 server.disconnectAllSocketClients(user.id, socket.id);
@@ -1396,7 +1389,7 @@ let needSetup = false;
         socket.on("getSettings", async (callback) => {
             try {
                 checkLogin(socket);
-                const data = await getSettings("general");
+                const data = await settings.getSettings("general");
 
                 if (!data.serverTimezone) {
                     data.serverTimezone = await server.getTimezone();
@@ -1423,9 +1416,9 @@ let needSetup = false;
                 // Disabled Auth + Want to Enable Auth => No Check
                 // Enabled Auth + Want to Disable Auth => Check!!
                 // Enabled Auth + Want to Enable Auth => No Check
-                const currentDisabledAuth = await setting("disableAuth");
+                const currentDisabledAuth = await settings.get("disableAuth");
                 if (!currentDisabledAuth && data.disableAuth) {
-                    await doubleCheckPassword(socket, currentPassword);
+                    await doubleCheckPassword(R, socket, currentPassword);
                 }
 
                 // Log out all clients if enabling auth
@@ -1434,10 +1427,10 @@ let needSetup = false;
                     server.disconnectAllSocketClients(socket.userID, socket.id);
                 }
 
-                const previousChromeExecutable = await Settings.get("chromeExecutable");
-                const previousNSCDStatus = await Settings.get("nscd");
+                const previousChromeExecutable = await settings.get("chromeExecutable");
+                const previousNSCDStatus = await settings.get("nscd");
 
-                await setSettings("general", data);
+                await settings.setSettings("general", data);
                 server.entryPage = data.entryPage;
 
                 // Also need to apply timezone globally
@@ -1550,14 +1543,14 @@ let needSetup = false;
 
         socket.on("getWebpushVapidPublicKey", async (callback) => {
             try {
-                let publicVapidKey = await Settings.get("webpushPublicVapidKey");
+                let publicVapidKey = await settings.get("webpushPublicVapidKey");
 
                 if (!publicVapidKey) {
                     log.debug("webpush", "Generating new VAPID keys");
                     const vapidKeys = webpush.generateVAPIDKeys();
 
-                    await Settings.set("webpushPublicVapidKey", vapidKeys.publicKey);
-                    await Settings.set("webpushPrivateVapidKey", vapidKeys.privateKey);
+                    await settings.set("webpushPublicVapidKey", vapidKeys.publicKey);
+                    await settings.set("webpushPrivateVapidKey", vapidKeys.privateKey);
 
                     publicVapidKey = vapidKeys.publicKey;
                 }
@@ -1650,12 +1643,12 @@ let needSetup = false;
 
         // Status Page Socket Handler for admin only
         statusPageSocketHandler(socket);
-        cloudflaredSocketHandler(socket);
+        cloudflaredSocketHandler(socket, R);
         databaseSocketHandler(socket, R);
         proxySocketHandler(socket);
         dockerSocketHandler(socket);
         maintenanceSocketHandler(socket);
-        apiKeySocketHandler(socket);
+        apiKeySocketHandler(socket, settings);
         remoteBrowserSocketHandler(socket);
         generalSocketHandler(socket, server);
         chartSocketHandler(socket);
@@ -1667,7 +1660,7 @@ let needSetup = false;
         // ***************************
 
         log.debug("auth", "check auto login");
-        if (await setting("disableAuth")) {
+        if (await settings.get("disableAuth")) {
             log.info("auth", "Disabled Auth: auto login to admin");
             await afterLogin(socket, await R.findOne("user"));
             socket.emit("autoLogin");
@@ -1694,6 +1687,7 @@ let needSetup = false;
         server,
         store: R,
         databaseMaintenance,
+        settings,
         hostname,
         port,
         disableFrameSameOrigin,
@@ -1776,7 +1770,7 @@ async function afterLogin(socket, user) {
 
     // Set server timezone from client browser if not set
     // It should be run once only
-    if (!(await Settings.get("initServerTimezone"))) {
+    if (!(await settings.get("initServerTimezone"))) {
         log.debug("server", "emit initServerTimezone");
         socket.emit("initServerTimezone");
     }
@@ -1797,7 +1791,7 @@ async function initDatabase(testMode = false) {
 
     if (!jwtSecretBean) {
         log.info("server", "JWT secret is not found, generate one.");
-        jwtSecretBean = await initJWTSecret();
+        jwtSecretBean = await initJWTSecret(R);
         log.info("server", "Stored JWT secret into database");
     } else {
         log.debug("server", "Load JWT secret from database.");
@@ -1912,7 +1906,7 @@ async function shutdownFunction(signal) {
     }
 
     await cloudflaredStop();
-    Settings.stopCacheCleaner();
+    settings.stopCacheCleaner();
 
     if (server.bunHttpServer) {
         server.bunHttpServer.stop(true);

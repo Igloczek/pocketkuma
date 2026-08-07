@@ -15,7 +15,7 @@ import Database from "@/server/database";
 import { clearResponseCache } from "@/server/bun-response";
 import StatusPage from "@/server/model/status_page";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 
 function validateIncident(incident) {
     if (!incident.title || incident.title.trim() === "") {

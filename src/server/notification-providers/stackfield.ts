@@ -3,7 +3,7 @@
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 import { getMonitorRelativeURL } from "@/util";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 
 class Stackfield extends NotificationProvider {
     name = "stackfield";

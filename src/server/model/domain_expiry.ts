@@ -9,7 +9,7 @@ import { setting, setSetting } from "@/server/util-server";
 import { Notification } from "@/server/notification";
 import TranslatableError from "@/server/translatable-error";
 import dayjs from "dayjs";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 let cacheRdapDnsData = null;
 let nextChecking = 0;
 let running = false;

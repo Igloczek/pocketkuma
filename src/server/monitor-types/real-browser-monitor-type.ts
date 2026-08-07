@@ -6,7 +6,7 @@
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { UP, log } from "@/util";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 import path from "path";
 import Database from "@/server/database";
 import jwt from "@/server/jwt";

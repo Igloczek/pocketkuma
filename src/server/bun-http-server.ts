@@ -76,7 +76,7 @@ function validateSqliteSnapshot(snapshotPath) {
     }
 }
 
-async function stopRuntimeForSnapshot(server) {
+async function stopRuntimeForSnapshot(server, settings) {
     stopBackgroundJobs();
     for (const maintenance of Object.values(server.maintenanceList)) {
         maintenance.stop();
@@ -87,7 +87,7 @@ async function stopRuntimeForSnapshot(server) {
     server.monitorList = {};
     server.maintenanceList = {};
     await UptimeCalculator.removeAll();
-    Settings.cacheList = {};
+    settings.cacheList = {};
     StatusPage.domainMappingList = {};
     clearResponseCache();
 }
@@ -95,13 +95,14 @@ async function stopRuntimeForSnapshot(server) {
 async function reloadRuntimeAfterSnapshot(
     server,
     store: SQLiteStore,
-    databaseMaintenance: DatabaseMaintenanceCoordinator
+    databaseMaintenance: DatabaseMaintenanceCoordinator,
+    settings
 ) {
-    Settings.cacheList = {};
+    settings.cacheList = {};
     const jwtSecret = await store.findOne("setting", " `key` = ? ", ["jwtSecret"]);
     server.jwtSecret = jwtSecret?.value || null;
     await server.initAfterDatabaseReady();
-    server.entryPage = await Settings.get("entryPage");
+    server.entryPage = await settings.get("entryPage");
     await StatusPage.loadDomainMappingList();
 
     const monitors = await store.find("monitor", " active = 1 ");
@@ -191,11 +192,13 @@ async function restoreSqliteSnapshot(
     server,
     store: SQLiteStore,
     databaseMaintenance: DatabaseMaintenanceCoordinator,
-    runtime = {
-        stop: () => stopRuntimeForSnapshot(server),
-        reload: () => reloadRuntimeAfterSnapshot(server, store, databaseMaintenance),
-    }
+    runtime = null,
+    settings = new Settings(store)
 ) {
+    runtime ||= {
+        stop: () => stopRuntimeForSnapshot(server, settings),
+        reload: () => reloadRuntimeAfterSnapshot(server, store, databaseMaintenance, settings),
+    };
     return databaseMaintenance.maintain(async () => {
         const snapshotPath = `${Database.sqlitePath}.e2e-snapshot`;
         if (!fs.existsSync(snapshotPath)) {
@@ -302,10 +305,10 @@ function getHostname(request) {
     return host.split(":")[0];
 }
 
-async function resolveTrustedHostname(request) {
+async function resolveTrustedHostname(request, settings) {
     let hostname = getHostname(request);
     const forwardedHost = request.headers.get("x-forwarded-host");
-    if ((await Settings.get("trustProxy")) && forwardedHost) {
+    if ((await settings.get("trustProxy")) && forwardedHost) {
         hostname = forwardedHost;
     }
     return hostname;
@@ -436,8 +439,8 @@ async function serveFile(root, urlPathname, request, disableFrameSameOrigin, opt
     return new Response(request.method === "HEAD" ? null : picked.file, { headers });
 }
 
-async function rootResponse(request, server, disableFrameSameOrigin) {
-    const hostname = await resolveTrustedHostname(request);
+async function rootResponse(request, server, settings, disableFrameSameOrigin) {
+    const hostname = await resolveTrustedHostname(request, settings);
     log.debug("entry", `Request Domain: ${hostname}`);
 
     if (hostname in StatusPage.domainMappingList) {
@@ -495,6 +498,7 @@ async function handleDevRequest(
     store: SQLiteStore,
     databaseMaintenance: DatabaseMaintenanceCoordinator,
     snapshotRuntime,
+    settings,
     disableFrameSameOrigin,
     development = isDev
 ) {
@@ -524,7 +528,7 @@ async function handleDevRequest(
     }
 
     if (request.method === "GET" && url.pathname === "/_e2e/restore-sqlite-snapshot") {
-        await restoreSqliteSnapshot(server, store, databaseMaintenance);
+        await restoreSqliteSnapshot(server, store, databaseMaintenance, null, settings);
 
         return textResponse("Snapshot restored.", { disableFrameSameOrigin });
     }
@@ -532,12 +536,12 @@ async function handleDevRequest(
     return null;
 }
 
-async function metricsResponse(request, bunServer, server, disableFrameSameOrigin) {
+async function metricsResponse(request, bunServer, server, store, settings, disableFrameSameOrigin) {
     const source = await server.getClientIPwithProxy(
         bunServer.requestIP(request)?.address || "",
         Object.fromEntries(request.headers)
     );
-    const auth = await authenticateAPIRequest(request, { disableFrameSameOrigin, source });
+    const auth = await authenticateAPIRequest(store, settings, request, { disableFrameSameOrigin, source });
     if (auth.response) {
         return auth.response;
     }
@@ -554,6 +558,7 @@ function createBunFetchHandler({
     store,
     databaseMaintenance,
     disableFrameSameOrigin,
+    settings = new Settings(store),
     development = isDev,
     snapshotRuntime = createSnapshotMonitorRuntime(server),
 }) {
@@ -572,7 +577,7 @@ function createBunFetchHandler({
         }
 
         if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/") {
-            return rootResponse(request, server, disableFrameSameOrigin);
+            return rootResponse(request, server, settings, disableFrameSameOrigin);
         }
 
         const devResponse = await handleDevRequest(
@@ -581,6 +586,7 @@ function createBunFetchHandler({
             store,
             databaseMaintenance,
             snapshotRuntime,
+            settings,
             disableFrameSameOrigin,
             development
         );
@@ -606,7 +612,7 @@ function createBunFetchHandler({
         }
 
         if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/metrics") {
-            return metricsResponse(request, bunServer, server, disableFrameSameOrigin);
+            return metricsResponse(request, bunServer, server, store, settings, disableFrameSameOrigin);
         }
 
         const apiResponse = await handleApiRequest(request, { server, disableFrameSameOrigin });
@@ -662,6 +668,7 @@ function createBunFetchHandler({
                 store,
                 databaseMaintenance,
                 snapshotRuntime,
+                settings,
                 disableFrameSameOrigin,
                 development
             );
@@ -671,11 +678,11 @@ function createBunFetchHandler({
     };
 }
 
-function listenWithBunServe({ server, store, databaseMaintenance, hostname, port, disableFrameSameOrigin }) {
+function listenWithBunServe({ server, store, databaseMaintenance, settings, hostname, port, disableFrameSameOrigin }) {
     const bunServer = Bun.serve({
         hostname,
         port,
-        fetch: createBunFetchHandler({ server, store, databaseMaintenance, disableFrameSameOrigin }),
+        fetch: createBunFetchHandler({ server, store, databaseMaintenance, settings, disableFrameSameOrigin }),
         websocket: {
             open(ws) {
                 void server.io.open(ws).catch((error) => log.error("socket", error));
