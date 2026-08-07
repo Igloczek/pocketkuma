@@ -6,9 +6,11 @@ Measured 2026-08-07 on Bun `1.3.14`, Darwin `25.5.0`, `arm64`. This is a single-
 
 ## Method
 
-Each sample started one fresh child process with a fresh temporary `data-dir`, waited for readiness, warmed up for 1,000 ms, sampled external RSS and macOS physical footprint, then terminated and removed the process/data directory. Every variant has three trials. Application readiness is the existing `GET /`; no benchmark endpoint, IPC, or production hook is involved.
+Each sample started one fresh child process with a fresh temporary `data-dir`, in this fixed order: `minimal-bun`, `minimal-bun-serve`, source backend, compiled binary. It waited for readiness, warmed up for 1,000 ms, sampled external RSS, then terminated and removed the process/data directory. RSS is collected with `ps` on macOS and Linux. Physical footprint is collected with macOS `footprint` only; it is explicitly unavailable on Linux. Every variant has three trials. Three trials are a descriptive baseline, not a statistical estimate. Application readiness is the existing `GET /` with HTTP 200; no benchmark endpoint, IPC, or production hook is involved.
 
-The `minimal-bun` and `minimal-bun-serve` processes are synthetic probes. Their `process.memoryUsage()` and optional `Bun.unsafe.memoryFootprint()` values are recorded separately in the JSON only to describe runtime overhead; they are not application measurements. Application rows use only external process metrics.
+The process start is the cold portion of each trial; the RSS/footprint sample is taken after the readiness warm-up, so it is a warm measurement. The fixed order makes the report reproducible on one host, but does not make results from different hosts comparable.
+
+The `minimal-bun` and `minimal-bun-serve` processes are synthetic probes. Their `process.memoryUsage()` and optional `Bun.unsafe.memoryFootprint()` values are recorded separately in the JSON only to describe runtime overhead; they are not application measurements. Application rows use only external process metrics. The committed values below are macOS measurements; on Linux the physical-footprint column is unavailable.
 
 ## Median baseline
 
@@ -36,6 +38,17 @@ The compiled first trial shows a cold-start outlier; the reported median preserv
 bun run build
 bun scripts/benchmark/startup-memory.ts \
   --trials=3 \
+  --warmup-ms=1000
+```
+
+Without `--outfile`, the command writes a SHA-named report such as `docs/perf/bun-startup-memory-<SHA>.json` and cannot overwrite this baseline. To intentionally reproduce the committed report, run the command at the exact baseline checkout and bind it explicitly:
+
+```bash
+git switch --detach a66d1e3d5779f045790a0604be76f50aa80a03d0
+bun run build
+bun scripts/benchmark/startup-memory.ts \
+  --trials=3 \
   --warmup-ms=1000 \
+  --baseline-sha=a66d1e3d5779f045790a0604be76f50aa80a03d0 \
   --outfile=docs/perf/bun-startup-memory-baseline.json
 ```

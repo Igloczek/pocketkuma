@@ -2,6 +2,7 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { getNotificationProviderModuleMap, NOTIFICATION_PROVIDER_REGISTRY } from "@/notification-provider-metadata";
 import {
@@ -64,6 +65,36 @@ describe("notification provider compile-safe loading", () => {
 
         expect(getLoadedNotificationProviders().sort()).toEqual(registryKeys);
     });
+
+    test("compiled artifact loads every monitor and notification provider factory", async () => {
+        const registryKeys = Object.keys(NOTIFICATION_PROVIDER_REGISTRY);
+        const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-loader-smoke-"));
+        const outputPath = path.join(outputDir, "loader-smoke");
+
+        try {
+            const build = await Bun.build({
+                entrypoints: [path.join(import.meta.dirname, "compiled-loader-smoke.ts")],
+                compile: { outfile: outputPath },
+                external: ["chromium-bidi/*", "deasync"],
+                define: { "process.env.NODE_ENV": JSON.stringify("production") },
+                minify: true,
+            });
+            expect(build.success).toBe(true);
+
+            const smoke = Bun.spawn([outputPath], { stdout: "pipe", stderr: "pipe" });
+            const [stdout, stderr] = await Promise.all([
+                new Response(smoke.stdout).text(),
+                new Response(smoke.stderr).text(),
+            ]);
+            expect(await smoke.exited, stderr).toBe(0);
+
+            const result = JSON.parse(stdout.trim());
+            expect(result.monitors).toBeGreaterThan(0);
+            expect(result.notificationProviders).toBe(registryKeys.length);
+        } finally {
+            fs.rmSync(outputDir, { recursive: true, force: true });
+        }
+    }, 120_000);
 
     test("Notification.send resolves smtp provider instead of missing-module error", async () => {
         Notification.init();
