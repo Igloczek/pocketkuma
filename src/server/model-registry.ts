@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { registerModel } from "@/server/bun-sqlite-store";
+import { registerModel } from "@/server/sqlite-core";
 import APIKey from "@/server/model/api_key";
 import DomainExpiry from "@/server/model/domain_expiry";
 import DockerHost from "@/server/model/docker_host";
