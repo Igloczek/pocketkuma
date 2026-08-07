@@ -67,6 +67,7 @@ import {
 import { Notification } from "@/server/notification";
 import webpush from "web-push";
 import Database from "@/server/database";
+import { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 import { initBackgroundJobs, stopBackgroundJobs } from "@/server/jobs";
 import { loginRateLimiter, twoFaRateLimiter } from "@/server/rate-limiter";
 import { login } from "@/server/auth";
@@ -149,6 +150,8 @@ log.debug("server", "Importing database bean facade");
 log.debug("server", "Importing 2FA Modules");
 
 const server = PocketKumaServer.getInstance();
+const databaseMaintenance = new DatabaseMaintenanceCoordinator();
+server.io.setDatabaseMaintenanceCoordinator(databaseMaintenance);
 export const io = server.io;
 
 log.debug("server", "Importing Monitor");
@@ -232,7 +235,7 @@ let needSetup = false;
     log.debug("server", "Adding Bun.serve route handler");
 
     log.debug("server", "Adding socket handler");
-    io.on("connection", async (socket) => {
+    io.setConnectionInitializer(async (socket) => {
         clearTwoFAState(socket);
         socket.on("disconnect", () => clearTwoFAState(socket));
         await sendInfo(socket, true);
@@ -1648,7 +1651,7 @@ let needSetup = false;
         // Status Page Socket Handler for admin only
         statusPageSocketHandler(socket);
         cloudflaredSocketHandler(socket);
-        databaseSocketHandler(socket);
+        databaseSocketHandler(socket, R);
         proxySocketHandler(socket);
         dockerSocketHandler(socket);
         maintenanceSocketHandler(socket);
@@ -1682,13 +1685,15 @@ let needSetup = false;
         await startMonitors();
 
         // Put this here. Start background jobs after the db and server is ready to prevent clear up during db migration.
-        await initBackgroundJobs();
+        await initBackgroundJobs(R, databaseMaintenance);
 
         checkVersion.startInterval();
     };
 
     listenWithBunServe({
         server,
+        store: R,
+        databaseMaintenance,
         hostname,
         port,
         disableFrameSameOrigin,
@@ -1785,7 +1790,7 @@ async function afterLogin(socket, user) {
  */
 async function initDatabase(testMode = false) {
     log.debug("server", "Connecting to the database");
-    await Database.connect(testMode);
+    await Database.connect(R, testMode);
     log.info("server", "Connected to the database");
 
     let jwtSecretBean = await R.findOne("setting", " `key` = ? ", ["jwtSecret"]);
@@ -1901,11 +1906,11 @@ async function shutdownFunction(signal) {
     const { resetChrome } = await import("@/server/monitor-types/real-browser-monitor-type");
     await resetChrome();
     await sleep(2000);
+    stopBackgroundJobs();
     if (R.isOpen()) {
-        await Database.close();
+        await databaseMaintenance.maintain(() => Database.close(R));
     }
 
-    stopBackgroundJobs();
     await cloudflaredStop();
     Settings.stopCacheCleaner();
 
