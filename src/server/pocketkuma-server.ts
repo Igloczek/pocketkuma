@@ -42,6 +42,9 @@ class PocketKumaServer {
      */
     maintenanceList = {};
 
+    /** @type {Record<string, string>} */
+    statusPageDomainMappingList = {};
+
     entryPage = "dashboard";
     httpServer = undefined;
     bunHttpServer = undefined;
@@ -117,13 +120,13 @@ class PocketKumaServer {
      * Initialise app after the database has been set up
      * @returns {Promise<void>}
      */
-    async initAfterDatabaseReady() {
+    async initAfterDatabaseReady(store) {
         process.env.TZ = await this.getTimezone();
         dayjs.tz.setDefault(process.env.TZ);
         log.debug("DEBUG", "Timezone: " + process.env.TZ);
         log.debug("DEBUG", "Current Time: " + dayjs.tz().format());
 
-        await this.loadMaintenanceList();
+        await this.loadMaintenanceList(store);
     }
 
     /**
@@ -193,7 +196,7 @@ class PocketKumaServer {
             active: monitor.active,
             name: monitor.name,
         }));
-        const preloadData = await Monitor.preparePreloadData(monitorData);
+        const preloadData = await Monitor.preparePreloadData(monitorData, this);
 
         const result = {};
         monitorList.forEach((monitor) => (result[monitor.id] = monitor.toJSON(preloadData)));
@@ -230,7 +233,7 @@ class PocketKumaServer {
         for (let maintenanceID in this.maintenanceList) {
             const maintenance = this.maintenanceList[maintenanceID];
             if (maintenance.user_id === userID) {
-                result[maintenanceID] = await maintenance.toJSON();
+                result[maintenanceID] = await maintenance.toJSON(this);
             }
         }
         return result;
@@ -241,13 +244,13 @@ class PocketKumaServer {
      * @param {any} userID Unused
      * @returns {Promise<void>}
      */
-    async loadMaintenanceList(userID) {
-        let maintenanceList = await R.findAll("maintenance", " ORDER BY end_date DESC, title", []);
+    async loadMaintenanceList(store) {
+        let maintenanceList = await store.findAll("maintenance", " ORDER BY end_date DESC, title", []);
 
         for (let maintenance of maintenanceList) {
             this.maintenanceList[maintenance.id] = maintenance;
             if (maintenance.active) {
-                await maintenance.run(false, true);
+                await maintenance.run(store, this, false, true);
             }
         }
     }

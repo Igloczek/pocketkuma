@@ -218,9 +218,9 @@ let needSetup = false;
     }
 
     // Database should be ready now
-    await server.initAfterDatabaseReady();
+    await server.initAfterDatabaseReady(R);
     server.entryPage = await settings.get("entryPage");
-    await StatusPage.loadDomainMappingList();
+    await StatusPage.loadDomainMappingList(R, server.statusPageDomainMappingList);
 
     log.debug("server", "Initializing Prometheus");
     await Prometheus.init(R);
@@ -924,7 +924,7 @@ let needSetup = false;
 
                 let monitor = await R.findOne("monitor", " id = ? AND user_id = ? ", [monitorID, socket.userID]);
                 const monitorData = [{ id: monitor.id, active: monitor.active }];
-                const preloadData = await Monitor.preparePreloadData(monitorData);
+                const preloadData = await Monitor.preparePreloadData(monitorData, server);
                 callback({
                     ok: true,
                     monitor: monitor.toJSON(preloadData),
@@ -1642,12 +1642,12 @@ let needSetup = false;
         });
 
         // Status Page Socket Handler for admin only
-        statusPageSocketHandler(socket);
+        statusPageSocketHandler(socket, R, server, settings);
         cloudflaredSocketHandler(socket, R);
         databaseSocketHandler(socket, R);
         proxySocketHandler(socket, R, io, server);
         dockerSocketHandler(socket, R, io);
-        maintenanceSocketHandler(socket);
+        maintenanceSocketHandler(socket, R, server);
         apiKeySocketHandler(socket, R, io, settings);
         remoteBrowserSocketHandler(socket, R, io);
         generalSocketHandler(socket, server, settings);
@@ -1756,7 +1756,7 @@ async function afterLogin(socket, user) {
         sendMonitorTypeList(PocketKumaServer.monitorTypeList, io, socket),
     ]);
 
-    await StatusPage.sendStatusPageList(io, socket);
+    await StatusPage.sendStatusPageList(R, io, socket, server.statusPageDomainMappingList);
 
     // Push recent heartbeat history + stats so the dashboard/bars/charts are populated
     // immediately on login, not only after the next live check arrives.

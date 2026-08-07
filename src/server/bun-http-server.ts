@@ -88,7 +88,7 @@ async function stopRuntimeForSnapshot(server, settings) {
     server.maintenanceList = {};
     await UptimeCalculator.removeAll();
     settings.cacheList = {};
-    StatusPage.domainMappingList = {};
+    server.statusPageDomainMappingList = {};
     clearResponseCache();
 }
 
@@ -101,9 +101,9 @@ async function reloadRuntimeAfterSnapshot(
     settings.cacheList = {};
     const jwtSecret = await store.findOne("setting", " `key` = ? ", ["jwtSecret"]);
     server.jwtSecret = jwtSecret?.value || null;
-    await server.initAfterDatabaseReady();
+    await server.initAfterDatabaseReady(store);
     server.entryPage = await settings.get("entryPage");
-    await StatusPage.loadDomainMappingList();
+    await StatusPage.loadDomainMappingList(store, server.statusPageDomainMappingList);
 
     const monitors = await store.find("monitor", " active = 1 ");
     for (const monitor of monitors) {
@@ -439,13 +439,13 @@ async function serveFile(root, urlPathname, request, disableFrameSameOrigin, opt
     return new Response(request.method === "HEAD" ? null : picked.file, { headers });
 }
 
-async function rootResponse(request, server, settings, disableFrameSameOrigin) {
+async function rootResponse(request, server, store, settings, disableFrameSameOrigin) {
     const hostname = await resolveTrustedHostname(request, settings);
     log.debug("entry", `Request Domain: ${hostname}`);
 
-    if (hostname in StatusPage.domainMappingList) {
-        const slug = StatusPage.domainMappingList[hostname];
-        const result = await StatusPage.renderHTMLBySlug(server.indexHTML, slug);
+    if (hostname in server.statusPageDomainMappingList) {
+        const slug = server.statusPageDomainMappingList[hostname];
+        const result = await StatusPage.renderHTMLBySlug(store, server, slug);
         return htmlResponse(result.body, {
             status: result.status,
             disableFrameSameOrigin,
@@ -577,7 +577,7 @@ function createBunFetchHandler({
         }
 
         if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/") {
-            return rootResponse(request, server, settings, disableFrameSameOrigin);
+            return rootResponse(request, server, store, settings, disableFrameSameOrigin);
         }
 
         const devResponse = await handleDevRequest(
@@ -615,12 +615,17 @@ function createBunFetchHandler({
             return metricsResponse(request, bunServer, server, store, settings, disableFrameSameOrigin);
         }
 
-        const apiResponse = await handleApiRequest(request, { server, disableFrameSameOrigin });
+        const apiResponse = await handleApiRequest(request, { server, store, settings, disableFrameSameOrigin });
         if (apiResponse) {
             return apiResponse;
         }
 
-        const statusPageResponse = await handleStatusPageRequest(request, { server, disableFrameSameOrigin });
+        const statusPageResponse = await handleStatusPageRequest(request, {
+            server,
+            store,
+            settings,
+            disableFrameSameOrigin,
+        });
         if (statusPageResponse) {
             return statusPageResponse;
         }

@@ -584,7 +584,7 @@ class Monitor extends BeanModel {
             }
 
             try {
-                if (await Monitor.isUnderMaintenance(this.id)) {
+                if (await Monitor.isUnderMaintenance(this.id, PocketKumaServer.getInstance())) {
                     bean.msg = "Monitor under maintenance";
                     bean.status = MAINTENANCE;
                 } else if (this.type === "http" || this.type === "keyword" || this.type === "json-query") {
@@ -1592,15 +1592,16 @@ class Monitor extends BeanModel {
 
             const heartbeatJSON = await bean.toJSONAsync({ decodeResponse: true });
             const monitorData = [{ id: monitor.id, active: monitor.active, name: monitor.name }];
-            const preloadData = await Monitor.preparePreloadData(monitorData);
+            const server = PocketKumaServer.getInstance();
+            const preloadData = await Monitor.preparePreloadData(monitorData, server);
             // Prevent if the msg is undefined, notifications such as Discord cannot send out.
             if (!heartbeatJSON["msg"]) {
                 heartbeatJSON["msg"] = "N/A";
             }
 
             // Also provide the time in server timezone
-            heartbeatJSON["timezone"] = await PocketKumaServer.getInstance().getTimezone();
-            heartbeatJSON["timezoneOffset"] = PocketKumaServer.getInstance().getTimezoneOffset();
+            heartbeatJSON["timezone"] = await server.getTimezone();
+            heartbeatJSON["timezoneOffset"] = server.getTimezoneOffset();
             heartbeatJSON["localDateTime"] = dayjs
                 .utc(heartbeatJSON["time"])
                 .tz(heartbeatJSON["timezone"])
@@ -1721,7 +1722,7 @@ class Monitor extends BeanModel {
      * @param {number} monitorID ID of monitor to check
      * @returns {Promise<boolean>} Is the monitor under maintenance
      */
-    static async isUnderMaintenance(monitorID) {
+    static async isUnderMaintenance(monitorID, server) {
         const maintenanceIDList = await R.getCol(
             `
             SELECT maintenance_id FROM monitor_maintenance
@@ -1731,15 +1732,15 @@ class Monitor extends BeanModel {
         );
 
         for (const maintenanceID of maintenanceIDList) {
-            const maintenance = await PocketKumaServer.getInstance().getMaintenance(maintenanceID);
-            if (maintenance && (await maintenance.isUnderMaintenance())) {
+            const maintenance = await server.getMaintenance(maintenanceID);
+            if (maintenance && (await maintenance.isUnderMaintenance(server))) {
                 return true;
             }
         }
 
         const parent = await Monitor.getParent(monitorID);
         if (parent != null) {
-            return await Monitor.isUnderMaintenance(parent.id);
+            return await Monitor.isUnderMaintenance(parent.id, server);
         }
 
         return false;
@@ -1968,7 +1969,7 @@ class Monitor extends BeanModel {
      * @param {Array} monitorData IDs & active field of monitor to get
      * @returns {Promise<LooseObject<any>>} object
      */
-    static async preparePreloadData(monitorData) {
+    static async preparePreloadData(monitorData, server) {
         const notificationsMap = new Map();
         const tagsMap = new Map();
         const maintenanceStatusMap = new Map();
@@ -1982,7 +1983,7 @@ class Monitor extends BeanModel {
             const notifications = await Monitor.getMonitorNotification(monitorIDs);
             const tags = await Monitor.getMonitorTag(monitorIDs);
             const maintenanceStatuses = await Promise.all(
-                monitorData.map((monitor) => Monitor.isUnderMaintenance(monitor.id))
+                monitorData.map((monitor) => Monitor.isUnderMaintenance(monitor.id, server))
             );
             const childrenIDs = await Promise.all(monitorData.map((monitor) => Monitor.getAllChildrenIDs(monitor.id)));
             const activeStatuses = await Promise.all(
