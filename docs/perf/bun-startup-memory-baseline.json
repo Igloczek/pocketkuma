@@ -5,9 +5,14 @@
     "os": "darwin 25.5.0",
     "arch": "arm64",
     "gitSha": "a66d1e3d5779f045790a0604be76f50aa80a03d0",
+    "baselineSha": "a66d1e3d5779f045790a0604be76f50aa80a03d0",
     "trials": 3,
     "warmupMs": 1000,
     "timeoutMs": 30000,
+    "metrics": {
+        "rss": "external process RSS in KiB (macOS/Linux)",
+        "physicalFootprint": "external macOS physical footprint in bytes"
+    },
     "note": "Application variants use external RSS/footprint and existing GET / readiness. Synthetic variants also report Bun runtime metrics; those are separate metrics and are not application measurements. Results are a single-host baseline and must not be compared across hosts.",
     "variants": [
         {
@@ -22,7 +27,8 @@
                         "processRssBytes": 23642112,
                         "heapUsedBytes": 175406,
                         "unsafeMemoryFootprintBytes": null
-                    }
+                    },
+                    "forcedKill": false
                 },
                 {
                     "readinessMs": 51,
@@ -32,7 +38,8 @@
                         "processRssBytes": 23724032,
                         "heapUsedBytes": 175406,
                         "unsafeMemoryFootprintBytes": null
-                    }
+                    },
+                    "forcedKill": false
                 },
                 {
                     "readinessMs": 52,
@@ -42,7 +49,8 @@
                         "processRssBytes": 23625728,
                         "heapUsedBytes": 175406,
                         "unsafeMemoryFootprintBytes": null
-                    }
+                    },
+                    "forcedKill": false
                 }
             ],
             "median": {
@@ -63,7 +71,8 @@
                         "processRssBytes": 23609344,
                         "heapUsedBytes": 175406,
                         "unsafeMemoryFootprintBytes": null
-                    }
+                    },
+                    "forcedKill": false
                 },
                 {
                     "readinessMs": 52,
@@ -73,7 +82,8 @@
                         "processRssBytes": 23691264,
                         "heapUsedBytes": 175406,
                         "unsafeMemoryFootprintBytes": null
-                    }
+                    },
+                    "forcedKill": false
                 },
                 {
                     "readinessMs": 52,
@@ -83,7 +93,8 @@
                         "processRssBytes": 23674880,
                         "heapUsedBytes": 175406,
                         "unsafeMemoryFootprintBytes": null
-                    }
+                    },
+                    "forcedKill": false
                 }
             ],
             "median": {
@@ -100,19 +111,22 @@
                     "readinessMs": 413,
                     "rssKb": 167808,
                     "footprintBytes": 122047104,
-                    "synthetic": null
+                    "synthetic": null,
+                    "forcedKill": false
                 },
                 {
                     "readinessMs": 365,
                     "rssKb": 167776,
                     "footprintBytes": 122358336,
-                    "synthetic": null
+                    "synthetic": null,
+                    "forcedKill": false
                 },
                 {
                     "readinessMs": 364,
                     "rssKb": 167872,
                     "footprintBytes": 122342080,
-                    "synthetic": null
+                    "synthetic": null,
+                    "forcedKill": false
                 }
             ],
             "median": {
@@ -129,19 +143,22 @@
                     "readinessMs": 2264,
                     "rssKb": 212224,
                     "footprintBytes": 143772288,
-                    "synthetic": null
+                    "synthetic": null,
+                    "forcedKill": false
                 },
                 {
                     "readinessMs": 666,
                     "rssKb": 212848,
                     "footprintBytes": 143706944,
-                    "synthetic": null
+                    "synthetic": null,
+                    "forcedKill": false
                 },
                 {
                     "readinessMs": 469,
                     "rssKb": 213008,
                     "footprintBytes": 144558848,
-                    "synthetic": null
+                    "synthetic": null,
+                    "forcedKill": false
                 }
             ],
             "median": {

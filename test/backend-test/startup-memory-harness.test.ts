@@ -8,9 +8,16 @@ import {
     parseReadyLine,
     parseRssKb,
     runTrial,
+    variants,
 } from "@/../scripts/benchmark/startup-memory";
 
 describe("startup memory benchmark harness", () => {
+    test("application variants use process-group cleanup", () => {
+        for (const name of ["source-backend", "compiled-binary"]) {
+            expect(variants.find((variant) => variant.name === name)?.processGroup).toBe(true);
+        }
+    });
+
     test("parses readiness and external memory samples", () => {
         expect(parseReadyLine('{"event":"ready","synthetic":{}}')).toEqual({ event: "ready", synthetic: {} });
         expect(parseReadyLine("not json")).toBeNull();

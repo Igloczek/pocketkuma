@@ -12,6 +12,8 @@ The process start is the cold portion of each trial; the RSS/footprint sample is
 
 The `minimal-bun` and `minimal-bun-serve` processes are synthetic probes. Their `process.memoryUsage()` and optional `Bun.unsafe.memoryFootprint()` values are recorded separately in the JSON only to describe runtime overhead; they are not application measurements. Application rows use only external process metrics. The committed values below are macOS measurements; on Linux the physical-footprint column is unavailable.
 
+The committed JSON uses the current runner schema: both `gitSha` and `baselineSha` bind it to master `a66d1e3d5779f045790a0604be76f50aa80a03d0`, and every recorded trial includes `forcedKill: false`.
+
 ## Median baseline
 
 | Variant                    | Readiness |         RSS | Physical footprint |
