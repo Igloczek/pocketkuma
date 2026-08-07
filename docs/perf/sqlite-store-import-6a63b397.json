@@ -1,0 +1,88 @@
+{
+    "measuredAt": "2026-08-07T10:48:49.515Z",
+    "bunVersion": "1.3.14",
+    "os": "darwin 25.5.0",
+    "arch": "arm64",
+    "modules": [
+        {
+            "name": "baseline",
+            "modulePath": "/private/tmp/pocketkuma-sqlite-core-baseline-1a0dc19f/src/server/bun-sqlite-store.ts"
+        },
+        {
+            "name": "after",
+            "modulePath": "/Users/igloczek/.codex/worktrees/dac7/pocketkuma/src/server/bun-sqlite-store.ts"
+        }
+    ],
+    "runs": [
+        {
+            "name": "baseline",
+            "trial": 1,
+            "importMs": 132,
+            "rssKb": 84896,
+            "footprintBytes": 56887552
+        },
+        {
+            "name": "after",
+            "trial": 1,
+            "importMs": 37,
+            "rssKb": 45792,
+            "footprintBytes": 24971392
+        },
+        {
+            "name": "baseline",
+            "trial": 2,
+            "importMs": 130,
+            "rssKb": 86080,
+            "footprintBytes": 58116416
+        },
+        {
+            "name": "after",
+            "trial": 2,
+            "importMs": 33,
+            "rssKb": 44592,
+            "footprintBytes": 23759040
+        },
+        {
+            "name": "baseline",
+            "trial": 3,
+            "importMs": 130,
+            "rssKb": 85616,
+            "footprintBytes": 57673984
+        },
+        {
+            "name": "after",
+            "trial": 3,
+            "importMs": 33,
+            "rssKb": 45504,
+            "footprintBytes": 24692928
+        },
+        {
+            "name": "baseline",
+            "trial": 4,
+            "importMs": 131,
+            "rssKb": 85392,
+            "footprintBytes": 57313408
+        },
+        {
+            "name": "after",
+            "trial": 4,
+            "importMs": 33,
+            "rssKb": 45232,
+            "footprintBytes": 24365056
+        },
+        {
+            "name": "baseline",
+            "trial": 5,
+            "importMs": 132,
+            "rssKb": 85152,
+            "footprintBytes": 57100544
+        },
+        {
+            "name": "after",
+            "trial": 5,
+            "importMs": 33,
+            "rssKb": 44976,
+            "footprintBytes": 24119360
+        }
+    ]
+}

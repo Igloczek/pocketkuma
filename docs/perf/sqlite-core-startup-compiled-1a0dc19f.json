@@ -1,0 +1,27 @@
+{
+    "schema": 1,
+    "measuredAt": "2026-08-07T10:50:14.502Z",
+    "bunVersion": "1.3.14",
+    "os": "darwin 25.5.0",
+    "arch": "arm64",
+    "gitSha": "1a0dc19fcc73af401fb37ad1d16592cbf1c261f5",
+    "baselineSha": "1a0dc19fcc73af401fb37ad1d16592cbf1c261f5",
+    "trials": 3,
+    "warmupMs": 1000,
+    "timeoutMs": 30000,
+    "metrics": {
+        "rss": "external process RSS in KiB (macOS/Linux)",
+        "physicalFootprint": "external macOS physical footprint in bytes"
+    },
+    "variants": [
+        {
+            "name": "compiled-binary",
+            "trials": [
+                { "readinessMs": 1624, "rssKb": 212352, "footprintBytes": 143919936, "forcedKill": false },
+                { "readinessMs": 365, "rssKb": 212288, "footprintBytes": 143608576, "forcedKill": false },
+                { "readinessMs": 368, "rssKb": 212928, "footprintBytes": 144214784, "forcedKill": false }
+            ],
+            "median": { "readinessMs": 368, "rssKb": 212352, "footprintBytes": 143919936 }
+        }
+    ]
+}
