@@ -5,7 +5,7 @@ import mockWebhook from "./notification-providers/mock-webhook";
 import TestDB from "../mock-testdb";
 import { R } from "@/server/bun-sqlite-store";
 import { Notification } from "@/server/notification";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 import { setSetting } from "@/server/util-server";
 import dayjs from "dayjs";
 import dayjsPlugin_10 from "dayjs/plugin/utc";

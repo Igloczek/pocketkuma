@@ -11,10 +11,9 @@ import { R } from "@/server/bun-sqlite-store";
 import passwordHash from "@/server/password-hash";
 import { clearResponseCache } from "@/server/bun-response";
 import APIKey from "@/server/model/api_key";
-import { Settings } from "@/server/settings";
 import { sendAPIKeyList } from "@/server/client";
 
-export const apiKeySocketHandler = (socket) => {
+export const apiKeySocketHandler = (socket, settings) => {
     // Add a new api key
     socket.on("addAPIKey", async (key, callback) => {
         try {
@@ -38,7 +37,7 @@ export const apiKeySocketHandler = (socket) => {
 
             // Enable API auth if the user creates a key, otherwise only basic
             // auth will be used for API.
-            await Settings.set("apiKeysEnabled", true);
+            await settings.set("apiKeysEnabled", true);
 
             callback({
                 ok: true,

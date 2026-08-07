@@ -2,7 +2,7 @@
 
 import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 import tls from "tls";
 import dayjs from "dayjs";
 import crypto, { X509Certificate } from "node:crypto";

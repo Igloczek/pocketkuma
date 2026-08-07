@@ -1,6 +1,7 @@
 // @ts-nocheck
 
-import { checkLogin, setSetting, setting, doubleCheckPassword } from "@/server/util-server";
+import { checkLogin, setSetting, setting } from "@/server/util-server";
+import { doubleCheckPassword } from "@/server/server-auth-helpers";
 import { CloudflaredTunnel } from "node-cloudflared-tunnel";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { log } from "@/util";
@@ -35,7 +36,7 @@ cloudflared.error = (errorMessage) => {
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-export const cloudflaredSocketHandler = (socket) => {
+export const cloudflaredSocketHandler = (socket, store) => {
     socket.on(prefix + "join", async () => {
         try {
             checkLogin(socket);
@@ -77,7 +78,7 @@ export const cloudflaredSocketHandler = (socket) => {
             checkLogin(socket);
             const disabledAuth = await setting("disableAuth");
             if (!disabledAuth) {
-                await doubleCheckPassword(socket, currentPassword);
+                await doubleCheckPassword(store, socket, currentPassword);
             }
             cloudflared.stop();
         } catch (error) {

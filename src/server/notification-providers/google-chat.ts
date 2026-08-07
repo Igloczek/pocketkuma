@@ -3,7 +3,7 @@
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 import { getMonitorRelativeURL, UP } from "@/util";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 
 class GoogleChat extends NotificationProvider {
     name = "GoogleChat";

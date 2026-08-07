@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 
 /**
  * Retrieve value of setting based on key

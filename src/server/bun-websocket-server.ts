@@ -4,7 +4,7 @@
 import { randomUUID } from "crypto";
 import { EventEmitter } from "events";
 import { log } from "@/util";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 
 const WS_PATH = "/ws";

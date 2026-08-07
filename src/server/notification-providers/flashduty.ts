@@ -3,7 +3,7 @@
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 import { UP, DOWN, getMonitorRelativeURL } from "@/util";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 
 const successMessage = "Sent Successfully.";
 

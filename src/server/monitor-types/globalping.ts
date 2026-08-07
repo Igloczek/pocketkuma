@@ -10,7 +10,7 @@
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { Globalping, IpVersion, MeasurementStatus } from "globalping";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 import { log, UP, evaluateJsonQuery } from "@/util";
 import {
     checkStatusCode,

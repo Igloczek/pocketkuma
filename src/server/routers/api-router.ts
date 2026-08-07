@@ -11,7 +11,7 @@ import { makeBadge } from "badge-maker";
 import { Prometheus } from "@/server/prometheus";
 import Database from "@/server/database";
 import { UptimeCalculator } from "@/server/uptime-calculator";
-import { Settings } from "@/server/settings";
+import { Settings } from "@/server/settings-legacy";
 import {
     cachedResponse,
     decodePathParam,

@@ -15,7 +15,7 @@ const chromium = {
 let configuredExecutable = "#playwright_chromium";
 
 mock.module("playwright-core", () => ({ chromium }));
-mock.module("@/server/settings", () => ({
+mock.module("@/server/settings-legacy", () => ({
     Settings: {
         get: async () => configuredExecutable,
     },

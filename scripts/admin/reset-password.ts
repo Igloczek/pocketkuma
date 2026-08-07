@@ -2,7 +2,7 @@ import Database from "@/server/database";
 import { R } from "@/server/bun-sqlite-store";
 import readline from "readline";
 
-import { initJWTSecret } from "@/server/util-server";
+import { initJWTSecret } from "@/server/server-auth-helpers";
 import User from "@/server/model/user";
 import { args } from "@/server/args";
 
@@ -84,10 +84,10 @@ const main = async () => {
 
                 if (password === confirmPassword) {
                     if (!("dry-run" in args)) {
-                        await User.resetPassword(user.id, password);
+                        await User.resetPassword(R, user.id, password);
 
                         // Reset all sessions by reset jwt secret
-                        await initJWTSecret();
+                        await initJWTSecret(R);
 
                         console.warn(
                             "JWT secret was reset. Restart the server to disconnect active WebSocket sessions."
