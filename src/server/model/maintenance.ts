@@ -2,7 +2,7 @@
 
 import { BeanModel } from "@/server/bean-model";
 import { parseTimeObject, parseTimeFromTimeObject, log, SQL_DATETIME_FORMAT } from "@/util";
-import { R, registerModel } from "@/server/bun-sqlite-store";
+import { R } from "@/server/bun-sqlite-store";
 import dayjs from "dayjs";
 import Cron from "croner";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
@@ -749,5 +749,3 @@ class Maintenance extends BeanModel {
 }
 
 export default Maintenance;
-
-registerModel("maintenance", Maintenance);

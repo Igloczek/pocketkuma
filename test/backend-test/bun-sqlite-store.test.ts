@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { Database as BunDatabase } from "bun:sqlite";
 import { BunSQLiteRedbean } from "@/server/bun-sqlite-store";
+import { BeanModel } from "@/server/bean-model";
+import { MODEL_REGISTRY } from "@/server/model-registry";
 
 function createFaultingStore(faults) {
     return new BunSQLiteRedbean({
@@ -28,6 +30,15 @@ function createFaultingStore(faults) {
     });
 }
 
+function importInOrder(first, second) {
+    const result = Bun.spawnSync([
+        process.execPath,
+        "-e",
+        `await import(${JSON.stringify(first)}); await import(${JSON.stringify(second)});`,
+    ]);
+    return { exitCode: result.exitCode, stderr: new TextDecoder().decode(result.stderr) };
+}
+
 describe("Bun SQLite Redbean compatibility store", () => {
     let dir;
     let store;
@@ -45,6 +56,43 @@ describe("Bun SQLite Redbean compatibility store", () => {
     afterEach(async () => {
         await store.close();
         fs.rmSync(dir, { recursive: true, force: true });
+    });
+
+    test("keeps the store bundle outside domain and runtime boundaries", async () => {
+        const build = await Bun.build({
+            entrypoints: [path.join(process.cwd(), "src/server/bun-sqlite-store.ts")],
+            bundle: true,
+            metafile: true,
+            write: false,
+            target: "bun",
+        });
+        expect(build.success).toBe(true);
+
+        const inputs = Object.keys(build.metafile.inputs).map((input) => input.replaceAll("\\", "/"));
+        const forbidden = [
+            "src/server/model/",
+            "src/server/monitor-types/",
+            "src/server/notification-providers/",
+            "src/server/monitor-runtime-registry.ts",
+            "src/server/notification-provider-registry.ts",
+            "src/server/socket-handlers/",
+            "src/server/bun-http-server.ts",
+            "src/server/bun-websocket-server.ts",
+        ];
+        expect(inputs.filter((input) => forbidden.some((boundary) => input.includes(boundary)))).toEqual([]);
+    });
+
+    test("allows store and model imports in either order", () => {
+        const store = path.join(process.cwd(), "src/server/bun-sqlite-store.ts");
+        const model = path.join(process.cwd(), "src/server/model/monitor.ts");
+
+        for (const [first, second] of [
+            [store, model],
+            [model, store],
+        ]) {
+            const result = importInOrder(first, second);
+            expect(result.exitCode, result.stderr).toBe(0);
+        }
     });
 
     test("bootstraps status-page and incident columns used by Bun runtime queries", async () => {
@@ -498,6 +546,20 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(store.isOpen()).toBe(false);
     });
 
+    test("keeps close behind queued work while a transaction is pending", async () => {
+        const blocker = await store.begin();
+        const queued = store.exec("CREATE TABLE close_pending_transaction (id INTEGER)");
+        const closing = store.close();
+
+        await Bun.sleep(20);
+        expect(store.isOpen()).toBe(true);
+        await blocker.rollback();
+        await queued;
+        await closing;
+
+        expect(store.isOpen()).toBe(false);
+    });
+
     test("trash deletes stored beans, clears their identity, and ignores unsaved beans", async () => {
         const notification = store.dispense("notification");
         notification.name = "Trash regression";
@@ -590,6 +652,26 @@ describe("Bun SQLite Redbean compatibility store", () => {
         expect(monitor.getIgnoreTls()).toBe(false);
         expect(monitor.sendUrl).toBe(true);
         expect(monitor.customUrl).toBe("https://example.com");
+    });
+
+    test("uses the explicit static registry and falls back for unknown tables", () => {
+        expect(Object.keys(MODEL_REGISTRY).sort()).toEqual([
+            "api_key",
+            "docker_host",
+            "domain_expiry",
+            "group",
+            "heartbeat",
+            "incident",
+            "maintenance",
+            "monitor",
+            "proxy",
+            "remote_browser",
+            "status_page",
+            "tag",
+            "user",
+        ]);
+        expect(store.dispense("monitor")).toBeInstanceOf(MODEL_REGISTRY.monitor);
+        expect(store.dispense("not_a_model")).toBeInstanceOf(BeanModel);
     });
 
     test("stores monitor camelCase fields in canonical snake_case columns", async () => {

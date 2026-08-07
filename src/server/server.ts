@@ -15,6 +15,7 @@ import { sleep, log, getRandomInt, genSecret } from "@/util";
 import config from "@/server/config";
 import * as checkVersion from "@/server/check-version";
 import { R } from "@/server/bun-sqlite-store";
+import "@/server/model-registry";
 import jwt from "@/server/jwt";
 
 import TranslatableError from "@/server/translatable-error";
