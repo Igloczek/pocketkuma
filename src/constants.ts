@@ -64,7 +64,7 @@ export const badgeConstants = {
     defaultDownColor: "#c2290a",
     defaultPendingColor: "#f8a306",
     defaultMaintenanceColor: "#1747f5",
-    defaultPingColor: "blue", // as defined by badge-maker / shields.io
+    defaultPingColor: "blue", // Shields.io-compatible color name
     defaultStyle: "flat",
     defaultPingValueSuffix: "ms",
     defaultPingLabelSuffix: "h",
