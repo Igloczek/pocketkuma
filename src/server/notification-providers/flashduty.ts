@@ -2,7 +2,8 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { UP, DOWN, getMonitorRelativeURL } from "@/util";
+import { UP, DOWN } from "@/constants";
+import { getMonitorRelativeURL } from "@/util/monitor-url";
 
 const successMessage = "Sent Successfully.";
 

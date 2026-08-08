@@ -5,7 +5,8 @@
  * @type {import ("playwright-core").Browser}
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { UP, log } from "@/util";
+import { UP } from "@/constants";
+import { log } from "@/server/logger";
 import path from "path";
 import Database from "@/server/database";
 import jwt from "@/server/jwt";

@@ -10,10 +10,12 @@
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { Globalping, IpVersion, MeasurementStatus } from "globalping";
-import { log, UP, evaluateJsonQuery } from "@/util";
+import { log } from "@/server/logger";
+import { UP } from "@/constants";
+import { evaluateJsonQuery } from "@/server/json-query";
 import { checkStatusCode, encodeBase64 } from "@/server/http-utils";
-import { getOidcTokenClientCredentials } from "@/server/oidc-client";
 import { getDaysRemaining, checkCertExpiryNotifications } from "@/server/tls-cert";
+import { getOAuthClientCredentialsToken } from "@/server/oauth-client-credentials";
 
 class GlobalpingMonitorType extends MonitorType {
     name = "globalping";
@@ -578,7 +580,7 @@ class GlobalpingMonitorType extends MonitorType {
 
         try {
             if (new Date((monitor.oauthAccessToken?.expires_at || 0) * 1000) <= new Date()) {
-                const oAuthAccessToken = await getOidcTokenClientCredentials(
+                const oAuthAccessToken = await getOAuthClientCredentialsToken(
                     monitor.oauth_token_url,
                     monitor.oauth_client_id,
                     monitor.oauth_client_secret,

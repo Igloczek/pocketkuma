@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { log } from "@/util";
+import { log } from "@/server/logger";
 import tls from "tls";
 import dayjs from "dayjs";
 import crypto, { X509Certificate } from "node:crypto";

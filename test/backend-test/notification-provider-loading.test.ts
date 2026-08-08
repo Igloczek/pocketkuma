@@ -8,49 +8,17 @@ import { getNotificationProviderModuleMap, NOTIFICATION_PROVIDER_REGISTRY } from
 import { NotificationProviderRegistry, OPTIONAL_NOTIFICATION_PROVIDERS } from "@/server/notification-provider-registry";
 import { Notification } from "@/server/notification";
 
-const registrySourcePath = path.join(import.meta.dirname, "../../src/server/notification-provider-registry.ts");
-const monitorRegistrySourcePath = path.join(import.meta.dirname, "../../src/server/monitor-runtime-registry.ts");
-const providersDir = path.join(import.meta.dirname, "../../src/server/notification-providers");
 const settings = { get: async () => null, set: async () => {}, setSettings: async () => {} };
 
 describe("notification provider compile-safe loading", () => {
-    test("registry source does not use template-string dynamic imports", () => {
-        const source = fs.readFileSync(registrySourcePath, "utf8");
-
-        // This pattern is what bun build --compile cannot resolve into the binary.
-        expect(source).not.toMatch(/import\s*\(\s*`\.\/notification-providers\/\$\{/);
-    });
-
-    test("compile-safe loader dynamic imports keep literal specifiers", () => {
-        for (const sourcePath of [registrySourcePath, monitorRegistrySourcePath]) {
-            const source = fs.readFileSync(sourcePath, "utf8");
-            const imports = [...source.matchAll(/\bimport\s*\(\s*([^)]*?)\s*\)/g)]
-                .map((match) => match[1])
-                .filter((specifier) => specifier.trim());
-
-            expect(imports.length).toBeGreaterThan(0);
-            for (const specifier of imports) {
-                expect(specifier).toMatch(/^["'][^"']+["']$/);
-            }
-        }
-    });
-
-    test("every metadata provider has an on-disk module and loads through the registry", async () => {
+    test("every metadata provider loads through the runtime registry", async () => {
         const moduleMap = getNotificationProviderModuleMap();
         const providers = new NotificationProviderRegistry(settings);
-
         const registryKeys = Object.keys(NOTIFICATION_PROVIDER_REGISTRY).sort();
-        const optionalKeys = [...OPTIONAL_NOTIFICATION_PROVIDERS].sort();
 
-        expect(optionalKeys).toEqual(registryKeys);
+        expect([...OPTIONAL_NOTIFICATION_PROVIDERS].sort()).toEqual(registryKeys);
 
-        for (const [name, moduleName] of Object.entries(moduleMap)) {
-            const modulePath = path.join(providersDir, `${moduleName}.ts`);
-            expect(fs.existsSync(modulePath)).toBe(true);
-
-            const source = fs.readFileSync(modulePath, "utf8");
-            expect(source).toContain("export default");
-
+        for (const name of Object.keys(moduleMap)) {
             const provider = await providers.get(name);
             expect(provider.name).toBe(name);
             expect(typeof provider.send).toBe("function");

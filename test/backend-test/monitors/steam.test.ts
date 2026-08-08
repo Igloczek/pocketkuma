@@ -2,7 +2,7 @@
 
 import { describe, test, expect } from "bun:test";
 import { SteamMonitorType } from "@/server/monitor-types/steam";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 
 describe("Steam Monitor", () => {
     test("resolveSteamHostname() returns IP addresses without DNS lookup", async () => {

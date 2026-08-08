@@ -2,7 +2,7 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { UP, DOWN } from "@/util";
+import { UP, DOWN } from "@/constants";
 
 const opsgenieAlertsUrlEU = "https://api.eu.opsgenie.com/v2/alerts";
 const opsgenieAlertsUrlUS = "https://api.opsgenie.com/v2/alerts";

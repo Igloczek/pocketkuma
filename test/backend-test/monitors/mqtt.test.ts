@@ -14,7 +14,7 @@ import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "
 import { HiveMQContainer } from "@testcontainers/hivemq";
 import mqtt from "mqtt";
 import { MqttMonitorType } from "@/server/monitor-types/mqtt";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 
 // HiveMQ Testcontainers startup can exceed Bun's default 5s per-test timeout.
 const MQTT_TEST_TIMEOUT_MS = 120_000;

@@ -1,7 +1,8 @@
 // @ts-nocheck
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { UP, log } from "@/util";
+import { UP } from "@/constants";
+import { log } from "@/server/logger";
 import dayjs from "dayjs";
 import grpc from "@grpc/grpc-js";
 import protojs from "protobufjs";

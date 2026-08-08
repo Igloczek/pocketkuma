@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import fs from "fs";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 import dayjs from "dayjs";
 import timezone from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";

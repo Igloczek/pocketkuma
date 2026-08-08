@@ -1,7 +1,8 @@
 // @ts-nocheck
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { log, UP } from "@/util";
+import { log } from "@/server/logger";
+import { UP } from "@/constants";
 import { axiosAbortSignal } from "@/server/http-utils";
 import httpClient from "@/server/http-client";
 

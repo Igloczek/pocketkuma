@@ -1,14 +1,9 @@
 // @ts-nocheck
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import {
-    MAX_INTERVAL_SECOND,
-    MAX_MONITOR_RETRIES,
-    MIN_PROVIDER_TIMEOUT_SECOND,
-    UP,
-    evaluateJsonQuery,
-    log,
-} from "@/util";
+import { MAX_INTERVAL_SECOND, MAX_MONITOR_RETRIES, MIN_PROVIDER_TIMEOUT_SECOND, UP } from "@/constants";
+import { evaluateJsonQuery } from "@/server/json-query";
+import { log } from "@/server/logger";
 import snmp from "net-snmp";
 
 class SNMPMonitorType extends MonitorType {

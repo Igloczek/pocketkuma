@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 import { runCommand } from "@/server/process-helper";
 
 class SIPMonitorType extends MonitorType {

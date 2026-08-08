@@ -7,7 +7,7 @@
  * @returns {Promise<(Bean|null)>} User or null if login failed
  */
 import passwordHash from "@/server/password-hash";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 import { loginRateLimiter, apiRateLimiter } from "@/server/rate-limiter";
 import dayjs from "dayjs";
 import { textResponse } from "@/server/bun-response";

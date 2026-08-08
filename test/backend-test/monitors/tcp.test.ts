@@ -2,7 +2,7 @@
 
 import { describe, test, expect } from "bun:test";
 import { TCPMonitorType } from "@/server/monitor-types/tcp";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 import net from "net";
 import { parseTlsAlertNumber, getTlsAlertName } from "@/server/monitor-types/tcp";
 

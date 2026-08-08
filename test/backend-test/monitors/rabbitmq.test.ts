@@ -3,7 +3,7 @@
 import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
 import { RabbitMQContainer } from "@testcontainers/rabbitmq";
 import { RabbitMqMonitorType } from "@/server/monitor-types/rabbitmq";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 
 setDefaultTimeout(60_000);
 

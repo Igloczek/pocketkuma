@@ -1,7 +1,8 @@
 // @ts-nocheck
 
 import { BeanModel } from "@/server/bean-model";
-import { log, TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/util";
+import { log } from "@/server/logger";
+import { TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/constants";
 import { parse as parseTld } from "tldts";
 import rdapDnsDataFallback from "@/server/assets/rdap-dns.json" with { type: "json" };
 import { sendNotification } from "@/server/notification-provider-registry";

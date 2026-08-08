@@ -3,7 +3,7 @@
 import { describe, test, expect, setDefaultTimeout } from "bun:test";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { PostgresMonitorType } from "@/server/monitor-types/postgres";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 
 setDefaultTimeout(60_000);
 

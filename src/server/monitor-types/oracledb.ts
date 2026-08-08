@@ -1,7 +1,8 @@
 // @ts-nocheck
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { log, UP } from "@/util";
+import { log } from "@/server/logger";
+import { UP } from "@/constants";
 import dayjs from "dayjs";
 import oracledb from "oracledb";
 import { ConditionVariable } from "@/server/monitor-conditions/variables";

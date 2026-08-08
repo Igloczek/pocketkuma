@@ -3,7 +3,7 @@
 import { describe, test, expect, beforeEach, afterEach, spyOn } from "bun:test";
 import { SystemServiceMonitorType } from "@/server/monitor-types/system-service";
 import * as processHelper from "@/server/process-helper";
-import { DOWN, UP } from "@/util";
+import { DOWN, UP } from "@/constants";
 import process from "process";
 
 describe("SystemServiceMonitorType", () => {

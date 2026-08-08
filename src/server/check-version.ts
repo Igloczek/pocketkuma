@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import httpClient from "@/server/http-client";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 import packageJson from "@/package-meta";
 
 export const version = packageJson.version;

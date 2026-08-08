@@ -7,7 +7,8 @@ import fs from "fs";
 import type { SQLiteStore } from "@/server/db-migrations";
 
 const fsAsync = fs.promises;
-import { log, isDev } from "@/util";
+import { log } from "@/server/logger";
+import { isDev } from "@/server/runtime-flags";
 import { runCommandSync } from "@/server/process-helper";
 import path from "path";
 import kumaDbTemplate from "@/db/kuma.db" with { type: "file" };

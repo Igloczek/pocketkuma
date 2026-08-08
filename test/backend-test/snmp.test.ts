@@ -3,7 +3,7 @@
 import { describe, test, expect } from "bun:test";
 import { GenericContainer } from "testcontainers";
 import { SNMPMonitorType } from "@/server/monitor-types/snmp";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 import snmp from "net-snmp";
 
 describe("SNMPMonitorType", () => {

@@ -3,7 +3,7 @@
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 import dayjs from "dayjs";
-import { DOWN, UP } from "@/util";
+import { DOWN, UP } from "@/constants";
 
 class Discord extends NotificationProvider {
     name = "discord";
@@ -56,7 +56,8 @@ class Discord extends NotificationProvider {
                     content: content,
                 };
                 if (!webhookHasAvatar) {
-                    discordtestdata.avatar_url = "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
+                    discordtestdata.avatar_url =
+                        "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
                 }
                 if (notification.discordChannelType === "createNewForumPost") {
                     discordtestdata.thread_name = notification.postName;
@@ -162,7 +163,8 @@ class Discord extends NotificationProvider {
                     ],
                 };
                 if (!webhookHasAvatar) {
-                    discorddowndata.avatar_url = "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
+                    discorddowndata.avatar_url =
+                        "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
                 }
                 if (notification.discordChannelType === "createNewForumPost") {
                     discorddowndata.thread_name = notification.postName;
@@ -240,7 +242,8 @@ class Discord extends NotificationProvider {
                     ],
                 };
                 if (!webhookHasAvatar) {
-                    discordupdata.avatar_url = "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
+                    discordupdata.avatar_url =
+                        "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
                 }
 
                 if (notification.discordChannelType === "createNewForumPost") {

@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { genSecret } from "@/util";
+import { genSecret } from "@/util/random";
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
