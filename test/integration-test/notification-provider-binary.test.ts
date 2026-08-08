@@ -13,6 +13,7 @@ let appProcess;
 let dataDir;
 let realtimeSocket;
 let smtpServer;
+let standaloneDir;
 
 function withTimeout(promise, timeout, message) {
     let timeoutID;
@@ -111,11 +112,11 @@ async function waitForApp(url) {
     throw new Error("PocketKuma did not become ready within 30 seconds");
 }
 
-async function startApp() {
+async function startApp({ executable = binaryPath, cwd = projectRoot } = {}) {
     for (let attempt = 0; attempt < 3; attempt++) {
         const appPort = reservePort();
-        appProcess = Bun.spawn([binaryPath, `--port=${appPort}`, "--host=127.0.0.1", `--data-dir=${dataDir}`], {
-            cwd: projectRoot,
+        appProcess = Bun.spawn([executable, `--port=${appPort}`, "--host=127.0.0.1", `--data-dir=${dataDir}`], {
+            cwd,
             env: {
                 ...process.env,
                 NODE_ENV: "production",
@@ -211,7 +212,7 @@ async function waitForHeartbeat(monitorID) {
         }
         await Bun.sleep(100);
     }
-    throw new Error("SMTP monitor did not write a heartbeat");
+    throw new Error("Monitor did not write a heartbeat");
 }
 
 afterEach(async () => {
@@ -220,6 +221,9 @@ afterEach(async () => {
     await stopApp();
     if (dataDir) {
         fs.rmSync(dataDir, { recursive: true, force: true });
+    }
+    if (standaloneDir) {
+        fs.rmSync(standaloneDir, { recursive: true, force: true });
     }
 });
 
@@ -296,5 +300,76 @@ describe("compiled runtime loading", () => {
             status: 1,
             msg: "SMTP connection verifies successfully",
         });
+    }, 60_000);
+
+    test("standalone executable serves embedded assets and records a ping heartbeat", async () => {
+        expect(binaryPath, "POCKETKUMA_BINARY must point to a compiled PocketKuma executable").toBeTruthy();
+        dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-compiled-ping-"));
+        standaloneDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-compiled-standalone-"));
+        const standaloneBinary = path.join(standaloneDir, path.basename(binaryPath));
+        fs.copyFileSync(binaryPath, standaloneBinary);
+        if (process.platform !== "win32") {
+            fs.chmodSync(standaloneBinary, 0o755);
+        }
+        expect(fs.readdirSync(standaloneDir)).toEqual([path.basename(binaryPath)]);
+
+        const appPort = await startApp({ executable: standaloneBinary, cwd: standaloneDir });
+        const entryPage = await fetch(`http://127.0.0.1:${appPort}/api/entry-page`);
+        expect(entryPage.status).toBe(200);
+        expect((await entryPage.json()).type).toBe("entryPage");
+
+        const dashboard = await fetch(`http://127.0.0.1:${appPort}/dashboard`);
+        expect(dashboard.status).toBe(200);
+        const frontendAsset = (await dashboard.text()).match(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/)?.[1];
+        expect(frontendAsset).toBeTruthy();
+        expect((await fetch(`http://127.0.0.1:${appPort}${frontendAsset}`)).status).toBe(200);
+
+        const realtime = await connectRealtime(`ws://127.0.0.1:${appPort}/ws`);
+        realtimeSocket = realtime.socket;
+        expect((await realtime.request("setup", "compiled-ping", "compiled-ping-password")).ok).toBe(true);
+        expect(
+            (
+                await realtime.request("login", {
+                    username: "compiled-ping",
+                    password: "compiled-ping-password",
+                    token: "",
+                })
+            ).ok
+        ).toBe(true);
+
+        const monitor = await realtime.request("add", {
+            type: "ping",
+            name: "Compiled ping monitor",
+            active: true,
+            parent: null,
+            hostname: "127.0.0.1",
+            interval: 60,
+            retryInterval: 60,
+            resendInterval: 0,
+            maxretries: 0,
+            retryOnlyOnStatusCodeFailure: false,
+            notificationIDList: {},
+            ignoreTls: false,
+            upsideDown: false,
+            expiryNotification: false,
+            domainExpiryNotification: false,
+            maxredirects: 0,
+            accepted_statuscodes: ["200-299"],
+            saveResponse: false,
+            saveErrorResponse: true,
+            responseMaxLength: 1024,
+            proxyId: null,
+            kafkaProducerBrokers: [],
+            kafkaProducerSaslOptions: { mechanism: "None" },
+            rabbitmqNodes: [],
+            conditions: [],
+            timeout: 1,
+            ping_count: 1,
+            ping_numeric: false,
+            packetSize: 56,
+            ping_per_request_timeout: 1,
+        });
+        expect(monitor.ok).toBe(true);
+        expect((await waitForHeartbeat(monitor.monitorID)).status).toBe(1);
     }, 60_000);
 });

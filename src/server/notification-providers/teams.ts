@@ -2,7 +2,8 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { DOWN, UP, getMonitorRelativeURL } from "@/util";
+import { DOWN, UP } from "@/constants";
+import { getMonitorRelativeURL } from "@/util/monitor-url";
 
 class Teams extends NotificationProvider {
     name = "teams";

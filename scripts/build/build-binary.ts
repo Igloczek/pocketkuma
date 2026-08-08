@@ -28,6 +28,8 @@ const result = await Bun.build({
         ...(target ? { target } : {}),
     },
     external: ["chromium-bidi/*", "deasync"],
+    format: "esm",
+    splitting: true,
     define: {
         "process.env.NODE_ENV": JSON.stringify("production"),
     },

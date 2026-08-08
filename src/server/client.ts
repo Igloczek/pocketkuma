@@ -8,7 +8,7 @@
  * @param {Socket} socket Socket.io socket instance
  * @returns {Promise<Bean[]>} List of notifications
  */
-import { TimeLogger } from "@/util";
+import { TimeLogger } from "@/server/time-logger";
 import { getRuntimeInfo } from "@/server/runtime";
 
 async function sendNotificationList(store, io, socket) {

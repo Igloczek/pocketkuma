@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 import nodemailer from "nodemailer";
 
 class SMTPMonitorType extends MonitorType {

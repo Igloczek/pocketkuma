@@ -6,7 +6,7 @@
  */
 import { describe, test, expect } from "bun:test";
 import { WebSocketMonitorType } from "@/server/monitor-types/websocket-upgrade";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 import net from "node:net";
 import http from "node:http";
 

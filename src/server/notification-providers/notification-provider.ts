@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { Liquid } from "liquidjs";
-import { DOWN } from "@/util";
+import { DOWN } from "@/constants";
 class NotificationProvider {
     /**
      * Notification Provider Name

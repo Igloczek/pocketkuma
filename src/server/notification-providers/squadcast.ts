@@ -2,7 +2,7 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { DOWN } from "@/util";
+import { DOWN } from "@/constants";
 
 class Squadcast extends NotificationProvider {
     name = "squadcast";

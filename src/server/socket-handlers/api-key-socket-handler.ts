@@ -6,7 +6,7 @@
  * @returns {void}
  */
 import { checkLogin } from "@/server/socket-auth";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 import passwordHash from "@/server/password-hash";
 import { clearResponseCache } from "@/server/bun-response";
 import APIKey from "@/server/model/api_key";

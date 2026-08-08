@@ -3,7 +3,8 @@
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 import Slack from "@/server/notification-providers/slack";
-import { getMonitorRelativeURL, DOWN } from "@/util";
+import { getMonitorRelativeURL } from "@/util/monitor-url";
+import { DOWN } from "@/constants";
 
 class RocketChat extends NotificationProvider {
     name = "rocket.chat";

@@ -8,7 +8,7 @@
 import { sendRemoteBrowserList } from "@/server/client";
 import { checkLogin } from "@/server/socket-auth";
 import { RemoteBrowser } from "@/server/remote-browser";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 export const remoteBrowserSocketHandler = (socket, store, io, server) => {
     socket.on("addRemoteBrowser", async (remoteBrowser, remoteBrowserID, callback) => {

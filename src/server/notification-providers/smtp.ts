@@ -2,7 +2,7 @@
 
 import nodemailer from "nodemailer";
 import NotificationProvider from "@/server/notification-providers/notification-provider";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 class SMTP extends NotificationProvider {
     name = "smtp";

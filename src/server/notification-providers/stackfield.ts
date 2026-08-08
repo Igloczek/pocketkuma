@@ -2,7 +2,7 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { getMonitorRelativeURL } from "@/util";
+import { getMonitorRelativeURL } from "@/util/monitor-url";
 
 class Stackfield extends NotificationProvider {
     name = "stackfield";

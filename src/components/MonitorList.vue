@@ -132,7 +132,7 @@
 import Confirm from "@/components/Confirm.vue";
 import MonitorListItem from "@/components/MonitorListItem.vue";
 import MonitorListFilter from "@/components/MonitorListFilter.vue";
-import { getMonitorRelativeURL } from "@/util-shared";
+import { getMonitorRelativeURL } from "@/util/monitor-url";
 
 export default {
     components: {

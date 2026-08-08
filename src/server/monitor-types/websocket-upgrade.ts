@@ -2,9 +2,9 @@
 
 // Define closing error codes https://www.iana.org/assignments/websocket/websocket.xml#close-code-number
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 import { checkStatusCode } from "@/server/http-utils";
-import { getOidcTokenClientCredentials } from "@/server/oidc-client";
+import { getOAuthClientCredentialsToken } from "@/server/oauth-client-credentials";
 
 const WS_ERR_CODE = {
     1002: "Protocol error",
@@ -91,7 +91,7 @@ class WebSocketMonitorType extends MonitorType {
             }
         } else if (monitor.authMethod === "oauth2-cc") {
             if (new Date((monitor.oauthAccessToken?.expires_at || 0) * 1000) <= new Date()) {
-                monitor.oauthAccessToken = await getOidcTokenClientCredentials(
+                monitor.oauthAccessToken = await getOAuthClientCredentialsToken(
                     monitor.oauth_token_url,
                     monitor.oauth_client_id,
                     monitor.oauth_client_secret,

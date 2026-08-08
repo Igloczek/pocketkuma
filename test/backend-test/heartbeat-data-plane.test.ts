@@ -21,7 +21,7 @@ import { Prometheus } from "@/server/prometheus";
 import { handleApiRequest } from "@/server/routers/api-router";
 import { chartSocketHandler } from "@/server/socket-handlers/chart-socket-handler";
 import { createResponseCache } from "@/server/bun-response";
-import { DOWN, MAINTENANCE, PENDING, UP } from "@/util";
+import { DOWN, MAINTENANCE, PENDING, UP } from "@/constants";
 
 const resources = [];
 const originalPrometheusUpdate = Prometheus.prototype.update;

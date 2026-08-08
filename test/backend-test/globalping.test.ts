@@ -2,7 +2,7 @@
 
 import { describe, test, expect, mock, spyOn } from "bun:test";
 import { encodeBase64 } from "@/server/http-utils";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 import { GlobalpingMonitorType } from "@/server/monitor-types/globalping";
 
 function createMonitorType() {

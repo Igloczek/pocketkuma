@@ -2,7 +2,9 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { getMonitorRelativeURL, UP, log } from "@/util";
+import { getMonitorRelativeURL } from "@/util/monitor-url";
+import { UP } from "@/constants";
+import { log } from "@/server/logger";
 
 function isUrl(str) {
     if (typeof str !== "string" || str.length === 0 || !URL.canParse(str)) {

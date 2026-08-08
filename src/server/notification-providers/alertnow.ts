@@ -2,7 +2,8 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { getMonitorRelativeURL, UP, DOWN } from "@/util";
+import { getMonitorRelativeURL } from "@/util/monitor-url";
+import { UP, DOWN } from "@/constants";
 
 class AlertNow extends NotificationProvider {
     name = "AlertNow";

@@ -5,7 +5,7 @@ import util from "util";
 import path from "path";
 import dayjs from "dayjs";
 import Database from "@/server/database";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 export function writeErrorLog(error, outputToConsole = true) {
     const stream = fs.createWriteStream(path.join(Database.dataDir, "/error.log"), { flags: "a" });

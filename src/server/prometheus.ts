@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import PrometheusClient from "prom-client";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 let monitorCertDaysRemaining = null;
 let monitorCertIsValid = null;

@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { genSecret } from "@/util";
+import { genSecret } from "@/util/random";
 import passwordHash from "@/server/password-hash";
 
 /**

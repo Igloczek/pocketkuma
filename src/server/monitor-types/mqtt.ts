@@ -1,9 +1,10 @@
 // @ts-nocheck
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { log, UP } from "@/util";
+import { log } from "@/server/logger";
+import { UP } from "@/constants";
 import mqtt from "mqtt";
-import jsonata from "jsonata";
+import { evaluateJsonata } from "@/server/json-query";
 import { ConditionVariable } from "@/server/monitor-conditions/variables";
 import { defaultStringOperators, defaultNumberOperators } from "@/server/monitor-conditions/operators";
 import { ConditionExpressionGroup } from "@/server/monitor-conditions/expression";
@@ -78,8 +79,7 @@ class MqttMonitorType extends MonitorType {
      */
     async checkJsonQuery(monitor, heartbeat, receivedMessage) {
         const parsedMessage = JSON.parse(receivedMessage);
-        const expression = jsonata(monitor.jsonPath);
-        const result = await expression.evaluate(parsedMessage);
+        const result = await evaluateJsonata(monitor.jsonPath, parsedMessage);
 
         if (result?.toString() === monitor.expectedValue) {
             heartbeat.msg = "Message received, expected value is found";
@@ -105,8 +105,7 @@ class MqttMonitorType extends MonitorType {
         if (monitor.jsonPath) {
             try {
                 const parsedMessage = JSON.parse(receivedMessage);
-                const expression = jsonata(monitor.jsonPath);
-                jsonValue = await expression.evaluate(parsedMessage);
+                jsonValue = await evaluateJsonata(monitor.jsonPath, parsedMessage);
             } catch (e) {
                 // JSON parsing failed, jsonValue remains null
             }

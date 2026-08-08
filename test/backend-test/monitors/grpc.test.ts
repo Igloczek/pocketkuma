@@ -4,7 +4,7 @@ import { describe, test, expect } from "bun:test";
 import grpc from "@grpc/grpc-js";
 import protoLoader from "@grpc/proto-loader";
 import { GrpcKeywordMonitorType } from "@/server/monitor-types/grpc";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 import fs from "fs";
 import path from "path";
 import os from "os";

@@ -7,7 +7,7 @@
 import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
 import { MySqlContainer } from "@testcontainers/mysql";
 import { MysqlMonitorType } from "@/server/monitor-types/mysql";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 
 setDefaultTimeout(120_000);
 
