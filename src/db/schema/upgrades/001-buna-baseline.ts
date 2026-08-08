@@ -1,7 +1,6 @@
 import { gameDig4to5IdMap } from "../gamedig-v4-to-v5-map.js";
 import { expectedIndexes } from "../expected-schema.js";
 import type { SchemaMigration, SQLiteTransaction } from "@/server/db-migrations";
-import { parse as parseTld } from "tldts";
 import rdapDnsData from "../../../server/assets/rdap-dns.json" with { type: "json" };
 
 const LINE_NOTIFY_TYPE_VARIANTS = new Set(["linenotify", "line-notify", "line_notify", "line notify", "line"]);
@@ -199,7 +198,7 @@ function getSupportedTlds() {
     return supported;
 }
 
-function hasRdapSupport(target, supportedTlds) {
+function hasRdapSupport(target, supportedTlds, parseTld) {
     if (!target || typeof target !== "string") {
         return false;
     }
@@ -394,6 +393,10 @@ async function disableUnsupportedDomainExpiryNotifications(store: SQLiteTransact
     const monitors = await store.getAll(
         "SELECT id, type, url, hostname, grpc_url FROM monitor WHERE domain_expiry_notification = 1"
     );
+    if (monitors.length === 0) {
+        return;
+    }
+    const { parse } = await import("tldts");
 
     const idsToDisable = [];
     for (const monitor of monitors) {
@@ -405,7 +408,7 @@ async function disableUnsupportedDomainExpiryNotifications(store: SQLiteTransact
             grpc_url: string;
         };
         const targetField = TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD[row.type];
-        if (!targetField || !hasRdapSupport(row[targetField], supportedTlds)) {
+        if (!targetField || !hasRdapSupport(row[targetField], supportedTlds, parse)) {
             idsToDisable.push(row.id);
         }
     }

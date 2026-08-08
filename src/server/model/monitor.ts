@@ -41,7 +41,6 @@ import { DockerHost } from "@/server/docker";
 import jwt from "@/server/jwt";
 import zlib from "node:zlib";
 import { promisify } from "node:util";
-import DomainExpiry from "@/server/model/domain_expiry";
 import packageJson from "@/package-meta";
 import { clearResponseCache } from "@/server/bun-response";
 import { buildProxyFetchOption, resolveCoreHttpProxy } from "@/server/proxy-validation";
@@ -1017,6 +1016,7 @@ class Monitor extends BeanModel {
 
             if (bean.status !== MAINTENANCE && Boolean(this.domainExpiryNotification)) {
                 try {
+                    const { default: DomainExpiry } = await import("@/server/model/domain_expiry");
                     const supportInfo = await DomainExpiry.checkSupport(this, server.settings);
                     const domainExpiryDate = await DomainExpiry.checkExpiry(supportInfo.domain, store, server.settings);
                     if (domainExpiryDate) {
@@ -1544,6 +1544,7 @@ class Monitor extends BeanModel {
         const monitor = await store.findOne("monitor", "id = ?", [monitorID]);
 
         try {
+            const { default: DomainExpiry } = await import("@/server/model/domain_expiry");
             const supportInfo = await DomainExpiry.checkSupport(monitor, settings);
             const domain = await DomainExpiry.findByDomainNameOrCreate(supportInfo.domain, store);
             if (domain?.expiry) {
