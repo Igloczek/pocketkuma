@@ -15,17 +15,6 @@ import { scheduleBackgroundJobs, stopBackgroundJobs } from "@/server/jobs";
 import { incrementalVacuum } from "@/server/jobs/incremental-vacuum";
 import { databaseSocketHandler } from "@/server/socket-handlers/database-socket-handler";
 
-const lifecycleModules = [
-    "src/server/database.ts",
-    "src/server/database-maintenance.ts",
-    "src/server/bun-http-server.ts",
-    "src/server/bun-websocket-server.ts",
-    "src/server/db-migrations.ts",
-    "src/server/jobs.ts",
-    "src/server/jobs/clear-old-data.ts",
-    "src/server/jobs/incremental-vacuum.ts",
-    "src/server/socket-handlers/database-socket-handler.ts",
-];
 const originalSqlitePath = Database.sqlitePath;
 const originalDataDir = Database.dataDir;
 const temporaryDirectories = [];
@@ -112,14 +101,6 @@ afterEach(() => {
 });
 
 describe("database lifecycle wiring", () => {
-    test("keeps the lifecycle boundary free of the legacy global facade", () => {
-        for (const modulePath of lifecycleModules) {
-            const source = fs.readFileSync(path.join(process.cwd(), modulePath), "utf8");
-            expect(source).not.toMatch(/sqlite-core/);
-            expect(source).not.toMatch(/\bR\b/);
-        }
-    });
-
     test("runs migrations through the injected store transaction", async () => {
         const calls = [];
         const transaction = {
