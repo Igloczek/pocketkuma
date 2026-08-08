@@ -7,7 +7,7 @@ import path from "node:path";
 import { Database as BunDatabase } from "bun:sqlite";
 import { applySqlFile } from "@/db/schema/sql-utils";
 import { BunSQLiteRedbean } from "@/server/sqlite-core";
-import { BUNA_SCHEMA_VERSION_KEY, getBunaSchemaVersion } from "@/server/db-migrations";
+import { SCHEMA_VERSION_KEY, getSchemaVersion } from "@/server/db-migrations";
 
 const projectRoot = path.join(import.meta.dirname, "../..");
 const baselineFixturePath = path.join(import.meta.dirname, "fixtures/upstream-kuma-baseline.sql");
@@ -52,7 +52,7 @@ describe("Upstream Kuma upgrade", () => {
     let store;
 
     beforeEach(async () => {
-        dir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-upgrade-"));
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), "uptime-maku-upgrade-"));
         const dbPath = path.join(dir, "kuma.db");
         const sql = fs.readFileSync(baselineFixturePath, "utf8");
         loadSqlFixture(dbPath, sql);
@@ -70,11 +70,11 @@ describe("Upstream Kuma upgrade", () => {
         fs.rmSync(dir, { recursive: true, force: true });
     });
 
-    test("001-buna-baseline migrates upstream Kuma data and sets schema version", async () => {
-        expect(await getBunaSchemaVersion(store)).toBe(1);
+    test("001-upstream-baseline migrates upstream Kuma data and sets schema version", async () => {
+        expect(await getSchemaVersion(store)).toBe(1);
 
         const schemaVersion = await store.getCell('SELECT value FROM setting WHERE "key" = ?', [
-            BUNA_SCHEMA_VERSION_KEY,
+            SCHEMA_VERSION_KEY,
         ]);
         expect(schemaVersion).toBe("1");
 
@@ -136,12 +136,12 @@ describe("Upstream Kuma Knex end-state", () => {
     let store;
 
     beforeEach(async () => {
-        dir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-knex-endstate-"));
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), "uptime-maku-knex-endstate-"));
         const dbPath = path.join(dir, "kuma.db");
         const sql = fs.readFileSync(knexEndstateFixturePath, "utf8");
         loadSqlFixture(dbPath, sql);
 
-        expect(readSettingValue(dbPath, BUNA_SCHEMA_VERSION_KEY)).toBeUndefined();
+        expect(readSettingValue(dbPath, SCHEMA_VERSION_KEY)).toBeUndefined();
 
         store = new BunSQLiteRedbean();
         await store.connect({
@@ -156,8 +156,8 @@ describe("Upstream Kuma Knex end-state", () => {
         fs.rmSync(dir, { recursive: true, force: true });
     });
 
-    test("001-buna-baseline runs when marker columns exist but buna_schema_version is absent", async () => {
-        expect(await getBunaSchemaVersion(store)).toBe(1);
+    test("001-upstream-baseline runs when marker columns exist but the schema-version setting is absent", async () => {
+        expect(await getSchemaVersion(store)).toBe(1);
 
         const gamedigGame = await store.getCell("SELECT game FROM monitor WHERE name = ?", ["GameDig TF2"]);
         expect(gamedigGame).toBe("teamfortress2");
@@ -178,12 +178,12 @@ describe("Upstream Kuma Knex end-state", () => {
     });
 });
 
-describe("Fresh Buna template", () => {
+describe("Fresh Uptime Maku template", () => {
     let dir;
     let store;
 
     beforeEach(() => {
-        dir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-fresh-"));
+        dir = fs.mkdtempSync(path.join(os.tmpdir(), "uptime-maku-fresh-"));
     });
 
     afterEach(async () => {
@@ -197,7 +197,7 @@ describe("Fresh Buna template", () => {
         const dbPath = path.join(dir, "kuma.db");
         fs.copyFileSync(templatePath, dbPath);
 
-        const beforeVersion = readSettingValue(dbPath, BUNA_SCHEMA_VERSION_KEY);
+        const beforeVersion = readSettingValue(dbPath, SCHEMA_VERSION_KEY);
         expect(beforeVersion).toBe("1");
 
         const beforeUserCount = readUserCount(dbPath);
@@ -209,7 +209,7 @@ describe("Fresh Buna template", () => {
             testMode: true,
         });
 
-        expect(await getBunaSchemaVersion(store)).toBe(1);
+        expect(await getSchemaVersion(store)).toBe(1);
         expect(await store.count("user")).toBe(beforeUserCount);
         expect(await store.count("notification")).toBe(0);
     });
@@ -217,7 +217,7 @@ describe("Fresh Buna template", () => {
 
 describe("Upgrade transaction recovery", () => {
     test("rolls back when the first data-phase statement fails and remains usable", async () => {
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-upgrade-first-error-"));
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "uptime-maku-upgrade-first-error-"));
         const dbPath = path.join(dir, "kuma.db");
         loadSqlFixture(dbPath, fs.readFileSync(baselineFixturePath, "utf8"));
         let insideTransaction = false;
@@ -274,7 +274,7 @@ describe("Upgrade transaction recovery", () => {
             await expect(store.getCell("SELECT 1")).resolves.toBe(1);
             const transaction = await store.begin();
             await expect(transaction.rollback()).resolves.toBeUndefined();
-            expect(await getBunaSchemaVersion(store)).toBeNull();
+            expect(await getSchemaVersion(store)).toBeNull();
         } finally {
             await store.close();
             fs.rmSync(dir, { recursive: true, force: true });

@@ -162,7 +162,7 @@ function smtpVariantFields(): NotificationFormField[] {
         textField("username", "smtpUsername", "Username", { required: false }),
         secretField("password", "smtpPassword", "Password", { required: false }),
         textField("from-email", "smtpFrom", "From Email", {
-            placeholder: '"PocketKuma" <alerts@example.com>',
+            placeholder: '"Uptime Maku" <alerts@example.com>',
         }),
         textField("to-email", "smtpTo", "To Email", {
             required: false,
@@ -500,7 +500,7 @@ export const notificationFormSchemas: Record<string, NotificationFormSchema> = {
         ],
         {
             variant: "template-body",
-            defaults: { sendgridSubject: "Notification from Your PocketKuma" },
+            defaults: { sendgridSubject: "Notification from Your Uptime Maku" },
         }
     ),
     Brevo: schema(
@@ -522,8 +522,8 @@ export const notificationFormSchemas: Record<string, NotificationFormSchema> = {
         {
             variant: "template-body",
             defaults: {
-                brevoSubject: "Notification from Your PocketKuma",
-                brevoFromName: "PocketKuma",
+                brevoSubject: "Notification from Your Uptime Maku",
+                brevoFromName: "Uptime Maku",
             },
         }
     ),
@@ -544,8 +544,8 @@ export const notificationFormSchemas: Record<string, NotificationFormSchema> = {
         {
             variant: "template-body",
             defaults: {
-                resendSubject: "Notification from Your PocketKuma",
-                resendFromName: "PocketKuma",
+                resendSubject: "Notification from Your Uptime Maku",
+                resendFromName: "Uptime Maku",
             },
         }
     ),
@@ -615,7 +615,7 @@ export const notificationFormSchemas: Record<string, NotificationFormSchema> = {
             secretField("notifery-api-key", "notiferyApiKey", "API Key"),
             textField("notifery-title", "notiferyTitle", "Title", {
                 required: false,
-                placeholder: "PocketKuma Alert",
+                placeholder: "Uptime Maku Alert",
             }),
             textField("notifery-group", "notiferyGroup", "Group", {
                 required: false,
@@ -706,7 +706,7 @@ export const notificationFormSchemas: Record<string, NotificationFormSchema> = {
                 },
             ],
         }),
-        { variant: "sms", defaults: { sevenioSender: "PocketKuma" } }
+        { variant: "sms", defaults: { sevenioSender: "Uptime Maku" } }
     ),
     clicksendsms: schema(
         "clicksendsms",

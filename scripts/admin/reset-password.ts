@@ -33,7 +33,7 @@ function passwordStrength(password) {
     return { value };
 }
 
-console.log("== PocketKuma Reset Password Tool ==");
+console.log("== Uptime Maku Reset Password Tool ==");
 
 const rl = readline.createInterface({
     input: process.stdin,

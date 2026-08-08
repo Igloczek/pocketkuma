@@ -1,6 +1,6 @@
 {
-    "name": "PocketKuma",
-    "short_name": "PocketKuma",
+    "name": "Uptime Maku",
+    "short_name": "Uptime Maku",
     "description": "An easy-to-use self-hosted monitoring tool.",
     "theme_color": "#5cdd8b",
     "start_url": "/",

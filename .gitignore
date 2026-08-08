@@ -2,8 +2,8 @@ node_modules
 .DS_Store
 dist
 dist-ssr
-/pocketkuma
-/pocketkuma.exe
+/uptime-maku
+/uptime-maku.exe
 *.local
 .idea
 

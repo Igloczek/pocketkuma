@@ -128,7 +128,7 @@ class Database {
 
     /**
      * Remove legacy db-config.json left over from multi-backend installs.
-     * PocketKuma is SQLite-only; the file is no longer read or written.
+     * Uptime Maku is SQLite-only; the file is no longer read or written.
      * @returns {void}
      */
     static removeLegacyDbConfig() {

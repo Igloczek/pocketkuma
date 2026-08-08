@@ -114,7 +114,7 @@ export default {
     },
     mounted() {
         this.$parent.notification.cellsyntOriginatortype ||= "alpha";
-        this.$parent.notification.cellsyntOriginator ||= "pocketkuma";
+        this.$parent.notification.cellsyntOriginator ||= "uptime-maku";
     },
 };
 </script>

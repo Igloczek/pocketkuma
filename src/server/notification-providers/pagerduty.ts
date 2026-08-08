@@ -16,21 +16,21 @@ class PagerDuty extends NotificationProvider {
     async send(notification, msg, monitorJSON = null, heartbeatJSON = null) {
         try {
             if (heartbeatJSON == null) {
-                const title = "PocketKuma Alert";
+                const title = "Uptime Maku Alert";
                 const monitor = {
                     type: "ping",
-                    url: "PocketKuma Test Button",
+                    url: "Uptime Maku Test Button",
                 };
                 return this.postNotification(notification, title, msg, monitor);
             }
 
             if (heartbeatJSON.status === UP) {
-                const title = "PocketKuma Monitor ✅ Up";
+                const title = "Uptime Maku Monitor ✅ Up";
                 return this.postNotification(notification, title, heartbeatJSON.msg, monitorJSON, "resolve");
             }
 
             if (heartbeatJSON.status === DOWN) {
-                const title = "PocketKuma Monitor 🔴 Down";
+                const title = "Uptime Maku Monitor 🔴 Down";
                 return this.postNotification(notification, title, heartbeatJSON.msg, monitorJSON, "trigger");
             }
         } catch (error) {
@@ -94,13 +94,13 @@ class PagerDuty extends NotificationProvider {
                 },
                 routing_key: notification.pagerdutyIntegrationKey,
                 event_action: eventAction,
-                dedup_key: monitorInfo.id ? "PocketKuma/" + monitorInfo.id : "PocketKuma/test",
+                dedup_key: monitorInfo.id ? "Uptime Maku/" + monitorInfo.id : "Uptime Maku/test",
             },
         };
 
         const baseURL = await this.settings.get("primaryBaseURL");
         if (baseURL && monitorInfo) {
-            options.client = "PocketKuma";
+            options.client = "Uptime Maku";
             options.client_url = baseURL + getMonitorRelativeURL(monitorInfo.id);
         }
 

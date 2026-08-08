@@ -12,7 +12,7 @@ class SIPMonitorType extends MonitorType {
      * Run the monitoring check on the given monitor
      * @param {Monitor} monitor Monitor to check
      * @param {Heartbeat} heartbeat Monitor heartbeat to update
-     * @param {PocketKumaServer} _server PocketKuma server
+     * @param {UptimeMakuServer} _server Uptime Maku server
      * @returns {Promise<void>}
      * @throws Will throw an error if the command execution encounters any error.
      */

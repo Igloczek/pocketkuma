@@ -127,7 +127,7 @@ class StatusPage extends BeanModel {
         const { Feed } = await import("feed");
 
         // Use custom RSS title if set, otherwise fall back to status page title
-        let feedTitle = "PocketKuma RSS Feed";
+        let feedTitle = "Uptime Maku RSS Feed";
         if (statusPage.rss_title) {
             feedTitle = statusPage.rss_title;
         } else if (statusPage.title) {

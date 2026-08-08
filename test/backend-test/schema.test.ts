@@ -10,7 +10,7 @@ import {
     expectedTables,
 } from "@/db/schema/expected-schema";
 import { applySqlFile } from "@/db/schema/sql-utils";
-import { BUNA_SCHEMA_VERSION_KEY } from "@/server/db-migrations";
+import { SCHEMA_VERSION_KEY } from "@/server/db-migrations";
 
 const projectRoot = path.join(import.meta.dirname, "../..");
 const kumaDbPath = path.join(projectRoot, "src/db/kuma.db");
@@ -69,7 +69,7 @@ describe("Database schema contract", () => {
 
             const schemaVersion = db
                 .query('SELECT value FROM setting WHERE "key" = ?')
-                .get(BUNA_SCHEMA_VERSION_KEY)?.value;
+                .get(SCHEMA_VERSION_KEY)?.value;
             expect(schemaVersion).toBe("1");
         } finally {
             db.close();

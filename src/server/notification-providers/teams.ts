@@ -71,7 +71,7 @@ class Teams extends NotificationProvider {
         if (dashboardUrl) {
             actions.push({
                 type: "Action.OpenUrl",
-                title: "Visit PocketKuma",
+                title: "Visit Uptime Maku",
                 url: dashboardUrl,
             });
         }
@@ -128,8 +128,8 @@ class Teams extends NotificationProvider {
                                         type: "Image",
                                         width: "32px",
                                         style: "Person",
-                                        url: "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png",
-                                        altText: "PocketKuma Logo",
+                                        url: "https://raw.githubusercontent.com/Igloczek/uptime-maku/master/public/icon.png",
+                                        altText: "Uptime Maku Logo",
                                     },
                                 ],
                             },
@@ -147,7 +147,7 @@ class Teams extends NotificationProvider {
                                         type: "TextBlock",
                                         size: "Small",
                                         weight: "Default",
-                                        text: "PocketKuma Alert",
+                                        text: "Uptime Maku Alert",
                                         isSubtle: true,
                                         spacing: "None",
                                     },

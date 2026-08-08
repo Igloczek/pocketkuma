@@ -1,6 +1,6 @@
 -- Simulates a fully migrated upstream Uptime Kuma 2.x SQLite database:
--- Knex end-state schema (marker columns present) but no buna_schema_version.
--- Data rows exercise Buna-specific migrations in 001-buna-baseline.
+-- Knex end-state schema (marker columns present) but no rewrite schema-version setting.
+-- Data rows exercise Uptime Maku-specific migrations in 001-upstream-baseline.
 
 PRAGMA foreign_keys = OFF;
 

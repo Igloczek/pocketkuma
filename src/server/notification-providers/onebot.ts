@@ -28,7 +28,7 @@ class OneBot extends NotificationProvider {
                 },
             };
             config = this.getAxiosConfigWithProxy(config);
-            let pushText = "PocketKuma Alert: " + msg;
+            let pushText = "Uptime Maku Alert: " + msg;
             let data = {
                 auto_escape: true,
                 message: pushText,

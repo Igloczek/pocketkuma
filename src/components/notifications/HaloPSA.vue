@@ -80,8 +80,8 @@
                     : {{ $t("halopsa_field_timestamp") }}
                 </li>
                 <li>
-                    <b>pocketkuma_version</b>
-                    : {{ $t("halopsa_field_pocketkuma_version") }}
+                    <b>uptime_maku_version</b>
+                    : {{ $t("halopsa_field_uptime_maku_version") }}
                 </li>
             </ul>
             <p class="mb-0 text-muted">

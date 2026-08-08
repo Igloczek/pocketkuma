@@ -19,8 +19,8 @@
 
         <p v-if="showPoweredBy" data-testid="powered-by">
             {{ $t("Powered by") }}
-            <a target="_blank" rel="noopener noreferrer" href="https://github.com/Igloczek/pocketkuma">
-                {{ $t("PocketKuma") }}
+            <a target="_blank" rel="noopener noreferrer" href="https://github.com/Igloczek/uptime-maku">
+                {{ $t("Uptime Maku") }}
             </a>
         </p>
 

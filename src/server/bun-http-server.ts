@@ -61,7 +61,7 @@ function validateSqliteSnapshot(snapshotPath) {
             .query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('monitor', 'setting', 'user')")
             .all();
         if (requiredTables.length !== 3) {
-            throw new Error("Snapshot is not a PocketKuma database.");
+            throw new Error("Snapshot is not a Uptime Maku database.");
         }
         if (db.query("PRAGMA foreign_key_check").all().length > 0) {
             throw new Error("Snapshot failed foreign-key validation.");
@@ -489,9 +489,9 @@ async function rootResponse(request, server, store, settings, disableFrameSameOr
         });
     }
 
-    const pocketKumaEntryPage = server.entryPage;
-    if (pocketKumaEntryPage && pocketKumaEntryPage.startsWith("statusPage-")) {
-        return redirectResponse("/status/" + pocketKumaEntryPage.replace("statusPage-", ""), {
+    const uptimeMakuEntryPage = server.entryPage;
+    if (uptimeMakuEntryPage && uptimeMakuEntryPage.startsWith("statusPage-")) {
+        return redirectResponse("/status/" + uptimeMakuEntryPage.replace("statusPage-", ""), {
             disableFrameSameOrigin,
         });
     }

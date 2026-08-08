@@ -16,7 +16,7 @@ class Stackfield extends NotificationProvider {
         try {
             // Stackfield message formatting: https://www.stackfield.com/help/formatting-messages-2001
 
-            let textMsg = "+PocketKuma Alert+";
+            let textMsg = "+Uptime Maku Alert+";
 
             if (monitorJSON && monitorJSON.name) {
                 textMsg += `\n*${monitorJSON.name}*`;

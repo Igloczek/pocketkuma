@@ -19,7 +19,7 @@ class SIGNL4 extends NotificationProvider {
                 monitor: monitorJSON,
                 msg,
                 // Source system
-                "X-S4-SourceSystem": "PocketKuma",
+                "X-S4-SourceSystem": "Uptime Maku",
                 monitorUrl: this.extractAddress(monitorJSON),
             };
 
@@ -32,15 +32,15 @@ class SIGNL4 extends NotificationProvider {
 
             if (heartbeatJSON == null) {
                 // Test alert
-                data.title = "PocketKuma Alert";
+                data.title = "Uptime Maku Alert";
                 data.message = msg;
             } else if (heartbeatJSON.status === UP) {
-                data.title = "PocketKuma Monitor ✅ Up";
-                data["X-S4-ExternalID"] = "PocketKuma-" + monitorJSON.monitorID;
+                data.title = "Uptime Maku Monitor ✅ Up";
+                data["X-S4-ExternalID"] = "Uptime Maku-" + monitorJSON.monitorID;
                 data["X-S4-Status"] = "resolved";
             } else if (heartbeatJSON.status === DOWN) {
-                data.title = "PocketKuma Monitor 🔴 Down";
-                data["X-S4-ExternalID"] = "PocketKuma-" + monitorJSON.monitorID;
+                data.title = "Uptime Maku Monitor 🔴 Down";
+                data["X-S4-ExternalID"] = "Uptime Maku-" + monitorJSON.monitorID;
                 data["X-S4-Status"] = "new";
             }
 

@@ -24,11 +24,11 @@ class Alerta extends NotificationProvider {
                 environment: notification.alertaEnvironment,
                 severity: "critical",
                 correlate: [],
-                service: ["PocketKuma"],
+                service: ["Uptime Maku"],
                 value: "Timeout",
-                tags: ["pocketkuma"],
+                tags: ["uptime-maku"],
                 attributes: {},
-                origin: "pocketkuma",
+                origin: "uptime-maku",
                 type: "exceptionAlert",
             };
 
@@ -39,7 +39,7 @@ class Alerta extends NotificationProvider {
                     {
                         event: "msg",
                         text: msg,
-                        group: "pocketkuma-msg",
+                        group: "uptime-maku-msg",
                         resource: "Message",
                     },
                     data
@@ -51,7 +51,7 @@ class Alerta extends NotificationProvider {
                     {
                         correlate: ["service_up", "service_down"],
                         event: monitorJSON["type"],
-                        group: "pocketkuma-" + monitorJSON["type"],
+                        group: "uptime-maku-" + monitorJSON["type"],
                         resource: monitorJSON["name"],
                     },
                     data

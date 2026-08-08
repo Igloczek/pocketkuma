@@ -1,4 +1,0 @@
-interface:
-    display_name: "Release PocketKuma"
-    short_description: "Prepare and publish verified PocketKuma releases"
-    default_prompt: "Use $release-pocketkuma to prepare, publish, and verify the next PocketKuma release."
