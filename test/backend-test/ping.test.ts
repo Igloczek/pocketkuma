@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { describe, test, expect } from "bun:test";
-import { pingAsync } from "@/server/util-server";
+import { pingAsync } from "@/server/ping";
 
 describe("Server Utilities: pingAsync", () => {
     test("should convert IDN domains to Punycode before pinging", async () => {

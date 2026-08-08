@@ -8,6 +8,7 @@ import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import User from "@/server/model/user";
 import passwordHash from "@/server/password-hash";
 import { initJWTSecret } from "@/server/server-auth-helpers";
+import { checkLogin } from "@/server/socket-auth";
 import { Settings } from "@/server/settings";
 
 const directories = [];
@@ -31,6 +32,11 @@ afterEach(async () => {
 });
 
 describe("auth and settings storage injection", () => {
+    test("rejects an unauthenticated socket", () => {
+        expect(() => checkLogin({ userID: null })).toThrow("You are not logged in.");
+        expect(() => checkLogin({ userID: 1 })).not.toThrow();
+    });
+
     test("keeps auth, persistent sessions, 2FA, and settings isolated per store", async () => {
         const first = await createStore();
         const second = await createStore();

@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { sendNotification } from "@/server/notification-provider-registry";
-import { commandExists } from "@/server/util-server";
+import { commandExists } from "@/server/process-helper";
 
 class Notification {
     /**

@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use strict";
 
-import { percentageToColor, filterAndJoin } from "@/server/util-server";
+import { percentageToColor, filterAndJoin } from "@/server/badge-utils";
 import Monitor from "@/server/model/monitor";
 import dayjs from "dayjs";
 import { UP, MAINTENANCE, DOWN, PENDING, flipStatus, log, badgeConstants } from "@/util";

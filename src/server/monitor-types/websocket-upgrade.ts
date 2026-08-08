@@ -3,7 +3,8 @@
 // Define closing error codes https://www.iana.org/assignments/websocket/websocket.xml#close-code-number
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { UP } from "@/util";
-import { checkStatusCode, getOidcTokenClientCredentials } from "@/server/util-server";
+import { checkStatusCode } from "@/server/http-utils";
+import { getOidcTokenClientCredentials } from "@/server/oidc-client";
 
 const WS_ERR_CODE = {
     1002: "Protocol error",

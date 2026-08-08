@@ -6,7 +6,7 @@
  * @returns {void}
  * @throws {Error} If validation fails
  */
-import { checkLogin } from "@/server/util-server";
+import { checkLogin } from "@/server/socket-auth";
 import dayjs from "dayjs";
 import { log } from "@/util";
 import ImageDataURI from "@/server/image-data-uri";

@@ -2,7 +2,7 @@
 
 import { log } from "@/util";
 import { sendInfo } from "@/server/client";
-import { checkLogin } from "@/server/util-server";
+import { checkLogin } from "@/server/socket-auth";
 import fs from "fs";
 import path from "path";
 
