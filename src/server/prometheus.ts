@@ -1,14 +1,55 @@
 // @ts-nocheck
 
-import PrometheusClient from "prom-client";
 import { log } from "@/server/logger";
 
-let monitorCertDaysRemaining = null;
-let monitorCertIsValid = null;
-let monitorUptimeRatio = null;
-let monitorAverageResponseTimeSeconds = null;
-let monitorResponseTime = null;
-let monitorStatus = null;
+const CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8";
+const CORE_LABELS = ["monitor_id", "monitor_name", "monitor_type", "monitor_url", "monitor_hostname", "monitor_port"];
+const WINDOWS = ["1d", "30d", "365d"];
+
+const monitorCertDaysRemaining = new Map();
+const monitorCertIsValid = new Map();
+const monitorUptimeRatio = new Map();
+const monitorAverageResponseTimeSeconds = new Map();
+const monitorResponseTime = new Map();
+const monitorStatus = new Map();
+
+let dynamicLabels = new Set();
+
+function setGauge(map, labels, value) {
+    const key = JSON.stringify(Object.entries(labels).map(([name, labelValue]) => [name, String(labelValue)]));
+    if (value === undefined) {
+        map.delete(key);
+        return;
+    }
+    if (typeof value !== "number") {
+        throw new TypeError(`Value is not a valid number: ${value}`);
+    }
+    const renderedLabels = Object.entries(labels)
+        .map(([labelName, labelValue]) => {
+            const escaped = String(labelValue).replaceAll("\\", "\\\\").replaceAll("\n", "\\n").replaceAll('"', '\\"');
+            return `${labelName}="${escaped}"`;
+        })
+        .join(",");
+    map.set(key, { labels, renderedLabels, value });
+}
+
+function renderGauge(name, help, map, monitorIDs) {
+    const lines = [`# HELP ${name} ${help}`, `# TYPE ${name} gauge`];
+    for (const { labels, renderedLabels, value } of map.values()) {
+        if (monitorIDs && !monitorIDs.has(String(labels.monitor_id))) {
+            continue;
+        }
+        const renderedValue = Number.isNaN(value)
+            ? "Nan"
+            : value === Infinity
+              ? "+Inf"
+              : value === -Infinity
+                ? "-Inf"
+                : String(value);
+        lines.push(`${name}{${renderedLabels}} ${renderedValue}`);
+    }
+    return lines.join("\n");
+}
 
 class Prometheus {
     monitorLabelValues = {};
@@ -18,8 +59,11 @@ class Prometheus {
      * @param {Array<{name:string,value:?string}>} tags Tags to add to the monitor
      */
     constructor(monitor, tags) {
+        const tagLabels = Object.entries(this.mapTagsToLabels(tags)).filter(
+            ([name]) => dynamicLabels.has(name) && !CORE_LABELS.includes(name) && name !== "window"
+        );
         this.monitorLabelValues = {
-            ...this.mapTagsToLabels(tags),
+            ...Object.fromEntries(tagLabels),
             monitor_id: monitor.id,
             monitor_name: monitor.name,
             monitor_type: monitor.type,
@@ -30,107 +74,87 @@ class Prometheus {
     }
 
     /**
-     * Initialize Prometheus metrics, and add all available tags as possible labels.
-     * This should be called once at the start of the application.
-     * New tags will NOT be added dynamically, a restart is sadly required to add new tags to the metrics.
-     * Existing tags added to monitors will be updated automatically.
+     * Initialize the fixed metric set and the dynamic tag label schema.
+     * @param {object} store Database store
      * @returns {Promise<void>}
      */
     static async init(store) {
-        // Add all available tags as possible labels,
-        // and use Set to remove possible duplicates (for when multiple tags contain non-ascii characters, and thus are sanitized to the same label)
-        const tags = new Set(
+        dynamicLabels = new Set(
             (await store.findAll("tag"))
-                .map((tag) => {
-                    return Prometheus.sanitizeForPrometheus(tag.name);
-                })
-                .filter((tagName) => {
-                    return tagName !== "";
-                })
-                .sort(this.sortTags)
+                .map((tag) => Prometheus.sanitizeForPrometheus(tag.name))
+                .filter((name) => name && !CORE_LABELS.includes(name) && name !== "window")
+                .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
         );
-
-        const commonLabels = [
-            ...tags,
-            "monitor_id",
-            "monitor_name",
-            "monitor_type",
-            "monitor_url",
-            "monitor_hostname",
-            "monitor_port",
-        ];
-
-        monitorCertDaysRemaining = new PrometheusClient.Gauge({
-            name: "monitor_cert_days_remaining",
-            help: "The number of days remaining until the certificate expires",
-            labelNames: commonLabels,
-        });
-
-        monitorCertIsValid = new PrometheusClient.Gauge({
-            name: "monitor_cert_is_valid",
-            help: "Is the certificate still valid? (1 = Yes, 0= No)",
-            labelNames: commonLabels,
-        });
-
-        monitorUptimeRatio = new PrometheusClient.Gauge({
-            name: "monitor_uptime_ratio",
-            help: "Uptime ratio calculated over sliding window specified by the 'window' label. (0.0 - 1.0)",
-            labelNames: [...commonLabels, "window"],
-        });
-
-        monitorAverageResponseTimeSeconds = new PrometheusClient.Gauge({
-            name: "monitor_response_time_seconds",
-            help: "Average response time in seconds calculated over sliding window specified by the 'window' label",
-            labelNames: [...commonLabels, "window"],
-        });
-
-        monitorResponseTime = new PrometheusClient.Gauge({
-            name: "monitor_response_time",
-            help: "Monitor Response Time (ms)",
-            labelNames: commonLabels,
-        });
-
-        monitorStatus = new PrometheusClient.Gauge({
-            name: "monitor_status",
-            help: "Monitor Status (1 = UP, 0= DOWN, 2= PENDING, 3= MAINTENANCE)",
-            labelNames: commonLabels,
-        });
+        for (const map of [
+            monitorCertDaysRemaining,
+            monitorCertIsValid,
+            monitorUptimeRatio,
+            monitorAverageResponseTimeSeconds,
+            monitorResponseTime,
+            monitorStatus,
+        ]) {
+            map.clear();
+        }
     }
 
     /**
      * Render the current Prometheus registry for a Bun HTTP response.
+     * @param {object} store Database store
+     * @param {number|null} userID Optional owner filter
      * @returns {Promise<{ body: string, contentType: string }>} Metrics body and content type
      */
     static async metrics(store, userID = null) {
-        let body = await PrometheusClient.register.metrics();
-        if (userID !== null) {
-            const monitorIDs = new Set(
-                (await store.getCol("SELECT id FROM monitor WHERE user_id = ?", [userID])).map(String)
-            );
-            body = body
-                .split("\n")
-                .filter((line) => {
-                    const match = line.match(/[{,]monitor_id="(\d+)"/);
-                    return !match || monitorIDs.has(match[1]);
-                })
-                .join("\n");
-        }
+        const monitorIDs =
+            userID === null
+                ? null
+                : new Set((await store.getCol("SELECT id FROM monitor WHERE user_id = ?", [userID])).map(String));
         return {
-            body,
-            contentType: PrometheusClient.register.contentType,
+            body:
+                [
+                    renderGauge(
+                        "monitor_cert_days_remaining",
+                        "The number of days remaining until the certificate expires",
+                        monitorCertDaysRemaining,
+                        monitorIDs
+                    ),
+                    renderGauge(
+                        "monitor_cert_is_valid",
+                        "Is the certificate still valid? (1 = Yes, 0= No)",
+                        monitorCertIsValid,
+                        monitorIDs
+                    ),
+                    renderGauge(
+                        "monitor_uptime_ratio",
+                        "Uptime ratio calculated over sliding window specified by the 'window' label. (0.0 - 1.0)",
+                        monitorUptimeRatio,
+                        monitorIDs
+                    ),
+                    renderGauge(
+                        "monitor_response_time_seconds",
+                        "Average response time in seconds calculated over sliding window specified by the 'window' label",
+                        monitorAverageResponseTimeSeconds,
+                        monitorIDs
+                    ),
+                    renderGauge("monitor_response_time", "Monitor Response Time (ms)", monitorResponseTime, monitorIDs),
+                    renderGauge(
+                        "monitor_status",
+                        "Monitor Status (1 = UP, 0= DOWN, 2= PENDING, 3= MAINTENANCE)",
+                        monitorStatus,
+                        monitorIDs
+                    ),
+                ].join("\n\n") + "\n",
+            contentType: CONTENT_TYPE,
         };
     }
 
     /**
-     * Sanitize a string to ensure it can be used as a Prometheus label or value.
-     * See https://github.com/louislam/uptime-kuma/pull/4704#issuecomment-2366524692
-     * @param {string} text The text to sanitize
-     * @returns {string} The sanitized text
+     * Sanitize a string so it can be used as a Prometheus label name or legacy tag value.
+     * @param {string} text Text to sanitize
+     * @returns {string} Sanitized text
      */
     static sanitizeForPrometheus(text) {
         text = text.replace(/[^a-zA-Z0-9_]/g, "");
-        text = text.replace(/^[^a-zA-Z_]+/, "");
-        return text;
+        return text.replace(/^[^a-zA-Z_]+/, "");
     }
 
     /**
@@ -150,172 +174,107 @@ class Prometheus {
     }
 
     /**
-     * Map the tags value to valid labels used in Prometheus. Sanitize them in the process.
-     * @param {Array<{name: string, value:?string}>} tags The tags to map
-     * @returns {object} The mapped tags, usable as labels
+     * Map tag values to stable sanitized labels.
+     * @param {Array<{name: string, value:?string}>} tags Tags to map
+     * @returns {object} Label values ordered by sanitized name
      */
     mapTagsToLabels(tags) {
-        let mappedTags = {};
-        tags.forEach((tag) => {
-            let sanitizedTag = Prometheus.sanitizeForPrometheus(tag.name);
-            if (sanitizedTag === "") {
-                return; // Skip empty tag names
+        const mappedTags = new Map();
+        for (const tag of tags) {
+            const name = Prometheus.sanitizeForPrometheus(tag.name);
+            if (!name) {
+                continue;
             }
-
-            if (mappedTags[sanitizedTag] === undefined) {
-                mappedTags[sanitizedTag] = [];
+            if (!mappedTags.has(name)) {
+                mappedTags.set(name, []);
             }
-
-            let tagValue = Prometheus.sanitizeForPrometheus(tag.value || "");
-            if (tagValue !== "") {
-                mappedTags[sanitizedTag].push(tagValue);
+            const value = Prometheus.sanitizeForPrometheus(tag.value || "");
+            if (value) {
+                mappedTags.get(name).push(value);
+                mappedTags.get(name).sort((a, b) => this.sortTags(a, b));
             }
-
-            mappedTags[sanitizedTag] = mappedTags[sanitizedTag].sort();
-        });
-
-        // Order the tags alphabetically
-        return Object.keys(mappedTags)
-            .sort(this.sortTags)
-            .reduce((obj, key) => {
-                obj[key] = mappedTags[key];
-                return obj;
-            }, {});
+        }
+        return Object.fromEntries([...mappedTags].sort(([a], [b]) => this.sortTags(a, b)));
     }
 
     /**
-     * Update the metrics page
-     * @typedef {import("@/server/uptime-calculator").UptimeDataResult} UptimeDataResult
-     * @param {object} heartbeat Heartbeat details
-     * @param {object} tlsInfo TLS details
-     * @param {{data24h: UptimeDataResult, data30d: UptimeDataResult, data1y:UptimeDataResult} | null} uptime the uptime and average response rate over a variety of fixed windows
+     * Update only the metric families represented by the supplied data.
+     * @param {object|null} heartbeat Heartbeat details
+     * @param {object|undefined|null} tlsInfo TLS details
+     * @param {object|null} uptime Fixed-window uptime data
      * @returns {void}
      */
     update(heartbeat, tlsInfo, uptime) {
-        if (typeof tlsInfo !== "undefined") {
+        if (tlsInfo !== undefined && tlsInfo !== null) {
             try {
-                let isValid;
-                if (tlsInfo.valid === true) {
-                    isValid = 1;
-                } else {
-                    isValid = 0;
-                }
-                monitorCertIsValid.set(this.monitorLabelValues, isValid);
-            } catch (e) {
-                log.error("prometheus", "Caught error", e);
+                setGauge(monitorCertIsValid, this.monitorLabelValues, tlsInfo?.valid === true ? 1 : 0);
+            } catch (error) {
+                log.error("prometheus", "Caught error", error);
             }
-
             try {
-                if (tlsInfo.certInfo != null) {
-                    monitorCertDaysRemaining.set(this.monitorLabelValues, tlsInfo.certInfo.daysRemaining);
+                if (tlsInfo?.certInfo != null) {
+                    setGauge(monitorCertDaysRemaining, this.monitorLabelValues, tlsInfo.certInfo.daysRemaining);
                 }
-            } catch (e) {
-                log.error("prometheus", "Caught error", e);
+            } catch (error) {
+                log.error("prometheus", "Caught error", error);
             }
         }
 
         if (uptime) {
-            try {
-                monitorAverageResponseTimeSeconds.set(
-                    { ...this.monitorLabelValues, window: "1d" },
-                    uptime.data24h.avgPing / 1000
-                );
-            } catch (e) {
-                log.error("prometheus", "Caught error", e);
-            }
-            try {
-                monitorAverageResponseTimeSeconds.set(
-                    { ...this.monitorLabelValues, window: "30d" },
-                    uptime.data30d.avgPing / 1000
-                );
-            } catch (e) {
-                log.error("prometheus", "Caught error", e);
-            }
-            try {
-                monitorAverageResponseTimeSeconds.set(
-                    { ...this.monitorLabelValues, window: "365d" },
-                    uptime.data1y.avgPing / 1000
-                );
-            } catch (e) {
-                log.error("prometheus", "Caught error", e);
-            }
-            try {
-                monitorUptimeRatio.set({ ...this.monitorLabelValues, window: "1d" }, uptime.data24h.uptime);
-            } catch (e) {
-                log.error("prometheus", "Caught error", e);
-            }
-            try {
-                monitorUptimeRatio.set({ ...this.monitorLabelValues, window: "30d" }, uptime.data30d.uptime);
-            } catch (e) {
-                log.error("prometheus", "Caught error", e);
-            }
-            try {
-                monitorUptimeRatio.set({ ...this.monitorLabelValues, window: "365d" }, uptime.data1y.uptime);
-            } catch (e) {
-                log.error("prometheus", "Caught error", e);
+            const values = [uptime.data24h, uptime.data30d, uptime.data1y];
+            for (let index = 0; index < WINDOWS.length; index++) {
+                const labels = { ...this.monitorLabelValues, window: WINDOWS[index] };
+                try {
+                    setGauge(monitorAverageResponseTimeSeconds, labels, values[index].avgPing / 1000);
+                } catch (error) {
+                    log.error("prometheus", "Caught error", error);
+                }
+                try {
+                    setGauge(monitorUptimeRatio, labels, values[index].uptime);
+                } catch (error) {
+                    log.error("prometheus", "Caught error", error);
+                }
             }
         }
 
         if (heartbeat) {
             try {
-                monitorStatus.set(this.monitorLabelValues, heartbeat.status);
-            } catch (e) {
-                log.error("prometheus", "Caught error");
-                log.error("prometheus", e);
+                setGauge(monitorStatus, this.monitorLabelValues, heartbeat.status);
+            } catch (error) {
+                log.error("prometheus", "Caught error", error);
             }
-
             try {
-                if (typeof heartbeat.ping === "number") {
-                    monitorResponseTime.set(this.monitorLabelValues, heartbeat.ping);
-                } else {
-                    // Is it good?
-                    monitorResponseTime.set(this.monitorLabelValues, -1);
-                }
-            } catch (e) {
-                log.error("prometheus", "Caught error");
-                log.error("prometheus", e);
+                setGauge(
+                    monitorResponseTime,
+                    this.monitorLabelValues,
+                    typeof heartbeat.ping === "number" ? heartbeat.ping : -1
+                );
+            } catch (error) {
+                log.error("prometheus", "Caught error", error);
             }
         }
     }
 
-    /**
-     * Remove monitor from prometheus
-     * @returns {void}
-     */
+    /** Remove this monitor from every metric family. */
     remove() {
         try {
-            monitorCertDaysRemaining.remove(this.monitorLabelValues);
-            monitorCertIsValid.remove(this.monitorLabelValues);
-            ["1d", "30d", "365d"].forEach((window) => {
-                monitorUptimeRatio.remove({ ...this.monitorLabelValues, window });
-                monitorAverageResponseTimeSeconds.remove({ ...this.monitorLabelValues, window });
-            });
-            monitorResponseTime.remove(this.monitorLabelValues);
-            monitorStatus.remove(this.monitorLabelValues);
-        } catch (e) {
-            console.error(e);
+            setGauge(monitorCertDaysRemaining, this.monitorLabelValues, undefined);
+            setGauge(monitorCertIsValid, this.monitorLabelValues, undefined);
+            for (const window of WINDOWS) {
+                const labels = { ...this.monitorLabelValues, window };
+                setGauge(monitorUptimeRatio, labels, undefined);
+                setGauge(monitorAverageResponseTimeSeconds, labels, undefined);
+            }
+            setGauge(monitorResponseTime, this.monitorLabelValues, undefined);
+            setGauge(monitorStatus, this.monitorLabelValues, undefined);
+        } catch (error) {
+            log.error("prometheus", "Caught error", error);
         }
     }
 
-    /**
-     * Sort the tags alphabetically, case-insensitive.
-     * @param {string} a The first tag to compare
-     * @param {string} b The second tag to compare
-     * @returns {number} The alphabetical order number
-     */
+    /** Sort sanitized ASCII tag names and values without locale-dependent collation. */
     sortTags(a, b) {
-        const aLowerCase = a.toLowerCase();
-        const bLowerCase = b.toLowerCase();
-
-        if (aLowerCase < bLowerCase) {
-            return -1;
-        }
-
-        if (aLowerCase > bLowerCase) {
-            return 1;
-        }
-
-        return 0;
+        return a < b ? -1 : a > b ? 1 : 0;
     }
 }
 

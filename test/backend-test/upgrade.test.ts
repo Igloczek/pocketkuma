@@ -122,6 +122,12 @@ describe("Upstream Kuma upgrade", () => {
             ["GameDig TF2"]
         );
         expect(Number(domainExpiryDisabled)).toBe(0);
+
+        const parsedDomainExpiryDisabled = await store.getCell(
+            "SELECT domain_expiry_notification FROM monitor WHERE name = ?",
+            ["Unsupported domain expiry"]
+        );
+        expect(Number(parsedDomainExpiryDisabled)).toBe(0);
     });
 });
 

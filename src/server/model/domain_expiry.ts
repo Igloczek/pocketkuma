@@ -3,7 +3,6 @@
 import { BeanModel } from "@/server/bean-model";
 import { log } from "@/server/logger";
 import { TYPES_WITH_DOMAIN_EXPIRY_SUPPORT_VIA_FIELD } from "@/constants";
-import { parse as parseTld } from "tldts";
 import rdapDnsDataFallback from "@/server/assets/rdap-dns.json" with { type: "json" };
 import { sendNotification } from "@/server/notification-provider-registry";
 import TranslatableError from "@/server/translatable-error";
@@ -106,7 +105,8 @@ async function getOfflineRdapDnsData(settings) {
  * @returns {Promise<(Date|null)>} Expiry date from RDAP server
  */
 async function getRdapDomainExpiryDate(domain, settings) {
-    const tld = DomainExpiry.parseTld(domain).publicSuffix;
+    const { parse } = await import("tldts");
+    const tld = parse(domain).publicSuffix;
     const rdapServer = await getRdapServer(tld, settings);
     if (rdapServer === null) {
         log.warn("rdap", `No RDAP server found, TLD ${tld} not supported.`);
@@ -192,23 +192,6 @@ class DomainExpiry extends BeanModel {
         return d;
     }
 
-    static parseTld = parseTld;
-
-    /**
-     * @typedef {import("tldts-core").IResult} DomainComponents
-     * @returns {DomainComponents} parsed domain components
-     */
-    parseName() {
-        return parseTld(this.domain);
-    }
-
-    /**
-     * @returns {(null|object)} parsed domain tld
-     */
-    get tld() {
-        return this.parseName().publicSuffix;
-    }
-
     /**
      * @param {Monitor} monitor Monitor object
      * @throws {TranslatableError} Throws an error if the monitor type is unsupported or missing target.
@@ -224,7 +207,8 @@ class DomainExpiry extends BeanModel {
             throw new TranslatableError("domain_expiry_unsupported_missing_target");
         }
 
-        const tld = parseTld(target);
+        const { parse } = await import("tldts");
+        const tld = parse(target);
 
         // It must be checked first, filter out non-ICANN domains.
         if (!tld.isIcann) {

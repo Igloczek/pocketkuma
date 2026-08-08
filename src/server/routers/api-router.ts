@@ -1,13 +1,12 @@
 // @ts-nocheck
 "use strict";
 
-import { percentageToColor, filterAndJoin } from "@/server/badge-utils";
+import { filterAndJoin, percentageToColor, renderBadge } from "@/server/badge-renderer";
 import Monitor from "@/server/model/monitor";
 import dayjs from "dayjs";
 import { UP, MAINTENANCE, DOWN, PENDING, badgeConstants } from "@/constants";
 import { flipStatus } from "@/util/status";
 import { log } from "@/server/logger";
-import { makeBadge } from "badge-maker";
 import { Prometheus } from "@/server/prometheus";
 import Database from "@/server/database";
 import {
@@ -228,7 +227,7 @@ async function badgeStatusResponse(store, heartbeatData, url, id, disableFrameSa
             }
         }
 
-        return svgResponse(makeBadge(badgeValues), disableFrameSameOrigin);
+        return svgResponse(renderBadge(badgeValues), disableFrameSameOrigin);
     } catch (error) {
         return httpErrorResponse(error.message, {
             cors: true,
@@ -283,7 +282,7 @@ async function badgeUptimeResponse(store, heartbeatData, url, id, duration, disa
             badgeValues.message = filterAndJoin([prefix, cleanUptime, suffix]);
         }
 
-        return svgResponse(makeBadge(badgeValues), disableFrameSameOrigin);
+        return svgResponse(renderBadge(badgeValues), disableFrameSameOrigin);
     } catch (error) {
         return httpErrorResponse(error.message, {
             cors: true,
@@ -339,7 +338,7 @@ async function badgePingResponse(store, heartbeatData, url, id, duration, disabl
             badgeValues.message = filterAndJoin([prefix, avgPingValue, suffix]);
         }
 
-        return svgResponse(makeBadge(badgeValues), disableFrameSameOrigin);
+        return svgResponse(renderBadge(badgeValues), disableFrameSameOrigin);
     } catch (error) {
         return httpErrorResponse(error.message, {
             cors: true,
@@ -404,7 +403,7 @@ async function badgeAvgResponseResponse(store, url, id, duration, disableFrameSa
             badgeValues.message = filterAndJoin([prefix, avgPing, suffix]);
         }
 
-        return svgResponse(makeBadge(badgeValues), disableFrameSameOrigin);
+        return svgResponse(renderBadge(badgeValues), disableFrameSameOrigin);
     } catch (error) {
         return httpErrorResponse(error.message, {
             cors: true,
@@ -479,7 +478,7 @@ async function badgeCertExpResponse(store, url, id, disableFrameSameOrigin) {
             }
         }
 
-        return svgResponse(makeBadge(badgeValues), disableFrameSameOrigin);
+        return svgResponse(renderBadge(badgeValues), disableFrameSameOrigin);
     } catch (error) {
         return httpErrorResponse(error.message, {
             cors: true,
@@ -530,7 +529,7 @@ async function badgeResponseResponse(store, heartbeatData, url, id, disableFrame
             }
         }
 
-        return svgResponse(makeBadge(badgeValues), disableFrameSameOrigin);
+        return svgResponse(renderBadge(badgeValues), disableFrameSameOrigin);
     } catch (error) {
         return httpErrorResponse(error.message, {
             cors: true,

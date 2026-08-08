@@ -3,7 +3,7 @@
 
 import StatusPage from "@/server/model/status_page";
 import { badgeConstants } from "@/constants";
-import { makeBadge } from "badge-maker";
+import { renderBadge } from "@/server/badge-renderer";
 import {
     cachedResponse,
     decodePathParam,
@@ -242,7 +242,7 @@ async function statusPageBadgeResponse(store, url, slug, disableFrameSameOrigin)
             badgeValues.message = "Down";
         }
 
-        return textResponse(makeBadge(badgeValues), {
+        return textResponse(renderBadge(badgeValues), {
             type: "image/svg+xml",
             devCors: true,
             disableFrameSameOrigin,
