@@ -145,4 +145,26 @@ describe("Analytics scripts", () => {
         expect(analytics.getAnalyticsScript(statusPage)).toBeNull();
         expect(analytics.isValidAnalyticsConfig(statusPage)).toBe(false);
     });
+
+    test("escapes adversarial input for every analytics provider", () => {
+        const payload = '"><script>globalThis.pwned=true</script>';
+        const providerConfigs = [
+            { analyticsType: "google", analyticsId: payload },
+            { analyticsType: "umami", analyticsId: payload, analyticsScriptUrl: `https://umami.example/${payload}` },
+            {
+                analyticsType: "plausible",
+                analyticsId: payload,
+                analyticsScriptUrl: `https://plausible.example/${payload}`,
+            },
+            { analyticsType: "matomo", analyticsId: payload, analyticsScriptUrl: `analytics.example/${payload}` },
+            { analyticsType: "rybbit", analyticsId: payload, analyticsScriptUrl: `https://rybbit.example/${payload}` },
+        ];
+
+        for (const config of providerConfigs) {
+            const script = analytics.getAnalyticsScript(makeStatusPage(config));
+            expect(script).toContain("&quot;");
+            expect(script).not.toContain(payload);
+            expect(script).not.toContain("globalThis.pwned=true</script>");
+        }
+    });
 });

@@ -51,7 +51,15 @@ function escapeJsString(str, options = {}) {
  * @returns {string} Escaped JSON string.
  */
 function escapeJsJson(value, options = {}) {
-    return JSON.stringify(value).replace(/<\//g, options.isScriptContext ? "<\\/" : "</");
+    const serialized = JSON.stringify(value);
+    let escaped = (serialized === undefined ? "null" : serialized).replace(
+        /<\//g,
+        options.isScriptContext ? "<\\/" : "</"
+    );
+    if (options.isScriptContext) {
+        escaped = escaped.replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+    }
+    return escaped;
 }
 
 export { escapeHtml, escapeJsString, escapeJsJson };
