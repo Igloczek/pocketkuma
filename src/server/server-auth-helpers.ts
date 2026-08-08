@@ -2,7 +2,6 @@
 
 import { genSecret } from "@/util";
 import passwordHash from "@/server/password-hash";
-import oidc from "openid-client";
 
 /**
  * Init or reset JWT secret
@@ -28,59 +27,6 @@ export const initJWTSecret = async (store) => {
  */
 export const decodeJwt = (jwt) => {
     return JSON.parse(Buffer.from(jwt.split(".")[1], "base64").toString());
-};
-
-/**
- * Gets an Access Token from an oidc/oauth2 provider
- * @param {string} tokenEndpoint The token URI from the auth service provider
- * @param {string} clientId The oidc/oauth application client id
- * @param {string} clientSecret The oidc/oauth application client secret
- * @param {string} scope The scope(s) for which the token should be issued for
- * @param {string} audience The audience for which the token should be issued for
- * @param {string} authMethod The method used to send the credentials. Default client_secret_basic
- * @returns {Promise<oidc.TokenSet>} TokenSet promise if the token request was successful
- */
-export const getOidcTokenClientCredentials = async (
-    tokenEndpoint,
-    clientId,
-    clientSecret,
-    scope,
-    audience,
-    authMethod = "client_secret_basic",
-    timeout = 10000
-) => {
-    const oauthProvider = new oidc.Issuer({ token_endpoint: tokenEndpoint });
-    let client = new oauthProvider.Client({
-        client_id: clientId,
-        client_secret: clientSecret,
-        token_endpoint_auth_method: authMethod,
-    });
-
-    // Increase default timeout and clock tolerance
-    client[oidc.custom.http_options] = () => ({ timeout });
-    client[oidc.custom.clock_tolerance] = 5;
-
-    let grantParams = { grant_type: "client_credentials" };
-    if (scope) {
-        grantParams.scope = scope;
-    }
-
-    if (audience) {
-        grantParams.audience = audience;
-    }
-    return await client.grant(grantParams);
-};
-
-/**
- * Check if a user is logged in
- * @param {Socket} socket Socket instance
- * @returns {void}
- * @throws The user is not logged in
- */
-export const checkLogin = (socket) => {
-    if (!socket.userID) {
-        throw new Error("You are not logged in.");
-    }
 };
 
 /**

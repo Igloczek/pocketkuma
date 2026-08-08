@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { checkLogin } from "@/server/util-server";
+import { checkLogin } from "@/server/socket-auth";
 import { Proxy } from "@/server/proxy";
 import { sendProxyList } from "@/server/client";
 

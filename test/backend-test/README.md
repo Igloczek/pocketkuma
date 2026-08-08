@@ -94,7 +94,7 @@ The full suite discovers all `*.test.ts` files. Some failures are environmental,
 | -------------- | -------------------------------------------------------------------------------- | --------------------------------- |
 | Testcontainers | `monitors/{mqtt,mssql,mysql,oracledb,postgres,rabbitmq}.test.ts`, `snmp.test.ts` | Requires Docker and live services |
 | Public network | `domain.test.ts`, opt-in TCP via `POCKETKUMA_PUBLIC_NETWORK_TESTS=1`             | Needs live RDAP/DNS/TLS           |
-| Host/process   | `util-server.test.ts`, `monitors/kafka-producer.test.ts`                         | Needs host tools or a local mock  |
+| Host/process   | `ping.test.ts`, `monitors/kafka-producer.test.ts`                                | Needs host tools or a local mock  |
 
 The Testcontainers suites require a working local Docker daemon. The multi-case MySQL, Microsoft SQL Server, Oracle,
 RabbitMQ, and MQTT suites share one real service container across their cases. PostgreSQL and SNMP start a container

@@ -5,7 +5,7 @@ import fs from "fs";
 import path from "path";
 import { Database as SQLiteDatabase } from "bun:sqlite";
 import { isDev, log } from "@/util";
-import { printServerUrls } from "@/server/util-server";
+import { printServerUrls } from "@/server/server-urls";
 import config from "@/server/config";
 import Database from "@/server/database";
 import type { SQLiteStore } from "@/server/db-migrations";

@@ -2,7 +2,8 @@
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { UP, PING_COUNT_DEFAULT, PING_PER_REQUEST_TIMEOUT_DEFAULT } from "@/util";
-import { ping, checkStatusCode } from "@/server/util-server";
+import { ping } from "@/server/ping";
+import { checkStatusCode } from "@/server/http-utils";
 import httpClient from "@/server/http-client";
 import dns from "node:dns/promises";
 import net from "node:net";

@@ -11,8 +11,7 @@ import Database from "@/server/database";
 import jwt from "@/server/jwt";
 import config from "@/server/config";
 import { RemoteBrowser } from "@/server/remote-browser";
-import { commandExists } from "@/server/util-server";
-import { runCommand, runCommandChecked } from "@/server/process-helper";
+import { commandExists, runCommand, runCommandChecked } from "@/server/process-helper";
 import childProcess from "node:child_process";
 import { AsyncLocalStorage } from "node:async_hooks";
 
