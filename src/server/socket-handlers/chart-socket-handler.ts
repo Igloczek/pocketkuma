@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { checkLogin } from "@/server/util-server";
+import { checkLogin } from "@/server/socket-auth";
 import { log } from "@/util";
 
 export const chartSocketHandler = (socket, store, heartbeatData) => {

@@ -11,13 +11,9 @@
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { Globalping, IpVersion, MeasurementStatus } from "globalping";
 import { log, UP, evaluateJsonQuery } from "@/util";
-import {
-    checkStatusCode,
-    getOidcTokenClientCredentials,
-    encodeBase64,
-    getDaysRemaining,
-    checkCertExpiryNotifications,
-} from "@/server/util-server";
+import { checkStatusCode, encodeBase64 } from "@/server/http-utils";
+import { getOidcTokenClientCredentials } from "@/server/oidc-client";
+import { getDaysRemaining, checkCertExpiryNotifications } from "@/server/tls-cert";
 
 class GlobalpingMonitorType extends MonitorType {
     name = "globalping";

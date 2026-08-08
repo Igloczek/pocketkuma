@@ -2,7 +2,7 @@
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { log, UP } from "@/util";
-import { axiosAbortSignal } from "@/server/util-server";
+import { axiosAbortSignal } from "@/server/http-utils";
 import httpClient from "@/server/http-client";
 
 class RabbitMqMonitorType extends MonitorType {

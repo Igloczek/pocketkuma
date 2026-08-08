@@ -6,7 +6,7 @@
  * @returns {void}
  */
 import { sendRemoteBrowserList } from "@/server/client";
-import { checkLogin } from "@/server/util-server";
+import { checkLogin } from "@/server/socket-auth";
 import { RemoteBrowser } from "@/server/remote-browser";
 import { log } from "@/util";
 

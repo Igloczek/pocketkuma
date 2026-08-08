@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { describe, test, expect, mock, spyOn } from "bun:test";
-import { encodeBase64 } from "@/server/util-server";
+import { encodeBase64 } from "@/server/http-utils";
 import { UP, PENDING } from "@/util";
 import { GlobalpingMonitorType } from "@/server/monitor-types/globalping";
 
