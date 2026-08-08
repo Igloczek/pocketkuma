@@ -371,5 +371,22 @@ describe("compiled runtime loading", () => {
         });
         expect(monitor.ok).toBe(true);
         expect((await waitForHeartbeat(monitor.monitorID)).status).toBe(1);
+
+        const database = new Database(path.join(dataDir, "kuma.db"));
+        const groupID = Number(
+            database.query('INSERT INTO "group" (name, public) VALUES (?, 1)').run("Public").lastInsertRowid
+        );
+        database
+            .query("INSERT INTO monitor_group (monitor_id, group_id) VALUES (?, ?)")
+            .run(monitor.monitorID, groupID);
+        database.close();
+
+        const badge = await fetch(
+            `http://127.0.0.1:${appPort}/api/badge/${monitor.monitorID}/status?style=for-the-badge&label=Compiled`
+        );
+        expect(badge.status).toBe(200);
+        expect(badge.headers.get("content-type")).toBe("image/svg+xml");
+        expect(badge.headers.get("access-control-allow-origin")).toBe("*");
+        expect(await badge.text()).toContain("COMPILED");
     }, 60_000);
 });
