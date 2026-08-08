@@ -80,6 +80,7 @@ export default defineConfig({
     build: {
         outDir: "../dist",
         emptyOutDir: true,
+        manifest: true,
         commonjsOptions: {
             include: [/.js$/],
         },

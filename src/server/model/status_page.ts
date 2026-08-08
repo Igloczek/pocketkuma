@@ -1,11 +1,7 @@
 // @ts-nocheck
 
 import { BeanModel } from "@/server/bean-model";
-import { load as loadHtml } from "cheerio";
-import { escapeJsJson } from "@/util/escape";
-import analytics from "@/server/analytics/analytics";
-import { marked } from "marked";
-import { Feed } from "feed";
+import { renderStatusPageDocument } from "@/server/status-page-document";
 import config from "@/server/config";
 import dayjs from "dayjs";
 import {
@@ -128,6 +124,7 @@ class StatusPage extends BeanModel {
      */
     static async renderRSS(store, server, statusPage, feedUrl) {
         const { incidents, heartbeats, statusDescription } = await StatusPage.getRSSPageData(store, server, statusPage);
+        const { Feed } = await import("feed");
 
         // Use custom RSS title if set, otherwise fall back to status page title
         let feedTitle = "PocketKuma RSS Feed";
@@ -207,62 +204,14 @@ class StatusPage extends BeanModel {
 
     /**
      * SSR for status pages
-     * @param {string} indexHTML HTML page to render
      * @param {StatusPage} statusPage Status page populate HTML with
      * @returns {Promise<string>} the rendered html
      */
     static async renderHTML(store, server, statusPage) {
-        const $ = loadHtml(server.indexHTML);
-
-        const description155 = marked(statusPage.description ?? "")
-            .replace(/<[^>]+>/gm, "")
-            .trim()
-            .substring(0, 155);
-
-        $("title").text(statusPage.title);
-        $("meta[name=description]").attr("content", description155);
-
-        if (statusPage.icon) {
-            $("link[rel=icon]").attr("href", statusPage.icon).removeAttr("type");
-
-            $("link[rel=apple-touch-icon]").remove();
-        }
-
-        const head = $("head");
-
-        if (analytics.isValidAnalyticsConfig(statusPage)) {
-            let escapedAnalyticsScript = analytics.getAnalyticsScript(statusPage);
-            head.append($(escapedAnalyticsScript));
-        }
-
-        // OG Meta Tags
-        let ogTitle = $('<meta property="og:title" content="" />').attr("content", statusPage.title);
-        head.append(ogTitle);
-
-        let ogDescription = $('<meta property="og:description" content="" />').attr("content", description155);
-        head.append(ogDescription);
-
-        let ogType = $('<meta property="og:type" content="website" />');
-        head.append(ogType);
-
-        // Preload data
-        // Add jsesc, fix https://github.com/louislam/uptime-kuma/issues/2186
-        const escapedJSONObject = escapeJsJson(await StatusPage.getStatusPageData(store, server, statusPage), {
-            isScriptContext: true,
+        return renderStatusPageDocument({
+            statusPage,
+            preloadData: await StatusPage.getStatusPageData(store, server, statusPage),
         });
-
-        const script = $(`
-            <script id="preload-data" data-json="{}">
-                window.preloadData = ${escapedJSONObject};
-            </script>
-        `);
-
-        head.append(script);
-
-        // manifest.json
-        $("link[rel=manifest]").attr("href", `/api/status-page/${statusPage.slug}/manifest.json`);
-
-        return $.root().html();
     }
 
     /**

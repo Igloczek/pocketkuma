@@ -11,10 +11,197 @@ import { createResponseCache } from "@/server/bun-response";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { STATUS_PAGE_ALL_UP, STATUS_PAGE_ALL_DOWN, STATUS_PAGE_PARTIAL_DOWN, STATUS_PAGE_MAINTENANCE } from "@/util";
+import { frontendEntryAssets } from "@/server/generated/frontend-entry-assets";
+import { hasEmbeddedAsset } from "@/server/generated/embedded-assets";
+import { markdownToPlainText, renderStatusPageDocument } from "@/server/status-page-document";
+import { handleStatusPageRequest } from "@/server/routers/status-page-router";
+import "@/server/model-registry";
 
 dayjs.extend(utc);
 
 describe("StatusPage", () => {
+    describe("status page document", () => {
+        test("renders an owned document with escaped metadata, preload data, and Vite assets", async () => {
+            const html = await renderStatusPageDocument({
+                statusPage: {
+                    slug: "example",
+                    title: 'A <status> & "quotes"',
+                    description: "**Healthy** <em>now</em>",
+                    icon: "https://example.test/icon.svg?theme=light&size=32",
+                    analyticsType: "google",
+                    analyticsId: "G-TEST123",
+                },
+                preloadData: {
+                    unsafe: "</script><script>globalThis.pwned = true</script>",
+                    quotes: "\"'&<>",
+                    lineSeparators: "\u2028\u2029",
+                },
+            });
+
+            expect(html).toContain("<!DOCTYPE html>");
+            expect(html).toContain('<div id="app"></div>');
+            expect(html).toContain("<title>A &lt;status&gt; &amp; &quot;quotes&quot;</title>");
+            expect(html).toContain('name="description" content="Healthy now"');
+            expect(html).toContain('property="og:title" content="A &lt;status&gt; &amp; &quot;quotes&quot;"');
+            expect(html).toContain('href="https://example.test/icon.svg?theme=light&amp;size=32"');
+            expect(html).not.toContain("apple-touch-icon");
+            expect(html).toContain('href="/api/status-page/example/manifest.json"');
+            expect(html).toContain("https://www.googletagmanager.com/gtag/js?id=G-TEST123");
+            expect(html).toContain("window.preloadData =");
+            expect(html).toContain("<\\/script><script>globalThis.pwned");
+            expect(html).not.toContain("</script><script>globalThis.pwned");
+            expect(html).toContain("\\u2028\\u2029");
+            expect(html).toContain(`src="/${frontendEntryAssets.mainScript}"`);
+            expect(html.indexOf("window.preloadData =")).toBeLessThan(
+                html.indexOf(`src="/${frontendEntryAssets.mainScript}"`)
+            );
+            for (const style of frontendEntryAssets.styles) {
+                expect(html).toContain(`href="/${style}"`);
+            }
+            for (const preload of frontendEntryAssets.modulePreloads) {
+                expect(html).toContain(`href="/${preload}"`);
+            }
+        });
+
+        test("keeps default icons and a complete SPA shell without analytics", async () => {
+            const html = await renderStatusPageDocument({
+                statusPage: {
+                    slug: "default",
+                    title: "Default",
+                    description: "",
+                    icon: "",
+                },
+                preloadData: {},
+            });
+
+            expect(html).toContain('rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"');
+            expect(html).toContain('rel="icon" type="image/svg+xml" href="/icon.svg"');
+            expect(html).toContain('id="preload-data" data-json="{}"');
+            expect(html).toContain('type="module" crossorigin');
+            expect(html).not.toContain("googletagmanager");
+        });
+
+        test("keeps every generated entry asset in the embedded asset map", () => {
+            for (const asset of [
+                frontendEntryAssets.mainScript,
+                ...frontendEntryAssets.styles,
+                ...frontendEntryAssets.modulePreloads,
+            ]) {
+                expect(hasEmbeddedAsset(asset)).toBe(true);
+            }
+        });
+
+        test("converts editor markdown to the bounded metadata plain text contract", () => {
+            expect(
+                markdownToPlainText(
+                    "# **Status**\n![Logo](https://example.test/logo.png) [Docs](https://example.test) `ready` <em>now</em> &amp;&nbsp;&#169;"
+                )
+            ).toBe("Status Logo Docs ready now & ©");
+            expect(markdownToPlainText("x".repeat(200))).toHaveLength(155);
+        });
+
+        test("preserves literal inline syntax while removing Markdown presentation", () => {
+            expect(markdownToPlainText("`a_b *c*`")).toBe("a_b *c*");
+            expect(markdownToPlainText("<https://example.com>")).toBe("https://example.com");
+            expect(markdownToPlainText("Title\n===")).toBe("Title");
+            expect(markdownToPlainText("Before\n---\nAfter")).toBe("Before After");
+            expect(markdownToPlainText("\\*literal\\*")).toBe("*literal*");
+            expect(markdownToPlainText("[Nested URL](https://example.com/a_(b))")).toBe("Nested URL");
+        });
+
+        test("encodes a status slug as a manifest URL segment", async () => {
+            const html = await renderStatusPageDocument({
+                statusPage: { slug: "one/two?three", title: "Encoded", description: "", icon: "" },
+                preloadData: undefined,
+            });
+
+            expect(html).toContain('href="/api/status-page/one%2Ftwo%3Fthree/manifest.json"');
+            expect(html).toContain("window.preloadData = null;");
+        });
+
+        test("keeps default route normalization and 404 fallback behavior", async () => {
+            expect(StatusPage.normalizeSlug("")).toBe("default");
+            expect(StatusPage.normalizeSlug("DEFAULT")).toBe("default");
+            expect(StatusPage.normalizeSlug("index.html")).toBe("default");
+
+            const fallback = "<html>fallback</html>";
+            const result = await StatusPage.renderHTMLBySlug(
+                { findOne: async () => null },
+                { indexHTML: fallback },
+                "missing"
+            );
+            expect(result).toEqual({ status: 404, body: fallback });
+        });
+
+        test("serves the component document through status routes and keeps the five-minute response cache", async () => {
+            const responseCache = createResponseCache();
+            const statusPage = {
+                slug: "default",
+                title: "Default status",
+                description: "Online",
+                icon: "",
+            };
+            const getStatusPageDataSpy = spyOn(StatusPage, "getStatusPageData").mockResolvedValue({
+                config: { customCSS: "body { color: teal; }" },
+                incidents: [],
+                publicGroupList: [],
+                maintenanceList: [],
+            });
+            const store = {
+                async findOne(_table, _condition, [slug]) {
+                    return slug === "default" ? statusPage : null;
+                },
+            };
+
+            try {
+                const first = await handleStatusPageRequest(new Request("http://localhost/status"), {
+                    store,
+                    server: { indexHTML: "<html>fallback</html>" },
+                    heartbeatData: {},
+                    settings: {},
+                    responseCache,
+                    disableFrameSameOrigin: false,
+                });
+                expect(first.status).toBe(200);
+                expect(await first.text()).toContain("window.preloadData");
+
+                statusPage.title = "Changed after cache";
+                const cached = await handleStatusPageRequest(new Request("http://localhost/status"), {
+                    store,
+                    server: { indexHTML: "<html>fallback</html>" },
+                    heartbeatData: {},
+                    settings: {},
+                    responseCache,
+                    disableFrameSameOrigin: false,
+                });
+                expect(await cached.text()).toContain("<title>Default status</title>");
+
+                const legacyDefault = await handleStatusPageRequest(new Request("http://localhost/status-page"), {
+                    store,
+                    server: { indexHTML: "<html>fallback</html>" },
+                    heartbeatData: {},
+                    settings: {},
+                    responseCache,
+                    disableFrameSameOrigin: false,
+                });
+                expect(legacyDefault.status).toBe(200);
+
+                const missing = await handleStatusPageRequest(new Request("http://localhost/status/missing"), {
+                    store,
+                    server: { indexHTML: "<html>fallback</html>" },
+                    heartbeatData: {},
+                    settings: {},
+                    responseCache,
+                    disableFrameSameOrigin: false,
+                });
+                expect(missing.status).toBe(404);
+                expect(await missing.text()).toBe("<html>fallback</html>");
+            } finally {
+                getStatusPageDataSpy.mockRestore();
+            }
+        });
+    });
+
     test("keeps slug and domain mappings isolated between explicit stores", async () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-status-page-stores-"));
         const first = new BunSQLiteRedbean();
