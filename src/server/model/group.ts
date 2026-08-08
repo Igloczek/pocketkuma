@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import { BeanModel } from "@/server/bean-model";
-import { R } from "@/server/bun-sqlite-store";
 
 class Group extends BeanModel {
     /**
@@ -33,9 +32,9 @@ class Group extends BeanModel {
      * @returns {Promise<Bean[]>} List of monitors
      */
     async getMonitorList() {
-        return R.convertToBeans(
+        return this.__store.convertToBeans(
             "monitor",
-            await R.getAll(
+            await this.__store.getAll(
                 `
             SELECT monitor.*, monitor_group.send_url, monitor_group.custom_url FROM monitor, monitor_group
             WHERE monitor.id = monitor_group.monitor_id

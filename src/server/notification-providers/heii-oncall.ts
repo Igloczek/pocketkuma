@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import { UP, DOWN, getMonitorRelativeURL } from "@/util";
-import { setting } from "@/server/util-server";
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 
@@ -15,7 +14,7 @@ class HeiiOnCall extends NotificationProvider {
         const okMsg = "Sent Successfully.";
         const payload = heartbeatJSON || {};
 
-        const baseURL = await setting("primaryBaseURL");
+        const baseURL = await this.settings.get("primaryBaseURL");
         if (baseURL && monitorJSON) {
             payload["url"] = baseURL + getMonitorRelativeURL(monitorJSON.id);
         }

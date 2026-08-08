@@ -3,10 +3,7 @@ import { describe, test, expect, beforeAll, afterAll, spyOn } from "bun:test";
 import DomainExpiry from "@/server/model/domain_expiry";
 import mockWebhook from "./notification-providers/mock-webhook";
 import TestDB from "../mock-testdb";
-import { R } from "@/server/bun-sqlite-store";
-import { Notification } from "@/server/notification";
 import { Settings } from "@/server/settings";
-import { setSetting } from "@/server/util-server";
 import dayjs from "dayjs";
 import dayjsPlugin_10 from "dayjs/plugin/utc";
 
@@ -15,6 +12,10 @@ process.env.POCKETKUMA_HIDE_LOG = ["info_db", "info_server"].join(",");
 dayjs.extend(dayjsPlugin_10);
 
 const testDb = new TestDB();
+const settings = new Settings(testDb.store);
+const providerRegistry = {
+    get: async () => new (await import("@/server/notification-providers/webhook")).default(settings),
+};
 
 describe("Domain Expiry", () => {
     const monHttpCom = {
@@ -25,22 +26,36 @@ describe("Domain Expiry", () => {
 
     beforeAll(async () => {
         await testDb.create();
-        Notification.init();
     });
 
     afterAll(async () => {
-        Settings.stopCacheCleaner();
+        settings.stopCacheCleaner();
         await testDb.destroy();
     });
 
+    test("imports directly in a fresh process without a model-registry cycle", async () => {
+        const child = Bun.spawn(
+            [process.execPath, "-e", 'await import("@/server/model/domain_expiry"); process.stdout.write("ok")'],
+            { cwd: process.cwd(), stdout: "pipe", stderr: "pipe" }
+        );
+        const [stdout, stderr, exitCode] = await Promise.all([
+            new Response(child.stdout).text(),
+            new Response(child.stderr).text(),
+            child.exited,
+        ]);
+
+        expect(exitCode, stderr).toBe(0);
+        expect(stdout).toBe("ok");
+    });
+
     test("getExpiryDate() returns correct expiry date for .wiki domain with no A record", async () => {
-        const d = DomainExpiry.createByName("google.wiki");
-        expect(await d.getExpiryDate()).toEqual(new Date("2026-11-26T23:59:59.000Z"));
+        const d = DomainExpiry.createByName("google.wiki", testDb.store);
+        expect(await d.getExpiryDate(settings)).toEqual(new Date("2026-11-26T23:59:59.000Z"));
     });
 
     describe("checkSupport()", () => {
         test("allows and correctly parses http monitor with valid domain", async () => {
-            const supportInfo = await DomainExpiry.checkSupport(monHttpCom);
+            const supportInfo = await DomainExpiry.checkSupport(monHttpCom, settings);
             let expected = {
                 domain: "google.com",
                 tld: "com",
@@ -56,7 +71,7 @@ describe("Domain Expiry", () => {
                     domainExpiryNotification: true,
                 };
                 try {
-                    await DomainExpiry.checkSupport(monitor);
+                    await DomainExpiry.checkSupport(monitor, settings);
                     expect.unreachable();
                 } catch (error) {
                     expect(error.constructor.name).toBe("TranslatableError");
@@ -70,7 +85,7 @@ describe("Domain Expiry", () => {
                     domainExpiryNotification: true,
                 };
                 try {
-                    await DomainExpiry.checkSupport(monitor);
+                    await DomainExpiry.checkSupport(monitor, settings);
                     expect.unreachable();
                 } catch (error) {
                     expect(error.constructor.name).toBe("TranslatableError");
@@ -85,7 +100,7 @@ describe("Domain Expiry", () => {
                     domainExpiryNotification: true,
                 };
                 try {
-                    await DomainExpiry.checkSupport(monitor);
+                    await DomainExpiry.checkSupport(monitor, settings);
                     expect.unreachable();
                 } catch (error) {
                     expect(error.constructor.name).toBe("TranslatableError");
@@ -102,7 +117,7 @@ describe("Domain Expiry", () => {
                     domainExpiryNotification: true,
                 };
                 try {
-                    await DomainExpiry.checkSupport(monitor);
+                    await DomainExpiry.checkSupport(monitor, settings);
                     expect.unreachable();
                 } catch (error) {
                     expect(error.constructor.name).toBe("TranslatableError");
@@ -118,7 +133,7 @@ describe("Domain Expiry", () => {
                     url: "https://api.staging.example.com/v1/users",
                     domainExpiryNotification: true,
                 };
-                const supportInfo = await DomainExpiry.checkSupport(monitor);
+                const supportInfo = await DomainExpiry.checkSupport(monitor, settings);
                 expect(supportInfo.domain).toBe("example.com");
                 expect(supportInfo.tld).toBe("com");
             });
@@ -129,7 +144,7 @@ describe("Domain Expiry", () => {
                     url: "https://record.com.br",
                     domainExpiryNotification: true,
                 };
-                const supportInfo = await DomainExpiry.checkSupport(monitor);
+                const supportInfo = await DomainExpiry.checkSupport(monitor, settings);
                 expect(supportInfo.domain).toBe("record.com.br");
                 expect(supportInfo.tld).toBe("br");
             });
@@ -140,7 +155,7 @@ describe("Domain Expiry", () => {
                     url: "https://mail.subdomain.example.org",
                     domainExpiryNotification: true,
                 };
-                const supportInfo = await DomainExpiry.checkSupport(monitor);
+                const supportInfo = await DomainExpiry.checkSupport(monitor, settings);
                 expect(supportInfo.domain).toBe("example.org");
                 expect(supportInfo.tld).toBe("org");
             });
@@ -151,7 +166,7 @@ describe("Domain Expiry", () => {
                     url: "https://example.com:8080/api",
                     domainExpiryNotification: true,
                 };
-                const supportInfo = await DomainExpiry.checkSupport(monitor);
+                const supportInfo = await DomainExpiry.checkSupport(monitor, settings);
                 expect(supportInfo.domain).toBe("example.com");
                 expect(supportInfo.tld).toBe("com");
             });
@@ -162,7 +177,7 @@ describe("Domain Expiry", () => {
                     url: "https://example.com/search?q=test&page=1",
                     domainExpiryNotification: true,
                 };
-                const supportInfo = await DomainExpiry.checkSupport(monitor);
+                const supportInfo = await DomainExpiry.checkSupport(monitor, settings);
                 expect(supportInfo.domain).toBe("example.com");
                 expect(supportInfo.tld).toBe("com");
             });
@@ -170,26 +185,26 @@ describe("Domain Expiry", () => {
     });
 
     test("findByDomainNameOrCreate() retrieves expiration date for .com domain from RDAP", async () => {
-        const domain = await DomainExpiry.findByDomainNameOrCreate("google.com");
-        const expiryFromRdap = await domain.getExpiryDate(); // from RDAP
+        const domain = await DomainExpiry.findByDomainNameOrCreate("google.com", testDb.store);
+        const expiryFromRdap = await domain.getExpiryDate(settings); // from RDAP
         expect(expiryFromRdap).toEqual(new Date("2028-09-14T04:00:00.000Z"));
     });
 
     test("checkExpiry() caches expiration date in database", async () => {
-        await DomainExpiry.checkExpiry("google.com"); // RDAP -> Cache
-        const domain = await DomainExpiry.findByName("google.com");
+        await DomainExpiry.checkExpiry("google.com", testDb.store, settings); // RDAP -> Cache
+        const domain = await DomainExpiry.findByName("google.com", testDb.store);
         expect(dayjs.utc().diff(dayjs.utc(domain.lastCheck), "second") < 5).toBeTruthy();
     });
 
     test("sendNotifications() triggers notification for expiring domain", async () => {
-        await DomainExpiry.findByName("google.com");
+        await DomainExpiry.findByName("google.com", testDb.store);
         const hook = {
             port: 3010,
             url: "capture",
         };
         const manyDays = 3650;
-        await setSetting("domainExpiryNotifyDays", [manyDays], "general");
-        const notif = R.convertToBean("notification", {
+        await settings.set("domainExpiryNotifyDays", [manyDays], "general");
+        const notif = testDb.store.convertToBean("notification", {
             config: JSON.stringify({
                 type: "webhook",
                 httpMethod: "post",
@@ -201,7 +216,7 @@ describe("Domain Expiry", () => {
             name: "Testhook",
         });
         const [, data] = await Promise.all([
-            DomainExpiry.sendNotifications("google.com", [notif]),
+            DomainExpiry.sendNotifications(providerRegistry, settings, testDb.store, "google.com", [notif]),
             mockWebhook(hook.port, hook.url),
         ]);
         expect(data.msg).toMatch(/will expire in/);
@@ -239,7 +254,7 @@ describe("Domain Expiry", () => {
             // Race between sendNotifications and mockWebhook timeout
             // If webhook is called, we fail. If it times out, we pass.
             const result = await Promise.race([
-                DomainExpiry.sendNotifications("test-null.com", [notif]),
+                DomainExpiry.sendNotifications(providerRegistry, settings, testDb.store, "test-null.com", [notif]),
                 mockWebhook(hook.port, hook.url, 500)
                     .then(() => {
                         throw new Error("Webhook was called but should not have been for null expiry");
@@ -289,7 +304,7 @@ describe("Domain Expiry", () => {
             // Race between sendNotifications and mockWebhook timeout
             // If webhook is called, we fail. If it times out, we pass.
             const result = await Promise.race([
-                DomainExpiry.sendNotifications("test-undefined.com", [notif]),
+                DomainExpiry.sendNotifications(providerRegistry, settings, testDb.store, "test-undefined.com", [notif]),
                 mockWebhook(hook.port, hook.url, 500)
                     .then(() => {
                         throw new Error("Webhook was called but should not have been for undefined expiry");

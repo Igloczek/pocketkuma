@@ -6,7 +6,6 @@
  * @returns {void}
  * @throws {Error} If validation fails
  */
-import { R } from "@/server/bun-sqlite-store";
 import { checkLogin } from "@/server/util-server";
 import dayjs from "dayjs";
 import { log } from "@/util";
@@ -14,8 +13,6 @@ import ImageDataURI from "@/server/image-data-uri";
 import Database from "@/server/database";
 import { clearResponseCache } from "@/server/bun-response";
 import StatusPage from "@/server/model/status_page";
-import { PocketKumaServer } from "@/server/pocketkuma-server";
-import { Settings } from "@/server/settings";
 
 function validateIncident(incident) {
     if (!incident.title || incident.title.trim() === "") {
@@ -31,13 +28,13 @@ function validateIncident(incident) {
  * @param {Socket} socket Socket.io instance to add listeners on
  * @returns {void}
  */
-export const statusPageSocketHandler = (socket) => {
+export const statusPageSocketHandler = (socket, store, server, settings, responseCache) => {
     // Post or edit incident
     socket.on("postIncident", async (slug, incident, callback) => {
         try {
             checkLogin(socket);
 
-            let statusPageID = await StatusPage.slugToID(slug);
+            let statusPageID = await StatusPage.slugToID(store, slug);
 
             if (!statusPageID) {
                 throw new Error("slug is not found");
@@ -46,14 +43,14 @@ export const statusPageSocketHandler = (socket) => {
             let incidentBean;
 
             if (incident.id) {
-                incidentBean = await R.findOne("incident", " id = ? AND status_page_id = ? ", [
+                incidentBean = await store.findOne("incident", " id = ? AND status_page_id = ? ", [
                     incident.id,
                     statusPageID,
                 ]);
             }
 
             if (incidentBean == null) {
-                incidentBean = R.dispense("incident");
+                incidentBean = store.dispense("incident");
             }
 
             incidentBean.title = incident.title;
@@ -64,12 +61,12 @@ export const statusPageSocketHandler = (socket) => {
             incidentBean.status_page_id = statusPageID;
 
             if (incident.id) {
-                incidentBean.last_updated_date = R.isoDateTime(dayjs.utc());
+                incidentBean.last_updated_date = store.isoDateTime(dayjs.utc());
             } else {
-                incidentBean.created_date = R.isoDateTime(dayjs.utc());
+                incidentBean.created_date = store.isoDateTime(dayjs.utc());
             }
 
-            await R.store(incidentBean);
+            await store.store(incidentBean);
 
             callback({
                 ok: true,
@@ -87,9 +84,9 @@ export const statusPageSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let statusPageID = await StatusPage.slugToID(slug);
+            let statusPageID = await StatusPage.slugToID(store, slug);
 
-            await R.exec("UPDATE incident SET pin = 0 WHERE pin = 1 AND status_page_id = ? ", [statusPageID]);
+            await store.exec("UPDATE incident SET pin = 0 WHERE pin = 1 AND status_page_id = ? ", [statusPageID]);
 
             callback({
                 ok: true,
@@ -104,13 +101,13 @@ export const statusPageSocketHandler = (socket) => {
 
     socket.on("getIncidentHistory", async (slug, cursor, callback) => {
         try {
-            let statusPageID = await StatusPage.slugToID(slug);
+            let statusPageID = await StatusPage.slugToID(store, slug);
             if (!statusPageID) {
                 throw new Error("slug is not found");
             }
 
             const isPublic = !socket.userID;
-            const result = await StatusPage.getIncidentHistory(statusPageID, cursor, isPublic);
+            const result = await StatusPage.getIncidentHistory(store, statusPageID, cursor, isPublic);
             callback({
                 ok: true,
                 ...result,
@@ -127,7 +124,7 @@ export const statusPageSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let statusPageID = await StatusPage.slugToID(slug);
+            let statusPageID = await StatusPage.slugToID(store, slug);
             if (!statusPageID) {
                 callback({
                     ok: false,
@@ -137,7 +134,7 @@ export const statusPageSocketHandler = (socket) => {
                 return;
             }
 
-            let bean = await R.findOne("incident", " id = ? AND status_page_id = ? ", [incidentID, statusPageID]);
+            let bean = await store.findOne("incident", " id = ? AND status_page_id = ? ", [incidentID, statusPageID]);
             if (!bean) {
                 callback({
                     ok: false,
@@ -167,9 +164,9 @@ export const statusPageSocketHandler = (socket) => {
             bean.content = incident.content;
             bean.style = incident.style;
             bean.pin = incident.pin !== false;
-            bean.lastUpdatedDate = R.isoDateTime(dayjs.utc());
+            bean.lastUpdatedDate = store.isoDateTime(dayjs.utc());
 
-            await R.store(bean);
+            await store.store(bean);
 
             callback({
                 ok: true,
@@ -190,7 +187,7 @@ export const statusPageSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let statusPageID = await StatusPage.slugToID(slug);
+            let statusPageID = await StatusPage.slugToID(store, slug);
             if (!statusPageID) {
                 callback({
                     ok: false,
@@ -200,7 +197,7 @@ export const statusPageSocketHandler = (socket) => {
                 return;
             }
 
-            let bean = await R.findOne("incident", " id = ? AND status_page_id = ? ", [incidentID, statusPageID]);
+            let bean = await store.findOne("incident", " id = ? AND status_page_id = ? ", [incidentID, statusPageID]);
             if (!bean) {
                 callback({
                     ok: false,
@@ -210,7 +207,7 @@ export const statusPageSocketHandler = (socket) => {
                 return;
             }
 
-            await R.trash(bean);
+            await store.trash(bean);
 
             callback({
                 ok: true,
@@ -230,7 +227,7 @@ export const statusPageSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let statusPageID = await StatusPage.slugToID(slug);
+            let statusPageID = await StatusPage.slugToID(store, slug);
             if (!statusPageID) {
                 callback({
                     ok: false,
@@ -240,7 +237,7 @@ export const statusPageSocketHandler = (socket) => {
                 return;
             }
 
-            let bean = await R.findOne("incident", " id = ? AND status_page_id = ? ", [incidentID, statusPageID]);
+            let bean = await store.findOne("incident", " id = ? AND status_page_id = ? ", [incidentID, statusPageID]);
             if (!bean) {
                 callback({
                     ok: false,
@@ -250,7 +247,7 @@ export const statusPageSocketHandler = (socket) => {
                 return;
             }
 
-            await bean.resolve();
+            await bean.resolve(store);
 
             callback({
                 ok: true,
@@ -271,7 +268,7 @@ export const statusPageSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
+            let statusPage = await store.findOne("status_page", " slug = ? ", [slug]);
 
             if (!statusPage) {
                 throw new Error("No slug?");
@@ -279,7 +276,7 @@ export const statusPageSocketHandler = (socket) => {
 
             callback({
                 ok: true,
-                config: await statusPage.toJSON(),
+                config: await statusPage.toJSON(server.statusPageDomainMappingList),
             });
         } catch (error) {
             callback({
@@ -296,7 +293,7 @@ export const statusPageSocketHandler = (socket) => {
             checkLogin(socket);
 
             // Save Config
-            let statusPage = await R.findOne("status_page", " slug = ? ", [slug]);
+            let statusPage = await store.findOne("status_page", " slug = ? ", [slug]);
 
             if (!statusPage) {
                 throw new Error("No slug?");
@@ -338,7 +335,7 @@ export const statusPageSocketHandler = (socket) => {
             statusPage.rss_title = config.rssTitle;
             statusPage.show_only_last_heartbeat = config.showOnlyLastHeartbeat;
             statusPage.show_certificate_expiry = config.showCertificateExpiry;
-            statusPage.modified_date = R.isoDateTime();
+            statusPage.modified_date = store.isoDateTime();
             statusPage.analytics_id = config.analyticsId;
             statusPage.analytics_script_url = config.analyticsScriptUrl;
             const validAnalyticsTypes = ["google", "umami", "plausible", "matomo", "rybbit"];
@@ -347,10 +344,16 @@ export const statusPageSocketHandler = (socket) => {
             }
             statusPage.analytics_type = config.analyticsType;
 
-            await R.store(statusPage);
-
-            await statusPage.updateDomainNameList(config.domainNameList);
-            await StatusPage.loadDomainMappingList();
+            const transaction = await store.begin();
+            try {
+                await transaction.store(statusPage);
+                await statusPage.replaceDomainNameList(transaction, config.domainNameList);
+                await transaction.commit();
+            } catch (error) {
+                await transaction.rollback();
+                throw error;
+            }
+            await StatusPage.loadDomainMappingList(store, server.statusPageDomainMappingList);
 
             // Save Public Group List
             const groupIDList = [];
@@ -359,12 +362,12 @@ export const statusPageSocketHandler = (socket) => {
             for (let group of publicGroupList) {
                 let groupBean;
                 if (group.id) {
-                    groupBean = await R.findOne("group", " id = ? AND public = 1 AND status_page_id = ? ", [
+                    groupBean = await store.findOne("group", " id = ? AND public = 1 AND status_page_id = ? ", [
                         group.id,
                         statusPage.id,
                     ]);
                 } else {
-                    groupBean = R.dispense("group");
+                    groupBean = store.dispense("group");
                 }
 
                 groupBean.status_page_id = statusPage.id;
@@ -372,14 +375,14 @@ export const statusPageSocketHandler = (socket) => {
                 groupBean.public = true;
                 groupBean.weight = groupOrder++;
 
-                await R.store(groupBean);
+                await store.store(groupBean);
 
-                await R.exec("DELETE FROM monitor_group WHERE group_id = ? ", [groupBean.id]);
+                await store.exec("DELETE FROM monitor_group WHERE group_id = ? ", [groupBean.id]);
 
                 let monitorOrder = 1;
 
                 for (let monitor of group.monitorList) {
-                    let relationBean = R.dispense("monitor_group");
+                    let relationBean = store.dispense("monitor_group");
                     relationBean.weight = monitorOrder++;
                     relationBean.group_id = groupBean.id;
                     relationBean.monitor_id = monitor.id;
@@ -392,7 +395,7 @@ export const statusPageSocketHandler = (socket) => {
                         relationBean.custom_url = monitor.url;
                     }
 
-                    await R.store(relationBean);
+                    await store.store(relationBean);
                 }
 
                 groupIDList.push(groupBean.id);
@@ -402,23 +405,21 @@ export const statusPageSocketHandler = (socket) => {
             // Delete groups that are not in the list
             log.debug("socket", "Delete groups that are not in the list");
             if (groupIDList.length === 0) {
-                await R.exec("DELETE FROM `group` WHERE status_page_id = ?", [statusPage.id]);
+                await store.exec("DELETE FROM `group` WHERE status_page_id = ?", [statusPage.id]);
             } else {
                 const slots = groupIDList.map(() => "?").join(",");
 
                 const data = [...groupIDList, statusPage.id];
-                await R.exec(`DELETE FROM \`group\` WHERE id NOT IN (${slots}) AND status_page_id = ?`, data);
+                await store.exec(`DELETE FROM \`group\` WHERE id NOT IN (${slots}) AND status_page_id = ?`, data);
             }
-
-            const server = PocketKumaServer.getInstance();
 
             // Also change entry page to new slug if it is the default one, and slug is changed.
             if (server.entryPage === "statusPage-" + slug && statusPage.slug !== slug) {
                 server.entryPage = "statusPage-" + statusPage.slug;
-                await Settings.set("entryPage", server.entryPage, "general");
+                await settings.set("entryPage", server.entryPage, "general");
             }
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -457,13 +458,13 @@ export const statusPageSocketHandler = (socket) => {
 
             checkSlug(slug);
 
-            let statusPage = R.dispense("status_page");
+            let statusPage = store.dispense("status_page");
             statusPage.slug = slug;
             statusPage.title = title;
             statusPage.theme = "auto";
             statusPage.icon = "";
             statusPage.autoRefreshInterval = 300;
-            await R.store(statusPage);
+            await store.store(statusPage);
 
             callback({
                 ok: true,
@@ -482,33 +483,34 @@ export const statusPageSocketHandler = (socket) => {
 
     // Delete a status page
     socket.on("deleteStatusPage", async (slug, callback) => {
-        const server = PocketKumaServer.getInstance();
-
         try {
             checkLogin(socket);
 
-            let statusPageID = await StatusPage.slugToID(slug);
+            let statusPageID = await StatusPage.slugToID(store, slug);
 
             if (statusPageID) {
-                // Reset entry page if it is the default one.
-                if (server.entryPage === "statusPage-" + slug) {
-                    server.entryPage = "dashboard";
-                    await Settings.set("entryPage", server.entryPage, "general");
-                }
-
                 // No need to delete records from `status_page_cname`, because it has cascade foreign key.
                 // But for incident & group, it is hard to add cascade foreign key during migration, so they have to be deleted manually.
 
-                // Delete incident
-                await R.exec("DELETE FROM incident WHERE status_page_id = ? ", [statusPageID]);
+                const transaction = await store.begin();
+                try {
+                    await transaction.exec("DELETE FROM incident WHERE status_page_id = ? ", [statusPageID]);
+                    await transaction.exec("DELETE FROM `group` WHERE status_page_id = ? ", [statusPageID]);
+                    await transaction.exec("DELETE FROM status_page WHERE id = ? ", [statusPageID]);
+                    await transaction.commit();
+                } catch (error) {
+                    await transaction.rollback();
+                    throw error;
+                }
 
-                // Delete group
-                await R.exec("DELETE FROM `group` WHERE status_page_id = ? ", [statusPageID]);
+                if (server.entryPage === "statusPage-" + slug) {
+                    server.entryPage = "dashboard";
+                    await settings.set("entryPage", server.entryPage, "general");
+                }
 
-                // Delete status_page
-                await R.exec("DELETE FROM status_page WHERE id = ? ", [statusPageID]);
+                await StatusPage.loadDomainMappingList(store, server.statusPageDomainMappingList);
 
-                clearResponseCache();
+                clearResponseCache(responseCache);
             } else {
                 throw new Error("Status Page is not found");
             }

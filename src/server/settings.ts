@@ -1,6 +1,5 @@
 // @ts-nocheck
 
-import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
 
 class Settings {
@@ -18,41 +17,45 @@ class Settings {
      *     }
      * @type {{}}
      */
-    static cacheList = {};
+    cacheList = {};
 
-    static cacheCleaner = null;
+    cacheCleaner = null;
+
+    constructor(store) {
+        this.store = store;
+    }
 
     /**
      * Retrieve value of setting based on key
      * @param {string} key Key of setting to retrieve
      * @returns {Promise<any>} Value
      */
-    static async get(key) {
+    async get(key) {
         // Start cache clear if not started yet
-        if (!Settings.cacheCleaner) {
-            Settings.cacheCleaner = setInterval(() => {
+        if (!this.cacheCleaner) {
+            this.cacheCleaner = setInterval(() => {
                 log.debug("settings", "Cache Cleaner is just started.");
-                for (key in Settings.cacheList) {
-                    if (Date.now() - Settings.cacheList[key].timestamp > 60 * 1000) {
+                for (key in this.cacheList) {
+                    if (Date.now() - this.cacheList[key].timestamp > 60 * 1000) {
                         log.debug("settings", "Cache Cleaner deleted: " + key);
-                        delete Settings.cacheList[key];
+                        delete this.cacheList[key];
                     }
                 }
             }, 60 * 1000);
         }
 
         // Query from cache
-        if (key in Settings.cacheList) {
-            const v = Settings.cacheList[key].value;
+        if (key in this.cacheList) {
+            const v = this.cacheList[key].value;
             return v;
         }
 
-        let value = await R.getCell("SELECT `value` FROM setting WHERE `key` = ? ", [key]);
+        let value = await this.store.getCell("SELECT `value` FROM setting WHERE `key` = ? ", [key]);
 
         try {
             const v = JSON.parse(value);
 
-            Settings.cacheList[key] = {
+            this.cacheList[key] = {
                 value: v,
                 timestamp: Date.now(),
             };
@@ -70,17 +73,17 @@ class Settings {
      * @param {?string} type Type of setting
      * @returns {Promise<void>}
      */
-    static async set(key, value, type = null) {
-        let bean = await R.findOne("setting", " `key` = ? ", [key]);
+    async set(key, value, type = null) {
+        let bean = await this.store.findOne("setting", " `key` = ? ", [key]);
         if (!bean) {
-            bean = R.dispense("setting");
+            bean = this.store.dispense("setting");
             bean.key = key;
         }
         bean.type = type;
         bean.value = JSON.stringify(value);
-        await R.store(bean);
+        await this.store.store(bean);
 
-        Settings.deleteCache([key]);
+        this.deleteCache([key]);
     }
 
     /**
@@ -88,8 +91,8 @@ class Settings {
      * @param {string} type The type of setting
      * @returns {Promise<Bean>} Settings
      */
-    static async getSettings(type) {
-        let list = await R.getAll("SELECT `key`, `value` FROM setting WHERE `type` = ? ", [type]);
+    async getSettings(type) {
+        let list = await this.store.getAll("SELECT `key`, `value` FROM setting WHERE `type` = ? ", [type]);
 
         let result = {};
 
@@ -110,29 +113,29 @@ class Settings {
      * @param {object} data Values of settings
      * @returns {Promise<void>}
      */
-    static async setSettings(type, data) {
+    async setSettings(type, data) {
         let keyList = Object.keys(data);
 
         let promiseList = [];
 
         for (let key of keyList) {
-            let bean = await R.findOne("setting", " `key` = ? ", [key]);
+            let bean = await this.store.findOne("setting", " `key` = ? ", [key]);
 
             if (bean == null) {
-                bean = R.dispense("setting");
+                bean = this.store.dispense("setting");
                 bean.type = type;
                 bean.key = key;
             }
 
             if (bean.type === type) {
                 bean.value = JSON.stringify(data[key]);
-                promiseList.push(R.store(bean));
+                promiseList.push(this.store.store(bean));
             }
         }
 
         await Promise.all(promiseList);
 
-        Settings.deleteCache(keyList);
+        this.deleteCache(keyList);
     }
 
     /**
@@ -140,9 +143,9 @@ class Settings {
      * @param {string[]} keyList Keys to remove
      * @returns {void}
      */
-    static deleteCache(keyList) {
+    deleteCache(keyList) {
         for (let key of keyList) {
-            delete Settings.cacheList[key];
+            delete this.cacheList[key];
         }
     }
 
@@ -150,10 +153,10 @@ class Settings {
      * Stop the cache cleaner if running
      * @returns {void}
      */
-    static stopCacheCleaner() {
-        if (Settings.cacheCleaner) {
-            clearInterval(Settings.cacheCleaner);
-            Settings.cacheCleaner = null;
+    stopCacheCleaner() {
+        if (this.cacheCleaner) {
+            clearInterval(this.cacheCleaner);
+            this.cacheCleaner = null;
         }
     }
 }

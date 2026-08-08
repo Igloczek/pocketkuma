@@ -1,35 +1,23 @@
 // @ts-nocheck
 
-// DO NOT IMPORT HERE IF THE MODULES USED `PocketKumaServer.getInstance()`, put at the bottom of this file instead.
-
-/**
- * `module.exports` (alias: `server`) should be inside this class, in order to avoid circular dependency issue.
- * @type {PocketKumaServer}
- */
 import fs from "fs";
-import { R } from "@/server/bun-sqlite-store";
 import { log } from "@/util";
-import Database from "@/server/database";
-import util from "util";
-import { Settings } from "@/server/settings";
 import dayjs from "dayjs";
-import path from "path";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
 import httpClient from "@/server/http-client";
 import { BunRealtimeAdapter } from "@/server/bun-websocket-server";
 import { runCommandChecked } from "@/server/process-helper";
-import { createMonitorTypeList, getMonitorType } from "@/server/monitor-runtime-registry";
+import { MonitorRuntimeRegistry } from "@/server/monitor-runtime-registry";
+import { NotificationProviderRegistry } from "@/server/notification-provider-registry";
 import Monitor from "@/server/model/monitor";
 import packageJson from "@/package-meta";
 import { isCompiledBinary } from "@/server/app-paths";
-import { getEmbeddedAssetRef } from "@/server/generated/embedded-assets";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 class PocketKumaServer {
-    /**
-     * Current server instance
-     * @type {PocketKumaServer}
-     */
-    static instance = null;
-
     /**
      * Main monitor list
      * @type {{}}
@@ -41,6 +29,9 @@ class PocketKumaServer {
      * @type {{}}
      */
     maintenanceList = {};
+
+    /** @type {Record<string, string>} */
+    statusPageDomainMappingList = {};
 
     entryPage = "dashboard";
     httpServer = undefined;
@@ -54,32 +45,17 @@ class PocketKumaServer {
     indexHTML = "";
 
     /**
-     * @type {{}}
-     */
-    static monitorTypeList = {};
-
-    /**
      * Use for decode the auth object
      * @type {null}
      */
     jwtSecret = null;
 
-    /**
-     * Get the current instance of the server if it exists, otherwise
-     * create a new instance.
-     * @returns {PocketKumaServer} Server instance
-     */
-    static getInstance() {
-        if (PocketKumaServer.instance == null) {
-            PocketKumaServer.instance = new PocketKumaServer();
-        }
-        return PocketKumaServer.instance;
-    }
+    constructor(store, settings) {
+        this.store = store;
+        this.settings = settings;
+        this.environmentTimezone = process.env.TZ;
+        this.timezone = null;
 
-    /**
-     *
-     */
-    constructor() {
         httpClient.setDefaults({
             headers: {
                 "User-Agent": this.getUserAgent(),
@@ -89,10 +65,17 @@ class PocketKumaServer {
 
         log.info("server", "Creating Bun realtime instance");
         log.info("server", "Server Type: Bun.serve HTTP");
-        this.io = new BunRealtimeAdapter(this);
+        this.io = new BunRealtimeAdapter(this, settings);
 
+        this.monitorRuntimeRegistry = new MonitorRuntimeRegistry(this);
+        this.notificationProviderRegistry = new NotificationProviderRegistry(settings);
+        this.monitorTypeList = this.monitorRuntimeRegistry.monitorTypeList;
+    }
+
+    async loadFrontendAssets() {
         try {
             if (isCompiledBinary()) {
+                const { getEmbeddedAssetRef } = await import("@/server/generated/embedded-assets");
                 const embeddedIndex = getEmbeddedAssetRef("index.html");
                 if (!embeddedIndex) {
                     throw new Error("Embedded index.html is missing from the compiled binary.");
@@ -104,26 +87,23 @@ class PocketKumaServer {
         } catch (e) {
             // "dist/index.html" is not necessary for development
             if (process.env.NODE_ENV !== "development") {
-                log.error("server", "Error: Cannot find frontend assets. Build the binary with `bun run build`.");
-                process.exit(1);
+                throw new Error("Cannot find frontend assets. Build the binary with `bun run build`.", {
+                    cause: e,
+                });
             }
         }
-
-        // Metadata only. Optional monitor implementations are loaded by getMonitorType() when a monitor runs.
-        PocketKumaServer.monitorTypeList = createMonitorTypeList();
     }
 
     /**
      * Initialise app after the database has been set up
      * @returns {Promise<void>}
      */
-    async initAfterDatabaseReady() {
-        process.env.TZ = await this.getTimezone();
-        dayjs.tz.setDefault(process.env.TZ);
-        log.debug("DEBUG", "Timezone: " + process.env.TZ);
-        log.debug("DEBUG", "Current Time: " + dayjs.tz().format());
+    async initAfterDatabaseReady(responseCache) {
+        const timezone = await this.getTimezone();
+        log.debug("DEBUG", "Timezone: " + timezone);
+        log.debug("DEBUG", "Current Time: " + dayjs().tz(timezone).format());
 
-        await this.loadMaintenanceList();
+        await this.loadMaintenanceList(responseCache);
     }
 
     /**
@@ -131,8 +111,12 @@ class PocketKumaServer {
      * @param {string} type Monitor type
      * @returns {Promise<import("@/server/monitor-types/monitor-type").MonitorType|null>} Monitor type instance
      */
-    async getMonitorType(type) {
-        return getMonitorType(type, this);
+    getMonitorType(type) {
+        return this.monitorRuntimeRegistry.get(type);
+    }
+
+    getLoadedMonitorType(type) {
+        return this.monitorRuntimeRegistry.getLoaded(type);
     }
 
     /**
@@ -186,14 +170,14 @@ class PocketKumaServer {
             queryParams.push(monitorID);
         }
 
-        let monitorList = await R.find("monitor", query + "ORDER BY weight DESC, name", queryParams);
+        let monitorList = await this.store.find("monitor", query + "ORDER BY weight DESC, name", queryParams);
 
         const monitorData = monitorList.map((monitor) => ({
             id: monitor.id,
             active: monitor.active,
             name: monitor.name,
         }));
-        const preloadData = await Monitor.preparePreloadData(monitorData);
+        const preloadData = await Monitor.preparePreloadData(this.store, monitorData, this);
 
         const result = {};
         monitorList.forEach((monitor) => (result[monitor.id] = monitor.toJSON(preloadData)));
@@ -230,7 +214,7 @@ class PocketKumaServer {
         for (let maintenanceID in this.maintenanceList) {
             const maintenance = this.maintenanceList[maintenanceID];
             if (maintenance.user_id === userID) {
-                result[maintenanceID] = await maintenance.toJSON();
+                result[maintenanceID] = await maintenance.toJSON(this);
             }
         }
         return result;
@@ -241,13 +225,13 @@ class PocketKumaServer {
      * @param {any} userID Unused
      * @returns {Promise<void>}
      */
-    async loadMaintenanceList(userID) {
-        let maintenanceList = await R.findAll("maintenance", " ORDER BY end_date DESC, title", []);
+    async loadMaintenanceList(responseCache) {
+        let maintenanceList = await this.store.findAll("maintenance", " ORDER BY end_date DESC, title", []);
 
         for (let maintenance of maintenanceList) {
             this.maintenanceList[maintenance.id] = maintenance;
             if (maintenance.active) {
-                await maintenance.run(false, true);
+                await maintenance.run(this.store, this, false, true, responseCache);
             }
         }
     }
@@ -262,33 +246,6 @@ class PocketKumaServer {
             return this.maintenanceList[maintenanceID];
         }
         return null;
-    }
-
-    /**
-     * Write error to log file
-     * @param {any} error The error to write
-     * @param {boolean} outputToConsole Should the error also be output to console?
-     * @returns {void}
-     */
-    static errorLog(error, outputToConsole = true) {
-        const errorLogStream = fs.createWriteStream(path.join(Database.dataDir, "/error.log"), {
-            flags: "a",
-        });
-
-        errorLogStream.on("error", () => {
-            log.info("", "Cannot write to error.log");
-        });
-
-        if (errorLogStream) {
-            const dateTime = R.isoDateTime();
-            errorLogStream.write(`[${dateTime}] ` + util.format(error) + "\n");
-
-            if (outputToConsole) {
-                console.error(error);
-            }
-        }
-
-        errorLogStream.end();
     }
 
     /**
@@ -310,7 +267,7 @@ class PocketKumaServer {
             clientIP = "";
         }
 
-        if (await Settings.get("trustProxy")) {
+        if (await this.settings.get("trustProxy")) {
             const forwardedFor = headers["x-forwarded-for"];
 
             return (
@@ -332,21 +289,23 @@ class PocketKumaServer {
     async getTimezone() {
         // From process.env.TZ
         try {
-            if (process.env.TZ) {
-                this.checkTimezone(process.env.TZ);
-                return process.env.TZ;
+            if (this.environmentTimezone) {
+                this.checkTimezone(this.environmentTimezone);
+                this.timezone = this.environmentTimezone;
+                return this.environmentTimezone;
             }
         } catch (e) {
             log.warn("timezone", e.message + " in process.env.TZ");
         }
 
-        let timezone = await Settings.get("serverTimezone");
+        let timezone = await this.settings.get("serverTimezone");
 
         // From Settings
         try {
             log.debug("timezone", "Using timezone from settings: " + timezone);
             if (timezone) {
                 this.checkTimezone(timezone);
+                this.timezone = timezone;
                 return timezone;
             }
         } catch (e) {
@@ -359,13 +318,16 @@ class PocketKumaServer {
             log.debug("timezone", "Guessing timezone: " + guess);
             if (guess) {
                 this.checkTimezone(guess);
+                this.timezone = guess;
                 return guess;
             } else {
+                this.timezone = "UTC";
                 return "UTC";
             }
         } catch (e) {
             // Guess failed, fall back to UTC
             log.debug("timezone", "Guessed an invalid timezone. Use UTC as fallback");
+            this.timezone = "UTC";
             return "UTC";
         }
     }
@@ -375,7 +337,9 @@ class PocketKumaServer {
      * @returns {string} Time offset
      */
     getTimezoneOffset() {
-        return dayjs().format("Z");
+        return dayjs()
+            .tz(this.timezone || this.environmentTimezone || dayjs.tz.guess())
+            .format("Z");
     }
 
     /**
@@ -399,9 +363,8 @@ class PocketKumaServer {
      */
     async setTimezone(timezone) {
         this.checkTimezone(timezone);
-        await Settings.set("serverTimezone", timezone, "general");
-        process.env.TZ = timezone;
-        dayjs.tz.setDefault(timezone);
+        await this.settings.set("serverTimezone", timezone, "general");
+        this.timezone = timezone;
     }
 
     /**
@@ -409,7 +372,7 @@ class PocketKumaServer {
      * @returns {Promise<void>}
      */
     async start() {
-        let enable = await Settings.get("nscd");
+        let enable = await this.settings.get("nscd");
 
         if (enable || enable === null) {
             await this.startNSCDServices();
@@ -421,11 +384,11 @@ class PocketKumaServer {
      * @returns {Promise<void>}
      */
     async stop() {
-        if (!R.isOpen()) {
+        if (!this.store.isOpen()) {
             return;
         }
 
-        let enable = await Settings.get("nscd");
+        let enable = await this.settings.get("nscd");
 
         if (enable || enable === null) {
             await this.stopNSCDServices();
@@ -491,4 +454,3 @@ class PocketKumaServer {
 }
 
 export { PocketKumaServer };
-// Must be at the end to avoid circular dependencies

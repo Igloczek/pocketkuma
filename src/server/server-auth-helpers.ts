@@ -1,6 +1,5 @@
 // @ts-nocheck
 
-import { R } from "@/server/bun-sqlite-store";
 import { genSecret } from "@/util";
 import passwordHash from "@/server/password-hash";
 import oidc from "openid-client";
@@ -9,16 +8,16 @@ import oidc from "openid-client";
  * Init or reset JWT secret
  * @returns {Promise<Bean>} JWT secret
  */
-export const initJWTSecret = async () => {
-    let jwtSecretBean = await R.findOne("setting", " `key` = ? ", ["jwtSecret"]);
+export const initJWTSecret = async (store) => {
+    let jwtSecretBean = await store.findOne("setting", " `key` = ? ", ["jwtSecret"]);
 
     if (!jwtSecretBean) {
-        jwtSecretBean = R.dispense("setting");
+        jwtSecretBean = store.dispense("setting");
         jwtSecretBean.key = "jwtSecret";
     }
 
     jwtSecretBean.value = await passwordHash.generate(genSecret());
-    await R.store(jwtSecretBean);
+    await store.store(jwtSecretBean);
     return jwtSecretBean;
 };
 
@@ -92,12 +91,12 @@ export const checkLogin = (socket) => {
  * @throws The current password is not a string
  * @throws The provided password is not correct
  */
-export const doubleCheckPassword = async (socket, currentPassword) => {
+export const doubleCheckPassword = async (store, socket, currentPassword) => {
     if (typeof currentPassword !== "string") {
         throw new Error("Wrong data type?");
     }
 
-    let user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
+    let user = await store.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
 
     if (!user || !(await passwordHash.verify(currentPassword, user.password))) {
         throw new Error("Incorrect current password");

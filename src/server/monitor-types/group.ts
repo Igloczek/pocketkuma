@@ -11,8 +11,8 @@ class GroupMonitorType extends MonitorType {
     /**
      * @inheritdoc
      */
-    async check(monitor, heartbeat, _server) {
-        const children = await Monitor.getChildren(monitor.id);
+    async check(monitor, heartbeat, _server, heartbeatData) {
+        const children = await Monitor.getChildren(monitor.id, heartbeatData.store);
 
         if (children.length === 0) {
             // Set status pending if group is empty
@@ -32,7 +32,7 @@ class GroupMonitorType extends MonitorType {
             }
 
             const label = child.name || `#${child.id}`;
-            const lastBeat = await Monitor.getPreviousHeartbeat(child.id);
+            const lastBeat = await Monitor.getPreviousHeartbeat(heartbeatData.store, child.id);
 
             if (!lastBeat) {
                 if (worstStatus === UP) {

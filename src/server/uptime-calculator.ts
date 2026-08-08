@@ -7,21 +7,49 @@ import dayjs from "dayjs";
 import { UP, MAINTENANCE, DOWN, PENDING } from "@/util";
 import { LimitQueue } from "@/server/utils/limit-queue";
 import { log } from "@/util";
-import { R } from "@/server/bun-sqlite-store";
+
+const emptyUptimeData = () => ({
+    up: 0,
+    down: 0,
+    avgPing: 0,
+    minPing: 0,
+    maxPing: 0,
+});
+
+const commitUptimeData = (queue, key, data) => {
+    if (key in queue) {
+        queue[key] = data;
+    } else {
+        queue.push(key, data);
+    }
+};
+
+function statExtras(data) {
+    const extras = { ...data };
+    for (const key of ["up", "down", "avgPing", "minPing", "maxPing", "timestamp"]) {
+        delete extras[key];
+    }
+    return Object.keys(extras).length > 0 ? JSON.stringify(extras) : null;
+}
+
+async function storeStat(target, table, monitorID, timestamp, data) {
+    await target.exec(
+        `
+        INSERT INTO ${table} (monitor_id, timestamp, ping, ping_min, ping_max, up, down, extras)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(monitor_id, timestamp) DO UPDATE SET
+            ping = excluded.ping,
+            ping_min = excluded.ping_min,
+            ping_max = excluded.ping_max,
+            up = excluded.up,
+            down = excluded.down,
+            extras = excluded.extras
+        `,
+        [monitorID, timestamp, data.avgPing, data.minPing, data.maxPing, data.up, data.down, statExtras(data)]
+    );
+}
 
 class UptimeCalculator {
-    /**
-     * @private
-     * @type {{string:UptimeCalculator}}
-     */
-    static list = {};
-
-    /**
-     * For testing purposes, we can set the current date to a specific date.
-     * @type {dayjs.Dayjs}
-     */
-    static currentDate = null;
-
     /**
      * monitorID the id of the monitor
      * @type {number}
@@ -52,10 +80,6 @@ class UptimeCalculator {
     lastHourlyUptimeData = null;
     lastDailyUptimeData = null;
 
-    lastDailyStatBean = null;
-    lastHourlyStatBean = null;
-    lastMinutelyStatBean = null;
-
     /**
      * For migration purposes.
      * @type {boolean}
@@ -65,56 +89,9 @@ class UptimeCalculator {
     statMinutelyKeepHour = 24;
     statHourlyKeepDay = 30;
 
-    /**
-     * Get the uptime calculator for a monitor
-     * Initializes and returns the monitor if it does not exist
-     * @param {number} monitorID the id of the monitor
-     * @returns {Promise<UptimeCalculator>} UptimeCalculator
-     */
-    static async getUptimeCalculator(monitorID) {
-        if (!monitorID) {
-            throw new Error("Monitor ID is required");
-        }
-
-        if (!UptimeCalculator.list[monitorID]) {
-            UptimeCalculator.list[monitorID] = new UptimeCalculator();
-            await UptimeCalculator.list[monitorID].init(monitorID);
-        }
-        return UptimeCalculator.list[monitorID];
-    }
-
-    /**
-     * Remove a monitor from the list
-     * @param {number} monitorID the id of the monitor
-     * @returns {Promise<void>}
-     */
-    static async remove(monitorID) {
-        delete UptimeCalculator.list[monitorID];
-    }
-
-    /**
-     * Remove all monitors from the list
-     * @returns {Promise<void>}
-     */
-    static async removeAll() {
-        UptimeCalculator.list = {};
-    }
-
-    /**
-     *
-     */
-    constructor() {
-        if (process.env.TEST_BACKEND) {
-            // Override the getCurrentDate() method to return a specific date
-            // Only for testing
-            this.getCurrentDate = () => {
-                if (UptimeCalculator.currentDate) {
-                    return UptimeCalculator.currentDate;
-                } else {
-                    return dayjs.utc();
-                }
-            };
-        }
+    constructor(store = null, now = () => dayjs.utc()) {
+        this.store = store;
+        this.now = now;
     }
 
     /**
@@ -125,13 +102,18 @@ class UptimeCalculator {
     async init(monitorID) {
         this.monitorID = monitorID;
 
+        if (!this.store) {
+            return;
+        }
+
         let now = this.getCurrentDate();
 
         // Load minutely data from database (recent 24 hours only)
-        let minutelyStatBeans = await R.find("stat_minutely", " monitor_id = ? AND timestamp > ? ORDER BY timestamp", [
-            monitorID,
-            this.getMinutelyKey(now.subtract(24, "hour")),
-        ]);
+        let minutelyStatBeans = await this.store.find(
+            "stat_minutely",
+            " monitor_id = ? AND timestamp > ? ORDER BY timestamp",
+            [monitorID, this.getMinutelyKey(now.subtract(24, "hour"), false)]
+        );
 
         for (let bean of minutelyStatBeans) {
             let data = {
@@ -142,7 +124,7 @@ class UptimeCalculator {
                 maxPing: bean.pingMax ?? bean.ping_max,
             };
 
-            if (bean.extras != null) {
+            if (bean.extras !== null && bean.extras !== undefined) {
                 data = {
                     ...data,
                     ...JSON.parse(bean.extras),
@@ -154,10 +136,11 @@ class UptimeCalculator {
         }
 
         // Load hourly data from database (recent 30 days only)
-        let hourlyStatBeans = await R.find("stat_hourly", " monitor_id = ? AND timestamp > ? ORDER BY timestamp", [
-            monitorID,
-            this.getHourlyKey(now.subtract(30, "day")),
-        ]);
+        let hourlyStatBeans = await this.store.find(
+            "stat_hourly",
+            " monitor_id = ? AND timestamp > ? ORDER BY timestamp",
+            [monitorID, this.getHourlyKey(now.subtract(30, "day"), false)]
+        );
 
         for (let bean of hourlyStatBeans) {
             let data = {
@@ -168,7 +151,7 @@ class UptimeCalculator {
                 maxPing: bean.pingMax ?? bean.ping_max,
             };
 
-            if (bean.extras != null) {
+            if (bean.extras !== null && bean.extras !== undefined) {
                 data = {
                     ...data,
                     ...JSON.parse(bean.extras),
@@ -179,10 +162,11 @@ class UptimeCalculator {
         }
 
         // Load daily data from database (recent 365 days only)
-        let dailyStatBeans = await R.find("stat_daily", " monitor_id = ? AND timestamp > ? ORDER BY timestamp", [
-            monitorID,
-            this.getDailyKey(now.subtract(365, "day")),
-        ]);
+        let dailyStatBeans = await this.store.find(
+            "stat_daily",
+            " monitor_id = ? AND timestamp > ? ORDER BY timestamp",
+            [monitorID, this.getDailyKey(now.subtract(365, "day"), false)]
+        );
 
         for (let bean of dailyStatBeans) {
             let data = {
@@ -193,7 +177,7 @@ class UptimeCalculator {
                 maxPing: bean.pingMax ?? bean.ping_max,
             };
 
-            if (bean.extras != null) {
+            if (bean.extras !== null && bean.extras !== undefined) {
                 data = {
                     ...data,
                     ...JSON.parse(bean.extras),
@@ -211,7 +195,7 @@ class UptimeCalculator {
      * @returns {Promise<dayjs.Dayjs>} date
      * @throws {Error} Invalid status
      */
-    async update(status, ping = 0, date) {
+    async stageUpdate(status, ping = 0, date) {
         if (!date) {
             date = this.getCurrentDate();
         }
@@ -222,13 +206,13 @@ class UptimeCalculator {
             log.debug("uptime_calc", "The ping is not effective when the status is DOWN");
         }
 
-        let divisionKey = this.getMinutelyKey(date);
-        let hourlyKey = this.getHourlyKey(date);
-        let dailyKey = this.getDailyKey(date);
+        let divisionKey = this.getMinutelyKey(date, false);
+        let hourlyKey = this.getHourlyKey(date, false);
+        let dailyKey = this.getDailyKey(date, false);
 
-        let minutelyData = this.minutelyUptimeDataList[divisionKey];
-        let hourlyData = this.hourlyUptimeDataList[hourlyKey];
-        let dailyData = this.dailyUptimeDataList[dailyKey];
+        let minutelyData = { ...(this.minutelyUptimeDataList[divisionKey] || emptyUptimeData()) };
+        let hourlyData = { ...(this.hourlyUptimeDataList[hourlyKey] || emptyUptimeData()) };
+        let dailyData = { ...(this.dailyUptimeDataList[dailyKey] || emptyUptimeData()) };
 
         if (status === MAINTENANCE) {
             minutelyData.maintenance = minutelyData.maintenance ? minutelyData.maintenance + 1 : 1;
@@ -283,162 +267,61 @@ class UptimeCalculator {
             dailyData.down += 1;
         }
 
-        if (minutelyData !== this.lastUptimeData) {
-            this.lastUptimeData = minutelyData;
-        }
-
-        if (hourlyData !== this.lastHourlyUptimeData) {
-            this.lastHourlyUptimeData = hourlyData;
-        }
-
-        if (dailyData !== this.lastDailyUptimeData) {
-            this.lastDailyUptimeData = dailyData;
-        }
-
-        // Don't store data in test mode
-        if (process.env.TEST_BACKEND) {
-            log.debug("uptime_calc", "Skip storing data in test mode");
-            return date;
-        }
-
-        let dailyStatBean = await this.getDailyStatBean(dailyKey);
-        dailyStatBean.up = dailyData.up;
-        dailyStatBean.down = dailyData.down;
-        dailyStatBean.ping = dailyData.avgPing;
-        dailyStatBean.pingMin = dailyData.minPing;
-        dailyStatBean.pingMax = dailyData.maxPing;
-        {
-            // eslint-disable-next-line no-unused-vars
-            const { up, down, avgPing, minPing, maxPing, timestamp, ...extras } = dailyData;
-            if (Object.keys(extras).length > 0) {
-                dailyStatBean.extras = JSON.stringify(extras);
-            }
-        }
-        await R.store(dailyStatBean);
-
         let currentDate = this.getCurrentDate();
+        const commit = () => {
+            commitUptimeData(this.minutelyUptimeDataList, divisionKey, minutelyData);
+            commitUptimeData(this.hourlyUptimeDataList, hourlyKey, hourlyData);
+            commitUptimeData(this.dailyUptimeDataList, dailyKey, dailyData);
+            this.lastUptimeData = minutelyData;
+            this.lastHourlyUptimeData = hourlyData;
+            this.lastDailyUptimeData = dailyData;
+        };
 
-        // For migration mode, we don't need to store old hourly and minutely data, but we need 30-day's hourly data
-        // Run anyway for non-migration mode
-        if (!this.migrationMode || date.isAfter(currentDate.subtract(this.statHourlyKeepDay, "day"))) {
-            let hourlyStatBean = await this.getHourlyStatBean(hourlyKey);
-            hourlyStatBean.up = hourlyData.up;
-            hourlyStatBean.down = hourlyData.down;
-            hourlyStatBean.ping = hourlyData.avgPing;
-            hourlyStatBean.pingMin = hourlyData.minPing;
-            hourlyStatBean.pingMax = hourlyData.maxPing;
-            {
-                // eslint-disable-next-line no-unused-vars
-                const { up, down, avgPing, minPing, maxPing, timestamp, ...extras } = hourlyData;
-                if (Object.keys(extras).length > 0) {
-                    hourlyStatBean.extras = JSON.stringify(extras);
+        return {
+            date,
+            commit,
+            persist: async (target) => {
+                await storeStat(target, "stat_daily", this.monitorID, dailyKey, dailyData);
+
+                if (!this.migrationMode || date.isAfter(currentDate.subtract(this.statHourlyKeepDay, "day"))) {
+                    await storeStat(target, "stat_hourly", this.monitorID, hourlyKey, hourlyData);
                 }
-            }
-            await R.store(hourlyStatBean);
-        }
 
-        // For migration mode, we don't need to store old hourly and minutely data, but we need 24-hour's minutely data
-        // Run anyway for non-migration mode
-        if (!this.migrationMode || date.isAfter(currentDate.subtract(this.statMinutelyKeepHour, "hour"))) {
-            let minutelyStatBean = await this.getMinutelyStatBean(divisionKey);
-            minutelyStatBean.up = minutelyData.up;
-            minutelyStatBean.down = minutelyData.down;
-            minutelyStatBean.ping = minutelyData.avgPing;
-            minutelyStatBean.pingMin = minutelyData.minPing;
-            minutelyStatBean.pingMax = minutelyData.maxPing;
-            {
-                // eslint-disable-next-line no-unused-vars
-                const { up, down, avgPing, minPing, maxPing, timestamp, ...extras } = minutelyData;
-                if (Object.keys(extras).length > 0) {
-                    minutelyStatBean.extras = JSON.stringify(extras);
+                if (!this.migrationMode || date.isAfter(currentDate.subtract(this.statMinutelyKeepHour, "hour"))) {
+                    await storeStat(target, "stat_minutely", this.monitorID, divisionKey, minutelyData);
                 }
-            }
-            await R.store(minutelyStatBean);
-        }
 
-        // No need to remove old data in migration mode
-        if (!this.migrationMode) {
-            // Remove the old data
-            // TODO: Improvement: Convert it to a job?
-            log.debug("uptime_calc", "Remove old data");
-            await R.exec("DELETE FROM stat_minutely WHERE monitor_id = ? AND timestamp < ?", [
-                this.monitorID,
-                this.getMinutelyKey(currentDate.subtract(this.statMinutelyKeepHour, "hour"), false),
-            ]);
-
-            await R.exec("DELETE FROM stat_hourly WHERE monitor_id = ? AND timestamp < ?", [
-                this.monitorID,
-                this.getHourlyKey(currentDate.subtract(this.statHourlyKeepDay, "day"), false),
-            ]);
-        }
-
-        return date;
+                if (!this.migrationMode) {
+                    await target.exec("DELETE FROM stat_minutely WHERE monitor_id = ? AND timestamp < ?", [
+                        this.monitorID,
+                        this.getMinutelyKey(currentDate.subtract(this.statMinutelyKeepHour, "hour"), false),
+                    ]);
+                    await target.exec("DELETE FROM stat_hourly WHERE monitor_id = ? AND timestamp < ?", [
+                        this.monitorID,
+                        this.getHourlyKey(currentDate.subtract(this.statHourlyKeepDay, "day"), false),
+                    ]);
+                }
+            },
+        };
     }
 
-    /**
-     * Get the daily stat bean
-     * @param {number} timestamp milliseconds
-     * @returns {Promise<import("redbean-node").Bean>} stat_daily bean
-     */
-    async getDailyStatBean(timestamp) {
-        if (this.lastDailyStatBean && this.lastDailyStatBean.timestamp === timestamp) {
-            return this.lastDailyStatBean;
+    async update(status, ping = 0, date) {
+        const staged = await this.stageUpdate(status, ping, date);
+        if (!this.store) {
+            staged.commit();
+            return staged.date;
         }
 
-        let bean = await R.findOne("stat_daily", " monitor_id = ? AND timestamp = ?", [this.monitorID, timestamp]);
-
-        if (!bean) {
-            bean = R.dispense("stat_daily");
-            bean.monitor_id = this.monitorID;
-            bean.timestamp = timestamp;
+        const transaction = await this.store.begin();
+        try {
+            await staged.persist(transaction);
+            await transaction.commit();
+            staged.commit();
+            return staged.date;
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
         }
-
-        this.lastDailyStatBean = bean;
-        return this.lastDailyStatBean;
-    }
-
-    /**
-     * Get the hourly stat bean
-     * @param {number} timestamp milliseconds
-     * @returns {Promise<import("redbean-node").Bean>} stat_hourly bean
-     */
-    async getHourlyStatBean(timestamp) {
-        if (this.lastHourlyStatBean && this.lastHourlyStatBean.timestamp === timestamp) {
-            return this.lastHourlyStatBean;
-        }
-
-        let bean = await R.findOne("stat_hourly", " monitor_id = ? AND timestamp = ?", [this.monitorID, timestamp]);
-
-        if (!bean) {
-            bean = R.dispense("stat_hourly");
-            bean.monitor_id = this.monitorID;
-            bean.timestamp = timestamp;
-        }
-
-        this.lastHourlyStatBean = bean;
-        return this.lastHourlyStatBean;
-    }
-
-    /**
-     * Get the minutely stat bean
-     * @param {number} timestamp milliseconds
-     * @returns {Promise<import("redbean-node").Bean>} stat_minutely bean
-     */
-    async getMinutelyStatBean(timestamp) {
-        if (this.lastMinutelyStatBean && this.lastMinutelyStatBean.timestamp === timestamp) {
-            return this.lastMinutelyStatBean;
-        }
-
-        let bean = await R.findOne("stat_minutely", " monitor_id = ? AND timestamp = ?", [this.monitorID, timestamp]);
-
-        if (!bean) {
-            bean = R.dispense("stat_minutely");
-            bean.monitor_id = this.monitorID;
-            bean.timestamp = timestamp;
-        }
-
-        this.lastMinutelyStatBean = bean;
-        return this.lastMinutelyStatBean;
     }
 
     /**
@@ -525,14 +408,14 @@ class UptimeCalculator {
      * @returns {number} Timestamp
      * @throws {Error} If the type is invalid
      */
-    getKey(datetime, type) {
+    getKey(datetime, type, createIfMissing = false) {
         switch (type) {
             case "day":
-                return this.getDailyKey(datetime);
+                return this.getDailyKey(datetime, createIfMissing);
             case "hour":
-                return this.getHourlyKey(datetime);
+                return this.getHourlyKey(datetime, createIfMissing);
             case "minute":
-                return this.getMinutelyKey(datetime);
+                return this.getMinutelyKey(datetime, createIfMissing);
             default:
                 throw new Error("Invalid type");
         }
@@ -573,7 +456,7 @@ class UptimeCalculator {
             throw new Error("The maximum number of days is 365");
         }
         // Get the current time period key based on the type
-        let key = this.getKey(this.getCurrentDate(), type);
+        let key = this.getKey(this.getCurrentDate(), type, false);
 
         let total = {
             up: 0,
@@ -705,7 +588,7 @@ class UptimeCalculator {
         }
 
         // Get the current time period key based on the type
-        let key = this.getKey(this.getCurrentDate(), type);
+        let key = this.getKey(this.getCurrentDate(), type, false);
 
         let result = [];
 
@@ -834,7 +717,7 @@ class UptimeCalculator {
      * @returns {dayjs.Dayjs} Current datetime in UTC
      */
     getCurrentDate() {
-        return dayjs.utc();
+        return this.now();
     }
 
     /**
@@ -845,33 +728,76 @@ class UptimeCalculator {
     setMigrationMode(value) {
         this.migrationMode = value;
     }
+}
 
-    /**
-     * Clear all statistics and heartbeats for a monitor
-     * @param {number} monitorID the id of the monitor
-     * @returns {Promise<void>}
-     */
-    static async clearStatistics(monitorID) {
-        await R.exec("DELETE FROM heartbeat WHERE monitor_id = ?", [monitorID]);
-
-        await R.exec("DELETE FROM stat_minutely WHERE monitor_id = ?", [monitorID]);
-        await R.exec("DELETE FROM stat_hourly WHERE monitor_id = ?", [monitorID]);
-        await R.exec("DELETE FROM stat_daily WHERE monitor_id = ?", [monitorID]);
-
-        await UptimeCalculator.remove(monitorID);
+class UptimeCalculators {
+    constructor(store, { now = () => dayjs.utc(), maxSize = 10000 } = {}) {
+        this.store = store;
+        this.now = now;
+        this.maxSize = maxSize;
+        this.list = new Map();
+        this.pins = new Map();
     }
 
-    /**
-     * Clear all statistics and heartbeats for all monitors
-     * @returns {Promise<void>}
-     */
-    static async clearAllStatistics() {
-        await R.exec("DELETE FROM heartbeat");
-        await R.exec("DELETE FROM stat_minutely");
-        await R.exec("DELETE FROM stat_hourly");
-        await R.exec("DELETE FROM stat_daily");
+    pin(monitorID) {
+        const key = String(monitorID);
+        this.pins.set(key, (this.pins.get(key) || 0) + 1);
+    }
 
-        await UptimeCalculator.removeAll();
+    release(monitorID) {
+        const key = String(monitorID);
+        const count = this.pins.get(key) || 0;
+        if (count <= 1) {
+            this.pins.delete(key);
+        } else {
+            this.pins.set(key, count - 1);
+        }
+        this.evict();
+    }
+
+    evict() {
+        for (const key of this.list.keys()) {
+            if (this.list.size <= this.maxSize) {
+                break;
+            }
+            if (!this.pins.has(key)) {
+                this.list.delete(key);
+            }
+        }
+    }
+
+    async get(monitorID) {
+        if (!monitorID) {
+            throw new Error("Monitor ID is required");
+        }
+
+        const key = String(monitorID);
+        let pending;
+        if (!this.list.has(key)) {
+            const calculator = new UptimeCalculator(this.store, this.now);
+            pending = calculator.init(monitorID).then(() => calculator);
+            this.list.set(key, pending);
+            pending.catch(() => {
+                if (this.list.get(key) === pending) {
+                    this.list.delete(key);
+                }
+            });
+        } else {
+            pending = this.list.get(key);
+            this.list.delete(key);
+            this.list.set(key, pending);
+        }
+        this.evict();
+        return pending;
+    }
+
+    remove(monitorID) {
+        this.list.delete(String(monitorID));
+    }
+
+    removeAll() {
+        this.list.clear();
+        this.pins.clear();
     }
 }
 
@@ -887,4 +813,4 @@ class UptimeDataResult {
     avgPing = null;
 }
 
-export { UptimeCalculator, UptimeDataResult };
+export { UptimeCalculator, UptimeCalculators, UptimeDataResult };

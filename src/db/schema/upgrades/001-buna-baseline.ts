@@ -1,7 +1,6 @@
 import { gameDig4to5IdMap } from "../gamedig-v4-to-v5-map.js";
 import { expectedIndexes } from "../expected-schema.js";
-import type { BunSQLiteRedbean } from "../../../server/bun-sqlite-store.js";
-import type { SchemaMigration } from "@/server/db-migrations";
+import type { SchemaMigration, SQLiteTransaction } from "@/server/db-migrations";
 import { parse as parseTld } from "tldts";
 import rdapDnsData from "../../../server/assets/rdap-dns.json" with { type: "json" };
 
@@ -303,7 +302,7 @@ async function ensureIncidentColumns(migration: SchemaMigration) {
     migration.addColumnIfMissing("incident", "active", "BOOLEAN NOT NULL DEFAULT 1");
 }
 
-async function migrateGameDigIds(store: BunSQLiteRedbean) {
+async function migrateGameDigIds(store: SQLiteTransaction) {
     if (!(await store.hasTable("monitor"))) {
         return;
     }
@@ -321,7 +320,7 @@ async function migrateGameDigIds(store: BunSQLiteRedbean) {
     }
 }
 
-async function migrateSnmpJsonPathOperator(store: BunSQLiteRedbean) {
+async function migrateSnmpJsonPathOperator(store: SQLiteTransaction) {
     if (!(await store.hasTable("monitor"))) {
         return;
     }
@@ -329,7 +328,7 @@ async function migrateSnmpJsonPathOperator(store: BunSQLiteRedbean) {
     await store.exec("UPDATE monitor SET json_path_operator = ? WHERE json_path_operator IS NULL", ["=="]);
 }
 
-async function migrateStatusPageAnalytics(store: BunSQLiteRedbean) {
+async function migrateStatusPageAnalytics(store: SQLiteTransaction) {
     if (!(await store.hasTable("status_page"))) {
         return;
     }
@@ -360,7 +359,7 @@ function isLineNotifyNotification(config: unknown, name: unknown) {
     return false;
 }
 
-async function removeLineNotifyNotifications(store: BunSQLiteRedbean) {
+async function removeLineNotifyNotifications(store: SQLiteTransaction) {
     if (!(await store.hasTable("notification"))) {
         return;
     }
@@ -386,7 +385,7 @@ async function removeLineNotifyNotifications(store: BunSQLiteRedbean) {
     await store.exec(`DELETE FROM notification WHERE id IN (${placeholders})`, lineNotifyIDs);
 }
 
-async function disableUnsupportedDomainExpiryNotifications(store: BunSQLiteRedbean) {
+async function disableUnsupportedDomainExpiryNotifications(store: SQLiteTransaction) {
     if (!(await store.hasTable("monitor"))) {
         return;
     }
@@ -443,7 +442,7 @@ export async function upgrade001BunaBaselineSchema(migration: SchemaMigration) {
     await ensureCoreIndexes(migration);
 }
 
-export async function upgrade001BunaBaselineData(store: BunSQLiteRedbean) {
+export async function upgrade001BunaBaselineData(store: SQLiteTransaction) {
     await migrateStatusPageAnalytics(store);
     await migrateGameDigIds(store);
     await migrateSnmpJsonPathOperator(store);

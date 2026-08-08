@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import { BeanModel } from "@/server/bean-model";
-import { R } from "@/server/bun-sqlite-store";
 import dayjs from "dayjs";
 
 class APIKey extends BeanModel {
@@ -59,9 +58,9 @@ class APIKey extends BeanModel {
      * @param {int} userID ID of socket user
      * @returns {Promise<bean>} API key
      */
-    static async save(key, userID) {
+    static async save(store, key, userID) {
         let bean;
-        bean = R.dispense("api_key");
+        bean = store.dispense("api_key");
 
         bean.key = key.key;
         bean.name = key.name;
@@ -69,7 +68,7 @@ class APIKey extends BeanModel {
         bean.active = key.active;
         bean.expires = key.expires;
 
-        await R.store(bean);
+        await store.store(bean);
 
         return bean;
     }

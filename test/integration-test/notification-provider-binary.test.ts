@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { Database } from "bun:sqlite";
 
 const projectRoot = path.join(import.meta.dirname, "../..");
 const binaryPath = process.env.POCKETKUMA_BINARY ? path.resolve(projectRoot, process.env.POCKETKUMA_BINARY) : null;
@@ -197,6 +198,22 @@ async function stopApp() {
     }
 }
 
+async function waitForHeartbeat(monitorID) {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+        const database = new Database(path.join(dataDir, "kuma.db"), { readonly: true });
+        const heartbeat = database
+            .query("SELECT status, msg FROM heartbeat WHERE monitor_id = ? ORDER BY id DESC LIMIT 1")
+            .get(monitorID);
+        database.close();
+        if (heartbeat) {
+            return heartbeat;
+        }
+        await Bun.sleep(100);
+    }
+    throw new Error("SMTP monitor did not write a heartbeat");
+}
+
 afterEach(async () => {
     realtimeSocket?.close();
     smtpServer?.stop(true);
@@ -206,8 +223,8 @@ afterEach(async () => {
     }
 });
 
-describe("compiled notification provider loading", () => {
-    test("compiled executable sends an SMTP test notification through the production socket flow", async () => {
+describe("compiled runtime loading", () => {
+    test("compiled executable runs SMTP provider and monitor factories through production flows", async () => {
         expect(binaryPath, "POCKETKUMA_BINARY must point to a compiled PocketKuma executable").toBeTruthy();
         expect(fs.existsSync(binaryPath)).toBe(true);
 
@@ -243,5 +260,41 @@ describe("compiled notification provider loading", () => {
 
         expect(result).toEqual({ ok: true, msg: "Sent Successfully." });
         expect(smtp.receivedMessage()).toBe(true);
+
+        const monitor = await realtime.request("add", {
+            type: "smtp",
+            name: "Compiled SMTP monitor",
+            active: true,
+            parent: null,
+            hostname: "127.0.0.1",
+            port: smtpServer.port,
+            smtpSecurity: "nostarttls",
+            interval: 60,
+            retryInterval: 60,
+            resendInterval: 0,
+            maxretries: 0,
+            retryOnlyOnStatusCodeFailure: false,
+            notificationIDList: {},
+            ignoreTls: false,
+            upsideDown: false,
+            expiryNotification: false,
+            domainExpiryNotification: false,
+            maxredirects: 0,
+            accepted_statuscodes: ["200-299"],
+            saveResponse: false,
+            saveErrorResponse: true,
+            responseMaxLength: 1024,
+            proxyId: null,
+            kafkaProducerBrokers: [],
+            kafkaProducerSaslOptions: { mechanism: "None" },
+            rabbitmqNodes: [],
+            conditions: [],
+            timeout: 1,
+        });
+        expect(monitor.ok).toBe(true);
+        expect(await waitForHeartbeat(monitor.monitorID)).toEqual({
+            status: 1,
+            msg: "SMTP connection verifies successfully",
+        });
     }, 60_000);
 });

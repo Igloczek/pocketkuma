@@ -1,22 +1,22 @@
 // @ts-nocheck
 
-import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { clearOldData } from "@/server/jobs/clear-old-data";
 import { incrementalVacuum } from "@/server/jobs/incremental-vacuum";
 import Cron from "croner";
+import type { SQLiteStore } from "@/server/db-migrations";
+import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 
-const jobs = [
+const jobDefinitions = [
     {
         name: "clear-old-data",
         interval: "14 03 * * *",
         jobFunc: clearOldData,
-        croner: null,
+        exclusive: true,
     },
     {
         name: "incremental-vacuum",
         interval: "*/5 * * * *",
         jobFunc: incrementalVacuum,
-        croner: null,
     },
 ];
 
@@ -24,33 +24,48 @@ const jobs = [
  * Initialize background jobs
  * @returns {Promise<void>}
  */
-const initBackgroundJobs = async function () {
-    const timezone = await PocketKumaServer.getInstance().getTimezone();
-
-    for (const job of jobs) {
-        const cornerJob = new Cron(
+const scheduleBackgroundJobs = function (
+    store: SQLiteStore,
+    coordinator: DatabaseMaintenanceCoordinator,
+    timezone,
+    CronClass = Cron,
+    settings,
+    heartbeatData = null,
+    scheduledJobs = []
+) {
+    for (const job of jobDefinitions) {
+        const cornerJob = new CronClass(
             job.interval,
             {
                 name: job.name,
                 timezone,
             },
-            job.jobFunc
+            () => coordinator[job.exclusive ? "maintain" : "run"](() => job.jobFunc(store, settings, heartbeatData))
         );
-        job.croner = cornerJob;
+        scheduledJobs.push(cornerJob);
     }
+    return scheduledJobs;
+};
+
+const initBackgroundJobs = async function (
+    store: SQLiteStore,
+    coordinator: DatabaseMaintenanceCoordinator,
+    timezone,
+    settings,
+    heartbeatData = null,
+    scheduledJobs = []
+) {
+    return scheduleBackgroundJobs(store, coordinator, timezone, Cron, settings, heartbeatData, scheduledJobs);
 };
 
 /**
  * Stop all background jobs if running
  * @returns {void}
  */
-const stopBackgroundJobs = function () {
-    for (const job of jobs) {
-        if (job.croner) {
-            job.croner.stop();
-            job.croner = null;
-        }
+const stopBackgroundJobs = function (scheduledJobs) {
+    for (const job of scheduledJobs.splice(0)) {
+        job.stop();
     }
 };
 
-export { initBackgroundJobs, stopBackgroundJobs };
+export { initBackgroundJobs, scheduleBackgroundJobs, stopBackgroundJobs };

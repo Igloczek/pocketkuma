@@ -3,7 +3,6 @@
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 import { getMonitorRelativeURL } from "@/util";
-import { Settings } from "@/server/settings";
 
 class Stackfield extends NotificationProvider {
     name = "stackfield";
@@ -25,7 +24,7 @@ class Stackfield extends NotificationProvider {
 
             textMsg += `\n${msg}`;
 
-            const baseURL = await Settings.get("primaryBaseURL");
+            const baseURL = await this.settings.get("primaryBaseURL");
             if (baseURL) {
                 const urlPath = monitorJSON ? getMonitorRelativeURL(monitorJSON.id) : "/";
                 textMsg += `\n${baseURL + urlPath}`;

@@ -4,7 +4,7 @@
  * Database & App Data Folder
  */
 import fs from "fs";
-import { R } from "@/server/bun-sqlite-store";
+import type { SQLiteStore } from "@/server/db-migrations";
 
 const fsAsync = fs.promises;
 import { log, isDev } from "@/util";
@@ -144,32 +144,32 @@ class Database {
      * @param {boolean} noLog Should logs not be output?
      * @returns {Promise<void>}
      */
-    static async connect(testMode = false, noLog = false) {
+    static async connect(store: SQLiteStore, testMode = false, noLog = false) {
         Database.removeLegacyDbConfig();
         log.info("db", "Database Type: sqlite (bun:sqlite)");
-        await R.connect({
+        await store.connect({
             sqlitePath: Database.sqlitePath,
             templatePath: Database.getTemplatePath(),
             testMode,
         });
         if (!noLog) {
             log.debug("db", "SQLite config:");
-            log.debug("db", await R.getAll("PRAGMA journal_mode"));
-            log.debug("db", await R.getAll("PRAGMA cache_size"));
-            log.debug("db", "SQLite Version: " + (await R.getCell("SELECT sqlite_version()")));
+            log.debug("db", await store.getAll("PRAGMA journal_mode"));
+            log.debug("db", await store.getAll("PRAGMA cache_size"));
+            log.debug("db", "SQLite Version: " + (await store.getCell("SELECT sqlite_version()")));
         }
     }
 
     /**
      * @returns {Promise<void>}
      */
-    static async close() {
+    static async close(store: SQLiteStore) {
         log.info("db", "Closing the database");
 
         // Flush WAL to main database
-        await R.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+        await store.exec("PRAGMA wal_checkpoint(TRUNCATE)");
 
-        await R.close();
+        await store.close();
         log.info("db", "Database closed");
     }
 
@@ -188,8 +188,8 @@ class Database {
      * Shrink the database
      * @returns {Promise<void>}
      */
-    static async shrink() {
-        await R.exec("VACUUM");
+    static async shrink(store: SQLiteStore) {
+        await store.exec("VACUUM");
     }
 
     /**
@@ -204,15 +204,15 @@ class Database {
      * @param {boolean} detailedLog Log detailed information
      * @returns {Promise<void>}
      */
-    static async clearHeartbeatData(detailedLog = false) {
-        let monitors = await R.getAll("SELECT id FROM monitor");
+    static async clearHeartbeatData(store: SQLiteStore, detailedLog = false) {
+        let monitors = await store.getAll("SELECT id FROM monitor");
         const sqlHourOffset = Database.sqlHourOffset();
 
         for (let monitor of monitors) {
             if (detailedLog) {
                 log.info("db", "Deleting non-important heartbeats for monitor " + monitor.id);
             }
-            await R.exec(
+            await store.exec(
                 `
                 DELETE FROM heartbeat
                 WHERE monitor_id = ?

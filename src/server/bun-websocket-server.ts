@@ -4,7 +4,7 @@
 import { randomUUID } from "crypto";
 import { EventEmitter } from "events";
 import { log } from "@/util";
-import { Settings } from "@/server/settings";
+import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 
 const WS_PATH = "/ws";
 
@@ -106,10 +106,14 @@ class BunRealtimeSocket extends EventEmitter {
     }
 }
 
-class BunRealtimeAdapter extends EventEmitter {
-    constructor(server) {
-        super();
+class BunRealtimeAdapter {
+    databaseMaintenance: DatabaseMaintenanceCoordinator | null = null;
+    maintenanceEvents = new Set();
+    connectionInitializer = null;
+
+    constructor(server, settings) {
         this.server = server;
+        this.settings = settings;
         this.rooms = new Map();
         this.sockets = {
             sockets: new Map(),
@@ -117,6 +121,18 @@ class BunRealtimeAdapter extends EventEmitter {
                 rooms: this.rooms,
             },
         };
+    }
+
+    setDatabaseMaintenanceCoordinator(coordinator: DatabaseMaintenanceCoordinator) {
+        this.databaseMaintenance = coordinator;
+    }
+
+    setMaintenanceEvents(events) {
+        this.maintenanceEvents = new Set(events);
+    }
+
+    setConnectionInitializer(initializer) {
+        this.connectionInitializer = initializer;
     }
 
     async canUpgrade(request, bunServer) {
@@ -136,7 +152,7 @@ class BunRealtimeAdapter extends EventEmitter {
                 const originURL = new URL(origin);
                 const host = request.headers.get("host");
                 let xForwardedFor;
-                if (await Settings.get("trustProxy")) {
+                if (await this.settings.get("trustProxy")) {
                     xForwardedFor = request.headers.get("x-forwarded-for");
                 }
 
@@ -192,12 +208,18 @@ class BunRealtimeAdapter extends EventEmitter {
         }
     }
 
-    open(ws) {
+    async open(ws) {
         const socket = new BunRealtimeSocket(this, ws);
         ws.data.socket = socket;
         this.sockets.sockets.set(socket.id, socket);
         this.join(socket, socket.id);
-        this.emit("connection", socket);
+
+        const initialize = () => this.connectionInitializer?.(socket);
+        if (this.databaseMaintenance) {
+            await this.databaseMaintenance.run(initialize);
+        } else {
+            await initialize();
+        }
     }
 
     async message(ws, rawMessage) {
@@ -209,7 +231,15 @@ class BunRealtimeAdapter extends EventEmitter {
             return;
         }
 
-        await ws.data.socket.dispatch(message);
+        const dispatch = () => ws.data.socket.dispatch(message);
+        if (this.databaseMaintenance) {
+            const coordinate = this.maintenanceEvents.has(message.event)
+                ? this.databaseMaintenance.maintain.bind(this.databaseMaintenance)
+                : this.databaseMaintenance.run.bind(this.databaseMaintenance);
+            await coordinate(dispatch);
+        } else {
+            await dispatch();
+        }
     }
 
     close(ws) {

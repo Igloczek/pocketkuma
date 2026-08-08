@@ -7,14 +7,12 @@
  */
 import { checkLogin } from "@/server/util-server";
 import { log } from "@/util";
-import { R } from "@/server/bun-sqlite-store";
 import passwordHash from "@/server/password-hash";
 import { clearResponseCache } from "@/server/bun-response";
 import APIKey from "@/server/model/api_key";
-import { Settings } from "@/server/settings";
 import { sendAPIKeyList } from "@/server/client";
 
-export const apiKeySocketHandler = (socket) => {
+export const apiKeySocketHandler = (socket, store, io, settings, responseCache) => {
     // Add a new api key
     socket.on("addAPIKey", async (key, callback) => {
         try {
@@ -27,18 +25,18 @@ export const apiKeySocketHandler = (socket) => {
             clearKey = clearKey.slice(0, 40);
             let hashedKey = await passwordHash.generate(clearKey);
             key["key"] = hashedKey;
-            let bean = await APIKey.save(key, socket.userID);
+            let bean = await APIKey.save(store, key, socket.userID);
 
             log.debug("apikeys", "Added API Key");
 
             // Append key ID and prefix to start of key separated by _, used to get
             // correct hash when validating key.
             let formattedKey = "uk" + bean.id + "_" + clearKey;
-            await sendAPIKeyList(socket);
+            await sendAPIKeyList(store, io, socket);
 
             // Enable API auth if the user creates a key, otherwise only basic
             // auth will be used for API.
-            await Settings.set("apiKeysEnabled", true);
+            await settings.set("apiKeysEnabled", true);
 
             callback({
                 ok: true,
@@ -58,7 +56,7 @@ export const apiKeySocketHandler = (socket) => {
     socket.on("getAPIKeyList", async (callback) => {
         try {
             checkLogin(socket);
-            await sendAPIKeyList(socket);
+            await sendAPIKeyList(store, io, socket);
             callback({
                 ok: true,
             });
@@ -77,9 +75,9 @@ export const apiKeySocketHandler = (socket) => {
 
             log.debug("apikeys", `Deleted API Key: ${keyID} User ID: ${socket.userID}`);
 
-            await R.exec("DELETE FROM api_key WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
+            await store.exec("DELETE FROM api_key WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -87,7 +85,7 @@ export const apiKeySocketHandler = (socket) => {
                 msgi18n: true,
             });
 
-            await sendAPIKeyList(socket);
+            await sendAPIKeyList(store, io, socket);
         } catch (e) {
             callback({
                 ok: false,
@@ -102,9 +100,9 @@ export const apiKeySocketHandler = (socket) => {
 
             log.debug("apikeys", `Disabled Key: ${keyID} User ID: ${socket.userID}`);
 
-            await R.exec("UPDATE api_key SET active = 0 WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
+            await store.exec("UPDATE api_key SET active = 0 WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -112,7 +110,7 @@ export const apiKeySocketHandler = (socket) => {
                 msgi18n: true,
             });
 
-            await sendAPIKeyList(socket);
+            await sendAPIKeyList(store, io, socket);
         } catch (e) {
             callback({
                 ok: false,
@@ -127,9 +125,9 @@ export const apiKeySocketHandler = (socket) => {
 
             log.debug("apikeys", `Enabled Key: ${keyID} User ID: ${socket.userID}`);
 
-            await R.exec("UPDATE api_key SET active = 1 WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
+            await store.exec("UPDATE api_key SET active = 1 WHERE id = ? AND user_id = ? ", [keyID, socket.userID]);
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -137,7 +135,7 @@ export const apiKeySocketHandler = (socket) => {
                 msgi18n: true,
             });
 
-            await sendAPIKeyList(socket);
+            await sendAPIKeyList(store, io, socket);
         } catch (e) {
             callback({
                 ok: false,

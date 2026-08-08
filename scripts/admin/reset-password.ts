@@ -1,8 +1,9 @@
 import Database from "@/server/database";
-import { R } from "@/server/bun-sqlite-store";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
+import "@/server/model-registry";
 import readline from "readline";
 
-import { initJWTSecret } from "@/server/util-server";
+import { initJWTSecret } from "@/server/server-auth-helpers";
 import User from "@/server/model/user";
 import { args } from "@/server/args";
 
@@ -40,6 +41,7 @@ const rl = readline.createInterface({
 });
 
 const main = async () => {
+    const store = new BunSQLiteRedbean();
     if ("dry-run" in args) {
         console.log("Dry run mode, no changes will be made.");
     }
@@ -48,10 +50,10 @@ const main = async () => {
 
     try {
         Database.initDataDir(args);
-        await Database.connect(false, true);
+        await Database.connect(store, false, true);
         // No need to actually reset the password for testing, just make sure no connection problem. It is ok for now.
         if (!process.env.TEST_BACKEND) {
-            const user = await R.findOne("user");
+            const user = await store.findOne("user");
             if (!user) {
                 throw new Error("user not found, have you installed?");
             }
@@ -84,10 +86,10 @@ const main = async () => {
 
                 if (password === confirmPassword) {
                     if (!("dry-run" in args)) {
-                        await User.resetPassword(user.id, password);
+                        await User.resetPassword(store, user.id, password);
 
                         // Reset all sessions by reset jwt secret
-                        await initJWTSecret();
+                        await initJWTSecret(store);
 
                         console.warn(
                             "JWT secret was reset. Restart the server to disconnect active WebSocket sessions."
@@ -104,7 +106,7 @@ const main = async () => {
         console.error("Error: " + e.message);
     }
 
-    await Database.close();
+    await Database.close(store);
     rl.close();
 
     console.log("Finished.");

@@ -1,0 +1,171 @@
+{
+    "schema": 1,
+    "measuredAt": "2026-08-07T09:51:40.760Z",
+    "bunVersion": "1.3.14",
+    "os": "darwin 25.5.0",
+    "arch": "arm64",
+    "gitSha": "a66d1e3d5779f045790a0604be76f50aa80a03d0",
+    "baselineSha": "a66d1e3d5779f045790a0604be76f50aa80a03d0",
+    "trials": 3,
+    "warmupMs": 1000,
+    "timeoutMs": 30000,
+    "metrics": {
+        "rss": "external process RSS in KiB (macOS/Linux)",
+        "physicalFootprint": "external macOS physical footprint in bytes"
+    },
+    "note": "Application variants use external RSS/footprint and existing GET / readiness. Synthetic variants also report Bun runtime metrics; those are separate metrics and are not application measurements. Results are a single-host baseline and must not be compared across hosts.",
+    "variants": [
+        {
+            "name": "minimal-bun",
+            "synthetic": true,
+            "trials": [
+                {
+                    "readinessMs": 51,
+                    "rssKb": 23632,
+                    "footprintBytes": 7309120,
+                    "synthetic": {
+                        "processRssBytes": 23642112,
+                        "heapUsedBytes": 175406,
+                        "unsafeMemoryFootprintBytes": null
+                    },
+                    "forcedKill": false
+                },
+                {
+                    "readinessMs": 51,
+                    "rssKb": 23712,
+                    "footprintBytes": 7423808,
+                    "synthetic": {
+                        "processRssBytes": 23724032,
+                        "heapUsedBytes": 175406,
+                        "unsafeMemoryFootprintBytes": null
+                    },
+                    "forcedKill": false
+                },
+                {
+                    "readinessMs": 52,
+                    "rssKb": 23616,
+                    "footprintBytes": 7292672,
+                    "synthetic": {
+                        "processRssBytes": 23625728,
+                        "heapUsedBytes": 175406,
+                        "unsafeMemoryFootprintBytes": null
+                    },
+                    "forcedKill": false
+                }
+            ],
+            "median": {
+                "readinessMs": 51,
+                "rssKb": 23632,
+                "footprintBytes": 7309120
+            }
+        },
+        {
+            "name": "minimal-bun-serve",
+            "synthetic": true,
+            "trials": [
+                {
+                    "readinessMs": 58,
+                    "rssKb": 27520,
+                    "footprintBytes": 9963264,
+                    "synthetic": {
+                        "processRssBytes": 23609344,
+                        "heapUsedBytes": 175406,
+                        "unsafeMemoryFootprintBytes": null
+                    },
+                    "forcedKill": false
+                },
+                {
+                    "readinessMs": 52,
+                    "rssKb": 27520,
+                    "footprintBytes": 9897792,
+                    "synthetic": {
+                        "processRssBytes": 23691264,
+                        "heapUsedBytes": 175406,
+                        "unsafeMemoryFootprintBytes": null
+                    },
+                    "forcedKill": false
+                },
+                {
+                    "readinessMs": 52,
+                    "rssKb": 27552,
+                    "footprintBytes": 9897728,
+                    "synthetic": {
+                        "processRssBytes": 23674880,
+                        "heapUsedBytes": 175406,
+                        "unsafeMemoryFootprintBytes": null
+                    },
+                    "forcedKill": false
+                }
+            ],
+            "median": {
+                "readinessMs": 52,
+                "rssKb": 27520,
+                "footprintBytes": 9897792
+            }
+        },
+        {
+            "name": "source-backend",
+            "synthetic": false,
+            "trials": [
+                {
+                    "readinessMs": 413,
+                    "rssKb": 167808,
+                    "footprintBytes": 122047104,
+                    "synthetic": null,
+                    "forcedKill": false
+                },
+                {
+                    "readinessMs": 365,
+                    "rssKb": 167776,
+                    "footprintBytes": 122358336,
+                    "synthetic": null,
+                    "forcedKill": false
+                },
+                {
+                    "readinessMs": 364,
+                    "rssKb": 167872,
+                    "footprintBytes": 122342080,
+                    "synthetic": null,
+                    "forcedKill": false
+                }
+            ],
+            "median": {
+                "readinessMs": 365,
+                "rssKb": 167808,
+                "footprintBytes": 122342080
+            }
+        },
+        {
+            "name": "compiled-binary",
+            "synthetic": false,
+            "trials": [
+                {
+                    "readinessMs": 2264,
+                    "rssKb": 212224,
+                    "footprintBytes": 143772288,
+                    "synthetic": null,
+                    "forcedKill": false
+                },
+                {
+                    "readinessMs": 666,
+                    "rssKb": 212848,
+                    "footprintBytes": 143706944,
+                    "synthetic": null,
+                    "forcedKill": false
+                },
+                {
+                    "readinessMs": 469,
+                    "rssKb": 213008,
+                    "footprintBytes": 144558848,
+                    "synthetic": null,
+                    "forcedKill": false
+                }
+            ],
+            "median": {
+                "readinessMs": 666,
+                "rssKb": 212848,
+                "footprintBytes": 143772288
+            }
+        }
+    ]
+}

@@ -10,8 +10,6 @@ const CACHE_UNITS = {
     hours: 60 * 60 * 1000,
 };
 
-const responseCache = new Map();
-
 function applyCommonHeaders(headers, disableFrameSameOrigin) {
     if (!disableFrameSameOrigin) {
         headers.set("X-Frame-Options", "SAMEORIGIN");
@@ -114,7 +112,11 @@ function parseDuration(value) {
     return Number(match[1]) * (CACHE_UNITS[match[2].toLowerCase()] || 0);
 }
 
-async function cachedResponse(cacheKey, duration, factory) {
+function createResponseCache() {
+    return new Map();
+}
+
+async function cachedResponse(responseCache, cacheKey, duration, factory) {
     const ttl = parseDuration(duration);
     if (!ttl) {
         return factory();
@@ -145,7 +147,7 @@ async function cachedResponse(cacheKey, duration, factory) {
     });
 }
 
-function clearResponseCache() {
+function clearResponseCache(responseCache) {
     responseCache.clear();
 }
 
@@ -171,6 +173,7 @@ export {
     bodyResponse,
     cachedResponse,
     clearResponseCache,
+    createResponseCache,
     createHeaders,
     decodePathParam,
     htmlResponse,

@@ -1,5 +1,6 @@
 import Database from "@/server/database";
-import { R } from "@/server/bun-sqlite-store";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
+import "@/server/model-registry";
 import readline from "readline";
 import TwoFA from "@/server/2fa";
 import { args } from "@/server/args";
@@ -13,13 +14,14 @@ const rl = readline.createInterface({
 });
 
 const main = async () => {
+    const store = new BunSQLiteRedbean();
     Database.initDataDir(args);
-    await Database.connect();
+    await Database.connect(store);
 
     try {
         // No need to actually reset the password for testing, just make sure no connection problem. It is ok for now.
         if (!process.env.TEST_BACKEND) {
-            const user = await R.findOne("user");
+            const user = await store.findOne("user");
             if (!user) {
                 throw new Error("user not found, have you installed?");
             }
@@ -29,7 +31,7 @@ const main = async () => {
             let ans = await question("Are you sure want to remove 2FA? [y/N]");
 
             if (ans.toLowerCase() === "y") {
-                await TwoFA.disable2FA(user.id);
+                await TwoFA.disable2FA(store, user.id);
                 console.log("2FA has been removed successfully.");
             }
         }
@@ -37,7 +39,7 @@ const main = async () => {
         console.error("Error: " + e.message);
     }
 
-    await Database.close();
+    await Database.close(store);
     rl.close();
 
     console.log("Finished.");

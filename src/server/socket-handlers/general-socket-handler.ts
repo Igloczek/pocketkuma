@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import { log } from "@/util";
-import { Settings } from "@/server/settings";
 import { sendInfo } from "@/server/client";
 import { checkLogin } from "@/server/util-server";
 import fs from "fs";
@@ -44,14 +43,14 @@ async function getGameList() {
  * @param {PocketKumaServer} server PocketKuma server
  * @returns {void}
  */
-export const generalSocketHandler = (socket, server) => {
+export const generalSocketHandler = (socket, server, settings, versionChecker) => {
     socket.on("initServerTimezone", async (timezone) => {
         try {
             checkLogin(socket);
             log.debug("generalSocketHandler", "Timezone: " + timezone);
-            await Settings.set("initServerTimezone", true);
+            await settings.set("initServerTimezone", true);
             await server.setTimezone(timezone);
-            await sendInfo(socket);
+            await sendInfo(server, settings, versionChecker, socket);
         } catch (e) {
             log.warn("initServerTimezone", e.message);
         }
@@ -75,9 +74,9 @@ export const generalSocketHandler = (socket, server) => {
     socket.on("testChrome", (executable, callback) => {
         try {
             checkLogin(socket);
-            // Lazy-load real-browser helpers so the binary boots without playwright-core.
-            import("@/server/monitor-types/real-browser-monitor-type")
-                .then(({ testChrome }) => testChrome(executable))
+            server
+                .getMonitorType("real-browser")
+                .then((monitorType) => monitorType.testChrome(executable))
                 .then((version) => {
                     callback({
                         ok: true,

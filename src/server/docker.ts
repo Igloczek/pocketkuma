@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import httpClient from "@/server/http-client";
-import { R } from "@/server/bun-sqlite-store";
 import Database from "@/server/database";
 import { axiosAbortSignal, fsExists } from "@/server/util-server";
 import fs from "fs";
@@ -21,17 +20,17 @@ class DockerHost {
      * @param {number} userID ID of the user who adds the docker host
      * @returns {Promise<Bean>} Updated docker host
      */
-    static async save(dockerHost, dockerHostID, userID) {
+    static async save(store, dockerHost, dockerHostID, userID) {
         let bean;
 
         if (dockerHostID) {
-            bean = await R.findOne("docker_host", " id = ? AND user_id = ? ", [dockerHostID, userID]);
+            bean = await store.findOne("docker_host", " id = ? AND user_id = ? ", [dockerHostID, userID]);
 
             if (!bean) {
                 throw new Error("docker host not found");
             }
         } else {
-            bean = R.dispense("docker_host");
+            bean = store.dispense("docker_host");
         }
 
         bean.user_id = userID;
@@ -39,7 +38,7 @@ class DockerHost {
         bean.docker_type = dockerHost.dockerType;
         bean.name = dockerHost.name;
 
-        await R.store(bean);
+        await store.store(bean);
 
         return bean;
     }
@@ -50,17 +49,17 @@ class DockerHost {
      * @param {number} userID ID of the user who created the Docker host
      * @returns {Promise<void>}
      */
-    static async delete(dockerHostID, userID) {
-        let bean = await R.findOne("docker_host", " id = ? AND user_id = ? ", [dockerHostID, userID]);
+    static async delete(store, dockerHostID, userID) {
+        let bean = await store.findOne("docker_host", " id = ? AND user_id = ? ", [dockerHostID, userID]);
 
         if (!bean) {
             throw new Error("docker host not found");
         }
 
         // Delete removed proxy from monitors if exists
-        await R.exec("UPDATE monitor SET docker_host = null WHERE docker_host = ?", [dockerHostID]);
+        await store.exec("UPDATE monitor SET docker_host = null WHERE docker_host = ?", [dockerHostID]);
 
-        await R.trash(bean);
+        await store.trash(bean);
     }
 
     /**

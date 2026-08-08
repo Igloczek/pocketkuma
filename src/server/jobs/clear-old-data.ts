@@ -1,9 +1,9 @@
 // @ts-nocheck
 
-import { R } from "@/server/bun-sqlite-store";
+import type { SQLiteStore } from "@/server/db-migrations";
 import { log } from "@/util";
 import Database from "@/server/database";
-import { Settings } from "@/server/settings";
+import type { Settings } from "@/server/settings";
 import dayjs from "dayjs";
 
 const DEFAULT_KEEP_PERIOD = 365;
@@ -12,23 +12,21 @@ const DEFAULT_KEEP_PERIOD = 365;
  * Clears old data from the heartbeat table and the stat_daily of the database.
  * @returns {Promise<void>} A promise that resolves when the data has been cleared.
  */
-const clearOldData = async () => {
-    await Database.clearHeartbeatData();
-    let period = await Settings.get("keepDataPeriodDays");
+const clearOldData = async (store: SQLiteStore, settings: Settings, heartbeatData = null) => {
+    await Database.clearHeartbeatData(store);
+    let period = await settings.get("keepDataPeriodDays");
 
     // Set Default Period
-    if (period == null) {
-        await Settings.set("keepDataPeriodDays", DEFAULT_KEEP_PERIOD, "general");
+    if (period === null || period === undefined) {
+        await settings.set("keepDataPeriodDays", DEFAULT_KEEP_PERIOD, "general");
         period = DEFAULT_KEEP_PERIOD;
     }
 
     // Try parse setting
-    let parsedPeriod;
-    try {
-        parsedPeriod = parseInt(period);
-    } catch (_) {
+    let parsedPeriod = Number.parseInt(period, 10);
+    if (!Number.isFinite(parsedPeriod)) {
         log.warn("clearOldData", "Failed to parse setting, resetting to default..");
-        await Settings.set("keepDataPeriodDays", DEFAULT_KEEP_PERIOD, "general");
+        await settings.set("keepDataPeriodDays", DEFAULT_KEEP_PERIOD, "general");
         parsedPeriod = DEFAULT_KEEP_PERIOD;
     }
 
@@ -43,19 +41,20 @@ const clearOldData = async () => {
 
         try {
             // Heartbeat
-            await R.exec("DELETE FROM heartbeat WHERE time < " + sqlHourOffset, [parsedPeriod * -24]);
+            await store.exec("DELETE FROM heartbeat WHERE time < " + sqlHourOffset, [parsedPeriod * -24]);
 
             let timestamp = dayjs().subtract(parsedPeriod, "day").utc().startOf("day").unix();
 
             // stat_daily
-            await R.exec("DELETE FROM stat_daily WHERE timestamp < ? ", [timestamp]);
+            await store.exec("DELETE FROM stat_daily WHERE timestamp < ? ", [timestamp]);
 
-            await R.exec("PRAGMA optimize;");
+            await store.exec("PRAGMA optimize;");
         } catch (e) {
             log.error("clearOldData", `Failed to clear old data: ${e.message}`);
         }
     }
 
+    heartbeatData?.reset();
     log.debug("clearOldData", "Data cleared.");
 };
 
