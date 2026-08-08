@@ -2,7 +2,7 @@
 
 import { describe, test, expect } from "bun:test";
 import { RADIUS_ATTRS } from "@/server/radius-attrs";
-import { radius } from "@/server/util-server";
+import { radius } from "@/server/radius";
 
 describe("RADIUS monitor", () => {
     test("uses RFC 2865 attribute names", () => {
@@ -13,8 +13,8 @@ describe("RADIUS monitor", () => {
     });
 
     test("rejects when radius server is not reachable", async () => {
-        await expect(
-            radius("127.0.0.1", "user", "pass", "called", "calling", "secret", 1, 50)
-        ).rejects.toThrow(/RADIUS authentication failed|RADIUS request timeout|Failed to send RADIUS request/);
+        await expect(radius("127.0.0.1", "user", "pass", "called", "calling", "secret", 1, 50)).rejects.toThrow(
+            /RADIUS authentication failed|RADIUS request timeout|Failed to send RADIUS request/
+        );
     });
 });

@@ -6,7 +6,7 @@
  * @returns {void}
  */
 import { sendDockerHostList } from "@/server/client";
-import { checkLogin } from "@/server/util-server";
+import { checkLogin } from "@/server/socket-auth";
 import { DockerHost } from "@/server/docker";
 import { log } from "@/util";
 

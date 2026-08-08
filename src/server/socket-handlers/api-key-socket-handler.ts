@@ -5,7 +5,7 @@
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-import { checkLogin } from "@/server/util-server";
+import { checkLogin } from "@/server/socket-auth";
 import { log } from "@/util";
 import passwordHash from "@/server/password-hash";
 import { clearResponseCache } from "@/server/bun-response";

@@ -3,7 +3,7 @@
 import { BeanModel } from "@/server/bean-model";
 import passwordHash from "@/server/password-hash";
 import jwt from "@/server/jwt";
-import { shake256, SHAKE256_LENGTH } from "@/server/util-server";
+import { shake256, SHAKE256_LENGTH } from "@/server/hash";
 
 class User extends BeanModel {
     /**

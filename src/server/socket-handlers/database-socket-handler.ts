@@ -5,7 +5,7 @@
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-import { checkLogin } from "@/server/util-server";
+import { checkLogin } from "@/server/socket-auth";
 import Database from "@/server/database";
 import type { SQLiteStore } from "@/server/db-migrations";
 

@@ -8,7 +8,7 @@ import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { UP, PING_GLOBAL_TIMEOUT_DEFAULT, log } from "@/util";
 
 const TIMEOUT = PING_GLOBAL_TIMEOUT_DEFAULT;
-import { checkCertificate } from "@/server/util-server";
+import { checkCertificate } from "@/server/tls-cert";
 import tls from "tls";
 import net from "net";
 
