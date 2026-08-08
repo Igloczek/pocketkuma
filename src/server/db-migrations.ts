@@ -1,4 +1,4 @@
-import { upgrade001BunaBaselineData, upgrade001BunaBaselineSchema } from "../db/schema/upgrades/001-buna-baseline.js";
+import { upgrade001UpstreamBaselineData, upgrade001UpstreamBaselineSchema } from "../db/schema/upgrades/001-upstream-baseline.js";
 import { log } from "@/server/logger";
 
 export {
@@ -9,8 +9,9 @@ export {
     tableExists,
 } from "../db/schema/migration-helpers.js";
 
-export const BUNA_SCHEMA_VERSION_KEY = "buna_schema_version";
-export const LATEST_BUNA_SCHEMA_VERSION = 1;
+// Persisted by the first rewrite migration series. Keep the value for existing databases.
+export const SCHEMA_VERSION_KEY = "buna_schema_version";
+export const LATEST_SCHEMA_VERSION = 1;
 
 export interface SQLiteTransaction {
     exec(sql: string, params?: unknown[]): Promise<unknown>;
@@ -41,7 +42,7 @@ export interface SQLiteStore {
  * - SQLite implicitly commits DDL (CREATE/ALTER/CREATE INDEX) even inside BEGIN.
  * - Schema-phase changes from 001 may persist if the data-phase transaction fails.
  * - DML (GameDig rewrites, LINE Notify deletes, etc.) rolls back with the data transaction.
- * - buna_schema_version is only bumped after the data phase succeeds.
+ * - SCHEMA_VERSION_KEY is only bumped after the data phase succeeds.
  * - On failure: restart to retry; schema steps are idempotent, data migrations re-run.
  * - For severely broken DBs: restore from backup or replace with a fresh src/db/kuma.db.
  */
@@ -64,18 +65,18 @@ export interface SchemaMigration {
 const upgrades: SchemaUpgrade[] = [
     {
         version: 1,
-        name: "001-buna-baseline",
-        runSchema: upgrade001BunaBaselineSchema,
-        runData: upgrade001BunaBaselineData,
+        name: "001-upstream-baseline",
+        runSchema: upgrade001UpstreamBaselineSchema,
+        runData: upgrade001UpstreamBaselineData,
     },
 ];
 
-export async function getBunaSchemaVersion(store: Pick<SQLiteStore, "hasTable" | "getCell">) {
+export async function getSchemaVersion(store: Pick<SQLiteStore, "hasTable" | "getCell">) {
     if (!(await store.hasTable("setting"))) {
         return null;
     }
 
-    const value = await store.getCell('SELECT value FROM setting WHERE "key" = ?', [BUNA_SCHEMA_VERSION_KEY]);
+    const value = await store.getCell('SELECT value FROM setting WHERE "key" = ?', [SCHEMA_VERSION_KEY]);
     if (value === null || value === undefined || value === "") {
         return null;
     }
@@ -84,23 +85,23 @@ export async function getBunaSchemaVersion(store: Pick<SQLiteStore, "hasTable" |
     return Number.isFinite(parsed) ? parsed : null;
 }
 
-export async function setBunaSchemaVersion(store: Pick<SQLiteTransaction, "getRow" | "exec">, version: number) {
-    const existing = await store.getRow('SELECT id FROM setting WHERE "key" = ?', [BUNA_SCHEMA_VERSION_KEY]);
+export async function setSchemaVersion(store: Pick<SQLiteTransaction, "getRow" | "exec">, version: number) {
+    const existing = await store.getRow('SELECT id FROM setting WHERE "key" = ?', [SCHEMA_VERSION_KEY]);
     if (existing) {
-        await store.exec('UPDATE setting SET value = ? WHERE "key" = ?', [String(version), BUNA_SCHEMA_VERSION_KEY]);
+        await store.exec('UPDATE setting SET value = ? WHERE "key" = ?', [String(version), SCHEMA_VERSION_KEY]);
         return;
     }
 
-    await store.exec('INSERT INTO setting ("key", value) VALUES (?, ?)', [BUNA_SCHEMA_VERSION_KEY, String(version)]);
+    await store.exec('INSERT INTO setting ("key", value) VALUES (?, ?)', [SCHEMA_VERSION_KEY, String(version)]);
 }
 
 export async function resolveCurrentSchemaVersion(store: Pick<SQLiteStore, "hasTable" | "getCell">) {
-    const explicitVersion = await getBunaSchemaVersion(store);
+    const explicitVersion = await getSchemaVersion(store);
     if (explicitVersion !== null) {
         return explicitVersion;
     }
 
-    log.info("db", "No buna_schema_version found; treating database as upstream Uptime Kuma 2.x baseline");
+    log.info("db", `No ${SCHEMA_VERSION_KEY} found; treating database as upstream Uptime Kuma 2.x baseline`);
     return 0;
 }
 
@@ -127,7 +128,7 @@ export async function runPendingUpgrades(
             if (upgrade.runData) {
                 await upgrade.runData(transaction);
             }
-            await setBunaSchemaVersion(transaction, upgrade.version);
+            await setSchemaVersion(transaction, upgrade.version);
             await transaction.commit();
             currentVersion = upgrade.version;
             log.info("db", `Schema upgrade ${upgrade.name} completed`);

@@ -166,7 +166,7 @@ async function runTrial({
     processGroup = false,
     measureMetrics = true,
 }) {
-    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-startup-"));
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "uptime-maku-startup-"));
     let port = 0;
     const stdout = { value: "" };
     const stderr = { value: "" };
@@ -273,7 +273,7 @@ const variants = [
         requiresPort: true,
         processGroup: true,
         command: ({ port, dataDir }) => [
-            path.join(projectRoot, "pocketkuma"),
+            path.join(projectRoot, "uptime-maku"),
             "--host=127.0.0.1",
             `--port=${port}`,
             `--data-dir=${dataDir}`,
@@ -305,8 +305,8 @@ async function runBenchmark({
     }
 
     for (const variant of selectedVariants) {
-        if (variant.name === "compiled-binary" && !fs.existsSync(path.join(projectRoot, "pocketkuma"))) {
-            throw new Error("Compiled benchmark variant requires ./pocketkuma. Run `bun run build` first.");
+        if (variant.name === "compiled-binary" && !fs.existsSync(path.join(projectRoot, "uptime-maku"))) {
+            throw new Error("Compiled benchmark variant requires ./uptime-maku. Run `bun run build` first.");
         }
     }
 

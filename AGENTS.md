@@ -2,7 +2,7 @@
 
 ## Repository Identity
 
-PocketKuma is a performance-focused monitoring application derived from an upstream project. It is independently maintained and is not intended to operate as a public open-source community project.
+Uptime Maku is an independently maintained architectural rewrite derived from the Uptime Kuma v2.4.0 codebase. It is not an upstream-parity fork and is not intended to operate as a public open-source community project.
 
 The repository is published "as is": no formal support process, no issue triage process, no release promise, and no community governance files.
 
@@ -17,27 +17,20 @@ The repository is published "as is": no formal support process, no issue triage 
 
 ## Target Direction
 
-- Keep runtime execution on Bun.
-- Use native Bun APIs where they reduce memory, dependencies, or runtime complexity.
-- Keep the application recognizable; do not rewrite the product from scratch.
-- Prefer SQLite and a lightweight runtime. Do not add app-database backends only for upstream parity.
-- Ship PocketKuma as a single executable. Do not add Docker, compose, or parallel distribution paths unless explicitly requested.
-
-Preferred Bun targets when the relevant task calls for them:
-
-- `bun install` and `bun.lock`
-- `Bun.serve`
-- native Bun WebSocket support
-- `bun:sqlite`
-- `Bun.SQL`
-- Bun environment handling
-- `Bun.password`
-- `Bun.spawn` and Bun Shell
-- `bun build --compile` for release binaries
+- Fix architecture and correctness before pursuing runtime novelty or upstream feature parity.
+- Replace god modules, hidden global state, barrel imports, service locators, and compatibility layers with explicit ownership and direct dependencies.
+- Rewrite incrementally behind characterized data and wire contracts; do not attempt an untestable greenfield replacement.
+- Keep runtime execution and package management on Bun, but use Bun APIs only where they make the design smaller, clearer, or measurably better.
+- Keep SQLite as the only application database. Preserve the tested Uptime Kuma SQLite upgrade path and the `kuma.db` filename; do not add database backends for upstream parity.
+- Keep the application recognizable while allowing internal and UI architecture to change substantially.
+- Ship one compiled executable. Do not add Docker, compose, or parallel distribution paths unless explicitly requested.
 
 ## Repository Decisions
 
 - Prefer `@/` path-alias imports across backend, frontend, scripts, and tests. Do not introduce relative imports (`./`, `../`) unless there is no practical alternative (for example auto-generated asset bundles, JSON `import ... with { type: "json" }` from a nearby file, or a tool that cannot resolve aliases).
+- Import from the module that owns a symbol. Do not add barrel files, transitional re-export barrels, generic registries, or a new compatibility facade unless a real external contract requires one.
+- Newly touched core modules should not add `@ts-nocheck`, broad `any` facades, or process-global state. Type existing runtime contracts incrementally instead of redesigning payloads for type convenience.
+- Preserve persisted field names and external socket/API contracts unless the task includes an explicit migration plan.
 - Do not add npm or Node fallback paths for default runtime, package-manager, or verification workflows.
 - Do not restore upstream community files such as `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, issue templates, PR templates, stale workflows, release workflows, or sponsor/funding files.
 - Dependency update automation uses Renovate via `renovate.json`; do not restore Dependabot.
@@ -69,7 +62,7 @@ bun run test-e2e
 Current backend smoke start:
 
 ```bash
-./pocketkuma --port=3001 --data-dir=./data/smoke
+./uptime-maku --port=3001 --data-dir=./data/smoke
 ```
 
 Development smoke start:

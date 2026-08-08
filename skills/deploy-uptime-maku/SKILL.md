@@ -1,9 +1,9 @@
 ---
-name: deploy-pocketkuma
-description: Deploy an already-published PocketKuma GitHub Release to the local systemd instance with architecture detection, checksum verification, remote smoke testing, backup, health checks, and automatic rollback. Use when installing, upgrading, redeploying, or rolling back PocketKuma on the known SSH host or another explicitly supplied server.
+name: deploy-uptime-maku
+description: Deploy an already-published Uptime Maku GitHub Release to the local systemd instance with architecture detection, checksum verification, remote smoke testing, backup, health checks, and automatic rollback. Use when installing, upgrading, redeploying, or rolling back Uptime Maku on the known SSH host or another explicitly supplied server.
 ---
 
-# Deploy PocketKuma
+# Deploy Uptime Maku
 
 Deploy only an existing, successful GitHub Release. Do not change versions, create commits or tags, publish releases, or edit release notes.
 
@@ -18,9 +18,9 @@ Deploy only an existing, successful GitHub Release. Do not change versions, crea
 For the known local instance, start with these discovered defaults but verify them read-only each time:
 
 - SSH: `root@192.168.1.153`
-- service: `pocketkuma.service`
-- binary: `/opt/pocketkuma/pocketkuma`
-- data: `/opt/pocketkuma/data`
+- service: `uptime-maku.service`
+- binary: `/opt/uptime-maku/uptime-maku`
+- data: `/opt/uptime-maku/data`
 - port: `3001`
 
 ## 1. Resolve and inspect
@@ -35,9 +35,9 @@ For the known local instance, start with these discovered defaults but verify th
 
 Use:
 
-- `pocketkuma-linux-x64` for `x86_64` with glibc;
-- `pocketkuma-linux-arm64` for `aarch64`;
-- `pocketkuma-linux-x64-musl` only for x64 musl systems.
+- `uptime-maku-linux-x64` for `x86_64` with glibc;
+- `uptime-maku-linux-arm64` for `aarch64`;
+- `uptime-maku-linux-x64-musl` only for x64 musl systems.
 
 Download the artifact and checksum file from the exact release. Verify SHA-256 locally, upload the artifact under a versioned staging name, and verify SHA-256 again on the host.
 
@@ -72,7 +72,7 @@ Require all of the following:
 
 - systemd reports `active/running`;
 - HTTP responds on the configured port;
-- logs report the requested PocketKuma version;
+- logs report the requested Uptime Maku version;
 - the installed binary matches the published SHA-256;
 - the rollback backup exists and its checksum is recorded.
 

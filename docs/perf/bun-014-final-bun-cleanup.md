@@ -20,7 +20,7 @@ Date: 2026-06-29
     - `http-graceful-shutdown`
     - `socket.io`
     - `dotenv`
-- Removed the Node HTTP/Socket.IO fallback constructor path from `src/server/pocketkuma-server.ts`.
+- Removed the Node HTTP/Socket.IO fallback constructor path from `src/server/uptime-maku-server.ts`.
 - Added a Bun-only entrypoint guard in `src/server/server.ts`; running the server without Bun exits immediately.
 - Replaced release version helper lockfile updates with `bun install --lockfile-only`.
 - Replaced package-version reads that depended on npm script environment variables with direct `package.json` reads.
@@ -32,7 +32,7 @@ These remain because code still imports them directly on supported paths.
 
 | Dependency                                  | Current owner                                                                                                                           |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `express`                                   | `src/server/server.ts`, `src/server/pocketkuma-server.ts`, routers, and compatibility middleware still mount an Express app behind Bun. |
+| `express`                                   | `src/server/server.ts`, `src/server/uptime-maku-server.ts`, routers, and compatibility middleware still mount an Express app behind Bun. |
 | `express-basic-auth`                        | `src/server/auth.ts` basic-auth middleware.                                                                                             |
 | `express-static-gzip`                       | `src/server/server.ts` static asset compatibility path.                                                                                 |
 | `prometheus-api-metrics`                    | `/metrics` middleware in `src/server/server.ts`.                                                                                        |
@@ -50,7 +50,7 @@ These remain because code still imports them directly on supported paths.
 - `bun run lint`: passed with inherited Oxlint warnings and Stylelint deprecation warnings.
 - `bun run build`: passed.
 - `bun run test:backend`: passed, 17 tests.
-- Current Docker validation moved to the later SQLite-only Docker cleanup report. This historical run built `pocketkuma:bun-final` at `438054063` bytes before the image matrix cleanup.
+- Current Docker validation moved to the later SQLite-only Docker cleanup report. This historical run built `uptime-maku:bun-final` at `438054063` bytes before the image matrix cleanup.
 
 ## Local Browser Smoke
 
@@ -72,7 +72,7 @@ These remain because code still imports them directly on supported paths.
 - Started local image through root compose file:
 
 ```bash
-POCKETKUMA_PORT=3013 POCKETKUMA_DATA_DIR=/tmp/pocketkuma-final-compose-smoke docker compose -p pocketkuma-final-smoke up -d --force-recreate
+UPTIME_MAKU_PORT=3013 UPTIME_MAKU_DATA_DIR=/tmp/uptime-maku-final-compose-smoke docker compose -p uptime-maku-final-smoke up -d --force-recreate
 ```
 
 - `/setup` returned HTTP 200.
@@ -86,4 +86,4 @@ POCKETKUMA_PORT=3013 POCKETKUMA_DATA_DIR=/tmp/pocketkuma-final-compose-smoke doc
 { "users": 1, "monitors": 1, "heartbeats": 1, "latest": { "status": 1, "msg": "200 - OK" } }
 ```
 
-- Cleanup: compose stack removed and `/tmp/pocketkuma-final-compose-smoke` deleted.
+- Cleanup: compose stack removed and `/tmp/uptime-maku-final-compose-smoke` deleted.

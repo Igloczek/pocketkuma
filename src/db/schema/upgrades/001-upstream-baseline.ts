@@ -436,7 +436,7 @@ async function ensureCoreIndexes(migration: SchemaMigration) {
     }
 }
 
-export async function upgrade001BunaBaselineSchema(migration: SchemaMigration) {
+export async function upgrade001UpstreamBaselineSchema(migration: SchemaMigration) {
     await ensureCoreTables(migration);
     await ensureUserColumns(migration);
     await ensureMonitorColumns(migration);
@@ -445,7 +445,7 @@ export async function upgrade001BunaBaselineSchema(migration: SchemaMigration) {
     await ensureCoreIndexes(migration);
 }
 
-export async function upgrade001BunaBaselineData(store: SQLiteTransaction) {
+export async function upgrade001UpstreamBaselineData(store: SQLiteTransaction) {
     await migrateStatusPageAnalytics(store);
     await migrateGameDigIds(store);
     await migrateSnmpJsonPathOperator(store);

@@ -73,6 +73,6 @@ describe("compiled import boundaries", () => {
             "node-cloudflared-tunnel"
         );
         await expectDynamicDependency("src/server/model/domain_expiry.ts", "tldts");
-        await expectDynamicDependency("src/db/schema/upgrades/001-buna-baseline.ts", "tldts");
+        await expectDynamicDependency("src/db/schema/upgrades/001-upstream-baseline.ts", "tldts");
     });
 });

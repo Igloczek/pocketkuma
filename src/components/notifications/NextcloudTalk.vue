@@ -56,8 +56,8 @@
 # Setup bot
 occ talk:bot:install \
     --feature response --no-setup \
-    "PocketKuma Bot" "Secret" \
-    https://pocketkuma.example.com
+    "Uptime Maku Bot" "Secret" \
+    https://uptime-maku.example.com
 
 # Obtain BotId
 occ talk:bot:list

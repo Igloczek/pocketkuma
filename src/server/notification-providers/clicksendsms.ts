@@ -30,7 +30,7 @@ class ClickSendSMS extends NotificationProvider {
                     {
                         body: msg.replace(/[^\x00-\x7F]/g, ""),
                         to: notification.clicksendsmsToNumber,
-                        source: "pocketkuma",
+                        source: "uptime-maku",
                         from: notification.clicksendsmsSenderName,
                     },
                 ],

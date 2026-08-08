@@ -7,7 +7,7 @@ import NotificationProvider from "@/server/notification-providers/notification-p
 import httpClient from "@/server/http-client";
 import packageJson from "@/package-meta";
 
-const pocketKumaVersion = packageJson.version;
+const uptimeMakuVersion = packageJson.version;
 
 class HaloPSA extends NotificationProvider {
     /**
@@ -43,13 +43,13 @@ class HaloPSA extends NotificationProvider {
              * @type {object}
              */
             const payload = {
-                title: "PocketKuma Alert",
+                title: "Uptime Maku Alert",
                 status: status,
                 monitor: monitorJSON?.name || "No Monitor",
                 monitor_id: monitorJSON?.id || null,
                 message: msg,
                 timestamp: new Date().toISOString(),
-                pocketkuma_version: pocketKumaVersion || "unknown",
+                uptime_maku_version: uptimeMakuVersion || "unknown",
             };
 
             // Send POST request to Halo PSA webhook

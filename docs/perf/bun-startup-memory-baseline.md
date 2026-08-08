@@ -1,4 +1,4 @@
-# PocketKuma startup/memory baseline
+# Uptime Maku startup/memory baseline
 
 Baseline reference: `master` at `a66d1e3d5779f045790a0604be76f50aa80a03d0`.
 
@@ -20,8 +20,8 @@ The committed JSON uses the current runner schema: both `gitSha` and `baselineSh
 | -------------------------- | --------: | ----------: | -----------------: |
 | Minimal Bun probe          |     51 ms |  23,632 KiB |        7,309,120 B |
 | Minimal Bun.serve probe    |     52 ms |  27,520 KiB |        9,897,792 B |
-| PocketKuma source backend  |    365 ms | 167,808 KiB |      122,342,080 B |
-| PocketKuma compiled binary |    666 ms | 212,848 KiB |      143,772,288 B |
+| Uptime Maku source backend  |    365 ms | 167,808 KiB |      122,342,080 B |
+| Uptime Maku compiled binary |    666 ms | 212,848 KiB |      143,772,288 B |
 
 ## Raw external samples
 
@@ -29,8 +29,8 @@ The committed JSON uses the current runner schema: both `gitSha` and `baselineSh
 | -------------------------- | -------------------------------------- | ------------------------------------ | ------------------------------------ |
 | Minimal Bun probe          | 51 ms / 23,632 KiB / 7,309,120 B       | 51 ms / 23,712 KiB / 7,423,808 B     | 52 ms / 23,616 KiB / 7,292,672 B     |
 | Minimal Bun.serve probe    | 58 ms / 27,520 KiB / 9,963,264 B       | 52 ms / 27,520 KiB / 9,897,792 B     | 52 ms / 27,552 KiB / 9,897,728 B     |
-| PocketKuma source backend  | 413 ms / 167,808 KiB / 122,047,104 B   | 365 ms / 167,776 KiB / 122,358,336 B | 364 ms / 167,872 KiB / 122,342,080 B |
-| PocketKuma compiled binary | 2,264 ms / 212,224 KiB / 143,772,288 B | 666 ms / 212,848 KiB / 143,706,944 B | 469 ms / 213,008 KiB / 144,558,848 B |
+| Uptime Maku source backend  | 413 ms / 167,808 KiB / 122,047,104 B   | 365 ms / 167,776 KiB / 122,358,336 B | 364 ms / 167,872 KiB / 122,342,080 B |
+| Uptime Maku compiled binary | 2,264 ms / 212,224 KiB / 143,772,288 B | 666 ms / 212,848 KiB / 143,706,944 B | 469 ms / 213,008 KiB / 144,558,848 B |
 
 The compiled first trial shows a cold-start outlier; the reported median preserves it as a raw sample without treating it as a failure.
 

@@ -15,7 +15,7 @@ class Fluxer extends NotificationProvider {
 
         try {
             let config = this.getAxiosConfigWithProxy({});
-            const fluxerDisplayName = notification.fluxerUsername || "PocketKuma";
+            const fluxerDisplayName = notification.fluxerUsername || "Uptime Maku";
             const webhookUrl = new URL(notification.fluxerWebhookUrl);
 
             // Check if the webhook has an avatar
@@ -48,7 +48,7 @@ class Fluxer extends NotificationProvider {
                 };
                 if (!webhookHasAvatar) {
                     fluxertestdata.avatar_url =
-                        "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
+                        "https://raw.githubusercontent.com/Igloczek/uptime-maku/master/public/icon.png";
                 }
                 await httpClient.post(webhookUrl.toString(), fluxertestdata, config);
                 return okMsg;
@@ -68,7 +68,7 @@ class Fluxer extends NotificationProvider {
                     content: content,
                 };
                 if (!webhookHasAvatar) {
-                    payload.avatar_url = "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
+                    payload.avatar_url = "https://raw.githubusercontent.com/Igloczek/uptime-maku/master/public/icon.png";
                 }
 
                 await httpClient.post(webhookUrl.toString(), payload, config);
@@ -90,7 +90,7 @@ class Fluxer extends NotificationProvider {
                     content: content,
                 };
                 if (!webhookHasAvatar) {
-                    payload.avatar_url = "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
+                    payload.avatar_url = "https://raw.githubusercontent.com/Igloczek/uptime-maku/master/public/icon.png";
                 }
 
                 await httpClient.post(webhookUrl.toString(), payload, config);
@@ -138,7 +138,7 @@ class Fluxer extends NotificationProvider {
                 };
                 if (!webhookHasAvatar) {
                     fluxerdowndata.avatar_url =
-                        "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
+                        "https://raw.githubusercontent.com/Igloczek/uptime-maku/master/public/icon.png";
                 }
                 if (notification.fluxerPrefixMessage) {
                     fluxerdowndata.content = notification.fluxerPrefixMessage;
@@ -210,7 +210,7 @@ class Fluxer extends NotificationProvider {
                 };
                 if (!webhookHasAvatar) {
                     fluxerupdata.avatar_url =
-                        "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";
+                        "https://raw.githubusercontent.com/Igloczek/uptime-maku/master/public/icon.png";
                 }
                 if (notification.fluxerPrefixMessage) {
                     fluxerupdata.content = notification.fluxerPrefixMessage;

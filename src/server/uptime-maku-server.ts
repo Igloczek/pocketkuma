@@ -17,7 +17,7 @@ import { isCompiledBinary } from "@/server/app-paths";
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-class PocketKumaServer {
+class UptimeMakuServer {
     /**
      * Main monitor list
      * @type {{}}
@@ -401,7 +401,7 @@ class PocketKumaServer {
      * @returns {void}
      */
     async startNSCDServices() {
-        if (process.env.POCKETKUMA_IS_CONTAINER) {
+        if (process.env.UPTIME_MAKU_IS_CONTAINER) {
             try {
                 log.info("services", "Starting nscd");
                 await runCommandChecked("sudo", ["service", "nscd", "start"]);
@@ -416,7 +416,7 @@ class PocketKumaServer {
      * @returns {void}
      */
     async stopNSCDServices() {
-        if (process.env.POCKETKUMA_IS_CONTAINER) {
+        if (process.env.UPTIME_MAKU_IS_CONTAINER) {
             try {
                 log.info("services", "Stopping nscd");
                 await runCommandChecked("sudo", ["service", "nscd", "stop"]);
@@ -431,7 +431,7 @@ class PocketKumaServer {
      * @returns {string} User-Agent
      */
     getUserAgent() {
-        return "PocketKuma/" + packageJson.version;
+        return "Uptime Maku/" + packageJson.version;
     }
 
     /**
@@ -453,4 +453,4 @@ class PocketKumaServer {
     }
 }
 
-export { PocketKumaServer };
+export { UptimeMakuServer };

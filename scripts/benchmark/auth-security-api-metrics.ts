@@ -63,7 +63,7 @@ async function waitForApp(port) {
     const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
         if (appProcess?.exitCode !== null) {
-            throw new Error(`PocketKuma exited before becoming ready (exit ${appProcess.exitCode})`);
+            throw new Error(`Uptime Maku exited before becoming ready (exit ${appProcess.exitCode})`);
         }
 
         try {
@@ -75,7 +75,7 @@ async function waitForApp(port) {
         await Bun.sleep(100);
     }
 
-    throw new Error("PocketKuma did not become ready within 30 seconds");
+    throw new Error("Uptime Maku did not become ready within 30 seconds");
 }
 
 async function startApp(repoRoot, dataDir) {
@@ -87,7 +87,7 @@ async function startApp(repoRoot, dataDir) {
             env: {
                 ...process.env,
                 NODE_ENV: "development",
-                POCKETKUMA_WS_ORIGIN_CHECK: "bypass",
+                UPTIME_MAKU_WS_ORIGIN_CHECK: "bypass",
             },
             stdout: "ignore",
             stderr: "ignore",
@@ -112,7 +112,7 @@ async function stopApp() {
 
     processToStop.kill("SIGTERM");
     try {
-        await withTimeout(processToStop.exited, 5_000, "PocketKuma did not stop after SIGTERM");
+        await withTimeout(processToStop.exited, 5_000, "Uptime Maku did not stop after SIGTERM");
     } catch {
         processToStop.kill("SIGKILL");
         await processToStop.exited;
@@ -220,7 +220,7 @@ export function assertMetricsIsolated({ ownershipA, ownershipB, secretsA, secret
 }
 
 async function runSample(repoRoot, sample, expectIsolated) {
-    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocketkuma-auth-metrics-bench-"));
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "uptime-maku-auth-metrics-bench-"));
     try {
         await startApp(repoRoot, dataDir);
         await stopApp();

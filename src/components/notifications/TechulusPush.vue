@@ -80,10 +80,10 @@ export default {
     },
     mounted() {
         if (typeof this.$parent.notification.pushTitle === "undefined") {
-            this.$parent.notification.pushTitle = "PocketKuma";
+            this.$parent.notification.pushTitle = "Uptime Maku";
         }
         if (typeof this.$parent.notification.pushChannel === "undefined") {
-            this.$parent.notification.pushChannel = "pocketkuma";
+            this.$parent.notification.pushChannel = "uptime-maku";
         }
         if (typeof this.$parent.notification.pushSound === "undefined") {
             this.$parent.notification.pushSound = "default";
