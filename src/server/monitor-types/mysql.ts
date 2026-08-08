@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 import dayjs from "dayjs";
 import mysql from "mysql2";
 import { ConditionVariable } from "@/server/monitor-conditions/variables";

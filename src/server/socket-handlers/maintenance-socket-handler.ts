@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { checkLogin } from "@/server/socket-auth";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 import { clearResponseCache } from "@/server/bun-response";
 import Maintenance from "@/server/model/maintenance";
 

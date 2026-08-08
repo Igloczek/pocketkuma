@@ -1,7 +1,7 @@
 // @ts-nocheck
 
-import { getMonitorRelativeURL } from "@/util";
-import { UP } from "@/util";
+import { getMonitorRelativeURL } from "@/util/monitor-url";
+import { UP } from "@/constants";
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 

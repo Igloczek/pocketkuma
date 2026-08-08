@@ -1,5 +1,5 @@
 import { upgrade001BunaBaselineData, upgrade001BunaBaselineSchema } from "../db/schema/upgrades/001-buna-baseline.js";
-import { log } from "../util.js";
+import { log } from "@/server/logger";
 
 export {
     addColumnIfMissing,

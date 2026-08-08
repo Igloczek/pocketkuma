@@ -6,7 +6,7 @@
  */
 
 import type { SQLiteStore } from "@/server/db-migrations";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 const incrementalVacuum = async (store: SQLiteStore) => {
     try {

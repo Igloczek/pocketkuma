@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { UP, PENDING, DOWN } from "@/util";
+import { UP, PENDING, DOWN } from "@/constants";
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import Monitor from "@/server/model/monitor";
 

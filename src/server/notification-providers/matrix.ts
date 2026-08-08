@@ -3,7 +3,7 @@
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 import Crypto from "crypto";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 class Matrix extends NotificationProvider {
     name = "matrix";

@@ -2,7 +2,7 @@
 
 // Define closing error codes https://www.iana.org/assignments/websocket/websocket.xml#close-code-number
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 import { checkStatusCode } from "@/server/http-utils";
 import { getOidcTokenClientCredentials } from "@/server/oidc-client";
 

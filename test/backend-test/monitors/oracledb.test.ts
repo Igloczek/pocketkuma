@@ -3,7 +3,7 @@
 import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
 import { OracleDbContainer } from "@testcontainers/oraclefree";
 import { OracleDbMonitorType } from "@/server/monitor-types/oracledb";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 
 const ORACLE_IMAGE = "gvenzl/oracle-free:23-slim-faststart";
 const APP_USER = "pocketkuma";

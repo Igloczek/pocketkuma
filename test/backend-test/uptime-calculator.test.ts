@@ -3,7 +3,7 @@
 import { describe, expect, test } from "bun:test";
 import { UptimeCalculator } from "@/server/uptime-calculator";
 import dayjs from "dayjs";
-import { UP, DOWN, PENDING, MAINTENANCE } from "@/util";
+import { UP, DOWN, PENDING, MAINTENANCE } from "@/constants";
 import dayjsPlugin_5 from "dayjs/plugin/utc";
 import dayjsPlugin_6 from "dayjs/plugin/timezone";
 import dayjsPlugin_7 from "dayjs/plugin/customParseFormat";

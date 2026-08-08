@@ -4,7 +4,8 @@
 import fs from "fs";
 import path from "path";
 import { Database as SQLiteDatabase } from "bun:sqlite";
-import { isDev, log } from "@/util";
+import { isDev } from "@/server/runtime-flags";
+import { log } from "@/server/logger";
 import { printServerUrls } from "@/server/server-urls";
 import config from "@/server/config";
 import Database from "@/server/database";

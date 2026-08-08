@@ -3,7 +3,7 @@
 import { checkLogin } from "@/server/socket-auth";
 import { doubleCheckPassword } from "@/server/server-auth-helpers";
 import { CloudflaredTunnel } from "node-cloudflared-tunnel";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 const prefix = "cloudflared_";
 

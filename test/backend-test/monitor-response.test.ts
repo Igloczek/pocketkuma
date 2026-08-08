@@ -3,7 +3,7 @@
 import { describe, test, expect } from "bun:test";
 import Monitor from "@/server/model/monitor";
 import Heartbeat from "@/server/model/heartbeat";
-import { RESPONSE_BODY_LENGTH_DEFAULT } from "@/util";
+import { RESPONSE_BODY_LENGTH_DEFAULT } from "@/constants";
 
 describe("Monitor response saving", () => {
     test("getSaveResponse and getSaveErrorResponse parse booleans", () => {

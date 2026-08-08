@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
-import { DOWN, UP } from "@/util";
+import { DOWN, UP } from "@/constants";
 import httpClient from "@/server/http-client";
 import Crypto from "crypto";
 

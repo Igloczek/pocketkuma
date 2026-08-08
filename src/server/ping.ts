@@ -1,13 +1,13 @@
 // @ts-nocheck
 
 import { runCommand } from "@/server/process-helper";
+import { log } from "@/server/logger";
 import {
-    log,
     PING_PACKET_SIZE_DEFAULT,
     PING_GLOBAL_TIMEOUT_DEFAULT,
     PING_COUNT_DEFAULT,
     PING_PER_REQUEST_TIMEOUT_DEFAULT,
-} from "@/util";
+} from "@/constants";
 import { domainToASCII } from "node:url";
 import { convertToUTF8 } from "@/server/encoding";
 

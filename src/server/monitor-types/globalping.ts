@@ -10,7 +10,9 @@
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { Globalping, IpVersion, MeasurementStatus } from "globalping";
-import { log, UP, evaluateJsonQuery } from "@/util";
+import { log } from "@/server/logger";
+import { UP } from "@/constants";
+import { evaluateJsonQuery } from "@/server/json-query";
 import { checkStatusCode, encodeBase64 } from "@/server/http-utils";
 import { getOidcTokenClientCredentials } from "@/server/oidc-client";
 import { getDaysRemaining, checkCertExpiryNotifications } from "@/server/tls-cert";

@@ -2,7 +2,7 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { UP, DOWN } from "@/util";
+import { UP, DOWN } from "@/constants";
 
 class SIGNL4 extends NotificationProvider {
     name = "SIGNL4";

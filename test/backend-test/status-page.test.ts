@@ -10,7 +10,12 @@ import { statusPageSocketHandler } from "@/server/socket-handlers/status-page-so
 import { createResponseCache } from "@/server/bun-response";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { STATUS_PAGE_ALL_UP, STATUS_PAGE_ALL_DOWN, STATUS_PAGE_PARTIAL_DOWN, STATUS_PAGE_MAINTENANCE } from "@/util";
+import {
+    STATUS_PAGE_ALL_UP,
+    STATUS_PAGE_ALL_DOWN,
+    STATUS_PAGE_PARTIAL_DOWN,
+    STATUS_PAGE_MAINTENANCE,
+} from "@/constants";
 import { frontendEntryAssets } from "@/server/generated/frontend-entry-assets";
 import { hasEmbeddedAsset } from "@/server/generated/embedded-assets";
 import { markdownToPlainText, renderStatusPageDocument } from "@/server/status-page-document";

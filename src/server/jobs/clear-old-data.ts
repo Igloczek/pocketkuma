@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import type { SQLiteStore } from "@/server/db-migrations";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 import Database from "@/server/database";
 import type { Settings } from "@/server/settings";
 import dayjs from "dayjs";

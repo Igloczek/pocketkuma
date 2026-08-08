@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 import { checkLogin } from "@/server/socket-auth";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 export const chartSocketHandler = (socket, store, heartbeatData) => {
     socket.on("getMonitorChartData", async (monitorID, period, callback) => {

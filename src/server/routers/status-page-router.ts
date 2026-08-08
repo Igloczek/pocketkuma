@@ -2,7 +2,7 @@
 "use strict";
 
 import StatusPage from "@/server/model/status_page";
-import { badgeConstants } from "@/util";
+import { badgeConstants } from "@/constants";
 import { makeBadge } from "badge-maker";
 import {
     cachedResponse,

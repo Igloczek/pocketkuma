@@ -7,7 +7,7 @@
 import { describe, test, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test";
 import { MSSQLServerContainer } from "@testcontainers/mssqlserver";
 import { MssqlMonitorType } from "@/server/monitor-types/mssql";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 
 setDefaultTimeout(120_000);
 

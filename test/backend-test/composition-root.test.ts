@@ -11,7 +11,7 @@ import StatusPage from "@/server/model/status_page";
 import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import { Settings } from "@/server/settings";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 import { createResponseCache } from "@/server/bun-response";
 
 const runtimes = [];
