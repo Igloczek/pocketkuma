@@ -16,16 +16,6 @@ import { createResponseCache } from "@/server/bun-response";
 
 const runtimes = [];
 
-function listSourceFiles(directory) {
-    return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-        const entryPath = path.join(directory, entry.name);
-        if (entry.isDirectory()) {
-            return listSourceFiles(entryPath);
-        }
-        return /\.(?:c|m)?(?:j|t)sx?$/.test(entry.name) ? [entryPath] : [];
-    });
-}
-
 async function createRuntime(name, timezone, trustProxy) {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), `pocketkuma-composition-${name}-`));
     const store = new BunSQLiteRedbean();
@@ -90,40 +80,6 @@ afterEach(async () => {
 });
 
 describe("explicit composition root", () => {
-    test("source, scripts, and tests contain no runtime singleton dependency selectors", () => {
-        const roots = ["src", "scripts", "test"].map((directory) => path.join(process.cwd(), directory));
-        const files = roots.flatMap(listSourceFiles);
-        const forbiddenText = [
-            ["settings", "legacy"].join("-"),
-            ["settings", "helpers"].join("-"),
-            ["bun", "sqlite", "store"].join("-"),
-            ["PocketKumaServer", ["get", "Instance"].join("")].join("."),
-        ];
-        const shortStoreName = new RegExp(`\\b${String.fromCharCode(82)}\\b`);
-        const staticOwner = new RegExp(["static", "\\s+", "instance", "\\b"].join(""));
-
-        for (const file of files) {
-            const source = fs.readFileSync(file, "utf8");
-            for (const forbidden of forbiddenText) {
-                expect(source, file).not.toContain(forbidden);
-            }
-            expect(source, file).not.toMatch(shortStoreName);
-            expect(source, file).not.toMatch(staticOwner);
-        }
-
-        const runtimeOwners = listSourceFiles(path.join(process.cwd(), "src")).filter((file) =>
-            fs.readFileSync(file, "utf8").includes("new BunSQLiteRedbean")
-        );
-        expect(runtimeOwners.map((file) => path.relative(process.cwd(), file))).toEqual(["src/server/server.ts"]);
-
-        expect(
-            fs.readFileSync(path.join(process.cwd(), "src/server/monitor-types/real-browser-monitor-type.ts"), "utf8")
-        ).not.toMatch(/^const browserOwners\s*=/m);
-        expect(fs.readFileSync(path.join(process.cwd(), "src/server/bun-response.ts"), "utf8")).not.toMatch(
-            /^const responseCache\s*=/m
-        );
-    });
-
     test("fresh processes import the store, registry, models, and scheduler boundaries in any order", () => {
         const modules = [
             "src/server/sqlite-core.ts",

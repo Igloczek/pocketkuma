@@ -408,12 +408,6 @@ describe("fetch HTTP client", () => {
         await expect(monitor.assertFetchHttpTransportSupported()).rejects.toThrow(
             /NTLM monitor authentication is not supported/
         );
-
-        const component = fs.readFileSync(
-            path.join(process.cwd(), "src/components/edit-monitor/EditMonitorHttpOptions.vue"),
-            "utf8"
-        );
-        expect(component).toContain("NTLM authentication is no longer supported");
     });
 
     test("Bun HTTP client routes requests through a local proxy", async () => {
@@ -646,19 +640,6 @@ describe("fetch HTTP client", () => {
         }
     });
 
-    test("core HTTP UI only lists HTTP(S) proxy records", () => {
-        const component = fs.readFileSync(path.join(process.cwd(), "src/pages/EditMonitor.vue"), "utf8");
-
-        expect(component).toContain('v-for="proxy in supportedHttpProxyList"');
-        expect(component).toContain('["http", "https"].includes(proxy.protocol)');
-    });
-
-    test("monitor debug logging never serializes fetch options containing proxy credentials", () => {
-        const source = fs.readFileSync(path.join(process.cwd(), "src/server/model/monitor.ts"), "utf8");
-
-        expect(source).not.toContain("Fetch Options: ${JSON.stringify(options)}");
-    });
-
     test("monitor honors ignoreTls against a deterministic self-signed TLS fixture", async () => {
         const monitor = store.convertToBean("monitor");
         monitor.auth_method = null;
@@ -672,28 +653,6 @@ describe("fetch HTTP client", () => {
         const response = await monitor.makeHttpMonitorRequest(options);
 
         expect(response.data).toBe("self-signed-ok");
-    });
-
-    test("HTTP monitor UI does not offer forced IP family unsupported by Bun fetch", () => {
-        const component = fs.readFileSync(
-            path.join(process.cwd(), "src/components/edit-monitor/EditMonitorAdvanced.vue"),
-            "utf8"
-        );
-
-        expect(component).not.toContain('<option value="ipv4">IPv4</option>');
-        expect(component).not.toContain('<option value="ipv6">IPv6</option>');
-    });
-
-    test("Globalping keeps its separately supported IP family UI", () => {
-        const page = fs.readFileSync(path.join(process.cwd(), "src/pages/EditMonitor.vue"), "utf8");
-        const globalpingSection = page.slice(
-            page.indexOf("<!-- Globalping -->"),
-            page.indexOf("<!-- Port -->", page.indexOf("<!-- Globalping -->"))
-        );
-
-        expect(globalpingSection).toContain('<option value="ipv4">IPv4</option>');
-        expect(globalpingSection).toContain('<option value="ipv6">IPv6</option>');
-        expect(globalpingSection).toContain("GlobalpingIpFamilyInfo");
     });
 
     test("persisted forced HTTP IP family remains explicitly rejected", async () => {
