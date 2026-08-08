@@ -31,13 +31,8 @@ import {
     RESPONSE_BODY_LENGTH_MAX,
 } from "@/constants";
 import { flipStatus } from "@/util/status";
-import { evaluateJsonQuery } from "@/server/json-query";
-import { ping } from "@/server/ping";
 import { checkStatusCode, encodeBase64 } from "@/server/http-utils";
 import { getTotalClientInRoom } from "@/server/client-room";
-import { radius } from "@/server/radius";
-import { kafkaProducerAsync } from "@/server/kafka";
-import { rootCertificatesFingerprints, checkCertExpiryNotifications } from "@/server/tls-cert";
 import { getOAuthClientCredentialsToken } from "@/server/oauth-client-credentials";
 import { BeanModel } from "@/server/bean-model";
 import { Notification } from "@/server/notification";
@@ -49,13 +44,12 @@ import { promisify } from "node:util";
 import DomainExpiry from "@/server/model/domain_expiry";
 import packageJson from "@/package-meta";
 import { clearResponseCache } from "@/server/bun-response";
-import { inspectRemoteCertificate } from "@/server/tls-cert";
 import { buildProxyFetchOption, resolveCoreHttpProxy } from "@/server/proxy-validation";
 import { writeErrorLog } from "@/server/error-log";
 
 const brotliCompress = promisify(zlib.brotliCompress);
 const version = packageJson.version;
-const rootCertificates = rootCertificatesFingerprints();
+let rootCertificates;
 
 function normalizeNumber(value, { error, integer = false, safeInteger = false, min, max }) {
     if (
@@ -529,8 +523,6 @@ class Monitor extends BeanModel {
         let retries = 0;
         const isStale = () => this.isStop || this.heartbeatGeneration !== generation;
 
-        this.rootCertificates = rootCertificates;
-
         try {
             this.prometheus = new Prometheus(this, await this.getTags(heartbeatData.store));
         } catch (e) {
@@ -699,6 +691,7 @@ class Monitor extends BeanModel {
                             const target = new URL(this.url);
                             if (target.protocol === "https:") {
                                 const port = target.port ? Number(target.port) : 443;
+                                const { inspectRemoteCertificate } = await import("@/server/tls-cert");
                                 const inspected = await inspectRemoteCertificate(
                                     target.hostname,
                                     port,
@@ -760,6 +753,7 @@ class Monitor extends BeanModel {
                     } else if (this.type === "json-query") {
                         let data = res.data;
 
+                        const { evaluateJsonQuery } = await import("@/server/json-query");
                         const { status, response } = await evaluateJsonQuery(
                             data,
                             this.jsonPath,
@@ -777,6 +771,7 @@ class Monitor extends BeanModel {
                         }
                     }
                 } else if (this.type === "ping") {
+                    const { ping } = await import("@/server/ping");
                     bean.ping = await ping(
                         this.hostname,
                         this.ping_count,
@@ -905,6 +900,7 @@ class Monitor extends BeanModel {
                         port = this.port;
                     }
 
+                    const { radius } = await import("@/server/radius");
                     const resp = await radius(
                         this.hostname,
                         this.radiusUsername,
@@ -939,6 +935,7 @@ class Monitor extends BeanModel {
                 } else if (this.type === "kafka-producer") {
                     let startTime = dayjs().valueOf();
 
+                    const { kafkaProducerAsync } = await import("@/server/kafka");
                     bean.msg = await kafkaProducerAsync(
                         JSON.parse(this.kafkaProducerBrokers),
                         this.kafkaProducerTopic,
@@ -2294,11 +2291,17 @@ class Monitor extends BeanModel {
      * @returns {Promise<void>}
      */
     async handleTlsInfo(tlsInfo, providerRegistry, settings, store = this.__store) {
+        if (!rootCertificates) {
+            const { rootCertificatesFingerprints } = await import("@/server/tls-cert");
+            rootCertificates ??= rootCertificatesFingerprints();
+        }
+        this.rootCertificates = rootCertificates;
         await this.updateTlsInfo(tlsInfo, store);
         this.prometheus?.update(null, tlsInfo, null);
 
         if (!this.getIgnoreTls() && this.isEnabledExpiryNotification()) {
             log.debug("monitor", `[${this.name}] call checkCertExpiryNotifications`);
+            const { checkCertExpiryNotifications } = await import("@/server/tls-cert");
             await checkCertExpiryNotifications(store, settings, this, tlsInfo, providerRegistry);
         }
     }
