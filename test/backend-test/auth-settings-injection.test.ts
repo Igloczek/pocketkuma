@@ -7,6 +7,7 @@ import { login } from "@/server/auth";
 import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import User from "@/server/model/user";
 import passwordHash from "@/server/password-hash";
+import jwt from "@/server/jwt";
 import { initJWTSecret } from "@/server/server-auth-helpers";
 import { Settings } from "@/server/settings";
 
@@ -66,6 +67,9 @@ describe("auth and settings storage injection", () => {
             expect(await second.getCell("SELECT twofa_status FROM user WHERE id = ?", [1])).toBe(1);
 
             await initJWTSecret(first);
+            const jwtSecret = await first.getCell("SELECT value FROM setting WHERE `key` = ?", ["jwtSecret"]);
+            expect(jwtSecret).toMatch(/^[A-Za-z0-9]{64}$/);
+            expect(jwt.verify(jwt.sign({ user: "admin" }, jwtSecret), jwtSecret)).toEqual({ user: "admin" });
             expect(await second.getCell("SELECT value FROM setting WHERE `key` = ?", ["jwtSecret"])).toBeNull();
         } finally {
             firstSettings.stopCacheCleaner();
