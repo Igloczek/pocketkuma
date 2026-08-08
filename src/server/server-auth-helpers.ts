@@ -16,7 +16,7 @@ export const initJWTSecret = async (store) => {
         jwtSecretBean.key = "jwtSecret";
     }
 
-    jwtSecretBean.value = await passwordHash.generate(genSecret());
+    jwtSecretBean.value = genSecret();
     await store.store(jwtSecretBean);
     return jwtSecretBean;
 };
