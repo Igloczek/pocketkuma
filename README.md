@@ -19,13 +19,13 @@ It provides the familiar essentials of an uptime monitor—scheduled checks, his
 
 Uptime Kuma is an excellent product, but its codebase has accumulated tightly coupled modules, hidden global state, broad compatibility layers, oversized dependency graphs, and weak internal boundaries. Those problems make the application harder to understand, change, test, and keep lightweight.
 
-Uptime Maku keeps the useful product ideas and rebuilds the internals around explicit ownership, focused modules, direct dependencies, and a deliberately narrow platform. Bun is part of the implementation, not the point of the project.
+Uptime Maku keeps the useful product ideas and rebuilds the internals around explicit ownership, focused modules, direct dependencies, and a deliberately narrow platform.
 
 Read [Why Uptime Maku exists](docs/why-uptime-maku.md) for the full architectural rationale.
 
 ## Run
 
-Download the executable for your platform from [Releases](../../releases), then run it:
+Download the executable for your platform from [Releases](https://github.com/Igloczek/uptime-maku/releases), then run it:
 
 ```bash
 chmod +x uptime-maku-linux-x64
@@ -51,15 +51,6 @@ Uptime Maku can migrate a copy of an existing Uptime Kuma SQLite data directory.
 3. Start Uptime Maku with `--data-dir` pointing to the copy.
 
 Never run both applications against the same database. Migration support is still evolving, so keep the original backup.
-
-## Development
-
-```bash
-bun install --frozen-lockfile
-bun run dev
-```
-
-Use `bun run build` to produce the `./uptime-maku` executable.
 
 ## Credits
 
