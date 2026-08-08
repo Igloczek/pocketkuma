@@ -37,8 +37,8 @@ import { checkStatusCode, encodeBase64 } from "@/server/http-utils";
 import { getTotalClientInRoom } from "@/server/client-room";
 import { radius } from "@/server/radius";
 import { kafkaProducerAsync } from "@/server/kafka";
-import { getOidcTokenClientCredentials } from "@/server/oidc-client";
 import { rootCertificatesFingerprints, checkCertExpiryNotifications } from "@/server/tls-cert";
+import { getOAuthClientCredentialsToken } from "@/server/oauth-client-credentials";
 import { BeanModel } from "@/server/bean-model";
 import { Notification } from "@/server/notification";
 import { demoMode } from "@/server/config";
@@ -619,7 +619,7 @@ class Monitor extends BeanModel {
                                 new Date(this.oauthAccessToken.expires_at * 1000) <= new Date()
                             ) {
                                 this.oauthAccessToken =
-                                    await this.makeOidcTokenClientCredentialsRequest(remainingTimeout());
+                                    await this.makeOAuthClientCredentialsRequest(remainingTimeout());
                             }
                             oauth2AuthHeader = {
                                 Authorization:
@@ -1356,7 +1356,7 @@ class Monitor extends BeanModel {
                 if (remaining <= 0) {
                     throw new Error("HTTP monitor timed out while refreshing OAuth credentials");
                 }
-                this.oauthAccessToken = await this.makeOidcTokenClientCredentialsRequest(remaining);
+                this.oauthAccessToken = await this.makeOAuthClientCredentialsRequest(remaining);
                 let oauth2AuthHeader = {
                     Authorization: this.oauthAccessToken.token_type + " " + this.oauthAccessToken.access_token,
                 };
@@ -2262,12 +2262,12 @@ class Monitor extends BeanModel {
     }
 
     /**
-     * Obtains a new Oidc Token
-     * @returns {Promise<object>} OAuthProvider client
+     * Obtains a new OAuth access token.
+     * @returns {Promise<object>} OAuth token response
      */
-    async makeOidcTokenClientCredentialsRequest(timeout = this.timeout * 1000) {
+    async makeOAuthClientCredentialsRequest(timeout = this.timeout * 1000) {
         log.debug("monitor", `[${this.name}] The oauth access-token undefined or expired. Requesting a new token`);
-        const oAuthAccessToken = await getOidcTokenClientCredentials(
+        const oAuthAccessToken = await getOAuthClientCredentialsToken(
             this.oauth_token_url,
             this.oauth_client_id,
             this.oauth_client_secret,
