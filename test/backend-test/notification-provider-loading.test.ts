@@ -52,6 +52,11 @@ describe("notification provider compile-safe loading", () => {
             const result = JSON.parse(stdout.trim());
             expect(result.monitors).toBeGreaterThan(0);
             expect(result.notificationProviders).toBe(registryKeys.length);
+            expect(result.optionalStartup).toEqual({
+                cloudflared: true,
+                domain: "example.com",
+                webpush: true,
+            });
         } finally {
             fs.rmSync(outputDir, { recursive: true, force: true });
         }

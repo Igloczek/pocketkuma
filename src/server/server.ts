@@ -60,7 +60,7 @@ import { shake256, SHAKE256_LENGTH } from "@/server/hash";
 import { initJWTSecret, doubleCheckPassword } from "@/server/server-auth-helpers";
 import { checkLogin } from "@/server/socket-auth";
 import { Notification } from "@/server/notification";
-import webpush from "web-push";
+import { getWebpushVapidPublicKey } from "@/server/webpush-vapid";
 import Database from "@/server/database";
 import { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 import { initBackgroundJobs, stopBackgroundJobs } from "@/server/jobs";
@@ -1511,17 +1511,7 @@ let needSetup = false;
 
         socket.on("getWebpushVapidPublicKey", async (callback) => {
             try {
-                let publicVapidKey = await settings.get("webpushPublicVapidKey");
-
-                if (!publicVapidKey) {
-                    log.debug("webpush", "Generating new VAPID keys");
-                    const vapidKeys = webpush.generateVAPIDKeys();
-
-                    await settings.set("webpushPublicVapidKey", vapidKeys.publicKey);
-                    await settings.set("webpushPrivateVapidKey", vapidKeys.privateKey);
-
-                    publicVapidKey = vapidKeys.publicKey;
-                }
+                const publicVapidKey = await getWebpushVapidPublicKey(settings);
 
                 callback({
                     ok: true,

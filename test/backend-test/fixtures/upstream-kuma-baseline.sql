@@ -70,6 +70,9 @@ VALUES ('GameDig TF2', 'gamedig', 'tf2', NULL, 1, 'games.example.invalid', '["20
 INSERT INTO monitor (name, type, json_path_operator, accepted_statuscodes_json, user_id)
 VALUES ('SNMP monitor', 'snmp', NULL, '["200-299"]', 1);
 
+INSERT INTO monitor (name, type, url, domain_expiry_notification, accepted_statuscodes_json, user_id)
+VALUES ('Unsupported domain expiry', 'http', 'https://service.local', 1, '["200-299"]', 1);
+
 INSERT INTO status_page (slug, title, icon, theme, google_analytics_tag_id, autoRefreshInterval)
 VALUES ('default', 'Status', '', 'light', 'G-LEGACY', 120);
 
