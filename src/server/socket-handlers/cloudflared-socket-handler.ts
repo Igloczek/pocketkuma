@@ -2,24 +2,39 @@
 
 import { checkLogin } from "@/server/socket-auth";
 import { doubleCheckPassword } from "@/server/server-auth-helpers";
-import { CloudflaredTunnel } from "node-cloudflared-tunnel";
 import { log } from "@/server/logger";
 
 const prefix = "cloudflared_";
 
-export function createCloudflaredRuntime(io, settings) {
-    const cloudflared = new CloudflaredTunnel();
+export function createCloudflaredRuntime(io, settings, loadCloudflared = () => import("node-cloudflared-tunnel")) {
+    let loading;
 
-    cloudflared.change = (running, message) => {
-        io.to("cloudflared").emit(prefix + "running", running);
-        io.to("cloudflared").emit(prefix + "message", message);
+    const getCloudflared = async () => {
+        if (!loading) {
+            const pending = loadCloudflared().then(({ CloudflaredTunnel }) => {
+                const cloudflared = new CloudflaredTunnel();
+                cloudflared.change = (running, message) => {
+                    io.to("cloudflared").emit(prefix + "running", running);
+                    io.to("cloudflared").emit(prefix + "message", message);
+                };
+                cloudflared.error = (errorMessage) => io.to("cloudflared").emit(prefix + "errorMessage", errorMessage);
+                return cloudflared;
+            });
+            loading = pending;
+            void pending.then(undefined, () => {
+                if (loading === pending) {
+                    loading = undefined;
+                }
+            });
+        }
+        return loading;
     };
-    cloudflared.error = (errorMessage) => io.to("cloudflared").emit(prefix + "errorMessage", errorMessage);
 
     const socketHandler = (socket, store) => {
         socket.on(prefix + "join", async () => {
             try {
                 checkLogin(socket);
+                const cloudflared = await getCloudflared();
                 socket.join("cloudflared");
                 io.to(socket.userID).emit(prefix + "installed", cloudflared.checkInstalled());
                 io.to(socket.userID).emit(prefix + "running", cloudflared.running);
@@ -41,12 +56,13 @@ export function createCloudflaredRuntime(io, settings) {
         socket.on(prefix + "start", async (token) => {
             try {
                 checkLogin(socket);
+                let nextToken = null;
                 if (token && typeof token === "string") {
                     await settings.set("cloudflaredTunnelToken", token);
-                    cloudflared.token = token;
-                } else {
-                    cloudflared.token = null;
+                    nextToken = token;
                 }
+                const cloudflared = await getCloudflared();
+                cloudflared.token = nextToken;
                 cloudflared.start();
             } catch (error) {
                 log.error("cloudflared", "Error in start handler: " + error.message);
@@ -59,6 +75,7 @@ export function createCloudflaredRuntime(io, settings) {
                 if (!(await settings.get("disableAuth"))) {
                     await doubleCheckPassword(store, socket, currentPassword);
                 }
+                const cloudflared = await getCloudflared();
                 cloudflared.stop();
             } catch (error) {
                 callback({ ok: false, msg: error.message });
@@ -86,13 +103,23 @@ export function createCloudflaredRuntime(io, settings) {
             }
             if (token) {
                 log.info("cloudflare", "Start cloudflared");
+                const cloudflared = await getCloudflared();
                 cloudflared.token = token;
                 cloudflared.start();
             }
         },
-        stop() {
-            log.info("cloudflared", "Stop cloudflared");
-            cloudflared.stop();
+        async stop() {
+            const loaded = loading;
+            if (!loaded) {
+                return;
+            }
+            try {
+                const cloudflared = await loaded;
+                log.info("cloudflared", "Stop cloudflared");
+                cloudflared.stop();
+            } catch {
+                // An optional load failure must not block application shutdown.
+            }
         },
     };
 }
