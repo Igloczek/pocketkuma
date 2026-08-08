@@ -7,8 +7,9 @@
  */
 import { checkLogin } from "@/server/util-server";
 import Database from "@/server/database";
+import type { SQLiteStore } from "@/server/db-migrations";
 
-export const databaseSocketHandler = (socket) => {
+export const databaseSocketHandler = (socket, store: SQLiteStore) => {
     // Post or edit incident
     socket.on("getDatabaseSize", async (callback) => {
         try {
@@ -28,7 +29,7 @@ export const databaseSocketHandler = (socket) => {
     socket.on("shrinkDatabase", async (callback) => {
         try {
             checkLogin(socket);
-            await Database.shrink();
+            await Database.shrink(store);
             callback({
                 ok: true,
             });

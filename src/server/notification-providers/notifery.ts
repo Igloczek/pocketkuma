@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import { getMonitorRelativeURL, UP } from "@/util";
-import { setting } from "@/server/util-server";
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
 
@@ -25,7 +24,7 @@ class Notifery extends NotificationProvider {
         }
 
         // Link to the monitor
-        const baseURL = await setting("primaryBaseURL");
+        const baseURL = await this.settings.get("primaryBaseURL");
         if (baseURL && monitorJSON) {
             data.message += `\n\nMonitor: ${baseURL}${getMonitorRelativeURL(monitorJSON.id)}`;
         }

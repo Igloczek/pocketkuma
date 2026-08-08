@@ -2,8 +2,6 @@
 
 import { isIP } from "node:net";
 
-import { R } from "@/server/bun-sqlite-store";
-
 const SUPPORTED_PROXY_PROTOCOLS = ["http", "https", "socks", "socks5", "socks5h", "socks4"];
 const CORE_HTTP_MONITOR_TYPES = new Set(["http", "keyword", "json-query"]);
 
@@ -82,7 +80,7 @@ function validateProxyDefinition(proxy) {
     };
 }
 
-async function resolveCoreHttpProxy(type, proxyID, userID, ignoreTls) {
+async function resolveCoreHttpProxy(store, type, proxyID, userID, ignoreTls) {
     if (!CORE_HTTP_MONITOR_TYPES.has(type) || proxyID === null || proxyID === undefined) {
         return null;
     }
@@ -90,7 +88,7 @@ async function resolveCoreHttpProxy(type, proxyID, userID, ignoreTls) {
         throw new Error("Assigned proxy is unavailable for this monitor");
     }
 
-    const proxy = await R.findOne("proxy", " id = ? AND user_id = ? ", [proxyID, userID]);
+    const proxy = await store.findOne("proxy", " id = ? AND user_id = ? ", [proxyID, userID]);
     if (!proxy) {
         throw new Error("Assigned proxy is unavailable for this monitor");
     }

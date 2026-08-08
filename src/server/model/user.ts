@@ -2,7 +2,6 @@
 
 import { BeanModel } from "@/server/bean-model";
 import passwordHash from "@/server/password-hash";
-import { R } from "@/server/bun-sqlite-store";
 import jwt from "@/server/jwt";
 import { shake256, SHAKE256_LENGTH } from "@/server/util-server";
 
@@ -14,8 +13,8 @@ class User extends BeanModel {
      * @param {string} newPassword Users new password
      * @returns {Promise<void>}
      */
-    static async resetPassword(userID, newPassword) {
-        await R.exec("UPDATE `user` SET password = ? WHERE id = ? ", [
+    static async resetPassword(store, userID, newPassword) {
+        await store.exec("UPDATE `user` SET password = ? WHERE id = ? ", [
             await passwordHash.generate(newPassword),
             userID,
         ]);
@@ -26,10 +25,10 @@ class User extends BeanModel {
      * @param {string} newPassword Users new password
      * @returns {Promise<void>}
      */
-    async resetPassword(newPassword) {
+    async resetPassword(store, newPassword) {
         const hashedPassword = await passwordHash.generate(newPassword);
 
-        await R.exec("UPDATE `user` SET password = ? WHERE id = ? ", [hashedPassword, this.id]);
+        await store.exec("UPDATE `user` SET password = ? WHERE id = ? ", [hashedPassword, this.id]);
 
         this.password = hashedPassword;
     }
@@ -58,9 +57,9 @@ class User extends BeanModel {
      * @param {string} jwtSecret JWT signing secret
      * @returns {Promise<{id: string, token: string}>} Session ID and signed token
      */
-    static async createSession(user, jwtSecret) {
+    static async createSession(store, user, jwtSecret) {
         const id = crypto.randomUUID();
-        await R.exec("INSERT INTO setting (`key`, `value`) VALUES (?, ?)", [`session:${id}`, String(user.id)]);
+        await store.exec("INSERT INTO setting (`key`, `value`) VALUES (?, ?)", [`session:${id}`, String(user.id)]);
         return { id, token: User.createJWT(user, jwtSecret, id) };
     }
 
@@ -70,12 +69,12 @@ class User extends BeanModel {
      * @param {number} userID User identifier
      * @returns {Promise<boolean>} Whether the session is active
      */
-    static async hasSession(sessionID, userID) {
+    static async hasSession(store, sessionID, userID) {
         if (typeof sessionID !== "string") {
             return false;
         }
         return (
-            (await R.getCell("SELECT 1 FROM setting WHERE `key` = ? AND `value` = ?", [
+            (await store.getCell("SELECT 1 FROM setting WHERE `key` = ? AND `value` = ?", [
                 `session:${sessionID}`,
                 String(userID),
             ])) === 1
@@ -88,9 +87,9 @@ class User extends BeanModel {
      * @param {number} userID User identifier
      * @returns {Promise<void>}
      */
-    static async revokeSession(sessionID, userID) {
+    static async revokeSession(store, sessionID, userID) {
         if (typeof sessionID === "string") {
-            await R.exec("DELETE FROM setting WHERE `key` = ? AND `value` = ?", [
+            await store.exec("DELETE FROM setting WHERE `key` = ? AND `value` = ?", [
                 `session:${sessionID}`,
                 String(userID),
             ]);
@@ -102,8 +101,8 @@ class User extends BeanModel {
      * @param {number} userID User identifier
      * @returns {Promise<void>}
      */
-    static async revokeAllSessions(userID) {
-        await R.exec("DELETE FROM setting WHERE `key` LIKE 'session:%' AND `value` = ?", [String(userID)]);
+    static async revokeAllSessions(store, userID) {
+        await store.exec("DELETE FROM setting WHERE `key` LIKE 'session:%' AND `value` = ?", [String(userID)]);
     }
 }
 

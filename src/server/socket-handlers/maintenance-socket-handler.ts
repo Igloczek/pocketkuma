@@ -2,14 +2,10 @@
 
 import { checkLogin } from "@/server/util-server";
 import { log } from "@/util";
-import { R } from "@/server/bun-sqlite-store";
 import { clearResponseCache } from "@/server/bun-response";
-import { PocketKumaServer } from "@/server/pocketkuma-server";
 import Maintenance from "@/server/model/maintenance";
 
-const server = PocketKumaServer.getInstance();
-
-function getOwnedMaintenance(maintenanceID, userID) {
+function getOwnedMaintenance(server, maintenanceID, userID) {
     const maintenance = server.getMaintenance(maintenanceID);
     if (!maintenance || maintenance.user_id !== userID) {
         throw new Error("Maintenance not found");
@@ -17,7 +13,7 @@ function getOwnedMaintenance(maintenanceID, userID) {
     return maintenance;
 }
 
-async function getUniqueRelationIDs(items, table, userID = null) {
+async function getUniqueRelationIDs(store, items, table, userID = null) {
     if (!Array.isArray(items)) {
         throw new Error("Invalid relation list");
     }
@@ -28,7 +24,7 @@ async function getUniqueRelationIDs(items, table, userID = null) {
         }
         const condition = userID === null ? " id = ? " : " id = ? AND user_id = ? ";
         const params = userID === null ? [id] : [id, userID];
-        if (!(await R.findOne(table, condition, params))) {
+        if (!(await store.findOne(table, condition, params))) {
             throw new Error("Relation not found");
         }
     }
@@ -44,8 +40,8 @@ async function writeRelations(store, maintenanceID, ids, table, foreignKey) {
     }
 }
 
-async function replaceRelations(maintenanceID, ids, table, foreignKey) {
-    const transaction = await R.begin();
+async function replaceRelations(store, maintenanceID, ids, table, foreignKey) {
+    const transaction = await store.begin();
     try {
         await writeRelations(transaction, maintenanceID, ids, table, foreignKey);
         await transaction.commit();
@@ -55,7 +51,7 @@ async function replaceRelations(maintenanceID, ids, table, foreignKey) {
     }
 }
 
-async function validateRelations(relations, userID) {
+async function validateRelations(store, relations, userID) {
     if (relations === null) {
         return null;
     }
@@ -63,12 +59,12 @@ async function validateRelations(relations, userID) {
         throw new Error("Invalid maintenance relations");
     }
     return {
-        monitorIDs: await getUniqueRelationIDs(relations.monitors, "monitor", userID),
-        statusPageIDs: await getUniqueRelationIDs(relations.statusPages, "status_page"),
+        monitorIDs: await getUniqueRelationIDs(store, relations.monitors, "monitor", userID),
+        statusPageIDs: await getUniqueRelationIDs(store, relations.statusPages, "status_page"),
     };
 }
 
-async function publishMaintenanceList(socket) {
+async function publishMaintenanceList(server, socket) {
     try {
         await server.sendMaintenanceList(socket);
     } catch (error) {
@@ -81,7 +77,7 @@ async function publishMaintenanceList(socket) {
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-export const maintenanceSocketHandler = (socket) => {
+export const maintenanceSocketHandler = (socket, store, server, responseCache) => {
     // Add a new maintenance
     socket.on("addMaintenance", async (maintenance, relations, callback) => {
         if (typeof relations === "function") {
@@ -96,10 +92,10 @@ export const maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", maintenance);
 
-            const relationIDs = await validateRelations(relations, socket.userID);
-            bean = await Maintenance.jsonToBean(R.dispense("maintenance"), maintenance);
+            const relationIDs = await validateRelations(store, relations, socket.userID);
+            bean = await Maintenance.jsonToBean(store.dispense("maintenance"), maintenance);
             bean.user_id = socket.userID;
-            transaction = await R.begin();
+            transaction = await store.begin();
             maintenanceID = await transaction.store(bean);
             if (relationIDs) {
                 await writeRelations(
@@ -117,7 +113,7 @@ export const maintenanceSocketHandler = (socket) => {
                     "status_page_id"
                 );
             }
-            await bean.run(true, true);
+            await bean.run(store, server, true, true, responseCache);
             await transaction.commit();
             transaction = null;
         } catch (e) {
@@ -130,14 +126,14 @@ export const maintenanceSocketHandler = (socket) => {
             return;
         }
         server.maintenanceList[maintenanceID] = bean;
-        clearResponseCache();
+        clearResponseCache(responseCache);
         callback({
             ok: true,
             msg: "successAdded",
             msgi18n: true,
             maintenanceID,
         });
-        await publishMaintenanceList(socket);
+        await publishMaintenanceList(server, socket);
     });
 
     // Edit a maintenance
@@ -151,10 +147,10 @@ export const maintenanceSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            bean = getOwnedMaintenance(maintenance?.id, socket.userID);
-            const relationIDs = await validateRelations(relations, socket.userID);
-            draft = await Maintenance.jsonToBean(R.dispense("maintenance").import(bean.export()), maintenance);
-            const transaction = await R.begin();
+            bean = getOwnedMaintenance(server, maintenance?.id, socket.userID);
+            const relationIDs = await validateRelations(store, relations, socket.userID);
+            draft = await Maintenance.jsonToBean(store.dispense("maintenance").import(bean.export()), maintenance);
+            const transaction = await store.begin();
             try {
                 bean.stop();
                 await transaction.store(draft);
@@ -174,12 +170,12 @@ export const maintenanceSocketHandler = (socket) => {
                         "status_page_id"
                     );
                 }
-                await draft.run(true, true);
+                await draft.run(store, server, true, true, responseCache);
                 await transaction.commit();
             } catch (error) {
                 draft.stop();
                 await transaction.rollback();
-                await bean.run(true, true);
+                await bean.run(store, server, true, true, responseCache);
                 throw error;
             }
         } catch (e) {
@@ -191,14 +187,14 @@ export const maintenanceSocketHandler = (socket) => {
             return;
         }
         server.maintenanceList[bean.id] = draft;
-        clearResponseCache();
+        clearResponseCache(responseCache);
         callback({
             ok: true,
             msg: "Saved.",
             msgi18n: true,
             maintenanceID: bean.id,
         });
-        await publishMaintenanceList(socket);
+        await publishMaintenanceList(server, socket);
     });
 
     // Add a new monitor_maintenance
@@ -206,12 +202,12 @@ export const maintenanceSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            getOwnedMaintenance(maintenanceID, socket.userID);
-            const monitorIDs = await getUniqueRelationIDs(monitors, "monitor", socket.userID);
+            getOwnedMaintenance(server, maintenanceID, socket.userID);
+            const monitorIDs = await getUniqueRelationIDs(store, monitors, "monitor", socket.userID);
 
-            await replaceRelations(maintenanceID, monitorIDs, "monitor_maintenance", "monitor_id");
+            await replaceRelations(store, maintenanceID, monitorIDs, "monitor_maintenance", "monitor_id");
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -231,13 +227,13 @@ export const maintenanceSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            getOwnedMaintenance(maintenanceID, socket.userID);
+            getOwnedMaintenance(server, maintenanceID, socket.userID);
             // Status pages have no user_id in this SQLite schema, so their ownership is global.
-            const statusPageIDs = await getUniqueRelationIDs(statusPages, "status_page");
+            const statusPageIDs = await getUniqueRelationIDs(store, statusPages, "status_page");
 
-            await replaceRelations(maintenanceID, statusPageIDs, "maintenance_status_page", "status_page_id");
+            await replaceRelations(store, maintenanceID, statusPageIDs, "maintenance_status_page", "status_page_id");
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -258,11 +254,11 @@ export const maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Get Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let bean = getOwnedMaintenance(maintenanceID, socket.userID);
+            let bean = getOwnedMaintenance(server, maintenanceID, socket.userID);
 
             callback({
                 ok: true,
-                maintenance: await bean.toJSON(),
+                maintenance: await bean.toJSON(server),
             });
         } catch (e) {
             callback({
@@ -293,11 +289,11 @@ export const maintenanceSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            getOwnedMaintenance(maintenanceID, socket.userID);
+            getOwnedMaintenance(server, maintenanceID, socket.userID);
 
             log.debug("maintenance", `Get Monitors for Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let monitors = await R.getAll(
+            let monitors = await store.getAll(
                 "SELECT monitor.id FROM monitor_maintenance mm JOIN monitor ON mm.monitor_id = monitor.id WHERE mm.maintenance_id = ? ",
                 [maintenanceID]
             );
@@ -319,11 +315,11 @@ export const maintenanceSocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            getOwnedMaintenance(maintenanceID, socket.userID);
+            getOwnedMaintenance(server, maintenanceID, socket.userID);
 
             log.debug("maintenance", `Get Status Pages for Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let statusPages = await R.getAll(
+            let statusPages = await store.getAll(
                 "SELECT status_page.id, status_page.title FROM maintenance_status_page msp JOIN status_page ON msp.status_page_id = status_page.id WHERE msp.maintenance_id = ? ",
                 [maintenanceID]
             );
@@ -347,13 +343,13 @@ export const maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Delete Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            const maintenance = getOwnedMaintenance(maintenanceID, socket.userID);
-            await R.exec("DELETE FROM maintenance WHERE id = ? AND user_id = ? ", [maintenanceID, socket.userID]);
+            const maintenance = getOwnedMaintenance(server, maintenanceID, socket.userID);
+            await store.exec("DELETE FROM maintenance WHERE id = ? AND user_id = ? ", [maintenanceID, socket.userID]);
             maintenance.active = false;
             maintenance.stop();
             delete server.maintenanceList[maintenanceID];
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -361,7 +357,7 @@ export const maintenanceSocketHandler = (socket) => {
                 msgi18n: true,
             });
 
-            await publishMaintenanceList(socket);
+            await publishMaintenanceList(server, socket);
         } catch (e) {
             callback({
                 ok: false,
@@ -376,19 +372,19 @@ export const maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Pause Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let maintenance = getOwnedMaintenance(maintenanceID, socket.userID);
+            let maintenance = getOwnedMaintenance(server, maintenanceID, socket.userID);
 
             const active = maintenance.active;
             maintenance.active = false;
             try {
-                await R.store(maintenance);
+                await store.store(maintenance);
             } catch (error) {
                 maintenance.active = active;
                 throw error;
             }
             maintenance.stop();
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -396,7 +392,7 @@ export const maintenanceSocketHandler = (socket) => {
                 msgi18n: true,
             });
 
-            await publishMaintenanceList(socket);
+            await publishMaintenanceList(server, socket);
         } catch (e) {
             callback({
                 ok: false,
@@ -411,21 +407,21 @@ export const maintenanceSocketHandler = (socket) => {
 
             log.debug("maintenance", `Resume Maintenance: ${maintenanceID} User ID: ${socket.userID}`);
 
-            let maintenance = getOwnedMaintenance(maintenanceID, socket.userID);
+            let maintenance = getOwnedMaintenance(server, maintenanceID, socket.userID);
 
             const active = maintenance.active;
             maintenance.active = true;
             try {
-                await R.store(maintenance);
-                await maintenance.run(true, true);
+                await store.store(maintenance);
+                await maintenance.run(store, server, true, true, responseCache);
             } catch (error) {
                 maintenance.stop();
                 maintenance.active = active;
-                await R.store(maintenance);
+                await store.store(maintenance);
                 throw error;
             }
 
-            clearResponseCache();
+            clearResponseCache(responseCache);
 
             callback({
                 ok: true,
@@ -433,7 +429,7 @@ export const maintenanceSocketHandler = (socket) => {
                 msgi18n: true,
             });
 
-            await publishMaintenanceList(socket);
+            await publishMaintenanceList(server, socket);
         } catch (e) {
             callback({
                 ok: false,

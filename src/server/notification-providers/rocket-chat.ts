@@ -4,7 +4,6 @@ import NotificationProvider from "@/server/notification-providers/notification-p
 import httpClient from "@/server/http-client";
 import Slack from "@/server/notification-providers/slack";
 import { getMonitorRelativeURL, DOWN } from "@/util";
-import { Settings } from "@/server/settings";
 
 class RocketChat extends NotificationProvider {
     name = "rocket.chat";
@@ -49,10 +48,10 @@ class RocketChat extends NotificationProvider {
             }
 
             if (notification.rocketbutton) {
-                await Slack.deprecateURL(notification.rocketbutton);
+                await Slack.deprecateURL(this.settings, notification.rocketbutton);
             }
 
-            const baseURL = await Settings.get("primaryBaseURL");
+            const baseURL = await this.settings.get("primaryBaseURL");
 
             if (baseURL) {
                 data.attachments[0].title_link = baseURL + getMonitorRelativeURL(monitorJSON.id);

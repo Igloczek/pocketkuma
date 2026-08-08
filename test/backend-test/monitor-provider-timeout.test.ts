@@ -23,7 +23,7 @@ import { runCommand } from "@/server/process-helper";
 let Monitor;
 
 beforeAll(async () => {
-    await import("@/server/bun-sqlite-store");
+    await import("@/server/sqlite-core");
     Monitor = (await import("@/server/model/monitor")).default;
 });
 

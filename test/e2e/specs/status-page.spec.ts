@@ -67,9 +67,9 @@ test.describe("Status Page", () => {
 
         // Monitor
         const monitorName = "Monitor for Status Page";
-        const tagName = "Client";
+        const tagName = "monitor_name";
         const tagValue = "Acme Inc";
-        const tagName2 = "Project"; // Add second tag name
+        const tagName2 = "monitor_type";
         const tagValue2 = "Phoenix"; // Add second tag value
         const monitorUrl = `${serverUrl}/status`;
         const monitorCustomUrl = `${serverUrl}/dashboard`;
@@ -100,27 +100,34 @@ test.describe("Status Page", () => {
         await page.getByTestId("friendly-name-input").fill(monitorName);
         await page.getByTestId("url-input").fill(monitorUrl);
 
-        // Modified tag section to add multiple tags
+        await page.getByTestId("save-button").click();
+        await page.waitForURL("/dashboard/*"); // wait for the monitor to be created
+
+        // Attach both tags through the supported monitor editor flow after the monitor has an ID.
+        const monitorId = Number(new URL(page.url()).pathname.split("/").at(-1));
+        await page.goto(`./edit/${monitorId}`);
         await page.getByTestId("add-tag-button").click();
         await page.getByTestId("tag-name-input").fill(tagName);
         await page.getByTestId("tag-value-input").fill(tagValue);
-        await page.getByTestId("tag-color-select").click(); // Vue-Multiselect component
+        await page.getByTestId("tag-color-select").click();
         await page.getByTestId("tag-color-select").getByRole("option", { name: "Orange" }).click();
-
-        // Add another tag instead of submitting directly
         await page.getByRole("button", { name: "Add Another Tag" }).click();
-
-        // Add second tag
         await page.getByTestId("tag-name-input").fill(tagName2);
         await page.getByTestId("tag-value-input").fill(tagValue2);
         await page.getByTestId("tag-color-select").click();
         await page.getByTestId("tag-color-select").getByRole("option", { name: "Blue" }).click();
-
-        // Submit both tags
         await page.getByTestId("add-tags-final-button").click();
-
+        const tagsManager = page.getByRole("heading", { name: "Tags" }).locator("..");
+        await expect(
+            tagsManager.locator(".mb-2.p-1 .tag-text").filter({ hasText: `${tagName}: ${tagValue}` })
+        ).toBeVisible();
+        await expect(
+            tagsManager.locator(".mb-2.p-1 .tag-text").filter({ hasText: `${tagName2}: ${tagValue2}` })
+        ).toBeVisible();
         await page.getByTestId("save-button").click();
-        await page.waitForURL("/dashboard/*"); // wait for the monitor to be created
+        await expect(page.getByTestId("save-button")).toBeDisabled();
+        await expect(page.getByTestId("save-button")).toBeEnabled();
+        await page.goto(`./dashboard/${monitorId}`);
 
         // Create a new status page
         await page.goto("./add-status-page");
@@ -217,9 +224,11 @@ test.describe("Status Page", () => {
         await page.getByTestId("analytics-id-input").fill(umamiAnalyticsWebsiteId);
         await saveStatusPage(page);
 
+        // Verify persisted public configuration after a fresh read.
+        await page.goto("/status/example");
         await expect(page.getByTestId("powered-by")).toContainText("Powered by");
-
-        // Modified tag verification to check both tags
+        const publicConfig = await (await page.request.get("/api/status-page/example")).json();
+        expect(publicConfig.config.showTags).toBe(true);
         await expect(page.getByTestId("monitor-tag").filter({ hasText: tagValue })).toBeVisible();
         await expect(page.getByTestId("monitor-tag").filter({ hasText: tagValue2 })).toBeVisible();
 

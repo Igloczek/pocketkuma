@@ -5,16 +5,16 @@
  * DO NOT require("./server") in other modules, it likely creates circular dependency!
  */
 import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import timezone from "dayjs/plugin/timezone";
-import { loadEnv } from "@/server/env";
 import { getRuntimeInfo, isBunRuntime } from "@/server/runtime";
+import { clearWithStoppedMonitors } from "@/server/monitor-clear";
 import { args } from "@/server/args";
 import { sleep, log, getRandomInt, genSecret } from "@/util";
 import config from "@/server/config";
-import * as checkVersion from "@/server/check-version";
-import { R } from "@/server/bun-sqlite-store";
+import { createVersionChecker, version } from "@/server/check-version";
+import { BunSQLiteRedbean } from "@/server/sqlite-core";
+import "@/server/model-registry";
+import { Settings } from "@/server/settings";
 import jwt from "@/server/jwt";
 
 import TranslatableError from "@/server/translatable-error";
@@ -54,25 +54,18 @@ import { PocketKumaServer } from "@/server/pocketkuma-server";
 import { listenWithBunServe } from "@/server/bun-http-server";
 import Monitor from "@/server/model/monitor";
 import User from "@/server/model/user";
-import {
-    getSettings,
-    setSettings,
-    setting,
-    initJWTSecret,
-    checkLogin,
-    doubleCheckPassword,
-    shake256,
-    SHAKE256_LENGTH,
-} from "@/server/util-server";
+import { shake256, SHAKE256_LENGTH } from "@/server/util-server";
+import { initJWTSecret, checkLogin, doubleCheckPassword } from "@/server/server-auth-helpers";
 import { Notification } from "@/server/notification";
 import webpush from "web-push";
 import Database from "@/server/database";
+import { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 import { initBackgroundJobs, stopBackgroundJobs } from "@/server/jobs";
 import { loginRateLimiter, twoFaRateLimiter } from "@/server/rate-limiter";
 import { login } from "@/server/auth";
 import * as passwordHash from "@/server/password-hash";
 import { Prometheus } from "@/server/prometheus";
-import { UptimeCalculator } from "@/server/uptime-calculator";
+import { HeartbeatDataPlane } from "@/server/heartbeat-data-plane";
 import {
     sendNotificationList,
     sendHeartbeatList,
@@ -88,26 +81,20 @@ import { databaseSocketHandler } from "@/server/socket-handlers/database-socket-
 import { remoteBrowserSocketHandler } from "@/server/socket-handlers/remote-browser-socket-handler";
 import TwoFA from "@/server/2fa";
 import StatusPage from "@/server/model/status_page";
-import {
-    cloudflaredSocketHandler,
-    autoStart as cloudflaredAutoStart,
-    stop as cloudflaredStop,
-} from "@/server/socket-handlers/cloudflared-socket-handler";
+import { createCloudflaredRuntime } from "@/server/socket-handlers/cloudflared-socket-handler";
 import { proxySocketHandler } from "@/server/socket-handlers/proxy-socket-handler";
 import { resolveCoreHttpProxy } from "@/server/proxy-validation";
 import { dockerSocketHandler } from "@/server/socket-handlers/docker-socket-handler";
 import { maintenanceSocketHandler } from "@/server/socket-handlers/maintenance-socket-handler";
 import { apiKeySocketHandler } from "@/server/socket-handlers/api-key-socket-handler";
 import { generalSocketHandler } from "@/server/socket-handlers/general-socket-handler";
-import { Settings } from "@/server/settings";
-import { clearResponseCache } from "@/server/bun-response";
+import { clearResponseCache, createResponseCache } from "@/server/bun-response";
 import { chartSocketHandler } from "@/server/socket-handlers/chart-socket-handler";
+import { writeErrorLog } from "@/server/error-log";
 
 console.log("Welcome to PocketKuma");
 
 // As the log function need to use dayjs, it should be very top
-dayjs.extend(utc);
-dayjs.extend(timezone);
 dayjs.extend(customParseFormat);
 
 if (!isBunRuntime()) {
@@ -141,20 +128,31 @@ if (process.env.POCKETKUMA_DEBUG_INSPECTOR === "1") {
     log.warn("server", "POCKETKUMA_DEBUG_INSPECTOR is not supported under Bun. Start Bun with --inspect instead.");
 }
 
-log.info("server", "PocketKuma Version:", checkVersion.version);
+log.info("server", "PocketKuma Version:", version);
 
 log.info("server", "Loading modules");
 
-log.debug("server", "Importing database bean facade");
+log.debug("server", "Creating database store");
 log.debug("server", "Importing 2FA Modules");
 
-const server = PocketKumaServer.getInstance();
-export const io = server.io;
+const store = new BunSQLiteRedbean();
+const settings = new Settings(store);
+const server = new PocketKumaServer(store, settings);
+await server.loadFrontendAssets();
+const databaseMaintenance = new DatabaseMaintenanceCoordinator();
+const heartbeatData = new HeartbeatDataPlane(store);
+const versionChecker = createVersionChecker(settings);
+const backgroundJobs = [];
+const responseCache = createResponseCache();
+const runHeartbeatWrite = (operation) => databaseMaintenance.run(operation);
+server.io.setDatabaseMaintenanceCoordinator(databaseMaintenance);
+server.io.setMaintenanceEvents(["clearEvents", "clearHeartbeats", "clearStatistics"]);
+const io = server.io;
+const cloudflared = createCloudflaredRuntime(io, settings);
 
 log.debug("server", "Importing Monitor");
 log.debug("server", "Importing Settings");
 log.debug("server", "Importing Notification");
-Notification.init();
 log.debug("server", "Importing Web-Push");
 log.debug("server", "Importing Database");
 log.debug("server", "Importing Background Jobs");
@@ -180,7 +178,7 @@ const twoFAVerifyOptions = {
 let setupInProgress = false;
 
 async function consumeTwoFAToken(userID, token) {
-    return !!(await R.getRow(
+    return !!(await store.getRow(
         `
             UPDATE user
             SET twofa_last_token = ?
@@ -222,20 +220,20 @@ let needSetup = false;
     }
 
     // Database should be ready now
-    await server.initAfterDatabaseReady();
-    server.entryPage = await Settings.get("entryPage");
-    await StatusPage.loadDomainMappingList();
+    await server.initAfterDatabaseReady(responseCache);
+    server.entryPage = await settings.get("entryPage");
+    await StatusPage.loadDomainMappingList(store, server.statusPageDomainMappingList);
 
     log.debug("server", "Initializing Prometheus");
-    await Prometheus.init();
+    await Prometheus.init(store);
 
     log.debug("server", "Adding Bun.serve route handler");
 
     log.debug("server", "Adding socket handler");
-    io.on("connection", async (socket) => {
+    io.setConnectionInitializer(async (socket) => {
         clearTwoFAState(socket);
         socket.on("disconnect", () => clearTwoFAState(socket));
-        await sendInfo(socket, true);
+        await sendInfo(server, settings, versionChecker, socket, true);
 
         if (needSetup) {
             log.info("server", "Redirect to setup page");
@@ -256,14 +254,14 @@ let needSetup = false;
 
                 log.info("auth", "Username from JWT: " + decoded.username);
 
-                let user = await R.findOne("user", " username = ? AND active = 1 ", [decoded.username]);
+                let user = await store.findOne("user", " username = ? AND active = 1 ", [decoded.username]);
 
                 if (user) {
                     // Check if the password changed
                     if (decoded.h !== shake256(user.password, SHAKE256_LENGTH)) {
                         throw new Error("The token is invalid due to password change or old token");
                     }
-                    if (!(await User.hasSession(decoded.sid, user.id))) {
+                    if (!(await User.hasSession(store, decoded.sid, user.id))) {
                         throw new Error("The session has been revoked");
                     }
 
@@ -320,12 +318,12 @@ let needSetup = false;
                 return;
             }
 
-            let user = await login(data.username, data.password);
+            let user = await login(store, data.username, data.password);
 
             if (user) {
                 loginRateLimiter.reset(rateLimitKey);
                 if (user.twofa_status === 0) {
-                    const session = await User.createSession(user, server.jwtSecret);
+                    const session = await User.createSession(store, user, server.jwtSecret);
                     socket.sessionID = session.id;
                     await afterLogin(socket, user);
 
@@ -354,7 +352,7 @@ let needSetup = false;
 
                     if (verify && (await consumeTwoFAToken(user.id, data.token))) {
                         twoFaRateLimiter.reset(user.id);
-                        const session = await User.createSession(user, server.jwtSecret);
+                        const session = await User.createSession(store, user, server.jwtSecret);
                         socket.sessionID = session.id;
                         await afterLogin(socket, user);
 
@@ -388,7 +386,7 @@ let needSetup = false;
         socket.on("logout", async (callback) => {
             const userID = socket.userID;
             const sessionID = socket.sessionID;
-            await User.revokeSession(sessionID, userID);
+            await User.revokeSession(store, sessionID, userID);
             for (const connectedSocket of io.sockets.sockets.values()) {
                 if (connectedSocket !== socket && connectedSocket.sessionID === sessionID) {
                     connectedSocket.disconnect();
@@ -410,9 +408,9 @@ let needSetup = false;
                 if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-                await doubleCheckPassword(socket, currentPassword);
+                await doubleCheckPassword(store, socket, currentPassword);
 
-                let user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
+                let user = await store.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
 
                 if (user.twofa_status === 0) {
                     let newSecret = genSecret();
@@ -420,7 +418,7 @@ let needSetup = false;
 
                     let uri = `otpauth://totp/PocketKuma:${user.username}?secret=${encodedSecret}`;
 
-                    await R.exec("UPDATE `user` SET twofa_secret = ?, twofa_last_token = NULL WHERE id = ? ", [
+                    await store.exec("UPDATE `user` SET twofa_secret = ?, twofa_last_token = NULL WHERE id = ? ", [
                         newSecret,
                         socket.userID,
                     ]);
@@ -456,7 +454,7 @@ let needSetup = false;
                 if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-                await doubleCheckPassword(socket, currentPassword);
+                await doubleCheckPassword(store, socket, currentPassword);
                 if (
                     !socket.pendingTwoFASecret ||
                     !socket.twoFAVerified ||
@@ -465,7 +463,7 @@ let needSetup = false;
                     throw new Error("Verify the 2FA token before enabling 2FA");
                 }
 
-                const saved = await R.getRow(
+                const saved = await store.getRow(
                     "UPDATE `user` SET twofa_status = 1 WHERE id = ? AND twofa_status = 0 AND twofa_secret = ? RETURNING id",
                     [socket.userID, socket.twoFAVerifiedSecret]
                 );
@@ -502,8 +500,8 @@ let needSetup = false;
                 if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-                await doubleCheckPassword(socket, currentPassword);
-                await TwoFA.disable2FA(socket.userID);
+                await doubleCheckPassword(store, socket, currentPassword);
+                await TwoFA.disable2FA(store, socket.userID);
                 clearTwoFAState(socket);
                 twoFaRateLimiter.reset(socket.userID);
 
@@ -530,9 +528,9 @@ let needSetup = false;
                 if (!(await twoFaRateLimiter.pass(callback, 1, socket.userID))) {
                     return;
                 }
-                await doubleCheckPassword(socket, currentPassword);
+                await doubleCheckPassword(store, socket, currentPassword);
 
-                let user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
+                let user = await store.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
                 if (!socket.pendingTwoFASecret) {
                     throw new Error("Prepare 2FA before verifying a token");
                 }
@@ -567,7 +565,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let user = await R.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
+                let user = await store.findOne("user", " id = ? AND active = 1 ", [socket.userID]);
 
                 if (user.twofa_status === 1) {
                     callback({
@@ -610,14 +608,14 @@ let needSetup = false;
 
                 setupInProgress = true;
                 try {
-                    if ((await R.count("user")) !== 0) {
+                    if ((await store.count("user")) !== 0) {
                         throw new Error(
                             "PocketKuma has been initialized. If you want to run setup again, please delete the database."
                         );
                     }
 
                     const hashedPassword = await passwordHash.generate(password);
-                    const inserted = await R.getRow(
+                    const inserted = await store.getRow(
                         `
                             INSERT INTO user (username, password)
                             SELECT ?, ?
@@ -660,8 +658,8 @@ let needSetup = false;
         socket.on("add", async (monitor, callback) => {
             try {
                 checkLogin(socket);
-                await resolveCoreHttpProxy(monitor.type, monitor.proxyId, socket.userID, monitor.ignoreTls);
-                let bean = R.dispense("monitor");
+                await resolveCoreHttpProxy(store, monitor.type, monitor.proxyId, socket.userID, monitor.ignoreTls);
+                let bean = store.dispense("monitor");
 
                 let notificationIDList = monitor.notificationIDList;
                 delete monitor.notificationIDList;
@@ -704,7 +702,7 @@ let needSetup = false;
 
                 bean.validate();
 
-                await R.store(bean);
+                await store.store(bean);
 
                 await updateMonitorNotification(bean.id, notificationIDList);
 
@@ -738,16 +736,16 @@ let needSetup = false;
                 let removeGroupChildren = false;
                 checkLogin(socket);
 
-                let bean = await R.findOne("monitor", " id = ? ", [monitor.id]);
+                let bean = await store.findOne("monitor", " id = ? ", [monitor.id]);
 
                 if (bean.user_id !== socket.userID) {
                     throw new Error("Permission denied.");
                 }
-                await resolveCoreHttpProxy(monitor.type, monitor.proxyId, socket.userID, monitor.ignoreTls);
+                await resolveCoreHttpProxy(store, monitor.type, monitor.proxyId, socket.userID, monitor.ignoreTls);
 
                 // Check if Parent is Descendant (would cause endless loop)
                 if (monitor.parent !== null) {
-                    const childIDs = await Monitor.getAllChildrenIDs(monitor.id);
+                    const childIDs = await Monitor.getAllChildrenIDs(monitor.id, store);
                     if (childIDs.includes(monitor.parent)) {
                         throw new Error("Invalid Monitor Group");
                     }
@@ -875,15 +873,15 @@ let needSetup = false;
 
                 bean.validate();
 
-                await R.store(bean);
+                await store.store(bean);
 
                 if (removeGroupChildren) {
-                    await Monitor.unlinkAllChildren(monitor.id);
+                    await Monitor.unlinkAllChildren(store, monitor.id);
                 }
 
                 await updateMonitorNotification(bean.id, monitor.notificationIDList);
 
-                if (await Monitor.isActive(bean.id, bean.active)) {
+                if (await Monitor.isActive(bean.id, bean.active, store)) {
                     await restartMonitor(socket.userID, bean.id);
                 }
 
@@ -926,9 +924,9 @@ let needSetup = false;
 
                 log.info("monitor", `Get Monitor: ${monitorID} User ID: ${socket.userID}`);
 
-                let monitor = await R.findOne("monitor", " id = ? AND user_id = ? ", [monitorID, socket.userID]);
+                let monitor = await store.findOne("monitor", " id = ? AND user_id = ? ", [monitorID, socket.userID]);
                 const monitorData = [{ id: monitor.id, active: monitor.active }];
-                const preloadData = await Monitor.preparePreloadData(monitorData);
+                const preloadData = await Monitor.preparePreloadData(store, monitorData, server);
                 callback({
                     ok: true,
                     monitor: monitor.toJSON(preloadData),
@@ -946,7 +944,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
                 const { default: DomainExpiry } = await import("@/server/model/domain_expiry");
-                const supportInfo = await DomainExpiry.checkSupport(partial);
+                const supportInfo = await DomainExpiry.checkSupport(partial, settings);
                 callback({
                     ok: true,
                     domain: supportInfo.domain,
@@ -972,18 +970,7 @@ let needSetup = false;
                     throw new Error("Invalid period.");
                 }
 
-                const sqlHourOffset = Database.sqlHourOffset();
-
-                let list = await R.getAll(
-                    `
-                    SELECT *
-                    FROM heartbeat
-                    WHERE monitor_id = ?
-                      AND time > ${sqlHourOffset}
-                    ORDER BY time ASC
-                `,
-                    [monitorID, -period]
-                );
+                const list = await heartbeatData.recentForOwner(socket.userID, monitorID, period);
 
                 callback({
                     ok: true,
@@ -1049,7 +1036,7 @@ let needSetup = false;
                 const startTime = Date.now();
 
                 // Check if this is a group monitor
-                const monitor = await R.findOne("monitor", " id = ? AND user_id = ? ", [monitorID, socket.userID]);
+                const monitor = await store.findOne("monitor", " id = ? AND user_id = ? ", [monitorID, socket.userID]);
 
                 // Log with context about deletion type
                 if (monitor && monitor.type === "group") {
@@ -1064,19 +1051,19 @@ let needSetup = false;
 
                 if (monitor && monitor.type === "group") {
                     // Get all children before processing
-                    const children = await Monitor.getChildren(monitorID);
+                    const children = await Monitor.getChildren(monitorID, store);
 
                     if (deleteChildren) {
                         // Delete all child monitors recursively
                         if (children && children.length > 0) {
                             for (const child of children) {
-                                await Monitor.deleteMonitorRecursively(child.id, socket.userID);
+                                await Monitor.deleteMonitorRecursively(store, server, child.id, socket.userID);
                                 await server.sendDeleteMonitorFromList(socket, child.id);
                             }
                         }
                     } else {
                         // Unlink all children from the group (set parent to null)
-                        await Monitor.unlinkAllChildren(monitorID);
+                        await Monitor.unlinkAllChildren(store, monitorID);
 
                         // Notify frontend to update each child monitor's parent to null
                         if (children && children.length > 0) {
@@ -1088,10 +1075,10 @@ let needSetup = false;
                 }
 
                 // Delete the monitor itself
-                await Monitor.deleteMonitor(monitorID, socket.userID);
+                await Monitor.deleteMonitor(store, server, monitorID, socket.userID);
 
                 // Fix #2880
-                clearResponseCache();
+                clearResponseCache(responseCache);
 
                 const endTime = Date.now();
 
@@ -1130,7 +1117,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                const list = await R.findAll("tag");
+                const list = await store.findAll("tag");
 
                 callback({
                     ok: true,
@@ -1148,10 +1135,10 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let bean = R.dispense("tag");
+                let bean = store.dispense("tag");
                 bean.name = tag.name;
                 bean.color = tag.color;
-                await R.store(bean);
+                await store.store(bean);
 
                 callback({
                     ok: true,
@@ -1169,7 +1156,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let bean = await R.findOne("tag", " id = ? ", [tag.id]);
+                let bean = await store.findOne("tag", " id = ? ", [tag.id]);
                 if (bean == null) {
                     callback({
                         ok: false,
@@ -1180,7 +1167,7 @@ let needSetup = false;
                 }
                 bean.name = tag.name;
                 bean.color = tag.color;
-                await R.store(bean);
+                await store.store(bean);
 
                 callback({
                     ok: true,
@@ -1200,7 +1187,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                await R.exec("DELETE FROM tag WHERE id = ? ", [tagID]);
+                await store.exec("DELETE FROM tag WHERE id = ? ", [tagID]);
 
                 callback({
                     ok: true,
@@ -1219,7 +1206,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                await R.exec("INSERT INTO monitor_tag (tag_id, monitor_id, value) VALUES (?, ?, ?)", [
+                await store.exec("INSERT INTO monitor_tag (tag_id, monitor_id, value) VALUES (?, ?, ?)", [
                     tagID,
                     monitorID,
                     value,
@@ -1244,7 +1231,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                await R.exec("UPDATE monitor_tag SET value = ? WHERE tag_id = ? AND monitor_id = ?", [
+                await store.exec("UPDATE monitor_tag SET value = ? WHERE tag_id = ? AND monitor_id = ?", [
                     value,
                     tagID,
                     monitorID,
@@ -1269,7 +1256,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                await R.exec("DELETE FROM monitor_tag WHERE tag_id = ? AND monitor_id = ? AND value = ?", [
+                await store.exec("DELETE FROM monitor_tag WHERE tag_id = ? AND monitor_id = ? AND value = ?", [
                     tagID,
                     monitorID,
                     value,
@@ -1294,12 +1281,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let count;
-                if (monitorID == null) {
-                    count = await R.count("heartbeat", "important = 1");
-                } else {
-                    count = await R.count("heartbeat", "monitor_id = ? AND important = 1", [monitorID]);
-                }
+                const count = await heartbeatData.importantCount(socket.userID, monitorID);
 
                 callback({
                     ok: true,
@@ -1317,31 +1299,7 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let list;
-                if (monitorID == null) {
-                    list = await R.find(
-                        "heartbeat",
-                        `
-                        important = 1
-                        ORDER BY time DESC
-                        LIMIT ?
-                        OFFSET ?
-                    `,
-                        [count, offset]
-                    );
-                } else {
-                    list = await R.find(
-                        "heartbeat",
-                        `
-                        monitor_id = ?
-                        AND important = 1
-                        ORDER BY time DESC
-                        LIMIT ?
-                        OFFSET ?
-                    `,
-                        [monitorID, count, offset]
-                    );
-                }
+                const list = await heartbeatData.importantPage(socket.userID, monitorID, offset, count);
 
                 callback({
                     ok: true,
@@ -1367,10 +1325,10 @@ let needSetup = false;
                     throw new TranslatableError("passwordTooWeak");
                 }
 
-                let user = await doubleCheckPassword(socket, password.currentPassword);
-                await user.resetPassword(password.newPassword);
-                await User.revokeAllSessions(user.id);
-                const session = await User.createSession(user, server.jwtSecret);
+                let user = await doubleCheckPassword(store, socket, password.currentPassword);
+                await user.resetPassword(store, password.newPassword);
+                await User.revokeAllSessions(store, user.id);
+                const session = await User.createSession(store, user, server.jwtSecret);
                 socket.sessionID = session.id;
 
                 server.disconnectAllSocketClients(user.id, socket.id);
@@ -1393,7 +1351,7 @@ let needSetup = false;
         socket.on("getSettings", async (callback) => {
             try {
                 checkLogin(socket);
-                const data = await getSettings("general");
+                const data = await settings.getSettings("general");
 
                 if (!data.serverTimezone) {
                     data.serverTimezone = await server.getTimezone();
@@ -1420,9 +1378,9 @@ let needSetup = false;
                 // Disabled Auth + Want to Enable Auth => No Check
                 // Enabled Auth + Want to Disable Auth => Check!!
                 // Enabled Auth + Want to Enable Auth => No Check
-                const currentDisabledAuth = await setting("disableAuth");
+                const currentDisabledAuth = await settings.get("disableAuth");
                 if (!currentDisabledAuth && data.disableAuth) {
-                    await doubleCheckPassword(socket, currentPassword);
+                    await doubleCheckPassword(store, socket, currentPassword);
                 }
 
                 // Log out all clients if enabling auth
@@ -1431,10 +1389,10 @@ let needSetup = false;
                     server.disconnectAllSocketClients(socket.userID, socket.id);
                 }
 
-                const previousChromeExecutable = await Settings.get("chromeExecutable");
-                const previousNSCDStatus = await Settings.get("nscd");
+                const previousChromeExecutable = await settings.get("chromeExecutable");
+                const previousNSCDStatus = await settings.get("nscd");
 
-                await setSettings("general", data);
+                await settings.setSettings("general", data);
                 server.entryPage = data.entryPage;
 
                 // Also need to apply timezone globally
@@ -1445,8 +1403,7 @@ let needSetup = false;
                 // If Chrome Executable is changed, need to reset the browser
                 if (previousChromeExecutable !== data.chromeExecutable) {
                     log.info("settings", "Chrome executable is changed. Resetting Chrome...");
-                    const { resetChrome } = await import("@/server/monitor-types/real-browser-monitor-type");
-                    await resetChrome();
+                    await server.getLoadedMonitorType("real-browser")?.resetChrome();
                 }
 
                 // Update nscd status
@@ -1464,7 +1421,7 @@ let needSetup = false;
                     msgi18n: true,
                 });
 
-                await sendInfo(socket);
+                await sendInfo(server, settings, versionChecker, socket);
                 await server.sendMaintenanceList(socket);
             } catch (e) {
                 callback({
@@ -1479,8 +1436,8 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let notificationBean = await Notification.save(notification, notificationID, socket.userID);
-                await sendNotificationList(socket);
+                let notificationBean = await Notification.save(store, notification, notificationID, socket.userID);
+                await sendNotificationList(store, io, socket);
 
                 callback({
                     ok: true,
@@ -1500,8 +1457,8 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                await Notification.delete(notificationID, socket.userID);
-                await sendNotificationList(socket);
+                await Notification.delete(store, notificationID, socket.userID);
+                await sendNotificationList(store, io, socket);
 
                 callback({
                     ok: true,
@@ -1520,7 +1477,11 @@ let needSetup = false;
             try {
                 checkLogin(socket);
 
-                let msg = await Notification.send(notification, notification.name + " Testing");
+                let msg = await Notification.send(
+                    server.notificationProviderRegistry,
+                    notification,
+                    notification.name + " Testing"
+                );
 
                 callback({
                     ok: true,
@@ -1547,14 +1508,14 @@ let needSetup = false;
 
         socket.on("getWebpushVapidPublicKey", async (callback) => {
             try {
-                let publicVapidKey = await Settings.get("webpushPublicVapidKey");
+                let publicVapidKey = await settings.get("webpushPublicVapidKey");
 
                 if (!publicVapidKey) {
                     log.debug("webpush", "Generating new VAPID keys");
                     const vapidKeys = webpush.generateVAPIDKeys();
 
-                    await Settings.set("webpushPublicVapidKey", vapidKeys.publicKey);
-                    await Settings.set("webpushPrivateVapidKey", vapidKeys.privateKey);
+                    await settings.set("webpushPublicVapidKey", vapidKeys.publicKey);
+                    await settings.set("webpushPrivateVapidKey", vapidKeys.privateKey);
 
                     publicVapidKey = vapidKeys.publicKey;
                 }
@@ -1577,7 +1538,7 @@ let needSetup = false;
 
                 log.info("manage", `Clear Events Monitor: ${monitorID} User ID: ${socket.userID}`);
 
-                await R.exec("UPDATE heartbeat SET msg = ?, important = ? WHERE monitor_id = ? ", ["", "0", monitorID]);
+                await heartbeatData.clearEvents(socket.userID, monitorID);
 
                 callback({
                     ok: true,
@@ -1596,16 +1557,15 @@ let needSetup = false;
 
                 log.info("manage", `Clear Heartbeats Monitor: ${monitorID} User ID: ${socket.userID}`);
 
-                await UptimeCalculator.clearStatistics(monitorID);
+                const monitor = server.monitorList[monitorID];
+                const ownedMonitors = monitor?.user_id === socket.userID ? [monitor] : [];
+                await clearWithStoppedMonitors(
+                    ownedMonitors,
+                    () => heartbeatData.clearMonitor(socket.userID, monitorID),
+                    (runningMonitor) => restartMonitor(socket.userID, runningMonitor.id)
+                );
 
-                if (monitorID in server.monitorList) {
-                    const monitor = server.monitorList[monitorID];
-                    if (monitor.active) {
-                        await restartMonitor(socket.userID, monitorID);
-                    }
-                }
-
-                await sendHeartbeatList(socket, monitorID, true, true);
+                await sendHeartbeatList(heartbeatData, io, socket, monitorID, true, true);
 
                 callback({
                     ok: true,
@@ -1624,15 +1584,14 @@ let needSetup = false;
 
                 log.info("manage", `Clear Statistics User ID: ${socket.userID}`);
 
-                await UptimeCalculator.clearAllStatistics();
-
-                // Restart all monitors to reset the stats
-                for (let monitorID in server.monitorList) {
-                    const monitor = server.monitorList[monitorID];
-                    if (monitor.active) {
-                        await restartMonitor(socket.userID, monitorID);
-                    }
-                }
+                const ownedMonitors = Object.values(server.monitorList).filter(
+                    (monitor) => monitor.user_id === socket.userID
+                );
+                await clearWithStoppedMonitors(
+                    ownedMonitors,
+                    () => heartbeatData.clearAll(socket.userID),
+                    (monitor) => restartMonitor(socket.userID, monitor.id)
+                );
 
                 callback({
                     ok: true,
@@ -1646,16 +1605,16 @@ let needSetup = false;
         });
 
         // Status Page Socket Handler for admin only
-        statusPageSocketHandler(socket);
-        cloudflaredSocketHandler(socket);
-        databaseSocketHandler(socket);
-        proxySocketHandler(socket);
-        dockerSocketHandler(socket);
-        maintenanceSocketHandler(socket);
-        apiKeySocketHandler(socket);
-        remoteBrowserSocketHandler(socket);
-        generalSocketHandler(socket, server);
-        chartSocketHandler(socket);
+        statusPageSocketHandler(socket, store, server, settings, responseCache);
+        cloudflared.socketHandler(socket, store);
+        databaseSocketHandler(socket, store);
+        proxySocketHandler(socket, store, io, server);
+        dockerSocketHandler(socket, store, io);
+        maintenanceSocketHandler(socket, store, server, responseCache);
+        apiKeySocketHandler(socket, store, io, settings, responseCache);
+        remoteBrowserSocketHandler(socket, store, io, server);
+        generalSocketHandler(socket, server, settings, versionChecker);
+        chartSocketHandler(socket, store, heartbeatData);
 
         log.debug("server", "added all socket handlers");
 
@@ -1664,9 +1623,9 @@ let needSetup = false;
         // ***************************
 
         log.debug("auth", "check auto login");
-        if (await setting("disableAuth")) {
+        if (await settings.get("disableAuth")) {
             log.info("auth", "Disabled Auth: auto login to admin");
-            await afterLogin(socket, await R.findOne("user"));
+            await afterLogin(socket, await store.findOne("user"));
             socket.emit("autoLogin");
         } else {
             socket.emit("loginRequired");
@@ -1682,13 +1641,26 @@ let needSetup = false;
         await startMonitors();
 
         // Put this here. Start background jobs after the db and server is ready to prevent clear up during db migration.
-        await initBackgroundJobs();
+        await initBackgroundJobs(
+            store,
+            databaseMaintenance,
+            await server.getTimezone(),
+            settings,
+            heartbeatData,
+            backgroundJobs
+        );
 
-        checkVersion.startInterval();
+        versionChecker.start();
     };
 
     listenWithBunServe({
         server,
+        store: store,
+        databaseMaintenance,
+        heartbeatData,
+        backgroundJobs,
+        settings,
+        responseCache,
         hostname,
         port,
         disableFrameSameOrigin,
@@ -1696,7 +1668,7 @@ let needSetup = false;
     await afterListen();
 
     // Start cloudflared at the end if configured
-    await cloudflaredAutoStart(cloudflaredToken);
+    await cloudflared.autoStart(cloudflaredToken);
 })();
 
 /**
@@ -1707,14 +1679,14 @@ let needSetup = false;
  * @returns {Promise<void>}
  */
 async function updateMonitorNotification(monitorID, notificationIDList) {
-    await R.exec("DELETE FROM monitor_notification WHERE monitor_id = ? ", [monitorID]);
+    await store.exec("DELETE FROM monitor_notification WHERE monitor_id = ? ", [monitorID]);
 
     for (let notificationID in notificationIDList) {
         if (notificationIDList[notificationID]) {
-            let relation = R.dispense("monitor_notification");
+            let relation = store.dispense("monitor_notification");
             relation.monitor_id = monitorID;
             relation.notification_id = notificationID;
-            await R.store(relation);
+            await store.store(relation);
         }
     }
 }
@@ -1727,7 +1699,7 @@ async function updateMonitorNotification(monitorID, notificationIDList) {
  * @throws {Error} The specified user does not own the monitor
  */
 async function checkOwner(userID, monitorID) {
-    let row = await R.getRow("SELECT id FROM monitor WHERE id = ? AND user_id = ? ", [monitorID, userID]);
+    let row = await store.getRow("SELECT id FROM monitor WHERE id = ? AND user_id = ? ", [monitorID, userID]);
 
     if (!row) {
         throw new Error("You do not own this monitor.");
@@ -1747,31 +1719,31 @@ async function afterLogin(socket, user) {
 
     let monitorList = await server.sendMonitorList(socket);
     await Promise.allSettled([
-        sendInfo(socket),
+        sendInfo(server, settings, versionChecker, socket),
         server.sendMaintenanceList(socket),
-        sendNotificationList(socket),
-        sendProxyList(socket),
-        sendDockerHostList(socket),
-        sendAPIKeyList(socket),
-        sendRemoteBrowserList(socket),
-        sendMonitorTypeList(socket),
+        sendNotificationList(store, io, socket),
+        sendProxyList(store, io, socket),
+        sendDockerHostList(store, io, socket),
+        sendAPIKeyList(store, io, socket),
+        sendRemoteBrowserList(store, io, socket),
+        sendMonitorTypeList(server.monitorTypeList, io, socket),
     ]);
 
-    await StatusPage.sendStatusPageList(io, socket);
+    await StatusPage.sendStatusPageList(store, io, socket, server.statusPageDomainMappingList);
 
     // Push recent heartbeat history + stats so the dashboard/bars/charts are populated
     // immediately on login, not only after the next live check arrives.
     const monitorPromises = [];
     for (let monitorID in monitorList) {
-        monitorPromises.push(sendHeartbeatList(socket, monitorID));
-        monitorPromises.push(Monitor.sendStats(io, monitorID, user.id));
+        monitorPromises.push(sendHeartbeatList(heartbeatData, io, socket, monitorID));
+        monitorPromises.push(Monitor.sendStats(heartbeatData, io, monitorID, user.id, settings));
     }
 
     await Promise.all(monitorPromises);
 
     // Set server timezone from client browser if not set
     // It should be run once only
-    if (!(await Settings.get("initServerTimezone"))) {
+    if (!(await settings.get("initServerTimezone"))) {
         log.debug("server", "emit initServerTimezone");
         socket.emit("initServerTimezone");
     }
@@ -1785,21 +1757,21 @@ async function afterLogin(socket, user) {
  */
 async function initDatabase(testMode = false) {
     log.debug("server", "Connecting to the database");
-    await Database.connect(testMode);
+    await Database.connect(store, testMode);
     log.info("server", "Connected to the database");
 
-    let jwtSecretBean = await R.findOne("setting", " `key` = ? ", ["jwtSecret"]);
+    let jwtSecretBean = await store.findOne("setting", " `key` = ? ", ["jwtSecret"]);
 
     if (!jwtSecretBean) {
         log.info("server", "JWT secret is not found, generate one.");
-        jwtSecretBean = await initJWTSecret();
+        jwtSecretBean = await initJWTSecret(store);
         log.info("server", "Stored JWT secret into database");
     } else {
         log.debug("server", "Load JWT secret from database.");
     }
 
     // If there is no record in user table, it is a new PocketKuma instance, need to setup
-    if ((await R.count("user")) === 0) {
+    if ((await store.count("user")) === 0) {
         log.info("server", "No user, need setup");
         needSetup = true;
     }
@@ -1818,16 +1790,16 @@ async function startMonitor(userID, monitorID) {
 
     log.info("manage", `Resume Monitor: ${monitorID} User ID: ${userID}`);
 
-    await R.exec("UPDATE monitor SET active = 1 WHERE id = ? AND user_id = ? ", [monitorID, userID]);
+    await store.exec("UPDATE monitor SET active = 1 WHERE id = ? AND user_id = ? ", [monitorID, userID]);
 
-    let monitor = await R.findOne("monitor", " id = ? ", [monitorID]);
+    let monitor = await store.findOne("monitor", " id = ? ", [monitorID]);
 
     if (monitor.id in server.monitorList) {
         await server.monitorList[monitor.id].stop();
     }
 
     server.monitorList[monitor.id] = monitor;
-    await monitor.start(io);
+    await monitor.start(io, heartbeatData, server, runHeartbeatWrite, responseCache);
 }
 
 /**
@@ -1851,7 +1823,7 @@ async function pauseMonitor(userID, monitorID) {
 
     log.info("manage", `Pause Monitor: ${monitorID} User ID: ${userID}`);
 
-    await R.exec("UPDATE monitor SET active = 0 WHERE id = ? AND user_id = ? ", [monitorID, userID]);
+    await store.exec("UPDATE monitor SET active = 0 WHERE id = ? AND user_id = ? ", [monitorID, userID]);
 
     if (monitorID in server.monitorList) {
         await server.monitorList[monitorID].stop();
@@ -1864,7 +1836,7 @@ async function pauseMonitor(userID, monitorID) {
  * @returns {Promise<void>}
  */
 async function startMonitors() {
-    let list = await R.find("monitor", " active = 1 ");
+    let list = await store.find("monitor", " active = 1 ");
 
     for (let monitor of list) {
         server.monitorList[monitor.id] = monitor;
@@ -1872,7 +1844,7 @@ async function startMonitors() {
 
     for (let monitor of list) {
         try {
-            await monitor.start(io);
+            await monitor.start(io, heartbeatData, server, runHeartbeatWrite, responseCache);
         } catch (e) {
             log.error("monitor", e);
         }
@@ -1898,16 +1870,16 @@ async function shutdownFunction(signal) {
         let monitor = server.monitorList[id];
         await monitor.stop();
     }
-    const { resetChrome } = await import("@/server/monitor-types/real-browser-monitor-type");
-    await resetChrome();
+    await server.getLoadedMonitorType("real-browser")?.resetChrome();
     await sleep(2000);
-    if (R.isOpen()) {
-        await Database.close();
+    stopBackgroundJobs(backgroundJobs);
+    versionChecker.stop();
+    if (store.isOpen()) {
+        await databaseMaintenance.maintain(() => Database.close(store));
     }
 
-    stopBackgroundJobs();
-    await cloudflaredStop();
-    Settings.stopCacheCleaner();
+    await cloudflared.stop();
+    settings.stopCacheCleaner();
 
     if (server.bunHttpServer) {
         server.bunHttpServer.stop(true);
@@ -1936,7 +1908,7 @@ process.once("SIGTERM", async () => {
 // Catch unexpected errors here
 let unexpectedErrorHandler = (error, promise) => {
     console.trace(error);
-    PocketKumaServer.errorLog(error, false);
+    writeErrorLog(error, false);
     console.error("If you keep encountering errors, please report to https://github.com/Igloczek/pocketkuma/issues");
 };
 process.addListener("unhandledRejection", unexpectedErrorHandler);

@@ -3,25 +3,22 @@
 import { checkLogin } from "@/server/util-server";
 import { Proxy } from "@/server/proxy";
 import { sendProxyList } from "@/server/client";
-import { PocketKumaServer } from "@/server/pocketkuma-server";
-
-const server = PocketKumaServer.getInstance();
 
 /**
  * Handlers for proxy
  * @param {Socket} socket Socket.io instance
  * @returns {void}
  */
-export const proxySocketHandler = (socket) => {
+export const proxySocketHandler = (socket, store, io, server) => {
     socket.on("addProxy", async (proxy, proxyID, callback) => {
         try {
             checkLogin(socket);
 
-            const proxyBean = await Proxy.save(proxy, proxyID, socket.userID);
-            await sendProxyList(socket);
+            const proxyBean = await Proxy.save(store, proxy, proxyID, socket.userID);
+            await sendProxyList(store, io, socket);
 
             if (proxy.applyExisting) {
-                await Proxy.reloadProxy();
+                await Proxy.reloadProxy(store, server.monitorList);
                 await server.sendMonitorList(socket);
             }
 
@@ -43,9 +40,9 @@ export const proxySocketHandler = (socket) => {
         try {
             checkLogin(socket);
 
-            await Proxy.delete(proxyID, socket.userID);
-            await sendProxyList(socket);
-            await Proxy.reloadProxy();
+            await Proxy.delete(store, proxyID, socket.userID);
+            await sendProxyList(store, io, socket);
+            await Proxy.reloadProxy(store, server.monitorList);
 
             callback({
                 ok: true,

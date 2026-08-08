@@ -1,21 +1,28 @@
 // @ts-nocheck
 
 import { checkLogin } from "@/server/util-server";
-import { UptimeCalculator } from "@/server/uptime-calculator";
 import { log } from "@/util";
 
-export const chartSocketHandler = (socket) => {
+export const chartSocketHandler = (socket, store, heartbeatData) => {
     socket.on("getMonitorChartData", async (monitorID, period, callback) => {
         try {
             checkLogin(socket);
 
             log.debug("monitor", `Get Monitor Chart Data: ${monitorID} User ID: ${socket.userID}`);
 
-            if (period == null) {
+            if (period === null || period === undefined) {
                 throw new Error("Invalid period.");
             }
 
-            let uptimeCalculator = await UptimeCalculator.getUptimeCalculator(monitorID);
+            const owned = await store.getCell("SELECT 1 FROM monitor WHERE id = ? AND user_id = ?", [
+                monitorID,
+                socket.userID,
+            ]);
+            if (!owned) {
+                throw new Error("You do not own this monitor.");
+            }
+
+            let uptimeCalculator = await heartbeatData.uptime.get(monitorID);
 
             let data;
             if (period <= 24) {

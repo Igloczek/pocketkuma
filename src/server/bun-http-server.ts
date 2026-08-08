@@ -5,14 +5,13 @@ import fs from "fs";
 import path from "path";
 import { Database as SQLiteDatabase } from "bun:sqlite";
 import { isDev, log } from "@/util";
-import { setting, printServerUrls } from "@/server/util-server";
+import { printServerUrls } from "@/server/util-server";
 import config from "@/server/config";
 import Database from "@/server/database";
-import { R } from "@/server/bun-sqlite-store";
+import type { SQLiteStore } from "@/server/db-migrations";
+import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 import StatusPage from "@/server/model/status_page";
-import { Settings } from "@/server/settings";
 import { Prometheus } from "@/server/prometheus";
-import { UptimeCalculator } from "@/server/uptime-calculator";
 import { initBackgroundJobs, stopBackgroundJobs } from "@/server/jobs";
 import { authenticateAPIRequest } from "@/server/auth";
 import { handleApiRequest } from "@/server/routers/api-router";
@@ -20,13 +19,13 @@ import { handleStatusPageRequest } from "@/server/routers/status-page-router";
 import {
     applyCommonHeaders,
     clearResponseCache,
+    createResponseCache,
     htmlResponse,
     jsonResponse,
     redirectResponse,
     textResponse,
 } from "@/server/bun-response";
 import { isCompiledBinary } from "@/server/app-paths";
-import { hasEmbeddedAsset, readEmbeddedAsset } from "@/server/generated/embedded-assets";
 
 const MIME_TYPES = {
     ".br": "application/octet-stream",
@@ -49,15 +48,6 @@ const MIME_TYPES = {
     ".woff": "font/woff",
     ".woff2": "font/woff2",
 };
-
-let devSnapshotPhase = "idle";
-let devSnapshotQueue = Promise.resolve();
-
-function enqueueDevSnapshotOperation(operation) {
-    const pending = devSnapshotQueue.catch(() => {}).then(operation);
-    devSnapshotQueue = pending.catch(() => {});
-    return pending;
-}
 
 function validateSqliteSnapshot(snapshotPath) {
     const db = new SQLiteDatabase(snapshotPath, { strict: true });
@@ -82,95 +72,257 @@ function validateSqliteSnapshot(snapshotPath) {
     }
 }
 
-async function stopRuntimeForSnapshot(server) {
-    stopBackgroundJobs();
+async function stopRuntimeForSnapshot(server, settings, heartbeatData, backgroundJobs, responseCache) {
+    stopBackgroundJobs(backgroundJobs);
     for (const maintenance of Object.values(server.maintenanceList)) {
         maintenance.stop();
     }
     await Promise.all(Object.values(server.monitorList).map((monitor) => monitor.stop()));
-    const { resetChrome } = await import("@/server/monitor-types/real-browser-monitor-type");
-    await resetChrome();
+    await server.getLoadedMonitorType("real-browser")?.resetChrome();
     server.monitorList = {};
     server.maintenanceList = {};
-    await UptimeCalculator.removeAll();
-    Settings.cacheList = {};
-    StatusPage.domainMappingList = {};
-    clearResponseCache();
+    heartbeatData.reset();
+    settings.cacheList = {};
+    server.statusPageDomainMappingList = {};
+    clearResponseCache(responseCache);
 }
 
-async function reloadRuntimeAfterSnapshot(server) {
-    Settings.cacheList = {};
-    const jwtSecret = await R.findOne("setting", " `key` = ? ", ["jwtSecret"]);
+async function reloadRuntimeAfterSnapshot(
+    server,
+    store: SQLiteStore,
+    databaseMaintenance: DatabaseMaintenanceCoordinator,
+    settings,
+    heartbeatData,
+    backgroundJobs,
+    responseCache
+) {
+    settings.cacheList = {};
+    const jwtSecret = await store.findOne("setting", " `key` = ? ", ["jwtSecret"]);
     server.jwtSecret = jwtSecret?.value || null;
-    await server.initAfterDatabaseReady();
-    server.entryPage = await Settings.get("entryPage");
-    await StatusPage.loadDomainMappingList();
+    await server.initAfterDatabaseReady(responseCache);
+    server.entryPage = await settings.get("entryPage");
+    await StatusPage.loadDomainMappingList(store, server.statusPageDomainMappingList);
 
-    const monitors = await R.find("monitor", " active = 1 ");
+    const monitors = await store.find("monitor", " active = 1 ");
     for (const monitor of monitors) {
         server.monitorList[monitor.id] = monitor;
-        await monitor.start(server.io);
+        await monitor.start(
+            server.io,
+            heartbeatData,
+            server,
+            (operation) => databaseMaintenance.run(operation),
+            responseCache
+        );
     }
-    await initBackgroundJobs();
-    clearResponseCache();
+    await initBackgroundJobs(
+        store,
+        databaseMaintenance,
+        await server.getTimezone(),
+        settings,
+        heartbeatData,
+        backgroundJobs
+    );
+    clearResponseCache(responseCache);
 }
 
-async function restoreSqliteSnapshot(server) {
-    const snapshotPath = `${Database.sqlitePath}.e2e-snapshot`;
-    if (!fs.existsSync(snapshotPath)) {
-        throw new Error("Snapshot doesn't exist.");
-    }
+function createSnapshotMonitorRuntime(server, heartbeatData, databaseMaintenance, responseCache) {
+    let runningMonitors = [];
 
-    const suffix = crypto.randomUUID();
-    const restorePath = `${Database.sqlitePath}.e2e-restore-${suffix}`;
-    const backupPath = `${Database.sqlitePath}.e2e-backup-${suffix}`;
-    let backupCreated = false;
-    let runtimeStopped = false;
+    return {
+        async stop() {
+            runningMonitors = Object.values(server.monitorList).filter((monitor) => monitor.isStop === false);
+            await Promise.all(runningMonitors.map((monitor) => monitor.stop()));
+        },
+        async reload() {
+            await Promise.all(
+                runningMonitors.map((monitor) =>
+                    monitor.start(
+                        server.io,
+                        heartbeatData,
+                        server,
+                        (operation) => databaseMaintenance.run(operation),
+                        responseCache
+                    )
+                )
+            );
+            runningMonitors = [];
+        },
+    };
+}
 
-    devSnapshotPhase = "validating";
-    try {
-        fs.copyFileSync(snapshotPath, restorePath);
-        validateSqliteSnapshot(restorePath);
-
-        devSnapshotPhase = "quiescing";
-        runtimeStopped = true;
-        await stopRuntimeForSnapshot(server);
-        devSnapshotPhase = "restoring";
-        await Database.close();
-        fs.renameSync(Database.sqlitePath, backupPath);
-        backupCreated = true;
-        fs.renameSync(restorePath, Database.sqlitePath);
-        await Database.connect();
-
-        devSnapshotPhase = "rehydrating";
-        await reloadRuntimeAfterSnapshot(server);
-        fs.rmSync(backupPath, { force: true });
-        backupCreated = false;
-    } catch (error) {
-        if (!runtimeStopped) {
-            throw error;
-        }
+async function takeSqliteSnapshot(
+    store: SQLiteStore,
+    databaseMaintenance: DatabaseMaintenanceCoordinator,
+    runtime,
+    copySnapshot = fs.cpSync,
+    snapshotState = { phase: "idle" }
+) {
+    return databaseMaintenance.maintain(async () => {
+        let operationError;
+        let runtimeStopped = false;
+        snapshotState.phase = "quiescing";
         try {
-            await stopRuntimeForSnapshot(server);
-            if (R.isOpen()) {
-                await Database.close();
+            try {
+                runtimeStopped = true;
+                await runtime.stop();
+                await Database.close(store);
+                snapshotState.phase = "copying";
+                try {
+                    await copySnapshot(Database.sqlitePath, `${Database.sqlitePath}.e2e-snapshot`);
+                } catch (error) {
+                    throw new Error("Unable to copy SQLite DB.", { cause: error });
+                }
+            } catch (error) {
+                operationError = error;
             }
-            if (backupCreated) {
-                fs.rmSync(Database.sqlitePath, { force: true });
-                fs.renameSync(backupPath, Database.sqlitePath);
+
+            const recoveryErrors = [];
+            try {
+                if (!store.isOpen()) {
+                    await Database.connect(store);
+                }
+            } catch (recoveryError) {
+                recoveryErrors.push(recoveryError);
             }
-            if (!R.isOpen()) {
-                await Database.connect();
+
+            if (runtimeStopped && store.isOpen()) {
+                snapshotState.phase = "rehydrating";
+                try {
+                    await runtime.reload();
+                } catch (recoveryError) {
+                    recoveryErrors.push(recoveryError);
+                }
             }
-            await reloadRuntimeAfterSnapshot(server);
-        } catch (recoveryError) {
-            throw new AggregateError([error, recoveryError], "Snapshot restore and recovery failed");
+
+            if (recoveryErrors.length) {
+                throw new AggregateError(
+                    operationError ? [operationError, ...recoveryErrors] : recoveryErrors,
+                    "Snapshot copy and recovery failed"
+                );
+            }
+
+            if (operationError) {
+                throw operationError;
+            }
+        } finally {
+            snapshotState.phase = "idle";
         }
-        throw error;
-    } finally {
-        fs.rmSync(restorePath, { force: true });
-        devSnapshotPhase = "idle";
-    }
+    });
+}
+
+async function restoreSqliteSnapshot(
+    server,
+    store: SQLiteStore,
+    databaseMaintenance: DatabaseMaintenanceCoordinator,
+    runtime = null,
+    settings,
+    heartbeatData,
+    backgroundJobs = [],
+    snapshotState = { phase: "idle" },
+    responseCache = createResponseCache()
+) {
+    runtime ||= {
+        stop: () => stopRuntimeForSnapshot(server, settings, heartbeatData, backgroundJobs, responseCache),
+        reload: () =>
+            reloadRuntimeAfterSnapshot(
+                server,
+                store,
+                databaseMaintenance,
+                settings,
+                heartbeatData,
+                backgroundJobs,
+                responseCache
+            ),
+    };
+    return databaseMaintenance.maintain(async () => {
+        const snapshotPath = `${Database.sqlitePath}.e2e-snapshot`;
+        if (!fs.existsSync(snapshotPath)) {
+            throw new Error("Snapshot doesn't exist.");
+        }
+
+        const suffix = crypto.randomUUID();
+        const restorePath = `${Database.sqlitePath}.e2e-restore-${suffix}`;
+        const backupPath = `${Database.sqlitePath}.e2e-backup-${suffix}`;
+        let backupCreated = false;
+        let runtimeStopped = false;
+
+        snapshotState.phase = "validating";
+        try {
+            fs.copyFileSync(snapshotPath, restorePath);
+            validateSqliteSnapshot(restorePath);
+
+            snapshotState.phase = "quiescing";
+            runtimeStopped = true;
+            await runtime.stop();
+            snapshotState.phase = "restoring";
+            await Database.close(store);
+            fs.renameSync(Database.sqlitePath, backupPath);
+            backupCreated = true;
+            fs.renameSync(restorePath, Database.sqlitePath);
+            await Database.connect(store);
+
+            snapshotState.phase = "rehydrating";
+            await runtime.reload();
+            fs.rmSync(backupPath, { force: true });
+            backupCreated = false;
+        } catch (error) {
+            if (!runtimeStopped) {
+                throw error;
+            }
+
+            const recoveryErrors = [];
+            try {
+                await runtime.stop();
+            } catch (recoveryError) {
+                recoveryErrors.push(recoveryError);
+            }
+
+            let canRollback = true;
+            if (backupCreated && store.isOpen()) {
+                try {
+                    await Database.close(store);
+                } catch (recoveryError) {
+                    recoveryErrors.push(recoveryError);
+                    canRollback = false;
+                }
+            }
+
+            if (backupCreated && canRollback) {
+                try {
+                    fs.rmSync(Database.sqlitePath, { force: true });
+                    fs.renameSync(backupPath, Database.sqlitePath);
+                    backupCreated = false;
+                } catch (recoveryError) {
+                    recoveryErrors.push(recoveryError);
+                }
+            }
+
+            if (!store.isOpen()) {
+                try {
+                    await Database.connect(store);
+                } catch (recoveryError) {
+                    recoveryErrors.push(recoveryError);
+                }
+            }
+
+            if (store.isOpen()) {
+                try {
+                    await runtime.reload();
+                } catch (recoveryError) {
+                    recoveryErrors.push(recoveryError);
+                }
+            }
+
+            if (recoveryErrors.length) {
+                throw new AggregateError([error, ...recoveryErrors], "Snapshot restore and recovery failed");
+            }
+
+            throw error;
+        } finally {
+            fs.rmSync(restorePath, { force: true });
+            snapshotState.phase = "idle";
+        }
+    });
 }
 
 function getHostname(request) {
@@ -188,10 +340,10 @@ function getHostname(request) {
     return host.split(":")[0];
 }
 
-async function resolveTrustedHostname(request) {
+async function resolveTrustedHostname(request, settings) {
     let hostname = getHostname(request);
     const forwardedHost = request.headers.get("x-forwarded-host");
-    if ((await Settings.get("trustProxy")) && forwardedHost) {
+    if ((await settings.get("trustProxy")) && forwardedHost) {
         hostname = forwardedHost;
     }
     return hostname;
@@ -256,6 +408,7 @@ async function pickFile(filePath, request, precompressed) {
 }
 
 async function pickEmbeddedFile(webPath, request, precompressed) {
+    const { hasEmbeddedAsset, readEmbeddedAsset } = await import("@/server/generated/embedded-assets");
     if (precompressed && acceptsEncoding(request, "br") && hasEmbeddedAsset(`${webPath}.br`)) {
         const file = await readEmbeddedAsset(`${webPath}.br`);
         if (file) {
@@ -322,13 +475,13 @@ async function serveFile(root, urlPathname, request, disableFrameSameOrigin, opt
     return new Response(request.method === "HEAD" ? null : picked.file, { headers });
 }
 
-async function rootResponse(request, server, disableFrameSameOrigin) {
-    const hostname = await resolveTrustedHostname(request);
+async function rootResponse(request, server, store, settings, disableFrameSameOrigin) {
+    const hostname = await resolveTrustedHostname(request, settings);
     log.debug("entry", `Request Domain: ${hostname}`);
 
-    if (hostname in StatusPage.domainMappingList) {
-        const slug = StatusPage.domainMappingList[hostname];
-        const result = await StatusPage.renderHTMLBySlug(server.indexHTML, slug);
+    if (hostname in server.statusPageDomainMappingList) {
+        const slug = server.statusPageDomainMappingList[hostname];
+        const result = await StatusPage.renderHTMLBySlug(store, server, slug);
         return htmlResponse(result.body, {
             status: result.status,
             disableFrameSameOrigin,
@@ -366,15 +519,37 @@ async function parseDevBody(request) {
     return body;
 }
 
-async function handleDevRequest(request, server, disableFrameSameOrigin) {
-    if (!isDev) {
+function isSnapshotControlRequest(request) {
+    if (request.method !== "GET") {
+        return false;
+    }
+    return ["/_e2e/sqlite-snapshot-state", "/_e2e/take-sqlite-snapshot", "/_e2e/restore-sqlite-snapshot"].includes(
+        new URL(request.url).pathname
+    );
+}
+
+async function handleDevRequest(
+    request,
+    server,
+    store: SQLiteStore,
+    databaseMaintenance: DatabaseMaintenanceCoordinator,
+    snapshotRuntime,
+    settings,
+    heartbeatData,
+    backgroundJobs,
+    snapshotState,
+    responseCache,
+    disableFrameSameOrigin,
+    development = isDev
+) {
+    if (!development) {
         return null;
     }
 
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/_e2e/sqlite-snapshot-state") {
-        return jsonResponse({ phase: devSnapshotPhase }, { disableFrameSameOrigin });
+        return jsonResponse({ phase: snapshotState.phase }, { disableFrameSameOrigin });
     }
 
     if (
@@ -387,19 +562,23 @@ async function handleDevRequest(request, server, disableFrameSameOrigin) {
     }
 
     if (request.method === "GET" && url.pathname === "/_e2e/take-sqlite-snapshot") {
-        await Database.close();
-        try {
-            fs.cpSync(Database.sqlitePath, `${Database.sqlitePath}.e2e-snapshot`);
-        } catch {
-            throw new Error("Unable to copy SQLite DB.");
-        }
-        await Database.connect();
+        await takeSqliteSnapshot(store, databaseMaintenance, snapshotRuntime, fs.cpSync, snapshotState);
 
         return textResponse("Snapshot taken.", { disableFrameSameOrigin });
     }
 
     if (request.method === "GET" && url.pathname === "/_e2e/restore-sqlite-snapshot") {
-        await enqueueDevSnapshotOperation(() => restoreSqliteSnapshot(server));
+        await restoreSqliteSnapshot(
+            server,
+            store,
+            databaseMaintenance,
+            null,
+            settings,
+            heartbeatData,
+            backgroundJobs,
+            snapshotState,
+            responseCache
+        );
 
         return textResponse("Snapshot restored.", { disableFrameSameOrigin });
     }
@@ -407,25 +586,37 @@ async function handleDevRequest(request, server, disableFrameSameOrigin) {
     return null;
 }
 
-async function metricsResponse(request, bunServer, server, disableFrameSameOrigin) {
+async function metricsResponse(request, bunServer, server, store, settings, disableFrameSameOrigin) {
     const source = await server.getClientIPwithProxy(
         bunServer.requestIP(request)?.address || "",
         Object.fromEntries(request.headers)
     );
-    const auth = await authenticateAPIRequest(request, { disableFrameSameOrigin, source });
+    const auth = await authenticateAPIRequest(store, settings, request, { disableFrameSameOrigin, source });
     if (auth.response) {
         return auth.response;
     }
 
-    const metrics = await Prometheus.metrics(auth.userID);
+    const metrics = await Prometheus.metrics(store, auth.userID);
     return textResponse(metrics.body, {
         type: metrics.contentType,
         disableFrameSameOrigin,
     });
 }
 
-function createBunFetchHandler({ server, disableFrameSameOrigin }) {
-    return async function fetch(request, bunServer) {
+function createBunFetchHandler({
+    server,
+    store,
+    databaseMaintenance,
+    heartbeatData,
+    backgroundJobs = [],
+    disableFrameSameOrigin,
+    settings,
+    development = isDev,
+    responseCache = createResponseCache(),
+    snapshotRuntime = createSnapshotMonitorRuntime(server, heartbeatData, databaseMaintenance, responseCache),
+}) {
+    const snapshotState = { phase: "idle" };
+    const fetch = async function (request, bunServer) {
         const url = new URL(request.url);
 
         if (request.headers.get("upgrade")?.toLowerCase() === "websocket") {
@@ -440,17 +631,30 @@ function createBunFetchHandler({ server, disableFrameSameOrigin }) {
         }
 
         if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/") {
-            return rootResponse(request, server, disableFrameSameOrigin);
+            return rootResponse(request, server, store, settings, disableFrameSameOrigin);
         }
 
-        const devResponse = await handleDevRequest(request, server, disableFrameSameOrigin);
+        const devResponse = await handleDevRequest(
+            request,
+            server,
+            store,
+            databaseMaintenance,
+            snapshotRuntime,
+            settings,
+            heartbeatData,
+            backgroundJobs,
+            snapshotState,
+            responseCache,
+            disableFrameSameOrigin,
+            development
+        );
         if (devResponse) {
             return devResponse;
         }
 
         if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/robots.txt") {
             let body = "User-agent: *\nDisallow:";
-            if (!(await setting("searchEngineIndex"))) {
+            if (!(await settings.get("searchEngineIndex"))) {
                 body += " /";
             }
             return textResponse(body, { disableFrameSameOrigin });
@@ -466,15 +670,29 @@ function createBunFetchHandler({ server, disableFrameSameOrigin }) {
         }
 
         if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/metrics") {
-            return metricsResponse(request, bunServer, server, disableFrameSameOrigin);
+            return metricsResponse(request, bunServer, server, store, settings, disableFrameSameOrigin);
         }
 
-        const apiResponse = await handleApiRequest(request, { server, disableFrameSameOrigin });
+        const apiResponse = await handleApiRequest(request, {
+            server,
+            store,
+            heartbeatData,
+            settings,
+            responseCache,
+            disableFrameSameOrigin,
+        });
         if (apiResponse) {
             return apiResponse;
         }
 
-        const statusPageResponse = await handleStatusPageRequest(request, { server, disableFrameSameOrigin });
+        const statusPageResponse = await handleStatusPageRequest(request, {
+            server,
+            store,
+            heartbeatData,
+            settings,
+            responseCache,
+            disableFrameSameOrigin,
+        });
         if (statusPageResponse) {
             return statusPageResponse;
         }
@@ -513,16 +731,57 @@ function createBunFetchHandler({ server, disableFrameSameOrigin }) {
 
         return htmlResponse(server.indexHTML, { disableFrameSameOrigin });
     };
+
+    return async function gatedFetch(request, bunServer) {
+        if (development && isSnapshotControlRequest(request)) {
+            return handleDevRequest(
+                request,
+                server,
+                store,
+                databaseMaintenance,
+                snapshotRuntime,
+                settings,
+                heartbeatData,
+                backgroundJobs,
+                snapshotState,
+                responseCache,
+                disableFrameSameOrigin,
+                development
+            );
+        }
+
+        return databaseMaintenance.run(() => fetch(request, bunServer));
+    };
 }
 
-function listenWithBunServe({ server, hostname, port, disableFrameSameOrigin }) {
+function listenWithBunServe({
+    server,
+    store,
+    databaseMaintenance,
+    heartbeatData,
+    backgroundJobs,
+    settings,
+    responseCache,
+    hostname,
+    port,
+    disableFrameSameOrigin,
+}) {
     const bunServer = Bun.serve({
         hostname,
         port,
-        fetch: createBunFetchHandler({ server, disableFrameSameOrigin }),
+        fetch: createBunFetchHandler({
+            server,
+            store,
+            databaseMaintenance,
+            heartbeatData,
+            backgroundJobs,
+            settings,
+            responseCache,
+            disableFrameSameOrigin,
+        }),
         websocket: {
             open(ws) {
-                server.io.open(ws);
+                void server.io.open(ws).catch((error) => log.error("socket", error));
             },
             message(ws, message) {
                 server.io.message(ws, message);
@@ -542,4 +801,11 @@ function listenWithBunServe({ server, hostname, port, disableFrameSameOrigin }) 
     return bunServer;
 }
 
-export { createBunFetchHandler, listenWithBunServe, resolveRequestPath };
+export {
+    createBunFetchHandler,
+    isSnapshotControlRequest,
+    listenWithBunServe,
+    resolveRequestPath,
+    restoreSqliteSnapshot,
+    takeSqliteSnapshot,
+};

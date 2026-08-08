@@ -10,7 +10,6 @@
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import { Globalping, IpVersion, MeasurementStatus } from "globalping";
-import { Settings } from "@/server/settings";
 import { log, UP, evaluateJsonQuery } from "@/util";
 import {
     checkStatusCode,
@@ -19,7 +18,6 @@ import {
     getDaysRemaining,
     checkCertExpiryNotifications,
 } from "@/server/util-server";
-import { R } from "@/server/bun-sqlite-store";
 
 class GlobalpingMonitorType extends MonitorType {
     name = "globalping";
@@ -29,16 +27,18 @@ class GlobalpingMonitorType extends MonitorType {
     /**
      * @inheritdoc
      */
-    constructor(httpUserAgent) {
+    constructor(store, settings, httpUserAgent) {
         super();
+        this.store = store;
+        this.settings = settings;
         this.httpUserAgent = httpUserAgent;
     }
 
     /**
      * @inheritdoc
      */
-    async check(monitor, heartbeat, _server) {
-        const apiKey = await Settings.get("globalpingApiToken");
+    async check(monitor, heartbeat, server) {
+        const apiKey = await this.settings.get("globalpingApiToken");
         const timeout = (monitor.timeout ?? 20) * 1000;
         const deadline = Date.now() + timeout;
         const clientOptions = {
@@ -53,10 +53,10 @@ class GlobalpingMonitorType extends MonitorType {
                 await this.ping(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline);
                 break;
             case "http":
-                await this.http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline);
+                await this.http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline, server);
                 break;
             case "dns":
-                await this.dns(client, monitor, heartbeat, hasAPIToken, R, clientOptions, deadline);
+                await this.dns(client, monitor, heartbeat, hasAPIToken, this.store, clientOptions, deadline);
                 break;
         }
     }
@@ -142,7 +142,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @param {boolean} hasAPIToken - Whether the monitor has an API token.
      * @returns {Promise<void>} A promise that resolves when the HTTP monitor is handled.
      */
-    async http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline) {
+    async http(client, monitor, heartbeat, hasAPIToken, clientOptions, deadline, server) {
         const url = new URL(monitor.url);
 
         let protocol = url.protocol.replace(":", "").toUpperCase();
@@ -256,7 +256,7 @@ class GlobalpingMonitorType extends MonitorType {
             return;
         }
 
-        await this.handleTLSInfo(monitor, protocol, probe, result.tls);
+        await this.handleTLSInfo(monitor, protocol, probe, result.tls, server?.notificationProviderRegistry);
 
         heartbeat.msg = this.formatResponse(probe, "OK");
         heartbeat.status = UP;
@@ -268,7 +268,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @param {Monitor} monitor - The monitor object.
      * @param {Heartbeat} heartbeat - The heartbeat object.
      * @param {boolean} hasAPIToken - Whether the monitor has an API token.
-     * @param {R} redbean - The redbean object.
+     * @param {object} redbean - The SQLite store.
      * @returns {Promise<void>} A promise that resolves when the HTTP monitor is handled.
      */
     async dns(client, monitor, heartbeat, hasAPIToken, redbean, clientOptions, deadline) {
@@ -512,7 +512,7 @@ class GlobalpingMonitorType extends MonitorType {
      * @param {object} tlsInfo - The TLS information object.
      * @returns {Promise<void>}
      */
-    async handleTLSInfo(monitor, protocol, probe, tlsInfo) {
+    async handleTLSInfo(monitor, protocol, probe, tlsInfo, providerRegistry) {
         if (!tlsInfo) {
             return;
         }
@@ -521,10 +521,10 @@ class GlobalpingMonitorType extends MonitorType {
             throw new Error(this.formatResponse(probe, `TLS certificate is not authorized: ${tlsInfo.error}`));
         }
 
-        let tlsInfoBean = await R.findOne("monitor_tls_info", "monitor_id = ?", [monitor.id]);
+        let tlsInfoBean = await this.store.findOne("monitor_tls_info", "monitor_id = ?", [monitor.id]);
 
         if (tlsInfoBean == null) {
-            tlsInfoBean = R.dispense("monitor_tls_info");
+            tlsInfoBean = this.store.dispense("monitor_tls_info");
             tlsInfoBean.monitor_id = monitor.id;
         } else {
             try {
@@ -536,7 +536,7 @@ class GlobalpingMonitorType extends MonitorType {
                     oldCertInfo.certInfo.fingerprint256 !== tlsInfo.fingerprint256
                 ) {
                     log.debug("monitor", "Resetting sent_history");
-                    await R.exec(
+                    await this.store.exec(
                         "DELETE FROM notification_sent_history WHERE type = 'certificate' AND monitor_id = ?",
                         [monitor.id]
                     );
@@ -559,14 +559,14 @@ class GlobalpingMonitorType extends MonitorType {
         };
 
         tlsInfoBean.info_json = JSON.stringify(certResult);
-        await R.store(tlsInfoBean);
+        await this.store.store(tlsInfoBean);
 
         if (monitor.prometheus) {
             monitor.prometheus.update(null, certResult);
         }
 
         if (!monitor.ignoreTls && monitor.expiryNotification) {
-            await checkCertExpiryNotifications(monitor, certResult);
+            await checkCertExpiryNotifications(this.store, this.settings, monitor, certResult, providerRegistry);
         }
     }
 
