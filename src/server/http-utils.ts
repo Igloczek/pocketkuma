@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 /**
  * Check if the provided status code is within the accepted ranges

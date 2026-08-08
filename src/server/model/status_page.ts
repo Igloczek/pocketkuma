@@ -13,7 +13,7 @@ import {
     MAINTENANCE,
     DOWN,
     INCIDENT_PAGE_SIZE,
-} from "@/util";
+} from "@/constants";
 
 class StatusPage extends BeanModel {
     get autoRefreshInterval() {

@@ -81,7 +81,7 @@
 import HeartbeatBar from "@/components/HeartbeatBar.vue";
 import Tag from "@/components/Tag.vue";
 import Uptime from "@/components/Uptime.vue";
-import { getMonitorRelativeURL } from "@/util-shared";
+import { getMonitorRelativeURL } from "@/util/monitor-url";
 import { useTheme } from "@/composables/useTheme";
 
 export default {

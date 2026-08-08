@@ -3,7 +3,7 @@
 
 import { randomUUID } from "crypto";
 import { EventEmitter } from "events";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 import type { DatabaseMaintenanceCoordinator } from "@/server/database-maintenance";
 
 const WS_PATH = "/ws";

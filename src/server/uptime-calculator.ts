@@ -4,9 +4,9 @@
  * Calculates the uptime of a monitor.
  */
 import dayjs from "dayjs";
-import { UP, MAINTENANCE, DOWN, PENDING } from "@/util";
+import { UP, MAINTENANCE, DOWN, PENDING } from "@/constants";
 import { LimitQueue } from "@/server/utils/limit-queue";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 const emptyUptimeData = () => ({
     up: 0,

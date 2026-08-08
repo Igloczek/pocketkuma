@@ -8,7 +8,7 @@
  */
 import { checkLogin } from "@/server/socket-auth";
 import dayjs from "dayjs";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 import ImageDataURI from "@/server/image-data-uri";
 import Database from "@/server/database";
 import { clearResponseCache } from "@/server/bun-response";

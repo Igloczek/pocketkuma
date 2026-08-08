@@ -2,7 +2,7 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 
 class Bitrix24 extends NotificationProvider {
     name = "Bitrix24";

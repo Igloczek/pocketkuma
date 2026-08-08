@@ -4,7 +4,9 @@
 import { percentageToColor, filterAndJoin } from "@/server/badge-utils";
 import Monitor from "@/server/model/monitor";
 import dayjs from "dayjs";
-import { UP, MAINTENANCE, DOWN, PENDING, flipStatus, log, badgeConstants } from "@/util";
+import { UP, MAINTENANCE, DOWN, PENDING, badgeConstants } from "@/constants";
+import { flipStatus } from "@/util/status";
+import { log } from "@/server/logger";
 import { makeBadge } from "badge-maker";
 import { Prometheus } from "@/server/prometheus";
 import Database from "@/server/database";

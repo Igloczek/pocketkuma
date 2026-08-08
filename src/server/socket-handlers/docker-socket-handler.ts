@@ -8,7 +8,7 @@
 import { sendDockerHostList } from "@/server/client";
 import { checkLogin } from "@/server/socket-auth";
 import { DockerHost } from "@/server/docker";
-import { log } from "@/util";
+import { log } from "@/server/logger";
 
 export const dockerSocketHandler = (socket, store, io) => {
     socket.on("addDockerHost", async (dockerHost, dockerHostID, callback) => {

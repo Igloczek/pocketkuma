@@ -2,7 +2,7 @@
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
 import process from "process";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 import { runCommand } from "@/server/process-helper";
 
 class SystemServiceMonitorType extends MonitorType {

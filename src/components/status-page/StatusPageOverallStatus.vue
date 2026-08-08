@@ -41,7 +41,7 @@ import {
     STATUS_PAGE_PARTIAL_DOWN,
     UP,
     MAINTENANCE,
-} from "@/util";
+} from "@/constants";
 
 export default {
     props: {

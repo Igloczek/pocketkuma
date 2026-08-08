@@ -10,7 +10,7 @@
 // bark is an APN bridge that sends notifications to Apple devices.
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
-import { DOWN, UP } from "@/util";
+import { DOWN, UP } from "@/constants";
 import httpClient from "@/server/http-client";
 
 const barkNotificationAvatar = "https://raw.githubusercontent.com/Igloczek/pocketkuma/master/public/icon.png";

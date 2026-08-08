@@ -7,7 +7,7 @@ import {
     PING_PACKET_SIZE_MAX,
     PING_PER_REQUEST_TIMEOUT_MAX,
     RESPONSE_BODY_LENGTH_MAX,
-} from "@/util";
+} from "@/constants";
 
 let Monitor;
 

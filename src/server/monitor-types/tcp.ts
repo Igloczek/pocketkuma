@@ -5,7 +5,8 @@
  * @see https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-6
  */
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { UP, PING_GLOBAL_TIMEOUT_DEFAULT, log } from "@/util";
+import { UP, PING_GLOBAL_TIMEOUT_DEFAULT } from "@/constants";
+import { log } from "@/server/logger";
 
 const TIMEOUT = PING_GLOBAL_TIMEOUT_DEFAULT;
 import { checkCertificate } from "@/server/tls-cert";

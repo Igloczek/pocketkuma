@@ -2,7 +2,7 @@
 
 import NotificationProvider from "@/server/notification-providers/notification-provider";
 import httpClient from "@/server/http-client";
-import { DOWN, UP } from "@/util";
+import { DOWN, UP } from "@/constants";
 
 class LunaSea extends NotificationProvider {
     name = "lunasea";

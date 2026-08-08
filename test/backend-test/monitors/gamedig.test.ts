@@ -2,7 +2,7 @@
 
 import { describe, test, expect, spyOn } from "bun:test";
 import { GameDigMonitorType } from "@/server/monitor-types/gamedig";
-import { UP, PENDING } from "@/util";
+import { UP, PENDING } from "@/constants";
 import { GameDig } from "gamedig";
 
 describe("GameDig Monitor", () => {

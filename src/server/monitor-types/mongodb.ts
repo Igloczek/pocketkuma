@@ -1,9 +1,9 @@
 // @ts-nocheck
 
 import { MonitorType } from "@/server/monitor-types/monitor-type";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 import { MongoClient } from "mongodb";
-import jsonata from "jsonata";
+import { evaluateJsonata } from "@/server/json-query";
 
 class MongodbMonitorType extends MonitorType {
     name = "mongodb";
@@ -30,8 +30,7 @@ class MongodbMonitorType extends MonitorType {
         }
 
         if (monitor.jsonPath) {
-            let expression = jsonata(monitor.jsonPath);
-            result = await expression.evaluate(result);
+            result = await evaluateJsonata(monitor.jsonPath, result);
             if (result) {
                 heartbeat.msg = "Command executed successfully and the jsonata expression produces a result.";
             } else {

@@ -18,7 +18,7 @@ import { handleApiRequest } from "@/server/routers/api-router";
 import { BunSQLiteRedbean } from "@/server/sqlite-core";
 import { Settings } from "@/server/settings";
 import { checkCertExpiryNotifications } from "@/server/tls-cert";
-import { UP } from "@/util";
+import { UP } from "@/constants";
 import { createResponseCache } from "@/server/bun-response";
 
 const resources = [];
